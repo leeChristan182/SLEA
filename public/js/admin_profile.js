@@ -1,368 +1,392 @@
-// Sidebar toggle (desktop collapse/expand)
-document.querySelector('.menu-toggle')?.addEventListener('click', () => {
-    document.body.classList.toggle('collapsed');
-});
+/* admin_profile.js
+   Scoped to Admin Profile page (T-layout).
+   Requires bootstrap 5 for modal/toast markup (optional fallback used).
+*/
 
-// Dark mode toggle for sidebar
-function toggleDarkMode() {
-    document.body.classList.toggle('dark-mode');
-}
+document.addEventListener('DOMContentLoaded', () => {
+  // Only run on profile page: check for main profile element
+  if (!document.getElementById('profilePicture') && !document.querySelector('.profile-banner')) return;
 
-// Avatar preview
-function previewAvatar(e) {
-    const avatar = document.getElementById('avatarPreview');
-    avatar.src = URL.createObjectURL(e.target.files[0]);
-}
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
-// Show/Hide Password
-function togglePassword() {
-    const newPassword = document.getElementById('newPassword');
-    const confirmPassword = document.getElementById('confirmPassword');
-    const type = newPassword.type === 'password' ? 'text' : 'password';
-    newPassword.type = type;
-    confirmPassword.type = type;
-}
+  /* ---------- Utilities: toasts & modal helpers ---------- */
+  function showToast(message, isError = false, timeout = 3500) {
+    // simple floating toast (bootstrap optional)
+    const toast = document.createElement('div');
+    toast.className = `admin-toast ${isError ? 'admin-toast-error' : 'admin-toast-success'}`;
+    toast.style.cssText = 'position:fixed;top:1rem;right:1rem;z-index:99999;padding:.6rem 1rem;border-radius:.4rem;box-shadow:0 6px 18px rgba(0,0,0,.12);font-weight:600;';
+    toast.style.background = isError ? '#dc3545' : '#198754';
+    toast.style.color = 'white';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.style.transition = 'opacity .3s'; toast.style.opacity = '0'; }, timeout);
+    setTimeout(() => toast.remove(), timeout + 400);
+  }
 
-// Password validation
-function validatePassword() {
-    console.log('validatePassword function called!'); // Debug log
-    
-    // Get password value
-    const passwordField = document.getElementById('newPassword');
-    if (!passwordField) {
-        console.error('Password field not found!');
+  function confirmModal(htmlBody) {
+    // returns a promise that resolves true/false based on user confirm/cancel
+    return new Promise(resolve => {
+      // create a modal node
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = `
+      <div class="admin-confirm-modal-backdrop" style="position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;">
+        <div class="admin-confirm-modal" style="background:#fff;border-radius:8px;max-width:420px;width:92%;padding:1rem;box-shadow:0 8px 30px rgba(0,0,0,.2);">
+          <div class="admin-confirm-body">${htmlBody}</div>
+          <div style="display:flex;gap:.6rem;justify-content:center;margin-top:.8rem;">
+            <button class="admin-confirm-cancel" style="padding:.5rem .9rem;border-radius:6px;border:1px solid #dcdcdc;background:#fff;">Cancel</button>
+            <button class="admin-confirm-ok" style="padding:.5rem .9rem;border-radius:6px;border:0;background:#0d6efd;color:#fff;">Confirm</button>
+          </div>
+        </div>
+      </div>`;
+      document.body.appendChild(wrapper);
+      const cancelBtn = wrapper.querySelector('.admin-confirm-cancel');
+      const okBtn = wrapper.querySelector('.admin-confirm-ok');
+
+      function cleanup(val) {
+        wrapper.remove();
+        resolve(val);
+      }
+      cancelBtn.addEventListener('click', () => cleanup(false));
+      okBtn.addEventListener('click', () => cleanup(true));
+    });
+  }
+
+  /* ---------- ELEMENTS ---------- */
+  const displayMode = document.getElementById('displayMode');
+  const editMode = document.getElementById('editMode');
+  const editPersonalBtn = document.getElementById('editPersonalBtn');
+  const updateForm = document.getElementById('updateForm'); // form in editMode
+  const saveButtonsContainer = updateForm ? updateForm.querySelector('.form-actions') : null;
+
+  const passwordDisplayMode = document.getElementById('passwordDisplayMode');
+  const passwordEditMode = document.getElementById('passwordEditMode');
+  const editPasswordBtn = document.getElementById('editPasswordBtn');
+  const passwordForm = document.getElementById('passwordForm');
+
+  const avatarInput = document.getElementById('avatarUpload');
+  const profilePicture = document.getElementById('profilePicture');
+  /* ---------- Avatar upload button trigger ---------- */
+  const uploadPhotoBtn = document.getElementById('uploadPhotoBtn');
+
+  if (uploadPhotoBtn && avatarInput) {
+    uploadPhotoBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log("🟢 Upload Photo button clicked");
+      avatarInput.click(); // ✅ opens file dialog
+    });
+  }
+
+  /* ---------- Profile edit toggles ---------- */
+  // hide edit mode if not present
+  if (editMode) editMode.style.display = 'none';
+  if (saveButtonsContainer) saveButtonsContainer.style.display = 'none';
+
+  function enableEditing() {
+    if (!editMode || !displayMode || !updateForm) return;
+    displayMode.style.display = 'none';
+    editMode.style.display = 'block';
+    if (editPersonalBtn) editPersonalBtn.style.display = 'none';
+    if (saveButtonsContainer) saveButtonsContainer.style.display = 'flex';
+    // Make inputs editable except readonly ones (admin id, email)
+    updateForm.querySelectorAll('input').forEach(i => {
+      if (i.hasAttribute('data-noreadonly') || i.getAttribute('name') === 'admin_id' || i.readOnly) return;
+      i.readOnly = false;
+    });
+  }
+
+  function cancelEditing() {
+    if (!editMode || !displayMode || !updateForm) return;
+    // revert visible values by reloading or re-fetch original values (simpler: reload)
+    // here we restore by reloading to keep server state in sync
+    window.location.reload();
+  }
+
+  if (editPersonalBtn) {
+    editPersonalBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      enableEditing();
+    });
+  }
+
+  /* ---------- Profile update (AJAX) ---------- */
+  if (updateForm) {
+    // ensure method override is set if your form action expects PUT; we add _method if not present
+    updateForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const action = updateForm.action || updateForm.getAttribute('data-action') || null;
+      if (!action) {
+        console.warn('Profile update: form action not set. Aborting AJAX update.');
+        showToast('Profile update failed: missing form action', true);
         return;
-    }
-    
-    const password = passwordField.value;
-    console.log('Validating password:', password); // Debug log
-    
-    // Check requirements
-    const requirements = {
-        length: password.length >= 8,
-        uppercase: /[A-Z]/.test(password),
-        lowercase: /[a-z]/.test(password),
-        number: /\d/.test(password),
-        special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
-    };
-    
-    console.log('Requirements:', requirements); // Debug log
-    
-    let allRequirementsMet = true;
-    
-    // Update each requirement visually
-    Object.keys(requirements).forEach(req => {
-        const element = document.getElementById(req);
-        console.log('Processing requirement:', req, 'Element:', element); // Debug log
-        
-        if (element) {
-            // Remove all classes first
-            element.classList.remove('valid', 'invalid');
-            
-            if (requirements[req]) {
-                element.classList.add('valid');
-                element.style.color = '#28a745'; // Force green color
-                if (element.querySelector('i')) {
-                    element.querySelector('i').style.color = '#28a745'; // Force icon green
-                }
-                console.log('Set', req, 'to valid'); // Debug log
-            } else {
-                element.classList.add('invalid');
-                element.style.color = '#dc3545'; // Force red color
-                if (element.querySelector('i')) {
-                    element.querySelector('i').style.color = '#dc3545'; // Force icon red
-                }
-                console.log('Set', req, 'to invalid'); // Debug log
-                allRequirementsMet = false;
-            }
+      }
+
+      const fd = new FormData(updateForm);
+      // if server expects PUT / _method field:
+      if (!fd.has('_method')) fd.append('_method', 'PUT');
+
+      try {
+        const res = await fetch(action, {
+          method: 'POST', // using method override
+          headers: {
+            'X-CSRF-TOKEN': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: fd
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(data.message || 'Profile updated');
+          // reflect changes visually: reload to be safe
+          setTimeout(() => window.location.reload(), 900);
         } else {
-            console.error('Element not found for requirement:', req); // Debug log
+          // show errors (if provided)
+          const msg = data.message || (data.errors ? Object.values(data.errors).flat().join(', ') : 'Update failed');
+          showToast(msg, true);
         }
+      } catch (err) {
+        console.error('Profile update error', err);
+        showToast('Error saving profile', true);
+      }
     });
-    
-    console.log('All requirements met:', allRequirementsMet); // Debug log
-    
-    // Enable/disable the Change Password button based on requirements
-    const changePasswordBtn = document.querySelector('#passwordEditMode .btn-save');
-    console.log('Change password button:', changePasswordBtn); // Debug log
-    
-    if (changePasswordBtn) {
-        if (allRequirementsMet && password.length > 0) {
-            changePasswordBtn.disabled = false;
-            changePasswordBtn.style.opacity = '1';
-            changePasswordBtn.style.cursor = 'pointer';
-            changePasswordBtn.style.backgroundColor = '#7b0000';
-            console.log('Button enabled'); // Debug log
-        } else {
-            changePasswordBtn.disabled = true;
-            changePasswordBtn.style.opacity = '0.5';
-            changePasswordBtn.style.cursor = 'not-allowed';
-            changePasswordBtn.style.backgroundColor = '#ccc';
-            console.log('Button disabled'); // Debug log
-        }
+
+    // If user clicks Save button in the edit form, keep UX consistent
+    const saveBtn = updateForm.querySelector('button[type="submit"], .btn-save');
+    if (saveBtn) saveBtn.addEventListener('click', (ev) => {
+      // if button is not type submit, trigger submit
+      if (saveBtn.getAttribute('type') !== 'submit') updateForm.dispatchEvent(new Event('submit', {cancelable:true}));
+    });
+  }
+
+  /* ---------- Password edit toggles ---------- */
+  if (passwordEditMode) passwordEditMode.style.display = 'none';
+  if (editPasswordBtn) {
+    editPasswordBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (passwordDisplayMode) passwordDisplayMode.style.display = 'none';
+      if (passwordEditMode) passwordEditMode.style.display = 'block';
+      editPasswordBtn.style.display = 'none';
+    });
+  }
+
+  function cancelPasswordEdit() {
+    if (passwordDisplayMode) passwordDisplayMode.style.display = 'block';
+    if (passwordEditMode) passwordEditMode.style.display = 'none';
+    if (editPasswordBtn) editPasswordBtn.style.display = 'flex';
+    if (passwordForm) passwordForm.reset();
+    // reset checklist styling
+    ['length','uppercase','lowercase','number','special'].forEach(k => {
+      const el = document.getElementById(k);
+      if (el) el.classList.remove('valid'), el.classList.add('invalid');
+    });
+  }
+  // attach a global function so inline calls from blade still work:
+  window.cancelPasswordEdit = cancelPasswordEdit;
+
+  /* ---------- Password validation checklist ---------- */
+  function setChecklistState(key, ok) {
+    const el = document.getElementById(key);
+    if (!el) return;
+    el.classList.toggle('valid', ok);
+    el.classList.toggle('invalid', !ok);
+
+    // show check icon when valid, circle when not (support both markup styles)
+    // if the element contains <i> icons, toggle classes
+    const checkIcon = el.querySelector('.check-icon');
+    const circleIcon = el.querySelector('.circle-icon');
+    if (checkIcon && circleIcon) {
+      checkIcon.classList.toggle('d-none', !ok);
+      circleIcon.classList.toggle('d-none', ok);
     } else {
-        console.error('Change password button not found'); // Debug log
+      // fallback: prepend/replace inline Unicode icons
+      if (ok) {
+        if (!el.querySelector('.admin-check-mark')) {
+          el.insertAdjacentHTML('afterbegin', '<span class="admin-check-mark" style="display:inline-block;width:18px;margin-right:.45rem;color:#28a745;">✓</span>');
+        }
+        // remove any circle if present
+        const circ = el.querySelector('.admin-circle-mark');
+        if (circ) circ.remove();
+      } else {
+        // remove check if present, ensure circle exists
+        const chk = el.querySelector('.admin-check-mark');
+        if (chk) chk.remove();
+        if (!el.querySelector('.admin-circle-mark')) {
+          el.insertAdjacentHTML('afterbegin', '<span class="admin-circle-mark" style="display:inline-block;width:18px;margin-right:.45rem;color:#9aa0a6;">○</span>');
+        }
+      }
     }
-}
+  }
 
-// Expose functions globally (needed for inline onClick handlers in Blade)
-window.toggleDarkMode = toggleDarkMode;
-window.previewAvatar = previewAvatar;
-window.togglePassword = togglePassword;
-window.validatePassword = validatePassword;
-
-// Mobile sidebar slide-in/out toggle
-const hamburger = document.querySelector('.menu-toggle');
-const overlay = document.querySelector('.sidebar-overlay');
-
-// Open/close sidebar on hamburger click
-hamburger?.addEventListener('click', function() {
-    document.body.classList.toggle('sidebar-open');
-});
-
-// Close sidebar when clicking the overlay
-overlay?.addEventListener('click', function() {
-    document.body.classList.remove('sidebar-open');
-});
-
-// Close sidebar when a menu item is clicked
-document.querySelectorAll('.sidebar ul li').forEach(item => {
-    item.addEventListener('click', function() {
-        document.body.classList.remove('sidebar-open');
-    });
-});
-
-// Logout function with custom confirmation modal
-function logout() {
-    showLogoutConfirmation();
-}
-
-function showLogoutConfirmation() {
-    // Create confirmation modal overlay
-    const overlay = document.createElement('div');
-    overlay.id = 'logoutConfirmationOverlay';
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.6);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 10000;
-        font-family: 'Quicksand', sans-serif;
-        backdrop-filter: blur(3px);
-    `;
-    
-    const modal = document.createElement('div');
-    modal.style.cssText = `
-        background: white;
-        padding: 0;
-        border-radius: 12px;
-        text-align: center;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        max-width: 450px;
-        width: 90%;
-        overflow: hidden;
-        transform: scale(0.9);
-        transition: transform 0.3s ease;
-    `;
-    
-    modal.innerHTML = `
-        <div style="background: linear-gradient(135deg, #dc3545, #c82333); padding: 25px; color: white;">
-            <div style="font-size: 48px; margin-bottom: 15px;">
-                <i class="fas fa-sign-out-alt"></i>
-            </div>
-            <h3 style="margin: 0; font-size: 22px; font-weight: 600;">Confirm Logout</h3>
-        </div>
-        <div style="padding: 30px;">
-            <p style="color: #555; margin-bottom: 25px; font-size: 16px; line-height: 1.5;">
-                Are you sure you want to log out?<br>
-                <small style="color: #888; font-size: 14px;">You will be redirected to the login page.</small>
-            </p>
-            <div style="display: flex; gap: 12px; justify-content: center;">
-                <button id="cancelLogout" style="
-                    background: #6c757d;
-                    color: white;
-                    border: none;
-                    padding: 12px 24px;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    font-size: 14px;
-                    font-weight: 500;
-                    transition: all 0.3s ease;
-                    min-width: 100px;
-                " onmouseover="this.style.background='#5a6268'" onmouseout="this.style.background='#6c757d'">
-                    Cancel
-                </button>
-                <button id="confirmLogout" style="
-                    background: #dc3545;
-                    color: white;
-                    border: none;
-                    padding: 12px 24px;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    font-size: 14px;
-                    font-weight: 500;
-                    transition: all 0.3s ease;
-                    min-width: 100px;
-                " onmouseover="this.style.background='#c82333'" onmouseout="this.style.background='#dc3545'">
-                    Log Out
-                </button>
-            </div>
-        </div>
-    `;
-    
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-    
-    // Animate modal appearance
-    setTimeout(() => {
-        modal.style.transform = 'scale(1)';
-    }, 10);
-    
-    // Add event listeners
-    document.getElementById('cancelLogout').addEventListener('click', () => {
-        closeLogoutConfirmation();
-    });
-    
-    document.getElementById('confirmLogout').addEventListener('click', () => {
-        closeLogoutConfirmation();
-        showLogoutSuccess();
-        
-        // Auto logout after showing success message
-        setTimeout(() => {
-            console.log('Starting logout process...');
-            
-            // Get CSRF token
-            const csrfToken = document.querySelector('meta[name="csrf-token"]');
-            console.log('CSRF Token found:', csrfToken);
-            
-            if (csrfToken) {
-                const token = csrfToken.getAttribute('content');
-                console.log('CSRF token value:', token);
-                
-                // Create a form to submit POST request to logout
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '/logout';
-                form.style.display = 'none';
-                
-                const csrfInput = document.createElement('input');
-                csrfInput.type = 'hidden';
-                csrfInput.name = '_token';
-                csrfInput.value = token;
-                form.appendChild(csrfInput);
-                
-                document.body.appendChild(form);
-                console.log('Form created and submitted');
-                form.submit();
-            } else {
-                console.error('CSRF token not found!');
-                // Fallback without CSRF token
-                window.location.href = '/';
-            }
-        }, 2000);
-    });
-    
-    // Close on overlay click
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) {
-            closeLogoutConfirmation();
-        }
-    });
-    
-    // Close on Escape key
-    const handleEscape = (e) => {
-        if (e.key === 'Escape') {
-            closeLogoutConfirmation();
-            document.removeEventListener('keydown', handleEscape);
-        }
+  window.validatePassword = function () {
+    const val = (document.getElementById('newPassword')?.value || '');
+    const rules = {
+      length: val.length >= 8,
+      uppercase: /[A-Z]/.test(val),
+      lowercase: /[a-z]/.test(val),
+      number: /\d/.test(val),
+      special: /[!@#$%^&*(),.?":{}|<>]/.test(val)
     };
-    document.addEventListener('keydown', handleEscape);
-}
+    Object.entries(rules).forEach(([k, v]) => setChecklistState(k, v));
+  };
 
-function closeLogoutConfirmation() {
-    const overlay = document.getElementById('logoutConfirmationOverlay');
-    if (overlay) {
-        const modal = overlay.querySelector('div');
-        modal.style.transform = 'scale(0.9)';
-        setTimeout(() => {
-            if (overlay.parentNode) {
-                overlay.parentNode.removeChild(overlay);
-            }
-        }, 300);
+  // toggle show/hide password (exposed too)
+  window.togglePassword = function () {
+    ['currentPassword', 'newPassword', 'confirmPassword'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.type = (el.type === 'password') ? 'text' : 'password';
+    });
+  };
+
+  /* ---------- Password update (AJAX) ---------- */
+  if (passwordForm) {
+    passwordForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      // ensure action present
+      const action = passwordForm.action || passwordForm.getAttribute('data-action') || null;
+      if (!action) {
+        console.warn('Password update: form action not set. Aborting AJAX update.');
+        showToast('Password update failed: missing form action', true);
+        return;
+      }
+
+      const newPassword = document.getElementById('newPassword')?.value || '';
+      const confirmPassword = document.getElementById('confirmPassword')?.value || '';
+      if (newPassword !== confirmPassword) {
+        showToast('Passwords do not match', true);
+        return;
+      }
+
+      // Basic client-side check that rules pass
+      const passed = ['length','uppercase','lowercase','number','special'].every(k => {
+        const el = document.getElementById(k); return el && el.classList.contains('valid');
+      });
+      if (!passed) {
+        showToast('Password does not meet requirements', true);
+        return;
+      }
+
+      const fd = new FormData(passwordForm);
+      if (!fd.has('_method')) fd.append('_method', 'PUT');
+
+      try {
+        const res = await fetch(action, {
+          method: 'POST',
+          headers: {
+            'X-CSRF-TOKEN': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: fd
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(data.message || 'Password changed');
+          cancelPasswordEdit();
+          passwordForm.reset();
+        } else {
+          const msg = data.message || (data.errors ? Object.values(data.errors).flat().join(', ') : 'Password update failed');
+          showToast(msg, true);
+        }
+      } catch (err) {
+        console.error('Password update error', err);
+        showToast('Error updating password', true);
+      }
+    });
+
+    // in case button is not submit type
+    const passwordBtn = passwordForm.querySelector('button[type="submit"], .btn-save');
+    if (passwordBtn) passwordBtn.addEventListener('click', (ev) => {
+      if (passwordBtn.getAttribute('type') !== 'submit') passwordForm.dispatchEvent(new Event('submit', {cancelable:true}));
+    });
+  }
+
+  /* ---------- Avatar preview + confirmation + upload ---------- */
+  async function handleAvatarFile(file) {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('Please pick an image file', true); return;
     }
-}
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image must be under 5MB', true); return;
+    }
 
-function showLogoutSuccess() {
-    // Create success message overlay
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.7);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 10000;
-        font-family: 'Quicksand', sans-serif;
-    `;
-    
-    const messageBox = document.createElement('div');
-    messageBox.style.cssText = `
-        background: white;
-        padding: 30px 40px;
-        border-radius: 10px;
-        text-align: center;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        max-width: 400px;
-        width: 90%;
-    `;
-    
-    messageBox.innerHTML = `
-        <div style="color: #28a745; font-size: 48px; margin-bottom: 15px;">
-            <i class="fas fa-check-circle"></i>
-        </div>
-        <h3 style="color: #333; margin-bottom: 10px; font-size: 20px;">Logout Successful!</h3>
-        <p style="color: #666; margin-bottom: 20px; font-size: 14px;">You have been successfully logged out. Redirecting to login page...</p>
-        <div style="display: flex; justify-content: center; align-items: center; gap: 10px;">
-            <div style="width: 20px; height: 20px; border: 2px solid #28a745; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-            <span style="color: #666; font-size: 12px;">Please wait...</span>
-        </div>
-    `;
-    
-    // Add CSS animation for spinner
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    `;
-    document.head.appendChild(style);
-    
-    overlay.appendChild(messageBox);
-    document.body.appendChild(overlay);
-    
-    // Remove overlay after 2 seconds (just before redirect)
-    setTimeout(() => {
-        if (overlay.parentNode) {
-            overlay.parentNode.removeChild(overlay);
-        }
-        if (style.parentNode) {
-            style.parentNode.removeChild(style);
-        }
-    }, 2000);
-}
+    // preview data URL
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const previewSrc = ev.target.result;
+      // show confirm modal with preview
+      const html = `<div style="text-align:center;"><img src="${previewSrc}" style="width:120px;height:120px;border-radius:999px;object-fit:cover;display:block;margin:0 auto 0.6rem;"><div>Save this as your new profile picture?</div></div>`;
+      const ok = await confirmModal(html);
+      if (!ok) return;
 
-// Expose logout functions globally
-window.logout = logout;
-window.showLogoutConfirmation = showLogoutConfirmation;
-window.closeLogoutConfirmation = closeLogoutConfirmation;
-window.showLogoutSuccess = showLogoutSuccess;
+      // form action = avatar upload action
+      // find a form with id avatarForm or fallback to data-action on input
+      const avatarFormEl = document.getElementById('avatarForm');
+      let action = (avatarFormEl && avatarFormEl.action) ? avatarFormEl.action : (document.getElementById('avatarUpload')?.getAttribute('data-action') || (document.getElementById('avatarUpload')?.form?.action || null));
+      if (!action) {
+        // fallback guess: use current location + 'admin/profile/avatar' - but warn
+        console.warn('Avatar upload: no action found on form/input. Aborting upload.');
+        showToast('Avatar upload failed: missing endpoint', true);
+        return;
+      }
+
+      const uploadFD = new FormData();
+      uploadFD.append('avatar', file);
+      // server might expect _token; but we'll send header + form includes token if present.
+      try {
+        const res = await fetch(action, {
+          method: 'POST',
+          headers: {
+            'X-CSRF-TOKEN': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: uploadFD
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          // update preview and sidebar
+          if (profilePicture && data.avatar_url) {
+            profilePicture.src = data.avatar_url;
+            localStorage.setItem('profileImage', data.avatar_url);
+          }
+          showToast(data.message || 'Avatar updated');
+        } else {
+          const msg = data.message || 'Upload failed';
+          showToast(msg, true);
+        }
+      } catch (err) {
+        console.error('Avatar upload error', err);
+        showToast('Avatar upload error', true);
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  if (avatarInput) {
+    avatarInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      handleAvatarFile(file);
+    });
+    // expose previewAvatar for inline onChange fallback
+    window.previewAvatar = (ev) => {
+      const file = ev.target.files[0];
+      handleAvatarFile(file);
+    };
+  }
+
+  /* ---------- Load stored avatar (client side fallback) ---------- */
+  try {
+    const saved = localStorage.getItem('profileImage');
+    if (saved && profilePicture) profilePicture.src = saved;
+  } catch (err) { /* ignore */ }
+
+
+  /* ---------- keyboard accessibility: allow Enter on edit buttons ---------- */
+  [editPersonalBtn, editPasswordBtn].forEach(btn => {
+    if (!btn) return;
+    btn.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); btn.click(); }
+    });
+  });
+
+}); // DOMContentLoaded

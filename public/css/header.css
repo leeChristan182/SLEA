@@ -6,7 +6,7 @@
 }
 
 .header-container.dark-mode {
-    background-color: #1a1a1a;
+    background-color: #2b2b2b;
     color: #fff;
 }
 
@@ -24,24 +24,27 @@
 .header-container.dark-mode .header {
     background-color: #2b2b2b;
 }
-
 .header-container .logo-text {
     color: #7E0308;
 }
 
-.header-container.dark-mode .logo-text {
+body.dark-mode .header-container .logo-text {
     color: #fff;
 }
 
 .header-container .tagline span {
     font-size: 1.05rem;
     line-height: 1.2;
+}
+
+.tagline span {
     text-shadow: 0.5px 0.5px 1px rgba(0, 0, 0, 0.3);
 }
 
-.header-container.dark-mode .tagline span {
+body.dark-mode .tagline span {
     text-shadow: 0.5px 0.5px 1px rgba(255, 255, 255, 0.3);
 }
+
 
 .header-container .tagline .gold1 {
     color: #F9BD3D;
@@ -50,8 +53,7 @@
 .header-container .tagline .maroon1 {
     color: #7E0308;
 }
-
-.header-container.dark-mode .tagline .maroon1 {
+body.dark-mode .header-container .tagline .maroon1 {
     color: white;
 }
 
@@ -60,21 +62,21 @@
     align-items: center;
     gap: 0.6rem;
 }
-
-.header-container .header-right .text-end {
-    margin: 0;
-    padding: 0;
-    line-height: 1.1;
-}
+        .header-container .header-right .text-end {
+            margin: 0;
+            padding: 0;
+            line-height: 0.5;
+        }
 
 .header-container .header-right small {
     display: block;
-    color: #666;
+    color: #1a1919; /* stays for light mode */
 }
 
-.header-container.dark-mode .header-right small {
-    color: #ccc;
+.dark-mode .header-container .header-right small {
+    color: #f0f0f0; /* soft white for dark mode */
 }
+
 
 .header-container .header-right a {
     font-weight: 600;
@@ -101,6 +103,15 @@
 
 .header-container.dark-mode .dark-toggle-btn {
     color: #fff;
+}
+
+body.dark-mode .header-container .dark-toggle-btn i.fa-sun {
+    color: #ffffff !important;
+}
+
+/* Optional: make moon darker in light mode for contrast */
+body:not(.dark-mode) .header-container .dark-toggle-btn i.fa-moon {
+    color: #333 !important;
 }
 
 @media (max-width: 768px) {

@@ -12,11 +12,11 @@ return [
     | as required, but they're a perfect start for most applications.
     |
     */
-
     'defaults' => [
-        'guard' => 'admin', // optional: default to admin
-        'passwords' => 'admins',
+        'guard' => 'web',
+        'passwords' => 'users',
     ],
+
 
     /*
     |--------------------------------------------------------------------------
@@ -34,20 +34,29 @@ return [
     | Supported: "session"
     |
     */
+
     'guards' => [
+        'web' => [
+            'driver' => 'session',
+            'provider' => 'students', // or a generic provider
+        ],
+
         'admin' => [
             'driver' => 'session',
             'provider' => 'admins',
         ],
+
         'assessor' => [
             'driver' => 'session',
             'provider' => 'assessors',
         ],
+
         'student' => [
             'driver' => 'session',
             'provider' => 'students',
         ],
     ],
+
     /*
     |--------------------------------------------------------------------------
     | User Providers
@@ -66,15 +75,18 @@ return [
     */
 
 
+
     'providers' => [
         'admins' => [
             'driver' => 'eloquent',
             'model' => App\Models\AdminAccount::class,
         ],
+
         'assessors' => [
             'driver' => 'eloquent',
             'model' => App\Models\AssessorAccount::class,
         ],
+
         'students' => [
             'driver' => 'eloquent',
             'model' => App\Models\StudentAccount::class,
@@ -101,8 +113,8 @@ return [
 
     'passwords' => [
         'users' => [
-            'provider' => 'users',
-            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'provider' => 'students',
+            'table' => 'password_reset_tokens',
             'expire' => 60,
             'throttle' => 60,
         ],

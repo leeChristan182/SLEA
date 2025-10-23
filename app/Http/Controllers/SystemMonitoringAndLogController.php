@@ -1,35 +1,81 @@
-class SystemMonitoringAndLog extends Model
-{
-protected $primaryKey = 'logs_id';
-public $incrementing = true;
-protected $keyType = 'int';
+<?php
 
-protected $fillable = [
-'log_id',
-'user_role',
-'user_name',
-'activity_type',
-'description',
-'created_at',
-];
+namespace App\Http\Controllers;
 
-public function login()
-{
-return $this->belongsTo(LogIn::class, 'log_id', 'log_id');
-}
+use Illuminate\Http\Request;
+use App\Models\SystemMonitoringAndLog;
+use Illuminate\Support\Facades\Auth;
 
-/**
-* Static helper for quick logging anywhere
-*/
-public static function record($role, $name, $type, $desc, $logId = null)
+class SystemMonitoringAndLogController extends Controller
 {
-self::create([
-'log_id' => $logId,
-'user_role' => $role,
-'user_name' => $name,
-'activity_type' => $type,
-'description' => $desc,
-'created_at' => now(),
-]);
-}
+    /**
+     * Display a listing of system logs (Admin only)
+     */
+    public function index(Request $request)
+    {
+        // Only allow admin access
+        if (!Auth::guard('admin')->check()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        // Filters: role, activity type, date
+        $query = SystemMonitoringAndLog::query();
+
+        if ($request->filled('role')) {
+            $query->where('user_role', $request->role);
+        }
+
+        if ($request->filled('type')) {
+            $query->where('activity_type', $request->type);
+        }
+
+        if ($request->filled('date')) {
+            $query->whereDate('created_at', $request->date);
+        }
+
+        // Get logs (latest first)
+        $logs = $query->orderBy('created_at', 'desc')->paginate(20);
+
+        return view('admin.system-monitoring', [
+            'logs' => $logs,
+            'filters' => [
+                'role' => $request->role,
+                'type' => $request->type,
+                'date' => $request->date,
+            ],
+        ]);
+    }
+
+    /**
+     * Delete a specific log entry
+     */
+    public function destroy($id)
+    {
+        if (!Auth::guard('admin')->check()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $log = SystemMonitoringAndLog::findOrFail($id);
+        $log->delete();
+
+        SystemMonitoringAndLog::record('admin', Auth::guard('admin')->user()->name, 'Delete', "Deleted log entry #{$id}");
+
+        return back()->with('success', 'Log entry deleted successfully.');
+    }
+
+    /**
+     * Clear all logs (optional, admin only)
+     */
+    public function clearAll()
+    {
+        if (!Auth::guard('admin')->check()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        SystemMonitoringAndLog::truncate();
+
+        SystemMonitoringAndLog::record('admin', Auth::guard('admin')->user()->name, 'Delete', 'Cleared all system logs');
+
+        return back()->with('success', 'All system logs have been cleared.');
+    }
 }

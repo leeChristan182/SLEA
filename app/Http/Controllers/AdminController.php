@@ -16,29 +16,12 @@ use App\Models\StudentPersonalInformation;
 use App\Models\Submission;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 
 use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
 {
-    public function dashboard()
-    {
-        $studentCount   = StudentPersonalInformation::count();
-        $assessorCount  = AssessorAccount::count();
-        $adminCount     = AdminProfile::count(); // fixed reference
-        $submissionCount = Submission::count();
-        $logs           = SystemMonitoringAndLog::latest()->take(10)->get();
-        $recentAssessors = AssessorAccount::latest()->take(5)->get();
-        $recentLogs = SystemMonitoringAndLog::latest()->take(5)->get();
-
-        return view('admin.dashboard', compact(
-            'studentCount',
-            'assessorCount',
-            'adminCount',
-            'submissionCount',
-            'logs'
-        ));
-    }
 
     public function profile()
     {
@@ -50,12 +33,7 @@ class AdminController extends Controller
     {
         $admin = AdminProfile::where('email_address', auth()->user()->email_address)->first();
 
-        $admin->update($request->only(
-            'first_name',
-            'last_name',
-            'contact_number',
-            'position'
-        ));
+        $admin->update($request->only('first_name', 'last_name', 'contact_number', 'position'));
 
         SystemMonitoringAndLog::create([
             'user_role' => 'Admin',
@@ -65,72 +43,84 @@ class AdminController extends Controller
             'created_at' => now(),
         ]);
 
+        if ($request->ajax()) {
+            return response()->json(['success' => true]);
+        }
+
         return back()->with('success', 'Profile updated successfully!');
     }
+
+
     public function updateAvatar(Request $request)
     {
-        $request->validate(['avatar' => 'required|image|max:5120']);
+        $adminAccount = auth()->user();
+        $admin = \App\Models\AdminProfile::where('email_address', $adminAccount->email_address)->first();
 
-        $admin = AdminProfile::where('email_address', auth()->user()->email_address)->first();
-
-        if (!$admin) {
-            return back()->withErrors(['error' => 'Admin profile not found.']);
-        }
+        $request->validate([
+            'avatar' => 'required|image|max:5120',
+        ]);
 
         $path = $request->file('avatar')->store('avatars', 'public');
 
-        $admin->update(['profile_picture' => $path]);
+        if ($admin->profile_picture_path && Storage::disk('public')->exists($admin->profile_picture_path)) {
+            Storage::disk('public')->delete($admin->profile_picture_path);
+        }
 
-        SystemMonitoringAndLog::record(
-            'Admin',
-            $admin->email_address,
-            'Update Profile Picture',
-            'Admin changed their profile picture'
-        );
+        $admin->profile_picture_path = $path;
+        $admin->save();
 
-        return back()->with('success', 'Profile picture updated successfully!');
+        \App\Models\SystemMonitoringAndLog::create([
+            'user_role' => 'Admin',
+            'user_name' => $admin->email_address,
+            'activity_type' => 'Update Profile Picture',
+            'description' => 'Admin updated their profile picture.',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'avatar_url' => asset('storage/' . $path),
+        ]);
     }
 
 
     public function updatePassword(Request $request)
     {
+        $admin = auth()->user();
+
+        // Validate input
         $request->validate([
             'current_password' => 'required',
-            'new_password' => 'required|string|min:8|confirmed',
+            'new_password' => [
+                'required',
+                'string',
+                'min:8',
+                'regex:/[A-Z]/', // uppercase
+                'regex:/[a-z]/', // lowercase
+                'regex:/[0-9]/', // number
+                'regex:/[!@#$%^&*(),.?":{}|<>]/', // special
+                'confirmed',
+            ],
         ]);
 
-        // Get current admin profile
-        $admin = AdminProfile::where('email_address', auth()->user()->email_address)->first();
-
-        if (!$admin) {
-            return back()->withErrors(['profile' => 'Admin profile not found.']);
+        // Verify current password
+        if (!Hash::check($request->current_password, $admin->password)) {
+            return back()->withErrors(['current_password' => 'Current password is incorrect.']);
         }
 
-        // Get or create the admin_password record
-        $adminPassword = \App\Models\AdminPassword::firstOrNew(['admin_id' => $admin->admin_id]);
+        // Update password
+        $admin->password = Hash::make($request->new_password);
+        $admin->save();
 
-        // If the record already exists, verify the current password
-        if ($adminPassword->exists) {
-            if (!Hash::check($request->current_password, $adminPassword->password_hashed)) {
-                return back()->withErrors(['current_password' => 'Current password is incorrect.']);
-            }
-        }
-
-        // Update password and date
-        $adminPassword->password_hashed = Hash::make($request->new_password);
-        $adminPassword->date_pass_created = now();
-        $adminPassword->save();
-
-        // Log activity
-        SystemMonitoringAndLog::create([
+        // Log the password change
+        \App\Models\SystemMonitoringAndLog::create([
+            'log_id' => null, // not tied to login
             'user_role' => 'Admin',
             'user_name' => $admin->email_address,
             'activity_type' => 'Change Password',
-            'description' => 'Admin updated account password',
-            'created_at' => now(),
+            'description' => 'Admin updated account password.',
         ]);
 
-        return back()->with('success', 'Password updated successfully!');
+        return back()->with('success', 'Password updated successfully.');
     }
 
     public function createAssessor(Request $request)

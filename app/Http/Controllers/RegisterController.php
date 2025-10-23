@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\Auth;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
@@ -15,8 +17,23 @@ class RegisterController extends Controller
 {
     public function show()
     {
-        return view('register');
+        // If already authenticated, redirect based on guard/role
+        if (Auth::guard('admin')->check()) {
+            return redirect()->route('admin.profile');
+        }
+
+        if (Auth::guard('assessor')->check()) {
+            return redirect()->route('assessor.profile');
+        }
+
+        if (Auth::guard('student')->check()) {
+            return redirect()->route('student.profile');
+        }
+
+        // Otherwise, show login page
+        return view('login');
     }
+
 
     public function submit(Request $request)
     {

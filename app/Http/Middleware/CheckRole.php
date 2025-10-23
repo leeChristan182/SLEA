@@ -40,9 +40,9 @@ class CheckRole
     protected function redirectDashboard(?string $role)
     {
         return match ($role) {
-            'admin'    => redirect()->route('admin.dashboard'),
-            'assessor' => redirect()->route('assessor.dashboard'),
-            'student'  => redirect()->route('student.dashboard'),
+            'admin'    => redirect()->route('admin.profile'),
+            'assessor' => redirect()->route('assessor.profile'),
+            'student'  => redirect()->route('student.profile'),
             default    => redirect()->route('login.show'),
         };
     }

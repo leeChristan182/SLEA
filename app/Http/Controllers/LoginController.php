@@ -12,6 +12,18 @@ class LoginController extends Controller
      */
     public function show()
     {
+        if (Auth::guard('admin')->check()) {
+            return redirect('/admin/profile');
+        }
+
+        if (Auth::guard('assessor')->check()) {
+            return redirect('/assessor/profile');
+        }
+
+        if (Auth::guard('student')->check()) {
+            return redirect('/student/profile');
+        }
+
         return view('login');
     }
 
@@ -31,7 +43,7 @@ class LoginController extends Controller
             'password' => $credentials['password'],
         ])) {
             $request->session()->regenerate();
-            return redirect()->route('admin.dashboard');
+            return redirect()->route('admin.profile');
         }
 
         // Assessor login
@@ -40,7 +52,7 @@ class LoginController extends Controller
             'password' => $credentials['password'],
         ])) {
             $request->session()->regenerate();
-            return redirect()->route('assessor.dashboard');
+            return redirect()->route('assessor.profile');
         }
 
         // Student login
@@ -49,7 +61,7 @@ class LoginController extends Controller
             'password' => $credentials['password'],
         ])) {
             $request->session()->regenerate();
-            return redirect()->route('student.dashboard');
+            return redirect()->route('student.profile');
         }
 
         return back()->withErrors([
