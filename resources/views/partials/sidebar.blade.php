@@ -49,11 +49,7 @@ $role = 'student';
 
         {{-- ===================== ASSESSOR MENU ===================== --}}
         @if ($role === 'assessor')
-        <li class="{{ request()->routeIs('assessor.dashboard') ? 'active' : '' }}">
-            <a href="{{ route('assessor.dashboard') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
-                <i class="fas fa-tachometer-alt"></i><span>Dashboard</span>
-            </a>
-        </li>
+
         <li class="{{ request()->routeIs('assessor.profile') ? 'active' : '' }}">
             <a href="{{ route('assessor.profile') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
                 <i class="fas fa-user"></i><span>Profile</span>
@@ -85,19 +81,30 @@ $role = 'student';
         </li>
 
         <li class="has-submenu">
-            <div style="display:flex;align-items:center;gap:10px;">
+            <span class="submenu-title" style="display:flex;align-items:center;gap:10px;cursor:default;">
                 <i class="fas fa-users-cog"></i><span>User Account Management</span>
-            </div>
+            </span>
             <ul class="submenu">
                 <li><a href="{{ route('admin.create_assessor') }}">Create Assessor's Account</a></li>
                 <li><a href="{{ route('admin.approve-reject') }}">Approve/Reject Account</a></li>
                 <li><a href="{{ route('admin.manage') }}">Manage Account</a></li>
             </ul>
         </li>
+
         <li class="{{ request()->routeIs('admin.rubrics.index') ? 'active' : '' }}">
             <a href="{{ route('admin.rubrics.index') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
                 <i class="fas fa-tasks"></i><span>Scoring Rubric Configuration</span>
             </a>
+        </li>
+        <li class="{{ request()->routeIs('admin.organizations.index') ? 'active' : '' }}">
+            <a href="{{ route('admin.organizations.index') }}"
+                style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                <i class="fas fa-tasks"></i>
+                <span>Organization Management</span>
+            </a>
+        </li>
+
+
         </li>
         <li class="{{ request()->routeIs('admin.submission-oversight') ? 'active' : '' }}">
             <a href="{{ route('admin.submission-oversight') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">

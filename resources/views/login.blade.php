@@ -37,9 +37,11 @@
                     <small>Having Trouble?</small><br>
                     <a href="#">Send us a message</a>
                 </div>
+
                 <button id="darkModeToggle" class="dark-toggle-btn" title="Toggle Dark Mode">
                     <i class="fas fa-moon"></i>
                 </button>
+
             </div>
         </div>
     </div>
@@ -104,6 +106,9 @@
                     <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold">
                         <i class="fas fa-sign-in-alt me-2"></i> Log In
                     </button>
+                    <div class="text-center mt-3 fs-6 fw-bold">
+                        <small style="color:white   ">Don’t have an account? <a href="{{ route('register.show') }}">Sign Up</a></small>
+                    </div>
                 </form>
 
             </div>

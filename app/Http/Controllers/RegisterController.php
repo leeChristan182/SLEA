@@ -2,144 +2,195 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Auth;
-
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
-use App\Models\User;
-use App\Models\StudentPersonalInformation;
-use App\Models\AcademicInformation;
+use App\Models\College;
+use App\Models\Cluster;
+use App\Models\Organization;
+use App\Models\LeadershipType;
+use App\Models\StudentAccount;
 use App\Models\LeadershipInformation;
-use App\Models\ApprovalOfAccount;
+use App\Models\RubricSubsectionLeadership;
 
 class RegisterController extends Controller
 {
+    /**
+     * Show the registration form
+     */
     public function show()
     {
-        // If already authenticated, redirect based on guard/role
-        if (Auth::guard('admin')->check()) {
-            return redirect()->route('admin.profile');
+        // Fetch unique colleges
+        $colleges = College::select('id', 'college_name')
+            ->distinct()
+            ->orderBy('college_name')
+            ->get();
+
+        $leadershipTypes = LeadershipType::orderBy('name')->get();
+
+        return view('register', compact('colleges', 'leadershipTypes'));
+    }
+
+    /**
+     * Fetch clusters for a given leadership type (AJAX)
+     */
+    // getClusters
+    public function getClusters(Request $request)
+    {
+        $typeId = $request->leadership_type_id;
+        $typeName = LeadershipType::find($typeId)?->name;
+
+        if ($typeName === 'CCO') {
+            // All clusters for CCO (all clubs/organizations)
+            $clusters = Cluster::orderBy('name')->get(['id', 'name']);
+        } else if (in_array($typeName, ['USG', 'OSC', 'LC', 'LGU'])) {
+            $clusters = collect(); // empty
+        } else {
+            $clusters = Cluster::where('leadership_type_id', $typeId)->orderBy('name')->get(['id', 'name']);
         }
 
-        if (Auth::guard('assessor')->check()) {
-            return redirect()->route('assessor.profile');
+        return response()->json($clusters);
+    }
+
+    // getOrganizations
+    public function getOrganizations(Request $request)
+    {
+        $typeId = $request->leadership_type_id;
+        $typeName = LeadershipType::find($typeId)?->name;
+
+        if ($typeName === 'CCO') {
+            // All orgs (clubs) under CCO
+            $orgs = Organization::orderBy('name')->get(['id', 'name']);
+        } else if (in_array($typeName, ['USG', 'OSC', 'LC', 'LGU'])) {
+            $orgs = collect(); // no organizations dropdown
+        } else {
+            $orgs = Organization::where('cluster_id', $request->cluster_id)->orderBy('name')->get(['id', 'name']);
         }
 
-        if (Auth::guard('student')->check()) {
-            return redirect()->route('student.profile');
-        }
+        return response()->json($orgs);
+    }
 
-        // Otherwise, show login page
-        return view('login');
+    // getPositions
+    public function getPositions(Request $request)
+    {
+        $typeId = $request->leadership_type_id;
+
+        $positions = DB::table('positions')
+            ->where('leadership_type_id', $typeId)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return response()->json($positions);
     }
 
 
-    public function submit(Request $request)
+    /**
+     * Fetch programs for a given college (AJAX)
+     */
+    public function getPrograms(Request $request)
+    {
+        $collegeName = $request->college_name;
+        $programs = DB::table('college_programs')
+            ->where('college_name', $collegeName)
+            ->select('program_name', 'major_name')
+            ->orderBy('program_name')
+            ->get();
+
+        $grouped = $programs->groupBy('program_name')->map(function ($items) {
+            return $items->pluck('major_name')->filter()->unique()->values();
+        });
+
+        return response()->json($grouped);
+    }
+
+
+    /**
+     * Store student registration
+     */
+    public function store(Request $request)
     {
         $validated = $request->validate([
             // Personal
-            'last_name' => 'required|string|max:50',
-            'first_name' => 'required|string|max:50',
-            'middle_name' => 'nullable|string|max:50',
-            'birth_date' => 'required|date|before:today',
-            'age' => 'required|integer|min:16|max:100',
-            'email' => 'required|email|max:255|unique:users,email',
+            'student_id' => 'required|string|unique:student_accounts,student_id',
+            'first_name' => 'required|string|max:100',
+            'middle_name' => 'nullable|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'email_address' => ['required', 'email', 'regex:/@usep\.edu\.ph$/', 'unique:student_accounts,email_address'],
             'contact' => 'required|string|max:15',
-
+            'password' => 'required|min:8|confirmed',
             // Academic
-            'student_id' => 'required|string|max:20|unique:student_personal_information,student_id',
-            'college' => 'required|string|in:CIC,COE',
-            'program' => 'required|string|max:50',
-            'major' => 'nullable|string|max:50',
-            'year_level' => 'required|string|in:1st Year,2nd Year,3rd Year,4th Year',
-            'expected_grad' => 'required|string|max:10',
-
+            'college_name' => 'required|string|in:' . implode(',', DB::table('college_programs')->distinct()->pluck('college_name')->toArray()),
+            'program' => 'required|string|max:150',
+            'major_name' => 'nullable|string|max:150',
+            'year_level' => 'required|integer|min:1|max:5',
             // Leadership
-            'leadership_type' => 'required|string|in:President,Member',
-            'org_name' => 'required|string|max:255',
-            'org_role' => 'required|string|in:President,Vice President,Secretary,Treasurer,Member',
-            'issued_by' => 'required|string|max:255',
-            'leadership_status' => 'required|string|in:active,inactive',
+            'leadership_type_id' => 'required|exists:leadership_types,id',
+            'cluster_id' => 'required|exists:clusters,id',
+            'organization_id' => 'required|exists:organizations,id',
+            'position_id' => 'required|exists:positions,id',
             'term' => 'required|string|max:255',
-
-            // Credentials
-            'password' => [
-                'required',
-                'string',
-                'min:8',
-                'confirmed',
-                // Require at least one uppercase, one lowercase, one number, one special char
-                'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/'
-            ],
-            'privacy_agree' => 'required|accepted',
-        ], [
-            // Custom error messages
-            'password.regex' => 'Password must have at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a special character.',
+            'issued_by' => 'required|string|max:255',
+            'leadership_status' => 'required|string|max:255',
         ]);
 
-        try {
-            DB::transaction(function () use ($validated) {
-                // Create user
-                $user = User::create([
-                    'name' => "{$validated['first_name']} {$validated['last_name']}",
-                    'email' => $validated['email'],
-                    'password' => Hash::make($validated['password']),
-                    'student_id' => $validated['student_id'],
-                    'user_role' => 'student',
-                    'is_approved' => false,
-                ]);
+        $entryYear = intval(substr($validated['student_id'], 0, 4));
+        $graduationYear = $entryYear + 4;
 
-                // Student personal info
-                StudentPersonalInformation::create([
-                    'student_id' => $validated['student_id'],
-                    'last_name' => $validated['last_name'],
-                    'first_name' => $validated['first_name'],
-                    'middle_name' => $validated['middle_name'],
-                    'email_address' => $validated['email'],
-                    'contact_number' => $validated['contact'],
-                    'date_of_birth' => $validated['birth_date'],
-                    'age' => $validated['age'],
-                    'gender' => 'Other',
-                    'address' => 'Not provided',
-                    'dateacc_created' => now(),
-                ]);
-
-                // Academic info
-                AcademicInformation::create([
-                    'student_id' => $validated['student_id'],
-                    'program' => $validated['program'],
-                    'major' => $validated['major'],
-                    'year_level' => $validated['year_level'],
-                    'graduate_prior' => $validated['expected_grad'],
-                ]);
-
-                // Leadership info
-                LeadershipInformation::create([
-                    'student_id' => $validated['student_id'],
-                    'leadership_type' => $validated['leadership_type'],
-                    'organization_name' => $validated['org_name'],
-                    'organization_role' => $validated['org_role'],
-                    'issued_by' => $validated['issued_by'],
-                    'leadership_status' => $validated['leadership_status'],
-                    'term' => $validated['term'],
-                ]);
-
-                // Approval status
-                ApprovalOfAccount::create([
-                    'student_id' => $validated['student_id'],
-                    'admin_id' => null,
-                    'action' => 'pending',
-                    'action_date' => null,
-                ]);
-            });
-
-            return redirect()->route('login.show')
-                ->with('success', 'Registration submitted successfully! Your account is pending admin approval.');
-        } catch (\Throwable $e) {
-            return back()->withInput()->withErrors([
-                'error' => 'Registration failed. Please try again. Error: ' . $e->getMessage()
+        DB::transaction(function () use ($validated, $graduationYear) {
+            // Personal info
+            DB::table('student_personal_information')->insert([
+                'student_id' => $validated['student_id'],
+                'first_name' => $validated['first_name'],
+                'middle_name' => $validated['middle_name'],
+                'last_name' => $validated['last_name'],
+                'email_address' => $validated['email_address'],
+                'contact_number' => $validated['contact'],
+                'birth_date' => $validated['birth_date'] ?? null,
+                'age' => $validated['age'] ?? null,
+                'dateacc_created' => now(),
             ]);
-        }
+
+            // Academic info
+            DB::table('academic_information')->insert([
+                'student_id' => $validated['student_id'],
+                'program' => $validated['program'],
+                'major' => $validated['major_name'],
+                'year_level' => $validated['year_level'],
+                'graduate_prior' => $graduationYear,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // Account
+            DB::table('student_accounts')->insert([
+                'student_id' => $validated['student_id'],
+                'first_name' => $validated['first_name'],
+                'middle_name' => $validated['middle_name'],
+                'last_name' => $validated['last_name'],
+                'email_address' => $validated['email_address'],
+                'contact' => $validated['contact'],
+                'password' => bcrypt($validated['password']),
+                'status' => 'pending',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // Leadership info
+            DB::table('leadership_information')->insert([
+                'student_id' => $validated['student_id'],
+                'leadership_type' => \App\Models\LeadershipType::find($validated['leadership_type_id'])->name,
+                'organization_name' => \App\Models\Organization::find($validated['organization_id'])->name,
+                'position' => \App\Models\Position::find($validated['position_id'])->name,
+                'term' => $validated['term'],
+                'issued_by' => $validated['issued_by'],
+                'leadership_status' => $validated['leadership_status'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
+
+        return redirect()->route('login.show')->with(
+            'status',
+            'Your registration has been submitted for review. You will be able to log in once approved.'
+        );
     }
 }

@@ -1,63 +1,51 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\AssessorProfile;
-use App\Models\AssessorAccount;
 use Illuminate\Http\Request;
 
 class AssessorProfileController extends Controller
 {
     public function index()
     {
-        $assessor_profiles = AssessorProfile::with('account')->get();
-        return view('assessor_profiles.index', compact('assessor_profiles'));
+        $assessors = AssessorProfile::all();
+        return view('assessors.index', compact('assessors'));
     }
 
     public function create()
     {
-        $accounts = AssessorAccount::all();
-        return view('assessor_profiles.create', compact('accounts'));
+        return view('assessors.create');
     }
 
     public function store(Request $request)
     {
-        $request->validate([
-            'assessor_id' => 'required|unique:assessor_profiles,assessor_id',
-            'email_address' => 'required|exists:assessor_accounts,email_address',
-            'picture_path' => 'nullable|string',
-            'date_upload' => 'required|date',
-        ]);
-
         AssessorProfile::create($request->all());
-        return redirect()->route('assessor_profiles.index')->with('success', 'Profile created.');
+        return redirect()->route('assessors.index');
     }
 
-    public function show(AssessorProfile $assessor_profile)
+    public function show($id)
     {
-        return view('assessor_profiles.show', compact('assessor_profile'));
+        $admin = AssessorProfile::findOrFail($id);
+        return view('assessors.show', compact('admin'));
     }
 
-    public function edit(AssessorProfile $assessor_profile)
+    public function edit($id)
     {
-        $accounts = AssessorAccount::all();
-        return view('assessor_profiles.edit', compact('assessor_profile', 'accounts'));
+        $admin = AssessorProfile::findOrFail($id);
+        return view('assessors.edit', compact('admin'));
     }
 
-    public function update(Request $request, AssessorProfile $assessor_profile)
+    public function update(Request $request, $id)
     {
-        $request->validate([
-            'email_address' => 'required|exists:assessor_accounts,email_address',
-            'picture_path' => 'nullable|string',
-            'date_upload' => 'required|date',
-        ]);
-
-        $assessor_profile->update($request->all());
-        return redirect()->route('assessor_profiles.index')->with('success', 'Profile updated.');
+        $admin = AssessorProfile::findOrFail($id);
+        $admin->update($request->all());
+        return redirect()->route('assessors.index');
     }
 
-    public function destroy(AssessorProfile $assessor_profile)
+    public function destroy($id)
     {
-        $assessor_profile->delete();
-        return redirect()->route('assessor_profiles.index')->with('success', 'Profile deleted.');
+        AssessorProfile::destroy($id);
+        return redirect()->route('assessors.index');
     }
 }

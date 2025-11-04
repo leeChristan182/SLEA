@@ -10,23 +10,30 @@ class AdminAccount extends Authenticatable
 {
     use Notifiable;
 
-    // ✅ Use the existing table 'admin_profiles'
     protected $table = 'admin_profiles';
     protected $primaryKey = 'admin_id';
     public $timestamps = true;
 
     protected $fillable = [
-        'admin_id',
         'email_address',
         'first_name',
         'last_name',
         'contact_number',
         'position',
+        'status',
     ];
 
     protected $hidden = ['password'];
+    protected $attributes = [
+        'status' => 'approved',
+    ];
+    // 🔑 Use 'email_address' as login field
+    public function getAuthIdentifierName()
+    {
+        return 'email_address';
+    }
 
-    // ✅ Fetch the actual password from 'admin_passwords'
+    // 🔒 Fetch hashed password from admin_passwords
     public function getAuthPassword()
     {
         return DB::table('admin_passwords')
@@ -34,8 +41,14 @@ class AdminAccount extends Authenticatable
             ->value('password_hashed');
     }
 
+    // 🧩 Relationships
     public function passwordRecord()
     {
         return $this->hasOne(AdminPassword::class, 'admin_id');
+    }
+
+    public function profile()
+    {
+        return $this->hasOne(AdminProfile::class, 'admin_id');
     }
 }

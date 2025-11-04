@@ -24,7 +24,6 @@
 
     <div class="d-flex">
         {{-- Global Sidebar --}}
-        @include('partials.sidebar')
 
 
         {{-- Page Content (Main Area) --}}

@@ -12,7 +12,7 @@ return new class extends Migration {
             $table->string('student_id', 20);
             $table->unsignedInteger('category_id');
             $table->unsignedInteger('section_id')->nullable();
-            $table->unsignedInteger('sub_items')->nullable();
+            $table->unsignedBigInteger('sub_items')->nullable(); // ✅ matches rubric_subsections PK
             $table->unsignedBigInteger('leadership_id')->nullable();
             $table->decimal('score', 5, 2)->default(0.00);
             $table->decimal('max_score', 5, 2);
@@ -22,17 +22,12 @@ return new class extends Migration {
             $table->enum('score_type', ['category', 'section', 'subsection', 'leadership'])->default('category');
             $table->timestamps();
 
-            // Foreign key constraints
-            $table->foreign('student_id')->references('student_id')->on('student_personal_information')->onDelete('cascade');
+            // ✅ Updated foreign key relationships
+            $table->foreign('student_id')->references('student_id')->on('academic_information')->onDelete('cascade');
             $table->foreign('category_id')->references('category_id')->on('rubric_categories')->onDelete('cascade');
             $table->foreign('section_id')->references('section_id')->on('rubric_sections')->onDelete('cascade');
             $table->foreign('sub_items')->references('sub_items')->on('rubric_subsections')->onDelete('cascade');
             $table->foreign('leadership_id')->references('id')->on('rubric_subsection_leadership')->onDelete('cascade');
-
-            // Indexes
-            $table->index(['student_id', 'category_id']);
-            $table->index(['student_id', 'score_type']);
-            $table->index('scored_at');
         });
     }
 

@@ -2,20 +2,21 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class LeadershipInformation extends Model
 {
-    protected $table = 'leadership_information';
+    use HasFactory;
 
+    protected $table = 'leadership_information';
     protected $primaryKey = 'leadership_id';
 
-     protected $fillable = [
+    protected $fillable = [
         'student_id',
-        'leadership_type_id',
-        'organization_id',
+        'leadership_type',
         'organization_name',
-        'organization_role',
+        'position',
         'term',
         'issued_by',
         'leadership_status',
@@ -23,16 +24,6 @@ class LeadershipInformation extends Model
 
     public function student()
     {
-        return $this->belongsTo(StudentPersonalInformation::class, 'student_id', 'student_id');
-    }
-
-    public function leadershipType()
-    {
-        return $this->belongsTo(LeadershipType::class, 'leadership_type_id');
-    }
-
-    public function organization()
-    {
-        return $this->belongsTo(Organization::class, 'organization_id');
+        return $this->belongsTo(StudentAccount::class, 'student_id', 'student_id');
     }
 }

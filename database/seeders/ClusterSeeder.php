@@ -7,21 +7,23 @@ use App\Models\Cluster;
 
 class ClusterSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run()
     {
         $clusters = [
-            ['name' => 'Academic Cluster'],
-            ['name' => 'Campus Ministry Cluster'],
-            ['name' => 'Culture and Arts Cluster'],
-            ['name' => 'Socio-Civic Cluster'],
-            ['name' => 'Sports Cluster'],
+            'Academic Cluster',
+            'Campus Ministry Cluster',
+            'Culture and Arts Cluster',
+            'Socio-Civic Cluster',
+            'Sports Cluster',
         ];
 
-        foreach ($clusters as $cluster) {
-            Cluster::firstOrCreate($cluster);
+        // Update leadership_type_id = 4 for existing clusters
+        Cluster::whereIn('name', $clusters)
+            ->update(['leadership_type_id' => 4]);
+
+        // Create clusters if they don't exist
+        foreach ($clusters as $clusterName) {
+            Cluster::firstOrCreate(['name' => $clusterName], ['leadership_type_id' => 4]);
         }
     }
 }

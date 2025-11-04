@@ -7,14 +7,15 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
-            Schema::create('rubric_categories', function (Blueprint $table) {
-                $table->id('category_id'); // Auto-incrementing integer primary key
-                $table->string('title', 50)->unique(); // e.g., Leadership Excellence
-                $table->decimal('max_points', 5, 2); // e.g., 100.00
-                $table->unsignedTinyInteger('order_no')->unique()->default(1); // unique global order
-                $table->timestamps();
-            });
-
+        Schema::create('rubric_categories', function (Blueprint $table) {
+            $table->id('category_id');
+            $table->string('key', 50)->unique(); // ✅ added for internal reference
+            $table->string('title', 100)->unique();
+            $table->text('description')->nullable();
+            $table->decimal('max_points', 5, 2)->default(20.00);
+            $table->unsignedTinyInteger('order_no')->unique();
+            $table->timestamps();
+        });
     }
 
     public function down(): void

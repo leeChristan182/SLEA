@@ -13,6 +13,8 @@ return new class extends Migration
     {
         Schema::create('student_personal_information', function (Blueprint $table) {
             $table->string('email_address', 50)->primary();
+            $table->string('student_id', 20)->unique()->nullable();
+
             $table->string('last_name', 50);
             $table->string('first_name', 50);
             $table->string('middle_name', 50)->nullable();

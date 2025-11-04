@@ -2,14 +2,20 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Cluster extends Model
 {
-    protected $fillable = ['name', 'description'];
-    
+    use HasFactory;
+
+    protected $fillable = [
+        'name',
+        'description',
+    ];
+
     /**
-     * Get the organizations that belong to this cluster.
+     * Get all organizations that belong to this cluster.
      */
     public function organizations()
     {

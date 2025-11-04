@@ -8,51 +8,42 @@ use Illuminate\Http\Request;
 
 class OrganizationController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $organizations = Organization::with('cluster')->get();
-        return view('organizations.index', compact('organizations'));
+        $organizations = Organization::with('cluster')
+            ->when(
+                $request->q,
+                fn($q, $search) =>
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhereHas('cluster', fn($c) => $c->where('name', 'like', "%{$search}%"))
+            )
+            ->when(
+                $request->cluster_filter,
+                fn($q, $id) =>
+                $q->where('cluster_id', $id)
+            )
+            ->orderBy('name')
+            ->paginate(10)
+            ->appends($request->except('page')); // ✅ keeps search/filter across pages
+
+        $clusters = Cluster::orderBy('name')->get();
+
+        return view('admin.organizations.index', compact('organizations', 'clusters'));
     }
 
-    public function create()
-    {
-        $clusters = Cluster::orderBy('name')->get();
-        return view('organizations.create', compact('clusters'));
-    }
 
     public function store(Request $request)
     {
         $request->validate([
             'name' => 'required|string|max:255',
             'cluster_id' => 'required|exists:clusters,id',
-            'description' => 'nullable|string'
+            'description' => 'nullable|string|max:1000',
         ]);
 
-        $data = $request->all();
-        
-        // Get cluster name and combine with organization name
-        $cluster = Cluster::find($request->cluster_id);
-        if ($cluster) {
-            $data['combined_name'] = $cluster->name . ' - ' . $request->name;
-        } else {
-            $data['combined_name'] = $request->name;
-        }
+        Organization::create($request->only('name', 'cluster_id', 'description'));
 
-        Organization::create($data);
-
-        return redirect()->route('organizations.index')
-                         ->with('success', 'Organization created successfully.');
-    }
-
-    public function show(Organization $organization)
-    {
-        return view('organizations.show', compact('organization'));
-    }
-
-    public function edit(Organization $organization)
-    {
-        $clusters = Cluster::orderBy('name')->get();
-        return view('organizations.edit', compact('organization', 'clusters'));
+        return redirect()->route('admin.organizations.index')
+            ->with('success', 'Organization created successfully.');
     }
 
     public function update(Request $request, Organization $organization)
@@ -60,29 +51,20 @@ class OrganizationController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'cluster_id' => 'required|exists:clusters,id',
-            'description' => 'nullable|string'
+            'description' => 'nullable|string|max:1000',
         ]);
 
-        $data = $request->all();
-        
-        // Get cluster name and combine with organization name
-        $cluster = Cluster::find($request->cluster_id);
-        if ($cluster) {
-            $data['combined_name'] = $cluster->name . ' - ' . $request->name;
-        } else {
-            $data['combined_name'] = $request->name;
-        }
+        $organization->update($request->only('name', 'cluster_id', 'description'));
 
-        $organization->update($data);
-
-        return redirect()->route('organizations.index')
-                         ->with('success', 'Organization updated successfully.');
+        return redirect()->route('admin.organizations.index')
+            ->with('success', 'Organization updated successfully.');
     }
 
     public function destroy(Organization $organization)
     {
         $organization->delete();
-        return redirect()->route('organizations.index')
-                         ->with('success', 'Organization deleted successfully.');
+
+        return redirect()->route('admin.organizations.index')
+            ->with('success', 'Organization deleted successfully.');
     }
 }

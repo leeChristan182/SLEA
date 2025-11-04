@@ -13,17 +13,18 @@ class LoginController extends Controller
     public function show()
     {
         if (Auth::guard('admin')->check()) {
-            return redirect('/admin/profile');
+            return redirect()->route('admin.profile');
         }
 
         if (Auth::guard('assessor')->check()) {
-            return redirect('/assessor/profile');
+            return redirect()->route('assessor.profile');
         }
 
         if (Auth::guard('student')->check()) {
-            return redirect('/student/profile');
+            return redirect()->route('student.profile');
         }
 
+        // Default: show login page
         return view('login');
     }
 
@@ -37,31 +38,28 @@ class LoginController extends Controller
             'password' => 'required',
         ]);
 
-        // Admin login
-        if (Auth::guard('admin')->attempt([
-            'email_address' => $credentials['email'],
-            'password' => $credentials['password'],
-        ])) {
-            $request->session()->regenerate();
-            return redirect()->route('admin.profile');
-        }
+        $guards = [
+            'admin' => 'admin.profile',
+            'assessor' => 'assessor.profile',
+            'student' => 'student.profile',
+        ];
 
-        // Assessor login
-        if (Auth::guard('assessor')->attempt([
-            'email_address' => $credentials['email'],
-            'password' => $credentials['password'],
-        ])) {
-            $request->session()->regenerate();
-            return redirect()->route('assessor.profile');
-        }
+        foreach ($guards as $guard => $redirectRoute) {
+            if (Auth::guard($guard)->attempt(['email_address' => $credentials['email'], 'password' => $credentials['password']])) {
+                $user = Auth::guard($guard)->user();
 
-        // Student login
-        if (Auth::guard('student')->attempt([
-            'email_address' => $credentials['email'],
-            'password' => $credentials['password'],
-        ])) {
-            $request->session()->regenerate();
-            return redirect()->route('student.profile');
+                // ✅ Block login if not approved
+                if (!in_array($user->status, ['approved'])) {
+                    Auth::guard($guard)->logout();
+
+                    return back()->withErrors([
+                        'email' => 'Your account is currently ' . $user->status . '. Please contact the administrator.',
+                    ]);
+                }
+
+                $request->session()->regenerate();
+                return redirect()->route($redirectRoute);
+            }
         }
 
         return back()->withErrors([

@@ -10,36 +10,29 @@ class CheckRole
 {
     public function handle(Request $request, Closure $next, string $role)
     {
-        $user = Auth::user();
+        // ✅ Iterate through all known guards
+        foreach (['admin', 'assessor', 'student'] as $guard) {
+            if (Auth::guard($guard)->check()) {
+                // Found an authenticated user
+                if ($guard === $role) {
+                    return $next($request); // correct role → allow access
+                }
 
-        // If no user is authenticated
-        if (!$user) {
-            return redirect()->route('login.show');
+                // Wrong role → redirect to their proper dashboard
+                return $this->redirectDashboard($guard);
+            }
         }
 
-        // If user role doesn’t match middleware requirement
-        if (method_exists($user, 'getTable') && property_exists($user, 'user_role')) {
-            $userRole = $user->user_role;
-        } elseif (isset($user->position)) {
-            // Fallback for AdminAccount (no user_role field)
-            $userRole = 'admin';
-        } else {
-            $userRole = null;
-        }
-
-        if ($userRole !== $role) {
-            return $this->redirectDashboard($userRole);
-        }
-
-        return $next($request);
+        // No authenticated user in any guard → go to login
+        return redirect()->route('login.show');
     }
 
     /**
-     * Redirect user to their correct dashboard
+     * Redirect user to their correct dashboard based on guard
      */
-    protected function redirectDashboard(?string $role)
+    protected function redirectDashboard(string $guard)
     {
-        return match ($role) {
+        return match ($guard) {
             'admin'    => redirect()->route('admin.profile'),
             'assessor' => redirect()->route('assessor.profile'),
             'student'  => redirect()->route('student.profile'),

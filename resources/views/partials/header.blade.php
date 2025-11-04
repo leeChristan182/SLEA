@@ -1,25 +1,32 @@
 @php
 use Illuminate\Support\Facades\Auth;
+
 $user = Auth::user();
 $role = null;
+$link = '#'; // fallback if not logged in
 
-if ($user) {
 if ($user instanceof \App\Models\AdminAccount) {
 $role = 'admin';
 } elseif ($user instanceof \App\Models\AssessorAccount) {
 $role = 'assessor';
-} else {
+} elseif ($user instanceof \App\Models\StudentAccount) {
 $role = 'student';
 }
+
+if ($role && Route::has($role . '.profile')) {
+$link = route($role . '.profile');
 }
 @endphp
 
 <div class="header-container">
-    <div class="header">
+    <div class="header d-flex justify-content-between align-items-center">
         <div class="d-flex align-items-center gap-3">
-            <!-- Logo -->
-            <img src="{{ asset('images/osas-logo.png') }}" alt="OSAS Logo" height="60">
-            <span class="fs-3 fw-bolder logo-text">SLEA</span>
+            <!-- Logo + SLEA linked to profile -->
+            <a href="{{ $link }}" class="d-flex align-items-center gap-2 text-decoration-none">
+                <img src="{{ asset('images/osas-logo.png') }}" alt="OSAS Logo" height="60">
+                <span class="fs-3 fw-bolder logo-text">SLEA</span>
+            </a>
+
             <div style="width: 1px; height: 40px; background-color: #ccc; margin: 0 0.5rem;"></div>
 
             <!-- Tagline -->
@@ -40,7 +47,7 @@ $role = 'student';
                 <i class="fas fa-moon"></i>
             </button>
 
-            <!-- ✅ Working Logout Button -->
+            <!-- ✅ Logout Button -->
             @if ($user)
             <form id="logoutForm" action="{{ route('logout') }}" method="POST" style="margin:0;">
                 @csrf
@@ -89,7 +96,7 @@ $role = 'student';
         border: 2px solid #a00;
         border-radius: 8px;
         padding: 6px 12px;
-        background: transparent;
+        background: white;
         color: #333;
         font-size: 1rem;
         cursor: pointer;
@@ -100,6 +107,10 @@ $role = 'student';
         background-color: #a00;
         color: #fff;
         border-color: #800;
+    }
+
+    .logout-btn .dark-mode {
+        background: #706b6bff
     }
 
     .logout-btn i {

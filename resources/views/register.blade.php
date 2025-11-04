@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>@yield('title', 'SLEA')</title>
+    <title>SLEA - Student Registration</title>
     <link rel="icon" href="{{ asset('images/osas-logo.png') }}?v={{ filemtime(public_path('images/osas-logo.png')) }}" type="image/png">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -17,21 +17,19 @@
 
 <body class="d-flex flex-column min-vh-100 {{ session('dark_mode', false) ? 'dark-mode' : '' }}">
 
+    <!-- Header -->
     <div class="header-container">
         <div class="header">
             <div class="d-flex align-items-center gap-3">
-
-                <!-- Logo -->
                 <img src="{{ asset('images/osas-logo.png') }}" alt="USeP Logo" height="60">
                 <span class="fs-3 fw-bolder logo-text">SLEA</span>
                 <div style="width: 1px; height: 40px; background-color: #ccc; margin: 0 0.5rem;"></div>
-
-                <!-- Tagline -->
                 <div class="tagline ms-3">
                     <span class="gold1">Empowering</span> <span class="maroon1">Leadership.</span><br>
                     <span class="maroon1">Recognizing</span> <span class="gold1">Excellence.</span>
                 </div>
             </div>
+
             <div class="header-right d-flex align-items-center gap-3">
                 <div class="text-end">
                     <small>Having Trouble?</small><br>
@@ -44,11 +42,14 @@
         </div>
     </div>
 
+    <!-- Registration Content -->
     <div class="register-container">
         <main class="flex-grow-1">
             <div class="container py-5">
                 <h4 class="text-maroon mb-4 fs-1 fw-bold">Sign Up!</h4>
-                <p class="small fs-5 fw-normal">Already have an account? <a href="{{ route('login.show') }}">Login here</a></p>
+                <p class="small fs-5 fw-normal">
+                    Already have an account? <a href="{{ route('login.show') }}">Login here</a>
+                </p>
 
                 @if ($errors->any())
                 <div class="alert alert-danger">
@@ -60,13 +61,13 @@
                 </div>
                 @endif
 
-                @if (session('success'))
+                @if (session('status'))
                 <div class="alert alert-success">
-                    {{ session('success') }}
+                    {{ session('status') }}
                 </div>
                 @endif
 
-                <form method="POST" action="{{ route('register.submit') }}">
+                <form method="POST" action="{{ route('register.store') }}">
                     @csrf
 
                     <!-- Step 1: Personal Information -->
@@ -74,53 +75,32 @@
                         <h5 class="mb-3">Personal Information</h5>
                         <div class="row g-3">
                             <div class="col-md-4">
-                                <label class="form-label">Last Name *</label>
-                                <input type="text" name="last_name" class="form-control @error('last_name') is-invalid @enderror" value="{{ old('last_name') }}" required>
-                                @error('last_name')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
+                                <label class="form-label">Last Name <span class="required">* </span></label>
+                                <input type="text" name="last_name" class="form-control" required>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">First Name *</label>
-                                <input type="text" name="first_name" class="form-control @error('first_name') is-invalid @enderror" value="{{ old('first_name') }}" required>
-                                @error('first_name')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
+                                <label class="form-label">First Name <span class="required">* </span></label>
+                                <input type="text" name="first_name" class="form-control" required>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Middle Name</label>
-                                <input type="text" name="middle_name" class="form-control @error('middle_name') is-invalid @enderror" value="{{ old('middle_name') }}">
-                                @error('middle_name')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
+                                <input type="text" name="middle_name" class="form-control">
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Birth Date *</label>
-                                <input type="date" name="birth_date" class="form-control @error('birth_date') is-invalid @enderror" value="{{ old('birth_date') }}" required>
-                                @error('birth_date')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
+                                <label class="form-label">Birth Date <span class="required">* </span></label>
+                                <input type="date" name="birth_date" class="form-control" required>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Age *</label>
-                                <input type="text" name="age" class="form-control @error('age') is-invalid @enderror" value="{{ old('age') }}" readonly>
-                                @error('age')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
+                                <label class="form-label">Age <span class="required">* </span></label>
+                                <input type="text" name="age" class="form-control" readonly>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Email Address *</label>
-                                <input type="email" name="email" class="form-control @error('email') is-invalid @enderror" value="{{ old('email') }}" required>
-                                @error('email')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
+                                <label class="form-label">USeP Email <span class="required">* </span></label>
+                                <input type="email" name="email_address" class="form-control" placeholder="example@usep.edu.ph" required>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Contact Number *</label>
-                                <input type="text" name="contact" class="form-control @error('contact') is-invalid @enderror" value="{{ old('contact') }}" required>
-                                @error('contact')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
+                                <label class="form-label">Contact Number <span class="required">* </span></label>
+                                <input type="text" name="contact" class="form-control" required>
                             </div>
                         </div>
                     </div>
@@ -130,134 +110,167 @@
                         <h5 class="mb-3">Academic Information</h5>
                         <div class="row g-3">
                             <div class="col-md-4">
-                                <label class="form-label">Student ID *</label>
-                                <input type="text" name="student_id" class="form-control @error('student_id') is-invalid @enderror" value="{{ old('student_id') }}" required placeholder="e.g. 2020-12345">
-                                @error('student_id')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
+                                <label class="form-label">Student ID <span class="required">* </span></label>
+                                <input type="text" name="student_id" class="form-control" placeholder="e.g. 2021-00001" required>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">College *</label>
-                                <select name="college" class="form-select @error('college') is-invalid @enderror" required>
+                                <label class="form-label">College <span class="required">* </span></label>
+                                <select name="college_name" class="form-select" required>
                                     <option value="">Select College</option>
-                                    <option value="CIC" {{ old('college') == 'CIC' ? 'selected' : '' }}>CIC</option>
-                                    <option value="COE" {{ old('college') == 'COE' ? 'selected' : '' }}>COE</option>
+                                    @foreach ($colleges as $college)
+                                    <option value="{{ $college->college_name }}">{{ $college->college_name }}</option>
+                                    @endforeach
                                 </select>
-                                @error('college')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Program *</label>
-                                <input type="text" name="program" class="form-control @error('program') is-invalid @enderror" value="{{ old('program') }}" required>
+                                <select name="program" class="form-select @error('program') is-invalid @enderror" required>
+                                    <option value="">Select Program</option>
+                                </select>
                                 @error('program')
                                 <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
+
                             <div class="col-md-4">
                                 <label class="form-label">Major</label>
-                                <input type="text" name="major" class="form-control @error('major') is-invalid @enderror" value="{{ old('major') }}">
-                                @error('major')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Year Level *</label>
-                                <select name="year_level" class="form-select @error('year_level') is-invalid @enderror" required>
-                                    <option value="">Select Year</option>
-                                    <option value="1st Year" {{ old('year_level') == '1st Year' ? 'selected' : '' }}>1st Year</option>
-                                    <option value="2nd Year" {{ old('year_level') == '2nd Year' ? 'selected' : '' }}>2nd Year</option>
-                                    <option value="3rd Year" {{ old('year_level') == '3rd Year' ? 'selected' : '' }}>3rd Year</option>
-                                    <option value="4th Year" {{ old('year_level') == '4th Year' ? 'selected' : '' }}>4th Year</option>
+                                <select name="major_name" class="form-select @error('major_name') is-invalid @enderror">
+                                    <option value="">Select Major</option>
                                 </select>
-                                @error('year_level')
+                                @error('major_name')
                                 <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
+
+
                             <div class="col-md-4">
-                                <label class="form-label">Expected Year to Graduate *</label>
-                                <input type="text" name="expected_grad" class="form-control @error('expected_grad') is-invalid @enderror" value="{{ old('expected_grad') }}" readonly>
-                                @error('expected_grad')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
+                                <label class="form-label">Year Level <span class="required">* </span></label>
+                                <select name="year_level" class="form-select" required>
+                                    <option value="">--</option>
+                                    <option value="1">1st Year</option>
+                                    <option value="2">2nd Year</option>
+                                    <option value="3">3rd Year</option>
+                                    <option value="4">4th Year</option>
+                                    <option value="5">5th Year</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Expected Year to Graduate <span class="required">* </span></label>
+                                <input type="text" name="expected_grad" class="form-control" readonly>
                             </div>
                         </div>
                     </div>
 
                     <!-- Step 3: Leadership Involvement -->
                     <div class="form-step">
-                        <h5 class="mb-3">Leadership Involvement</h5>
+                        <h5 class="mb-3">Leadership Information</h5>
                         <div class="row g-3">
+                            <!-- Leadership Type -->
                             <div class="col-md-4">
-                                <label class="form-label">Leadership Type *</label>
-                                <select name="leadership_type" class="form-select @error('leadership_type') is-invalid @enderror" required>
-                                    <option value="">Select Type</option>
-                                    <option value="President" {{ old('leadership_type') == 'President' ? 'selected' : '' }}>President</option>
-                                    <option value="Member" {{ old('leadership_type') == 'Member' ? 'selected' : '' }}>Member</option>
+                                <label class="form-label">Leadership Type <span class="required">*</span></label>
+                                <select name="leadership_type_id"
+                                    class="form-select @error('leadership_type_id') is-invalid @enderror"
+                                    required
+                                    data-old="{{ old('leadership_type_id') }}">
+                                    <option value="">Select Leadership Type</option>
+                                    @foreach($leadershipTypes ?? [] as $type)
+                                    <option value="{{ $type->id }}" {{ old('leadership_type_id') == $type->id ? 'selected' : '' }}>
+                                        {{ $type->name }}
+                                    </option>
+                                    @endforeach
                                 </select>
-                                @error('leadership_type')
+                                @error('leadership_type_id')
                                 <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
+
+                            <!-- Cluster -->
                             <div class="col-md-4">
-                                <label class="form-label">Organization Name *</label>
-                                <input type="text" name="org_name" class="form-control @error('org_name') is-invalid @enderror" value="{{ old('org_name') }}" required>
-                                @error('org_name')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Organization Role *</label>
-                                <select name="org_role" class="form-select @error('org_role') is-invalid @enderror" required>
-                                    <option value="">Select Role</option>
-                                    <option value="President" {{ old('org_role') == 'President' ? 'selected' : '' }}>President</option>
-                                    <option value="Vice President" {{ old('org_role') == 'Vice President' ? 'selected' : '' }}>Vice President</option>
-                                    <option value="Secretary" {{ old('org_role') == 'Secretary' ? 'selected' : '' }}>Secretary</option>
-                                    <option value="Treasurer" {{ old('org_role') == 'Treasurer' ? 'selected' : '' }}>Treasurer</option>
-                                    <option value="Member" {{ old('org_role') == 'Member' ? 'selected' : '' }}>Member</option>
+                                <label class="form-label">Cluster <span class="required">*</span></label>
+                                <select name="cluster_id"
+                                    class="form-select @error('cluster_id') is-invalid @enderror"
+                                    required
+                                    data-old="{{ old('cluster_id') }}">
+                                    <option value="">Select Cluster</option>
+                                    <!-- optional: pre-fill if $clusters is passed from controller -->
                                 </select>
-                                @error('org_role')
+                                @error('cluster_id')
                                 <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
+
+                            <!-- Organization -->
                             <div class="col-md-4">
-                                <label class="form-label">Issued By *</label>
-                                <input type="text" name="issued_by" class="form-control @error('issued_by') is-invalid @enderror" value="{{ old('issued_by') }}" required>
+                                <label class="form-label">Organization <span class="required">*</span></label>
+                                <select name="organization_id"
+                                    class="form-select @error('organization_id') is-invalid @enderror"
+                                    required
+                                    data-old="{{ old('organization_id') }}">
+                                    <option value="">Select Organization</option>
+                                </select>
+                                @error('organization_id')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <!-- Position -->
+                            <div class="col-md-4">
+                                <label class="form-label">Position Held <span class="required">*</span></label>
+                                <select name="position_id"
+                                    class="form-select @error('position_id') is-invalid @enderror"
+                                    required
+                                    data-old="{{ old('position_id') }}">
+                                    <option value="">Select Position</option>
+                                    <!-- dynamically filled via JS -->
+                                </select>
+                                @error('position_id')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+
+                            <!-- Term -->
+                            <div class="col-md-4">
+                                <label class="form-label">Term of Service <span class="required">*</span></label>
+                                <input type="text" name="term" class="form-control @error('term') is-invalid @enderror"
+                                    value="{{ old('term') }}" placeholder="e.g., 2024–2025" required>
+                                @error('term')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <!-- Issued By -->
+                            <div class="col-md-4">
+                                <label class="form-label">Issued By <span class="required">*</span></label>
+                                <input type="text" name="issued_by" class="form-control @error('issued_by') is-invalid @enderror"
+                                    value="{{ old('issued_by') }}" required>
                                 @error('issued_by')
                                 <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
+
+                            <!-- Leadership Status -->
                             <div class="col-md-4">
-                                <label class="form-label">Leadership Status *</label>
+                                <label class="form-label">Leadership Status <span class="required">*</span></label>
                                 <select name="leadership_status" class="form-select @error('leadership_status') is-invalid @enderror" required>
-                                    <option value="active" {{ old('leadership_status') == 'active' ? 'selected' : '' }}>Active</option>
-                                    <option value="inactive" {{ old('leadership_status') == 'inactive' ? 'selected' : '' }}>Inactive</option>
+                                    <option value="">Select Status</option>
+                                    <option value="Active" {{ old('leadership_status') == 'Active' ? 'selected' : '' }}>Active</option>
+                                    <option value="Inactive" {{ old('leadership_status') == 'Inactive' ? 'selected' : '' }}>Inactive</option>
                                 </select>
                                 @error('leadership_status')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Term *</label>
-                                <input type="text" name="term" class="form-control @error('term') is-invalid @enderror" value="{{ old('term') }}" required>
-                                @error('term')
                                 <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
                         </div>
                     </div>
 
-                    <!-- Step 4: Credentials -->
+                    <!-- Step 4: Account Credentials -->
                     <div class="form-step">
                         <h5 class="mb-3">Login Credentials</h5>
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label">Password *</label>
-                                <input type="password" name="password" class="form-control @error('password') is-invalid @enderror" id="password" required>
-                                @error('password')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-
+                                <label class="form-label">Password <span class="required">* </span></label>
+                                <input type="password" name="password" id="password" class="form-control" required>
                                 <ul class="password-requirements list-unstyled mt-2 small">
                                     <li id="length" class="text-danger"><i class="fa-regular fa-circle-xmark me-1"></i> At least 8 characters</li>
                                     <li id="uppercase" class="text-danger"><i class="fa-regular fa-circle-xmark me-1"></i> At least 1 uppercase letter</li>
@@ -266,46 +279,36 @@
                                     <li id="special" class="text-danger"><i class="fa-regular fa-circle-xmark me-1"></i> At least 1 special character</li>
                                 </ul>
                             </div>
-
                             <div class="col-md-6">
-                                <label class="form-label">Confirm Password *</label>
-                                <input type="password" name="password_confirmation" class="form-control @error('password_confirmation') is-invalid @enderror" required>
-                                @error('password_confirmation')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
+                                <label class="form-label">Confirm Password <span class="required">* </span></label>
+                                <input type="password" name="password_confirmation" class="form-control" required>
                             </div>
                         </div>
+
                         <div class="form-check mt-3">
-                            <input type="checkbox" class="form-check-input @error('privacy_agree') is-invalid @enderror" id="privacy_agree" name="privacy_agree" {{ old('privacy_agree') ? 'checked' : '' }} required>
+                            <input type="checkbox" class="form-check-input" id="privacy_agree" name="privacy_agree" required>
                             <label class="form-check-label" for="privacy_agree">
-                                I agree to the <a href="#">Terms</a> & <a href="#">Privacy Policy</a>
+                                I agree to the <a href="https://www.usep.edu.ph/usep-data-privacy-statement/" target="_blank">Data Privacy Policy</a>.
                             </label>
-                            @error('privacy_agree')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
                         </div>
                     </div>
 
-                    <!-- Pagination Controls -->
+                    <!-- Step Controls -->
                     <div class="pagination-controls d-flex justify-content-center align-items-center mt-3 mb-2 gap-1">
-                        <button type="button" class="btn btn-secondary px-3 py-2" id="prevBtn" onclick="nextPrev(-1)" disabled>
-                            Back
-                        </button>
+                        <button type="button" class="btn btn-secondary px-3 py-2" id="prevBtn" onclick="nextPrev(-1)" disabled>Back</button>
                         <div class="page-numbers d-flex gap-1">
                             <span class="page-number active">1</span>
                             <span class="page-number">2</span>
                             <span class="page-number">3</span>
                             <span class="page-number">4</span>
                         </div>
-                        <button type="button" class="btn btn-primary maroon-btn px-3 py-2" id="nextBtn" onclick="nextPrev(1)">
-                            Next
-                        </button>
+                        <button type="button" class="btn btn-primary maroon-btn px-3 py-2" id="nextBtn" onclick="nextPrev(1)">Next</button>
                     </div>
                 </form>
             </div>
         </main>
 
-        <!-- Floating Tools (shown only on small devices) -->
+        <!-- Floating Tools -->
         <div class="floating-tools d-md-none">
             <button id="darkModeToggleFloating" class="floating-btn" title="Toggle Dark Mode"><i class="fas fa-moon"></i></button>
             <a href="#" class="floating-btn" title="Send us a message"><i class="fa-solid fa-envelope"></i></a>
@@ -316,133 +319,7 @@
         &copy; {{ date('Y') }} University of Southeastern Philippines. All rights reserved.
     </footer>
 
-    <script>
-        // Age calculation
-        document.querySelector('input[name="birth_date"]').addEventListener('change', function() {
-            const birthDate = new Date(this.value);
-            const today = new Date();
-            let age = today.getFullYear() - birthDate.getFullYear();
-            const monthDiff = today.getMonth() - birthDate.getMonth();
-
-            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-                age--;
-            }
-
-            document.querySelector('input[name="age"]').value = age;
-        });
-
-        // Expected graduation year calculation
-        document.querySelector('select[name="year_level"]').addEventListener('change', function() {
-            const yearLevel = this.value;
-            const currentYear = new Date().getFullYear();
-            let expectedGrad = '';
-
-            switch (yearLevel) {
-                case '1st Year':
-                    expectedGrad = currentYear + 3;
-                    break;
-                case '2nd Year':
-                    expectedGrad = currentYear + 2;
-                    break;
-                case '3rd Year':
-                    expectedGrad = currentYear + 1;
-                    break;
-                case '4th Year':
-                    expectedGrad = currentYear;
-                    break;
-            }
-
-            document.querySelector('input[name="expected_grad"]').value = expectedGrad;
-        });
-
-        // Form step navigation
-        let currentStep = 0;
-        const steps = document.querySelectorAll('.form-step');
-        const totalSteps = steps.length;
-
-        function showStep(step) {
-            steps.forEach((s, index) => {
-                s.classList.toggle('active', index === step);
-            });
-
-            // Update page numbers
-            document.querySelectorAll('.page-number').forEach((page, index) => {
-                page.classList.toggle('active', index === step);
-            });
-
-            // Update buttons
-            const prevBtn = document.getElementById('prevBtn');
-            const nextBtn = document.getElementById('nextBtn');
-
-            prevBtn.disabled = step === 0;
-
-            if (step === totalSteps - 1) {
-                nextBtn.textContent = 'Submit';
-                nextBtn.type = 'submit';
-            } else {
-                nextBtn.textContent = 'Next';
-                nextBtn.type = 'button';
-            }
-        }
-
-        function nextPrev(direction) {
-            if (direction === 1) {
-                if (currentStep < totalSteps - 1) {
-                    currentStep++;
-                }
-            } else {
-                if (currentStep > 0) {
-                    currentStep--;
-                }
-            }
-            showStep(currentStep);
-        }
-
-        // Initialize
-        showStep(0);
-    </script>
-
+    <script src="{{ asset('js/register.js') }}"></script>
 </body>
-<script>
-    const passwordInput = document.getElementById('password');
-    const requirements = {
-        length: document.getElementById('length'),
-        uppercase: document.getElementById('uppercase'),
-        lowercase: document.getElementById('lowercase'),
-        number: document.getElementById('number'),
-        special: document.getElementById('special')
-    };
-
-    passwordInput.addEventListener('input', function() {
-        const value = passwordInput.value;
-
-        // Regex checks
-        const hasLength = value.length >= 8;
-        const hasUppercase = /[A-Z]/.test(value);
-        const hasLowercase = /[a-z]/.test(value);
-        const hasNumber = /\d/.test(value);
-        const hasSpecial = /[^A-Za-z0-9]/.test(value);
-
-        updateRequirement(requirements.length, hasLength);
-        updateRequirement(requirements.uppercase, hasUppercase);
-        updateRequirement(requirements.lowercase, hasLowercase);
-        updateRequirement(requirements.number, hasNumber);
-        updateRequirement(requirements.special, hasSpecial);
-    });
-
-    function updateRequirement(element, isValid) {
-        if (isValid) {
-            element.classList.remove('text-danger');
-            element.classList.add('text-success');
-            element.querySelector('i').classList.remove('fa-circle-xmark');
-            element.querySelector('i').classList.add('fa-circle-check');
-        } else {
-            element.classList.remove('text-success');
-            element.classList.add('text-danger');
-            element.querySelector('i').classList.remove('fa-circle-check');
-            element.querySelector('i').classList.add('fa-circle-xmark');
-        }
-    }
-</script>
 
 </html>

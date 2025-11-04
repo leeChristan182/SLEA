@@ -9,21 +9,26 @@ class Organization extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'cluster_id'];
-    
-    /**
-     * Get the cluster that this organization belongs to.
-     */
+    protected $fillable = [
+        'name',
+        'cluster_id',
+        'description',
+    ];
+
     public function cluster()
     {
         return $this->belongsTo(Cluster::class);
     }
-    
+
     /**
-     * Get the leadership information records associated with this organization.
+     * Computed accessor for combined name (not stored in DB)
      */
-    public function leadershipInformation()
+    public function getCombinedNameAttribute()
     {
-        return $this->hasMany(LeadershipInformation::class);
+        return ($this->cluster?->name ? $this->cluster->name . ' - ' : '') . $this->name;
+    }
+    public function leadershipTypes()
+    {
+        return $this->hasMany(LeadershipType::class);
     }
 }

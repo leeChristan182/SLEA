@@ -1,23 +1,54 @@
 @extends('layouts.app')
 
-@section('title', 'Assessor Dashboard')
+@section('title', 'Assessor Profile')
 
 @section('content')
+<meta name="csrf-token" content="{{ csrf_token() }}">
+
 <div class="container">
-    @include('partials.assessor-sidebar')
+    @include('partials.sidebar')
 
     <main class="main-content">
         <!-- Profile Header Banner -->
         <div class="profile-banner">
             <div class="profile-avatar">
-                <img src="{{ asset('images/avatars/default-avatar.svg') }}" alt="Profile Picture" id="profilePicture">
-                <button class="upload-photo-btn" onclick="document.getElementById('avatarUpload').click()">
+                <img src="{{ $assessor->picture_path ? asset('storage/' . $assessor->picture_path) : asset('images/avatars/default-avatar.png') }}"
+                    alt="Profile Picture"
+                    id="profilePicture">
+
+                <form id="avatarForm" method="POST" action="{{ route('assessor.profile.picture') }}" enctype="multipart/form-data">
+                    @csrf
+                    <input type="file" id="avatarUpload" name="avatar" accept="image/*" style="display:none;">
+                </form>
+
+                <button type="button" class="upload-photo-btn" id="uploadPhotoBtn" title="Change Profile Picture">
                     <i class="fas fa-camera"></i>
                 </button>
-                <input type="file" id="avatarUpload" accept="image/*" style="display:none;" onchange="previewAvatar(event)">
             </div>
-            <h1 class="profile-name">Sample Assessor</h1>
+
+            <h1 class="profile-name">
+                {{ $assessor->account->first_name ?? 'N/A' }}
+                {{ $assessor->account->last_name ?? '' }}
+            </h1>
+            <p class="small {{ session('dark_mode') ? 'text-white-50' : 'text-muted' }}">
+                {{ $assessor->account->position ?? 'Assessor' }}
+            </p>
         </div>
+
+        <!-- FLASH MESSAGES -->
+        @if(session('success'))
+        <div class="alert alert-success text-center mt-3">{{ session('success') }}</div>
+        @endif
+
+        @if($errors->any())
+        <div class="alert alert-danger text-center mt-3">
+            <ul class="mb-0 list-unstyled">
+                @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+        @endif
 
         <!-- Profile Content -->
         <div class="profile-content">
@@ -30,71 +61,72 @@
                     <!-- Display Mode -->
                     <div id="displayMode" class="info-grid">
                         <div class="info-field">
-                            <label class="field-label">Assessor ID</label>
-                            <input type="text" class="field-input" value="2024-00123" readonly>
+                            <label class="field-label">ASSESSOR ID</label>
+                            <input type="text" class="field-input" value="{{ $assessor->assessor_id ?? 'N/A' }}" readonly>
                         </div>
                         <div class="info-field">
                             <label class="field-label">First Name</label>
-                            <input type="text" class="field-input" value="Sample" readonly>
-                        </div>
-                        <div class="info-field">
-                            <label class="field-label">Position</label>
-                            <input type="text" class="field-input" value="Student Affairs Assessor" readonly>
-                        </div>
-                        <div class="info-field">
-                            <label class="field-label">Email Address</label>
-                            <input type="text" class="field-input" value="assessor@usep.edu.ph" readonly>
+                            <input type="text" class="field-input" value="{{ $assessor->account->first_name ?? '' }}" readonly>
                         </div>
                         <div class="info-field">
                             <label class="field-label">Last Name</label>
-                            <input type="text" class="field-input" value="Assessor" readonly>
+                            <input type="text" class="field-input" value="{{ $assessor->account->last_name ?? '' }}" readonly>
+                        </div>
+                        <div class="info-field">
+                            <label class="field-label">Position</label>
+                            <input type="text" class="field-input" value="{{ $assessor->account->position ?? '' }}" readonly>
+                        </div>
+                        <div class="info-field">
+                            <label class="field-label">Email Address</label>
+                            <input type="text" class="field-input" value="{{ $assessor->account->email_address ?? '' }}" readonly>
                         </div>
                         <div class="info-field">
                             <label class="field-label">Contact Number</label>
-                            <input type="text" class="field-input" value="09991234567" readonly>
+                            <input type="text" class="field-input" value="{{ $assessor->account->contact_number ?? 'N/A' }}" readonly>
                         </div>
                     </div>
 
                     <!-- Edit Mode -->
-                    <div id="editMode" class="edit-form" style="display: none;">
-                        <form id="updateForm">
+                    <div id="editMode" class="edit-form" style="display:none;">
+                        <form id="updateForm" method="POST" action="{{ route('assessor.profile.update') }}">
+                            @csrf
+                            @method('PUT')
                             <div class="info-grid">
                                 <div class="info-field">
-                                    <label class="field-label">Assessor ID</label>
-                                    <input type="text" class="field-input" id="updateAssessorId" name="assessor_id" value="2024-00123" readonly>
+                                    <label class="field-label">ASSESSOR ID</label>
+                                    <input type="text" class="field-input" name="assessor_id" value="{{ $assessor->assessor_id ?? '' }}" readonly>
                                 </div>
                                 <div class="info-field">
                                     <label class="field-label">First Name</label>
-                                    <input type="text" class="field-input" id="updateFirstname" name="firstname" value="Sample">
-                                </div>
-                                <div class="info-field">
-                                    <label class="field-label">Position</label>
-                                    <input type="text" class="field-input" id="updatePosition" name="position" value="Student Affairs Assessor">
-                                </div>
-                                <div class="info-field">
-                                    <label class="field-label">Email Address</label>
-                                    <input type="email" class="field-input" id="updateEmail" name="email" value="assessor@usep.edu.ph">
+                                    <input type="text" class="field-input" name="first_name" value="{{ $assessor->account->first_name ?? '' }}">
                                 </div>
                                 <div class="info-field">
                                     <label class="field-label">Last Name</label>
-                                    <input type="text" class="field-input" id="updateLastname" name="lastname" value="Assessor">
+                                    <input type="text" class="field-input" name="last_name" value="{{ $assessor->account->last_name ?? '' }}">
+                                </div>
+                                <div class="info-field">
+                                    <label class="field-label">Position</label>
+                                    <input type="text" class="field-input" name="position" value="{{ $assessor->account->position ?? '' }}">
+                                </div>
+                                <div class="info-field">
+                                    <label class="field-label">Email Address</label>
+                                    <input type="email" class="field-input" name="email_address" value="{{ $assessor->account->email_address ?? '' }}" readonly>
                                 </div>
                                 <div class="info-field">
                                     <label class="field-label">Contact Number</label>
-                                    <input type="tel" class="field-input" id="updatePhone" name="phone" value="09991234567">
+                                    <input type="tel" class="field-input" name="contact_number" value="{{ $assessor->account->contact_number ?? '' }}">
                                 </div>
                             </div>
-                            <div class="form-actions">
-                                <button type="button" class="btn-save" onclick="updateProfile()">Save Changes</button>
-                                <button type="button" class="btn-cancel" onclick="cancelEdit()">Cancel</button>
+                            <div class="form-actions" style="display:none;">
+                                <button type="submit" class="btn-save">Save Changes</button>
+                                <button type="button" class="btn-cancel" id="cancelPersonalBtn">Cancel</button>
                             </div>
                         </form>
                     </div>
                 </div>
                 <div class="card-footer">
-                    <button class="edit-btn" onclick="toggleEditMode()" id="editPersonalBtn">
-                        <i class="fas fa-edit"></i>
-                        Edit
+                    <button class="edit-btn" id="editPersonalBtn">
+                        <i class="fas fa-edit"></i> Edit
                     </button>
                 </div>
             </div>
@@ -105,78 +137,59 @@
                     <h2 class="card-title">Change Password</h2>
                 </div>
                 <div class="card-content">
-                    <!-- Display Mode -->
                     <div id="passwordDisplayMode" class="password-display">
                         <div class="password-info">
                             <i class="fas fa-lock"></i>
-                            <span>Password was last changed 15 days ago</span>
+                            <span>Password last changed recently</span>
                         </div>
                     </div>
 
-                    <!-- Edit Mode -->
-                    <div id="passwordEditMode" class="password-edit" style="display: none;">
-                        <form id="passwordForm">
-                            <div class="password-fields">
-                                <div class="info-field">
-                                    <label class="field-label">Current Password</label>
-                                    <input type="password" class="field-input" id="currentPassword" name="current_password" placeholder="Enter current password">
-                                </div>
+                    <div id="passwordEditMode" class="password-edit" style="display:none;">
+                        <form id="passwordForm" method="POST" action="{{ route('assessor.password.update') }}">
+                            @csrf
+                            @method('PUT')
 
-                                <div class="password-requirements">
-                                    <p class="requirements-title">Password Requirements:</p>
-                                    <ul class="requirements-list" id="passwordChecklist">
-                                        <li id="length" class="requirement-item invalid">
-                                            <i class="fas fa-circle"></i>
-                                            Minimum of 8 characters
-                                        </li>
-                                        <li id="uppercase" class="requirement-item invalid">
-                                            <i class="fas fa-circle"></i>
-                                            An uppercase character
-                                        </li>
-                                        <li id="lowercase" class="requirement-item invalid">
-                                            <i class="fas fa-circle"></i>
-                                            A lowercase character
-                                        </li>
-                                        <li id="number" class="requirement-item invalid">
-                                            <i class="fas fa-circle"></i>
-                                            A number
-                                        </li>
-                                        <li id="special" class="requirement-item invalid">
-                                            <i class="fas fa-circle"></i>
-                                            A special character
-                                        </li>
-                                    </ul>
-                                </div>
+                            <div class="info-field">
+                                <label class="field-label">Current Password</label>
+                                <input type="password" class="field-input" name="current_password" id="currentPassword" required>
+                            </div>
 
-                                <div class="info-field">
-                                    <label class="field-label">New Password</label>
-                                    <input type="password" class="field-input" id="newPassword" name="new_password" placeholder="Enter new password" onkeyup="validatePassword()" oninput="validatePassword()">
-                                </div>
-                                <div class="info-field">
-                                    <label class="field-label">Confirm Password</label>
-                                    <input type="password" class="field-input" id="confirmPassword" name="confirm_password" placeholder="Confirm new password">
-                                </div>
+                            <div class="password-requirements">
+                                <p class="requirements-title">Password Requirements:</p>
+                                <ul class="requirements-list" id="passwordChecklist">
+                                    <li id="length" class="requirement-item invalid"><i class="fas fa-circle"></i> Minimum of 8 characters</li>
+                                    <li id="uppercase" class="requirement-item invalid"><i class="fas fa-circle"></i> An uppercase character</li>
+                                    <li id="lowercase" class="requirement-item invalid"><i class="fas fa-circle"></i> A lowercase character</li>
+                                    <li id="number" class="requirement-item invalid"><i class="fas fa-circle"></i> A number</li>
+                                    <li id="special" class="requirement-item invalid"><i class="fas fa-circle"></i> A special character</li>
+                                </ul>
+                            </div>
+
+                            <div class="info-field">
+                                <label class="field-label">New Password</label>
+                                <input type="password" class="field-input" name="new_password" id="newPassword" oninput="validatePassword()" required>
+                            </div>
+                            <div class="info-field">
+                                <label class="field-label">Confirm Password</label>
+                                <input type="password" class="field-input" name="new_password_confirmation" id="confirmPassword" required>
                             </div>
 
                             <div class="checkbox-field">
                                 <label class="checkbox-label">
-                                    <input type="checkbox" onclick="togglePassword()">
-                                    <span class="checkmark"></span>
-                                    Show Password
+                                    <input type="checkbox" id="togglePasswordCheckbox"> Show Password
                                 </label>
                             </div>
 
                             <div class="form-actions">
-                                <button type="button" class="btn-save" onclick="updatePassword()">Change Password</button>
-                                <button type="button" class="btn-cancel" onclick="cancelPasswordEdit()">Cancel</button>
+                                <button type="submit" class="btn-save">Change Password</button>
+                                <button type="button" class="btn-cancel" id="cancelPasswordBtn">Cancel</button>
                             </div>
                         </form>
                     </div>
                 </div>
                 <div class="card-footer">
-                    <button class="edit-btn" onclick="togglePasswordEdit()" id="editPasswordBtn">
-                        <i class="fas fa-edit"></i>
-                        Edit
+                    <button class="edit-btn" id="editPasswordBtn">
+                        <i class="fas fa-edit"></i> Edit
                     </button>
                 </div>
             </div>
@@ -185,11 +198,11 @@
 </div>
 
 <!-- Success Modal -->
-<div id="successModal" class="modal" style="display: none;">
+<div id="successModal" class="modal" style="display:none;">
     <div class="modal-content">
         <div class="modal-header">
             <h3>Success</h3>
-            <span class="close" onclick="closeSuccessModal()">&times;</span>
+            <span class="close" id="closeSuccessModal">&times;</span>
         </div>
         <div class="modal-body">
             <div class="success-message">
@@ -198,220 +211,13 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn btn-primary" onclick="closeSuccessModal()">OK</button>
+            <button type="button" class="btn btn-primary" id="okSuccessModal">OK</button>
         </div>
     </div>
 </div>
-
-<script>
-    // Toggle Edit Mode
-    function toggleEditMode() {
-        document.getElementById('displayMode').style.display = 'none';
-        document.getElementById('editMode').style.display = 'block';
-        document.getElementById('editPersonalBtn').style.display = 'none';
-    }
-
-    // Cancel Edit
-    function cancelEdit() {
-        document.getElementById('displayMode').style.display = 'block';
-        document.getElementById('editMode').style.display = 'none';
-        document.getElementById('editPersonalBtn').style.display = 'flex';
-
-        // Reset form to original values
-        document.getElementById('updateFirstname').value = 'Sample';
-        document.getElementById('updateLastname').value = 'Assessor';
-        document.getElementById('updatePhone').value = '09991234567';
-        document.getElementById('updateEmail').value = 'assessor@usep.edu.ph';
-        document.getElementById('updatePosition').value = 'Student Affairs Assessor';
-    }
-
-    // Update Profile
-    function updateProfile() {
-        const form = document.getElementById('updateForm');
-        const formData = new FormData(form);
-
-        // Here you would send the data to the server
-        console.log('Updating profile:', Object.fromEntries(formData));
-
-        // Update the display values
-        document.querySelector('#displayMode .info-field:nth-child(1) .field-input').value = document.getElementById('updateAssessorId').value;
-        document.querySelector('#displayMode .info-field:nth-child(2) .field-input').value = document.getElementById('updateFirstname').value;
-        document.querySelector('#displayMode .info-field:nth-child(3) .field-input').value = document.getElementById('updatePosition').value;
-        document.querySelector('#displayMode .info-field:nth-child(4) .field-input').value = document.getElementById('updateEmail').value;
-        document.querySelector('#displayMode .info-field:nth-child(5) .field-input').value = document.getElementById('updateLastname').value;
-        document.querySelector('#displayMode .info-field:nth-child(6) .field-input').value = document.getElementById('updatePhone').value;
-
-        // Switch back to display mode
-        document.getElementById('displayMode').style.display = 'block';
-        document.getElementById('editMode').style.display = 'none';
-        document.getElementById('editPersonalBtn').style.display = 'flex';
-
-        // Show success message
-        showSuccessModal('Personal information updated successfully!');
-    }
-
-    // Toggle Password Edit Mode
-    function togglePasswordEdit() {
-        document.getElementById('passwordDisplayMode').style.display = 'none';
-        document.getElementById('passwordEditMode').style.display = 'block';
-        document.getElementById('editPasswordBtn').style.display = 'none';
-
-        // Initialize button state as disabled
-        const changePasswordBtn = document.querySelector('#passwordEditMode .btn-save');
-        if (changePasswordBtn) {
-            changePasswordBtn.disabled = true;
-            changePasswordBtn.style.opacity = '0.5';
-            changePasswordBtn.style.cursor = 'not-allowed';
-        }
-
-        // Reset all requirements to invalid state
-        document.querySelectorAll('.requirement-item').forEach(item => {
-            item.classList.remove('valid');
-            item.classList.add('invalid');
-        });
-    }
-
-    // Cancel Password Edit
-    function cancelPasswordEdit() {
-        document.getElementById('passwordDisplayMode').style.display = 'block';
-        document.getElementById('passwordEditMode').style.display = 'none';
-        document.getElementById('editPasswordBtn').style.display = 'flex';
-
-        // Clear form
-        document.getElementById('passwordForm').reset();
-
-        // Reset password requirements
-        document.querySelectorAll('.requirement-item').forEach(item => {
-            item.classList.remove('valid');
-            item.classList.add('invalid');
-        });
-
-        // Reset button state
-        const changePasswordBtn = document.querySelector('#passwordEditMode .btn-save');
-        if (changePasswordBtn) {
-            changePasswordBtn.disabled = false;
-            changePasswordBtn.style.opacity = '1';
-            changePasswordBtn.style.cursor = 'pointer';
-        }
-    }
-
-    // Update Password
-    function updatePassword() {
-        const form = document.getElementById('passwordForm');
-        const formData = new FormData(form);
-
-        // Validate passwords match
-        const newPassword = document.getElementById('newPassword').value;
-        const confirmPassword = document.getElementById('confirmPassword').value;
-
-        if (newPassword !== confirmPassword) {
-            alert('Passwords do not match!');
-            return;
-        }
-
-        // Here you would send the data to the server
-        console.log('Updating password:', Object.fromEntries(formData));
-
-        // Switch back to display mode
-        document.getElementById('passwordDisplayMode').style.display = 'block';
-        document.getElementById('passwordEditMode').style.display = 'none';
-        document.getElementById('editPasswordBtn').style.display = 'flex';
-
-        // Clear form
-        form.reset();
-
-        // Show success message
-        showSuccessModal('Password updated successfully!');
-    }
-
-    // Password validation is now handled by the external admin_profile.js file
-
-    // Toggle Password Visibility
-    function togglePassword() {
-        const inputs = document.querySelectorAll('#passwordEditMode input[type="password"]');
-        inputs.forEach(input => {
-            input.type = input.type === 'password' ? 'text' : 'password';
-        });
-    }
-
-    // Success Modal
-    function showSuccessModal(message) {
-        document.getElementById('successMessage').textContent = message;
-        document.getElementById('successModal').style.display = 'block';
-        document.body.style.overflow = 'hidden';
-    }
-
-    function closeSuccessModal() {
-        document.getElementById('successModal').style.display = 'none';
-        document.body.style.overflow = 'auto';
-    }
-
-    // Close modal when clicking outside
-    window.addEventListener('click', function(e) {
-        const modal = document.getElementById('successModal');
-        if (e.target === modal) {
-            closeSuccessModal();
-        }
-    });
-
-    // Avatar preview function
-    function previewAvatar(event) {
-        const file = event.target.files[0];
-        if (file) {
-            // Validate file type
-            if (!file.type.startsWith('image/')) {
-                alert('Please select a valid image file.');
-                return;
-            }
-
-            // Validate file size (max 5MB)
-            if (file.size > 5 * 1024 * 1024) {
-                alert('Image size should be less than 5MB.');
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                // Update profile picture
-                const profileImg = document.getElementById('profilePicture');
-                if (profileImg) {
-                    profileImg.src = e.target.result;
-                    console.log('Profile picture updated successfully');
-                }
-
-                // Update sidebar profile icon
-                updateSidebarProfile(e.target.result);
-
-                // Show success message
-                showSuccessModal('Profile picture updated successfully!');
-
-                // Here you would typically upload to server
-                console.log('Profile picture updated:', file.name);
-            };
-            reader.readAsDataURL(file);
-        }
-    }
-
-    // Update sidebar profile icon
-    function updateSidebarProfile(imageSrc) {
-        const sidebarProfile = document.querySelector('#sidebarProfileIcon');
-        if (sidebarProfile) {
-            sidebarProfile.style.backgroundImage = `url('${imageSrc}')`;
-            sidebarProfile.style.backgroundSize = 'cover';
-            sidebarProfile.style.backgroundPosition = 'center';
-
-            // Store in localStorage for persistence
-            localStorage.setItem('profileImage', imageSrc);
-        }
-    }
-
-    // Load profile image from localStorage on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        const savedImage = localStorage.getItem('profileImage');
-        if (savedImage) {
-            document.getElementById('profilePicture').src = savedImage;
-            updateSidebarProfile(savedImage);
-        }
-    });
-</script>
 @endsection
+
+@push('scripts')
+<script src="https://kit.fontawesome.com/a2e0ad2a6a.js" crossorigin="anonymous"></script>
+<script src="{{ asset('js/assessor_profile.js') }}"></script>
+@endpush

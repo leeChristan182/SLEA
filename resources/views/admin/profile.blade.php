@@ -12,9 +12,9 @@
         <!-- Profile Header Banner -->
         <div class="profile-banner">
             <div class="profile-avatar">
-                <img
-                    src="{{ $admin->profile_picture_path ? asset('storage/' . $admin->profile_picture_path) : asset('images/avatars/default-avatar.png') }}"
-                    alt="Profile Picture" id="profilePicture">
+                <img src="{{ $admin->profile_picture_path ? asset('storage/' . $admin->profile_picture_path) : asset('images/avatars/default-avatar.png') }}"
+                    alt="Profile Picture"
+                    id="profilePicture">
 
                 <form id="avatarForm" method="POST" action="{{ route('admin.profile.avatar') }}" enctype="multipart/form-data">
                     @csrf

@@ -30,7 +30,8 @@ class RubricSubsectionController extends Controller
         $validated = $request->validate([
             'section_id'      => ['required', 'integer', 'exists:rubric_sections,section_id'],
             'sub_section'     => ['required', 'string', 'max:255'],
-            'evidence_needed' => ['nullable', 'string', 'max:255'],
+            'evidence_needed' => ['nullable', 'string'],
+            'notes'           => ['nullable', 'string'],
             'order_no'        => ['required', 'integer', 'between:1,255'],
         ]);
 
@@ -42,7 +43,9 @@ class RubricSubsectionController extends Controller
 
     public function show(RubricSubsection $rubric_subsection)
     {
-        return view('rubric_subsections.show', ['sub' => $rubric_subsection->load('section')]);
+        return view('rubric_subsections.show', [
+            'sub' => $rubric_subsection->load('section')
+        ]);
     }
 
     public function edit(RubricSubsection $rubric_subsection)
@@ -59,7 +62,8 @@ class RubricSubsectionController extends Controller
         $validated = $request->validate([
             'section_id'      => ['required', 'integer', 'exists:rubric_sections,section_id'],
             'sub_section'     => ['required', 'string', 'max:255'],
-            'evidence_needed' => ['nullable', 'string', 'max:255'],
+            'evidence_needed' => ['nullable', 'string'],
+            'notes'           => ['nullable', 'string'],
             'order_no'        => ['required', 'integer', 'between:1,255'],
         ]);
 

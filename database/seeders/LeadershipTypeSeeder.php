@@ -13,11 +13,10 @@ class LeadershipTypeSeeder extends Seeder
     public function run()
     {
         $types = [
-            ['name' => 'University Student Goverment(USG)'],
-            ['name' => 'Obrero Student Council(OSC)'],
+            ['name' => 'University Student Government (USG)'],
+            ['name' => 'Obrero Student Council (OSC)'],
             ['name' => 'Local Council (LC)'],
             ['name' => 'Council of Clubs and Organizations (CCO)'],
-            ['name' => '    University League of Class Mayors'],
             ['name' => 'Local Government Unit (LGU)'],
         ];
 

@@ -181,6 +181,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // attach a global function so inline calls from blade still work:
   window.cancelPasswordEdit = cancelPasswordEdit;
+  document.getElementById('cancelPersonalBtn')?.addEventListener('click', cancelEditing);
+document.getElementById('cancelPasswordBtn')?.addEventListener('click', cancelPasswordEdit);
 
   /* ---------- Password validation checklist ---------- */
   function setChecklistState(key, ok) {

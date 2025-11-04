@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class StudentPersonalInformation extends Model
 {
-     protected $table = 'student_personal_information';
+    protected $table = 'student_personal_information';
     protected $primaryKey = 'email_address';
     public $incrementing = false;
     protected $keyType = 'string';
@@ -33,6 +33,7 @@ class StudentPersonalInformation extends Model
     {
         return $this->hasMany(LeadershipInformation::class, 'student_id', 'student_id');
     }
+
 
     public function getFullNameAttribute()
     {

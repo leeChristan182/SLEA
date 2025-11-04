@@ -1,92 +1,144 @@
 <?php
 
-
-
 namespace App\Http\Controllers;
 
-use App\Models\StudentPersonalInformation;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use App\Models\StudentPersonalInformation;
+use App\Models\AcademicInformation;
+use App\Models\LeadershipInformation;
+use App\Models\StudentAccount;
+use App\Models\SystemMonitoringAndLog;
 
 class StudentController extends Controller
 {
-    public function index()
+    /**
+     * Show the logged-in student's full profile dashboard.
+     */
+    public function profile()
     {
-        $students = StudentPersonalInformation::with('academicInformation')->get();
-        return view('students.index', compact('students'));
+        $user = Auth::user();
+
+        // Fetch student data with all related info
+        $student = StudentPersonalInformation::with([
+            'academicInformation',
+            'leadershipInformation'
+        ])
+            ->where('email_address', $user->email_address)
+            ->firstOrFail();
+
+        return view('student.profile', compact('student'));
     }
 
-    public function show($email)
-    {
-        $student = StudentPersonalInformation::with(['academicInformation', 'leadershipInformation'])->findOrFail($email);
-        return view('students.show', compact('student'));
-    }
-
-    public function create()
-    {
-        return view('students.create');
-    }
-
-    public function edit($email)
-    {
-        $student = StudentPersonalInformation::findOrFail($email);
-        return view('students.edit', compact('student'));
-    }
-
-    public function update(Request $request, $email)
-    {
-        $student = StudentPersonalInformation::findOrFail($email);
-        
-        $validated = $request->validate([
-            'student_id' => 'required|string|max:20|unique:student_personal_information,student_id,' . $student->student_id . ',student_id',
-            'email_address' => 'required|email|unique:student_personal_information,email_address,' . $email,
-            'first_name' => 'required|string|max:50',
-            'last_name' => 'required|string|max:50',
-            'middle_name' => 'nullable|string|max:50',
-            'date_of_birth' => 'required|date',
-            'age' => 'nullable|integer',
-            'contact_number' => 'required|string|max:15',
-            'gender' => 'required|in:Male,Female,Other',
-            'address' => 'required|string',
-        ]);
-
-        $student->update($validated);
-
-        return redirect()->route('students.show', $email)->with('success', 'Student updated successfully!');
-    }
-
-    public function destroy($email)
-    {
-        $student = StudentPersonalInformation::findOrFail($email);
-        $student->delete();
-
-        return redirect()->route('students.index')->with('success', 'Student deleted successfully!');
-    }
-  
-public function table()
-{
-    $students = StudentPersonalInformation::with(['academicInformation'])
-        ->orderBy('last_name')
-        ->orderBy('first_name')
-        ->get();
-    return view('students.table', compact('students'));
-}
-    public function store(Request $request)
+    /**
+     * Update the student's year level, program, or major.
+     */
+    public function updateAcademicInfo(Request $request)
     {
         $validated = $request->validate([
-            'student_id' => 'required|string|max:20|unique:student_personal_information,student_id',
-            'email_address' => 'required|email|unique:student_personal_information,email_address',
-            'first_name' => 'required|string|max:50',
-            'last_name' => 'required|string|max:50',
-            'middle_name' => 'nullable|string|max:50',
-            'date_of_birth' => 'required|date',
-            'age' => 'nullable|integer',
-            'contact_number' => 'required|string|max:15',
-            'gender' => 'required|in:Male,Female,Other',
-            'address' => 'required|string',
+            'year_level' => 'required|string|max:20',
+            'program' => 'required|string|max:100',
+            'major' => 'nullable|string|max:100',
         ]);
 
-        StudentPersonalInformation::create($validated);
-        
-        return redirect()->route('students.index')->with('success', 'Student created successfully!');
+        $user = Auth::user();
+        $academic = AcademicInformation::where('student_id', $user->student_id)->first();
+
+        if ($academic) {
+            $academic->update($validated);
+        } else {
+            $validated['student_id'] = $user->student_id;
+            AcademicInformation::create($validated);
+        }
+
+        // Log action
+        SystemMonitoringAndLog::create([
+            'user_email' => $user->email_address,
+            'activity' => 'Updated academic information',
+        ]);
+
+        return back()->with('success', 'Academic information updated successfully.');
+    }
+
+    /**
+     * Change student password securely.
+     */
+    public function changePassword(Request $request)
+    {
+        $validated = $request->validate([
+            'current_password' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $student = Auth::user();
+
+        if (!Hash::check($validated['current_password'], $student->password)) {
+            return back()->withErrors(['current_password' => 'Incorrect current password.']);
+        }
+
+        $student->password = Hash::make($validated['password']);
+        $student->save();
+
+        SystemMonitoringAndLog::create([
+            'user_email' => $student->email_address,
+            'activity' => 'Changed account password',
+        ]);
+
+        return back()->with('success', 'Password changed successfully!');
+    }
+
+    /**
+     * Upload Certificate of Registration (COR).
+     */
+    public function uploadCOR(Request $request)
+    {
+        $request->validate([
+            'cor' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
+        ]);
+
+        $user = Auth::user();
+        $path = $request->file('cor')->store('certificates/cor', 'public');
+
+        $academic = AcademicInformation::where('student_id', $user->student_id)->first();
+        if ($academic) {
+            $academic->update(['cor_file' => $path]);
+        }
+
+        SystemMonitoringAndLog::create([
+            'user_email' => $user->email_address,
+            'activity' => 'Uploaded Certificate of Registration',
+        ]);
+
+        return back()->with('success', 'Certificate of Registration uploaded successfully!');
+    }
+
+    /**
+     * Update student profile picture (avatar).
+     */
+    public function updateAvatar(Request $request)
+    {
+        $request->validate([
+            'avatar' => 'required|image|mimes:jpg,jpeg,png|max:2048',
+        ]);
+
+        $user = Auth::user();
+        $path = $request->file('avatar')->store('avatars', 'public');
+
+        $student = StudentPersonalInformation::where('student_id', $user->student_id)->first();
+        if ($student) {
+            if ($student->profile_picture_path) {
+                Storage::disk('public')->delete($student->profile_picture_path);
+            }
+            $student->update(['profile_picture_path' => $path]);
+        }
+
+        SystemMonitoringAndLog::create([
+            'user_email' => $user->email_address,
+            'activity' => 'Updated profile picture',
+        ]);
+
+        return back()->with('success', 'Profile picture updated!');
     }
 }

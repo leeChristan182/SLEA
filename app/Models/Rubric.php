@@ -10,11 +10,16 @@ class Rubric extends Model
     use HasFactory;
 
     protected $fillable = [
-        'position_or_title',
-        'points',
-        'max_points',
-        'unit_note',
-        'evidence',
-        'category',
+        'title',
+        'description',
+        'is_active',
     ];
+
+    /**
+     * A rubric has many categories (e.g., Leadership, Academic, etc.)
+     */
+    public function categories()
+    {
+        return $this->hasMany(RubricCategory::class);
+    }
 }

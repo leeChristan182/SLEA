@@ -4,8 +4,6 @@
 
 @section('content')
 <div class="container">
-    @include('partials.sidebar')
-
     <main class="main-content">
         <div class="page-with-back-button">
             <div class="page-content">
@@ -18,184 +16,86 @@
 
                 <h2 class="manage-title">Create Assessor's Account</h2>
 
-                <form action="#" method="GET">
+                <!-- ✅ Display messages -->
+                @if (session('success'))
+                <div class="alert alert-success" style="margin-bottom: 20px;">
+                    {{ session('success') }}
+                </div>
+                @endif
+
+                @if ($errors->any())
+                <div class="alert alert-danger" style="margin-bottom: 20px;">
+                    <ul style="margin: 0;">
+                        @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+                @endif
+
+                <!-- ✅ Create Assessor Form -->
+                <form action="{{ route('admin.store_assessor') }}" method="POST">
                     @csrf
+
                     <div class="form-row">
                         <div class="form-group">
                             <label for="last_name">Last Name <span class="required">*</span></label>
-                            <input type="text" id="last_name" name="last_name" required>
+                            <input type="text" id="last_name" name="last_name" value="{{ old('last_name') }}" required>
                         </div>
+
                         <div class="form-group">
                             <label for="first_name">First Name <span class="required">*</span></label>
-                            <input type="text" id="first_name" name="first_name" required>
+                            <input type="text" id="first_name" name="first_name" value="{{ old('first_name') }}" required>
                         </div>
+
                         <div class="form-group">
                             <label for="middle_name">Middle Name</label>
-                            <input type="text" id="middle_name" name="middle_name">
+                            <input type="text" id="middle_name" name="middle_name" value="{{ old('middle_name') }}">
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="email">Email <span class="required">*</span></label>
-                            <input type="email" id="email" name="email" required>
+                            <label for="email_address">Email <span class="required">*</span></label>
+                            <input type="email" id="email_address" name="email_address" value="{{ old('email_address') }}" required>
                         </div>
+
                         <div class="form-group">
                             <label for="position">Position <span class="required">*</span></label>
-                            <input type="text" id="position" name="position" required>
+                            <input type="text" id="position" name="position" value="{{ old('position') }}" required>
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group full-width">
                             <label for="default_password">Default Password</label>
-                            <input type="text" id="default_password" name="default_password" value="{{ $defaultPassword }}" disabled>
+                            <input type="text"
+                                id="default_password"
+                                name="default_password"
+                                value="{{ session('default_password', 'Auto-generated on save') }}"
+                                readonly>
+
                         </div>
                     </div>
 
                     <div class="button-group">
-                        <button type="button" class="save-btn" id="saveBtn">Save</button>
+                        <button type="submit" class="save-btn">Save</button>
                         <button type="button" class="cancel-btn" onclick="window.history.back()">Cancel</button>
                     </div>
                 </form>
             </div>
         </div>
-
-        <!-- Success Modal -->
-        <div id="successModal" class="modal" style="display: none;">
-            <div class="modal-content success-modal">
-                <div class="modal-header">
-                    <h3>Success</h3>
-                    <span class="close" onclick="closeSuccessModal()">&times;</span>
-                </div>
-                <div class="modal-body text-center">
-                    <div class="success-icon">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
-                    <h3 id="successMessage">Assessor account created successfully!</h3>
-                    <p>The new assessor account has been created and is ready to use.</p>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-primary" onclick="closeSuccessModal()">OK</button>
-                </div>
-            </div>
-        </div>
+    </main>
 </div>
-</main>
-</div>
-
 @endsection
 
 @section('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOM loaded, setting up event listeners');
-
-        const saveBtn = document.getElementById('saveBtn');
-        const form = document.querySelector('form');
-
-        if (saveBtn && form) {
-            saveBtn.addEventListener('click', function(event) {
-                console.log('Save button clicked!');
-                handleSubmit(event);
-            });
-        } else {
-            console.error('Save button or form not found!');
-        }
-    });
-
-    function handleSubmit(event) {
-        console.log('handleSubmit called');
-
-        // Get the form element
-        const form = document.querySelector('form');
-        if (!form) {
-            console.error('Form not found!');
-            alert('Form not found. Please refresh the page.');
-            return;
-        }
-
-        // Get form data
-        const formData = new FormData(form);
-        const lastName = formData.get('last_name');
-        const firstName = formData.get('first_name');
-        const email = formData.get('email');
-        const position = formData.get('position');
-
-        console.log('Form data:', {
-            lastName,
-            firstName,
-            email,
-            position
-        });
-
-        // Basic validation
-        if (!lastName || !firstName || !email || !position) {
-            alert('Please fill in all required fields.');
-            return;
-        }
-
-        // Email validation
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            alert('Please enter a valid email address.');
-            return;
-        }
-
-        // Show loading state
-        const saveBtn = event.target;
-        const originalText = saveBtn.textContent;
-        saveBtn.textContent = 'Saving...';
-        saveBtn.disabled = true;
-
-        // Simulate form submission (replace with actual AJAX call)
-        setTimeout(() => {
-            console.log('Showing success modal');
-            showSuccessModal();
-
-            // Reset button state
-            saveBtn.textContent = originalText;
-            saveBtn.disabled = false;
-
-            // Reset form after success
-            setTimeout(() => {
-                form.reset();
-            }, 2000);
-        }, 1000); // Simulate 1 second processing time
-    }
-
-    function showSuccessModal() {
-        const modal = document.getElementById('successModal');
-        const messageElement = document.getElementById('successMessage');
-
-        messageElement.textContent = 'Assessor account created successfully!';
-        modal.style.display = 'block';
-
-        // Auto close after 5 seconds
-        setTimeout(() => {
-            closeSuccessModal();
-        }, 5000);
-    }
-
-    function closeSuccessModal() {
-        const modal = document.getElementById('successModal');
-        if (modal) {
-            modal.style.display = 'none';
-        }
-    }
-
-    // Close modal when clicking outside
-    window.onclick = function(event) {
-        const modal = document.getElementById('successModal');
-        if (event.target === modal) {
-            closeSuccessModal();
-        }
-    }
-
-    // Close modal with Escape key
-    document.addEventListener('keydown', function(event) {
-        if (event.key === 'Escape') {
-            closeSuccessModal();
+        // Optional small UX enhancement
+        const successAlert = document.querySelector('.alert-success');
+        if (successAlert) {
+            setTimeout(() => successAlert.style.display = 'none', 5000);
         }
     });
 </script>
