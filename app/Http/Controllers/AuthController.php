@@ -2,186 +2,162 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\LoginMonitoringService;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use App\Models\AdminProfile;
-use App\Models\AssessorAccount;
-use App\Models\StudentPersonalInformation;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    protected $loginMonitoringService;
-
-    public function __construct(LoginMonitoringService $loginMonitoringService)
+    // Toggle OTP via .env (AUTH_OTP=true/false)
+    protected function otpEnabled(): bool
     {
-        $this->loginMonitoringService = $loginMonitoringService;
+        return filter_var(config('app.auth_otp', env('AUTH_OTP', false)), FILTER_VALIDATE_BOOL);
     }
 
-    /**
-     * Show login form
-     */
-    public function showLoginForm()
+    public function showLogin()
     {
         return view('auth.login');
     }
 
-    /**
-     * Handle login attempt
-     */
-    public function login(Request $request)
+    public function showRegister()
+    {
+        return view('auth.register');
+    }
+
+    public function authenticate(Request $request)
     {
         $request->validate([
-            'email' => 'required|email',
-            'password' => 'required|string',
-            'user_type' => 'required|in:admin,assessor,student',
+            'email'    => ['required', 'email'],
+            'password' => ['required'],
+            'remember' => ['nullable', 'boolean'],
         ]);
 
-        $email = $request->email;
-        $password = $request->password;
-        $userType = $request->user_type;
-
-        // Record login attempt
-        $this->loginMonitoringService->recordLoginAttempt($email, $userType, $request);
-
-        // Authenticate based on user type
-        $user = $this->authenticateUser($email, $password, $userType);
-
-        if ($user) {
-            // Record successful login
-            $this->loginMonitoringService->recordSuccessfulLogin($email, $userType, $request);
-            
-            // Set session data
-            session([
-                'user_id' => $user->id ?? $user->admin_id ?? $user->student_id,
-                'user_email' => $email,
-                'user_type' => $userType,
-                'user_name' => $user->name ?? $user->first_name . ' ' . $user->last_name,
-                'login_success' => true,
+        // Simple throttle: 5 tries / 60s per email+IP
+        $key = 'login:' . sha1($request->ip() . '|' . $request->input('email'));
+        if (RateLimiter::tooManyAttempts($key, 5)) {
+            $seconds = RateLimiter::availableIn($key);
+            throw ValidationException::withMessages([
+                'email' => "Too many attempts. Try again in {$seconds}s.",
             ]);
-
-            return redirect()->intended('/dashboard')->with('success', 'Login successful!');
-        } else {
-            // Record failed login
-            $this->loginMonitoringService->recordFailedLogin($email, $userType, $request);
-            
-            session(['login_failed' => true]);
-            
-            return back()->withErrors([
-                'email' => 'Invalid credentials.',
-            ])->withInput($request->only('email', 'user_type'));
         }
+
+        if (!Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
+            RateLimiter::hit($key, 60);
+            throw ValidationException::withMessages([
+                'email' => 'Invalid credentials.',
+            ]);
+        }
+
+        RateLimiter::clear($key);
+
+        $user = Auth::user();
+
+        if ($this->otpEnabled()) {
+            // Don’t fully sign in until OTP passes: log out, stash user id in session
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            $request->session()->put('otp_user_id', $user->id);
+            $code = random_int(100000, 999999);
+            Cache::put("otp:{$user->id}", $code, now()->addMinutes(10));
+
+            // TODO: send via mail/SMS/notify; for local dev you can log it:
+            // \Log::info("OTP for {$user->email}: {$code}");
+
+            return redirect()->route('otp.show')->with('status', 'We sent a 6-digit code.');
+        }
+
+        // Normal login path
+        $request->session()->regenerate();
+        return $this->redirectByRole($user);
     }
 
-    /**
-     * Handle logout
-     */
+    public function showOtp(Request $request)
+    {
+        abort_unless($request->session()->has('otp_user_id'), 403);
+        return view('auth.otp'); // simple form with one input named "code"
+    }
+
+    public function verifyOtp(Request $request)
+    {
+        $request->validate(['code' => ['required', 'digits:6']]);
+        $userId = $request->session()->pull('otp_user_id');
+        abort_unless($userId, 403);
+
+        $expected = Cache::get("otp:{$userId}");
+        if (!$expected || $expected !== (int)$request->code) {
+            // put it back if wrong so user can retry
+            $request->session()->put('otp_user_id', $userId);
+            return back()->withErrors(['code' => 'Incorrect or expired code.'])->withInput();
+        }
+
+        Cache::forget("otp:{$userId}");
+        Auth::loginUsingId($userId);
+        $request->session()->regenerate();
+
+        return $this->redirectByRole(Auth::user());
+    }
+
+    public function resendOtp(Request $request)
+    {
+        $userId = $request->session()->get('otp_user_id');
+        abort_unless($userId, 403);
+
+        $code = random_int(100000, 999999);
+        Cache::put("otp:{$userId}", $code, now()->addMinutes(10));
+        // send notify/email here; for dev:
+        // \Log::info("Resent OTP for user {$userId}: {$code}");
+
+        return back()->with('status', 'New code sent.');
+    }
+
+    public function register(Request $request)
+    {
+        $request->validate([
+            'name'     => ['required', 'string', 'max:255'],
+            'email'    => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'min:8', 'confirmed'],
+        ]);
+
+        $user = User::create([
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'password' => Hash::make($request->password),
+            'role'     => 'student', // self-registers are students
+            'status'   => 'active',
+        ]);
+
+        if ($this->otpEnabled()) {
+            $request->session()->put('otp_user_id', $user->id);
+            $code = random_int(100000, 999999);
+            Cache::put("otp:{$user->id}", $code, now()->addMinutes(10));
+            return redirect()->route('otp.show')->with('status', 'We sent a 6-digit code.');
+        }
+
+        Auth::login($user);
+        $request->session()->regenerate();
+        return $this->redirectByRole($user);
+    }
+
     public function logout(Request $request)
     {
-        $email = session('user_email');
-        $userType = session('user_type');
-        
-        // Record logout
-        if ($email) {
-            $this->loginMonitoringService->recordLoginAttempt($email, $userType, $request);
-        }
-
+        Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-
-        return redirect('/login')->with('success', 'Logged out successfully!');
+        return redirect()->route('login');
     }
 
-    /**
-     * Authenticate user based on type
-     */
-    private function authenticateUser(string $email, string $password, string $userType)
+    protected function redirectByRole(User $user)
     {
-        switch ($userType) {
-            case 'admin':
-                return $this->authenticateAdmin($email, $password);
-            case 'assessor':
-                return $this->authenticateAssessor($email, $password);
-            case 'student':
-                return $this->authenticateStudent($email, $password);
-            default:
-                return null;
-        }
-    }
-
-    /**
-     * Authenticate admin user
-     */
-    private function authenticateAdmin(string $email, string $password)
-    {
-        $admin = AdminProfile::where('email_address', $email)->first();
-        
-        if ($admin) {
-            // Check password in admin_passwords table
-            $adminPassword = \App\Models\AdminPassword::where('admin_id', $admin->admin_id)->first();
-            
-            if ($adminPassword && Hash::check($password, $adminPassword->password_hashed)) {
-                return $admin;
-            }
-        }
-        
-        return null;
-    }
-
-    /**
-     * Authenticate assessor user
-     */
-    private function authenticateAssessor(string $email, string $password)
-    {
-        $assessor = AssessorAccount::where('email_address', $email)->first();
-        
-        if ($assessor && Hash::check($password, $assessor->default_password)) {
-            return $assessor;
-        }
-        
-        return null;
-    }
-
-    /**
-     * Authenticate student user
-     */
-    private function authenticateStudent(string $email, string $password)
-    {
-        $student = StudentPersonalInformation::where('email_address', $email)->first();
-        
-        if ($student) {
-            // Check password in student_passwords table
-            $studentPassword = \App\Models\StudentPassword::where('student_id', $student->student_id)->first();
-            
-            if ($studentPassword && Hash::check($password, $studentPassword->password_hashed)) {
-                return $student;
-            }
-        }
-        
-        return null;
-    }
-
-    /**
-     * Show dashboard based on user type
-     */
-    public function dashboard()
-    {
-        $userType = session('user_type');
-        $userEmail = session('user_email');
-        
-        // Get user-specific data
-        $data = [
-            'user_type' => $userType,
-            'user_email' => $userEmail,
-            'user_name' => session('user_name'),
-        ];
-
-        // Add login monitoring data for admins
-        if ($userType === 'admin') {
-            $data['login_stats'] = $this->loginMonitoringService->getLoginStatistics();
-        }
-
-        return view('dashboard', $data);
+        return match ($user->role) {
+            'admin'    => redirect()->route('admin.profile'),
+            'assessor' => redirect()->route('assessor.profile'),
+            default    => redirect()->route('student.profile'),
+        };
     }
 }

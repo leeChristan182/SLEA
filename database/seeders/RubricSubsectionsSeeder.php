@@ -7,243 +7,233 @@ use Illuminate\Support\Facades\DB;
 
 class RubricSubsectionsSeeder extends Seeder
 {
-    public function run()
+    public function run(): void
     {
         DB::statement('PRAGMA foreign_keys = OFF;');
-        DB::table('rubric_subsections')->truncate();
+        DB::table('rubric_subsections')->delete();
         DB::statement('PRAGMA foreign_keys = ON;');
 
-        $sections = [];
+        $sectionId = DB::table('rubric_sections')->pluck('section_id', 'key');
+        $now = now();
 
-        // ---------------- Leadership ----------------
-        $leadSections = DB::table('rubric_sections')
-            ->where('category_id', 1)
-            ->pluck('section_id', 'title');
-
-        foreach ($leadSections as $title => $sectionId) {
-            switch ($title) {
-                case 'A. Campus-Based Student Government':
-                    $sections[] = [
-                        'section_id' => $sectionId,
-                        'sub_section' => 'Student Government (University / Campus)',
-                        'evidence_needed' => " Oath of Office\n Certification from the Organization Adviser/ Immediate Supervisor",
-                        'max_points' => null,
-                        'notes' => null,
-                        'order_no' => 1
-                    ];
-                    $sections[] = [
-                        'section_id' => $sectionId,
-                        'sub_section' => 'Campus Student Council',
-                        'evidence_needed' => " Oath of Office\n Certification from the Organization Adviser/ Immediate Supervisor",
-                        'max_points' => null,
-                        'notes' => null,
-                        'order_no' => 2
-                    ];
-                    $sections[] = [
-                        'section_id' => $sectionId,
-                        'sub_section' => 'Local Councils (College Level)',
-                        'evidence_needed' => " Oath of Office\n Certification from the Organization Adviser/ Immediate Supervisor",
-                        'max_points' => null,
-                        'notes' => null,
-                        'order_no' => 3
-                    ];
-                    $sections[] = [
-                        'section_id' => $sectionId,
-                        'sub_section' => 'Student Clubs and Organizations',
-                        'evidence_needed' => " Oath of Office\n Certification from the Organization Adviser/ Immediate Supervisor",
-                        'max_points' => null,
-                        'notes' => null,
-                        'order_no' => 4
-                    ];
-                    break;
-
-                case 'B. Designation in Special Orders / Office Orders':
-                    $sections[] = [
-                        'section_id' => $sectionId,
-                        'sub_section' => 'Designation in Special Orders / Office Order',
-                        'evidence_needed' => " Certification from Chairperson/Committee\n Accomplishment Report",
-                        'max_points' => null,
-                        'notes' => null,
-                        'order_no' => 1
-                    ];
-                    break;
-
-                case 'C. Community-Based':
-                    $sections[] = [
-                        'section_id' => $sectionId,
-                        'sub_section' => 'Local Government Unit (LGU)',
-                        'evidence_needed' => " Oath of Office\n Certification from the Organization Adviser/Immediate Supervisor",
-                        'max_points' => null,
-                        'notes' => null,
-                        'order_no' => 1
-                    ];
-                    $sections[] = [
-                        'section_id' => $sectionId,
-                        'sub_section' => 'Other Recognized Organizations (Non-LGU)',
-                        'evidence_needed' => " Oath of Office\n Certification from the Organization Adviser/Immediate Supervisor",
-                        'max_points' => null,
-                        'notes' => null,
-                        'order_no' => 2
-                    ];
-                    break;
-
-                case 'D. Leadership Training / Seminars / Conferences Attended (max 5 points)':
-                    $sections[] = [
-                        'section_id' => $sectionId,
-                        'sub_section' => 'Leadership Trainings / Seminars / Conferences',
-                        'evidence_needed' => " Certificate of Attendance / Appreciation / Participation",
-                        'max_points' => null,
-                        'notes' => null,
-                        'order_no' => 1
-                    ];
-                    break;
-            }
-        }
-
-        // ---------------- Academic ----------------
-        $acadSections = DB::table('rubric_sections')
-            ->where('category_id', 2)
-            ->pluck('section_id');
-
-        foreach ($acadSections as $sectionId) {
-            $sections[] = [
-                'section_id' => $sectionId,
-                'sub_section' => 'No Failing Grade / INC',
-                'evidence_needed' => " Certificate of Grades (Portal Generated) from first year to 1st Semester",
-                'max_points' => 20,
-                'notes' => null,
+        $rows = [
+            // Leadership A (options: each position = option)
+            [
+                'key' => 'leadership.campus_government.univ_student_gov',
+                'section_key' => 'leadership.campus_government',
+                'sub_section' => 'Student Government (University / Campus)',
+                'scoring_method' => 'option',
+                'unit' => 'role',
+                'cap_points' => null,
+                'score_params' => null,
                 'order_no' => 1
-            ];
-            $sections[] = [
-                'section_id' => $sectionId,
-                'sub_section' => 'With INC',
-                'evidence_needed' => " Certificate of Grades (Portal Generated) showing INC",
-                'max_points' => 17,
-                'notes' => null,
+            ],
+
+            [
+                'key' => 'leadership.campus_government.osc',
+                'section_key' => 'leadership.campus_government',
+                'sub_section' => 'Campus Student Council',
+                'scoring_method' => 'option',
+                'unit' => 'role',
+                'cap_points' => null,
+                'score_params' => null,
                 'order_no' => 2
-            ];
-            $sections[] = [
-                'section_id' => $sectionId,
-                'sub_section' => 'With Failing Grade',
-                'evidence_needed' => " Certificate of Grades (Portal Generated) showing failing grade",
-                'max_points' => 15,
-                'notes' => null,
+            ],
+
+            [
+                'key' => 'leadership.campus_government.local_councils',
+                'section_key' => 'leadership.campus_government',
+                'sub_section' => 'Local Councils (College Level)',
+                'scoring_method' => 'option',
+                'unit' => 'role',
+                'cap_points' => null,
+                'score_params' => null,
                 'order_no' => 3
-            ];
-            $sections[] = [
-                'section_id' => $sectionId,
-                'sub_section' => 'With Failing Grade & INC',
-                'evidence_needed' => " Certificate of Grades (Portal Generated) showing failing grade and INC",
-                'max_points' => 10,
-                'notes' => null,
+            ],
+
+            [
+                'key' => 'leadership.campus_government.student_orgs',
+                'section_key' => 'leadership.campus_government',
+                'sub_section' => 'Student Clubs and Organizations',
+                'scoring_method' => 'option',
+                'unit' => 'role',
+                'cap_points' => null,
+                'score_params' => null,
                 'order_no' => 4
-            ];
-        }
+            ],
 
-        // ---------------- Awards ----------------
-        $awardSections = DB::table('rubric_sections')
-            ->where('category_id', 3)
-            ->pluck('section_id');
-
-        foreach ($awardSections as $sectionId) {
-            $sections[] = [
-                'section_id' => $sectionId,
-                'sub_section' => 'International',
-                'evidence_needed' => " Certificate of Recognition / Selection Criteria",
-                'max_points' => 20,
-                'notes' => null,
+            // Leadership B (designation)
+            [
+                'key' => 'leadership.designations.office_order',
+                'section_key' => 'leadership.designations',
+                'sub_section' => 'Designation in Special Orders / Office Order',
+                'scoring_method' => 'option',
+                'unit' => 'designation',
+                'cap_points' => null,
+                'score_params' => null,
                 'order_no' => 1
-            ];
-            $sections[] = [
-                'section_id' => $sectionId,
-                'sub_section' => 'National',
-                'evidence_needed' => " Certificate of Recognition / Selection Criteria",
-                'max_points' => 15,
-                'notes' => null,
+            ],
+
+            // Leadership C (community-based)
+            [
+                'key' => 'leadership.community_based.lgu',
+                'section_key' => 'leadership.community_based',
+                'sub_section' => 'Local Government Unit (LGU)',
+                'scoring_method' => 'option',
+                'unit' => 'role',
+                'cap_points' => null,
+                'score_params' => null,
+                'order_no' => 1
+            ],
+
+            [
+                'key' => 'leadership.community_based.non_lgu',
+                'section_key' => 'leadership.community_based',
+                'sub_section' => 'Other Recognized Organizations (Non-LGU)',
+                'scoring_method' => 'option',
+                'unit' => 'role',
+                'cap_points' => null,
+                'score_params' => null,
                 'order_no' => 2
-            ];
-            $sections[] = [
-                'section_id' => $sectionId,
-                'sub_section' => 'Regional / Mindanao-wide',
-                'evidence_needed' => " Certificate of Recognition / Selection Criteria",
-                'max_points' => 10,
-                'notes' => null,
+            ],
+
+            // Leadership D (rates with per-level caps)
+            [
+                'key' => 'leadership.trainings.international',
+                'section_key' => 'leadership.trainings',
+                'sub_section' => 'International (max 4 points)',
+                'scoring_method' => 'rate',
+                'unit' => 'day',
+                'cap_points' => 4,
+                'score_params' => json_encode(['rate' => 0.5]),
+                'order_no' => 1
+            ],
+            [
+                'key' => 'leadership.trainings.national',
+                'section_key' => 'leadership.trainings',
+                'sub_section' => 'National (max 3 points)',
+                'scoring_method' => 'rate',
+                'unit' => 'day',
+                'cap_points' => 3,
+                'score_params' => json_encode(['rate' => 0.6]),
+                'order_no' => 2
+            ],
+            [
+                'key' => 'leadership.trainings.regional',
+                'section_key' => 'leadership.trainings',
+                'sub_section' => 'Regional / Mindanao-wide (max 2 points)',
+                'scoring_method' => 'rate',
+                'unit' => 'day',
+                'cap_points' => 2,
+                'score_params' => json_encode(['rate' => 0.4]),
                 'order_no' => 3
-            ];
-            $sections[] = [
-                'section_id' => $sectionId,
-                'sub_section' => 'Local (Institutional, City/College/Campus)',
-                'evidence_needed' => " Certificate of Recognition / Selection Criteria",
-                'max_points' => 5,
-                'notes' => null,
+            ],
+            [
+                'key' => 'leadership.trainings.local',
+                'section_key' => 'leadership.trainings',
+                'sub_section' => 'Local (Institutional, City/College/Campus) (max 1 point)',
+                'scoring_method' => 'rate',
+                'unit' => 'day',
+                'cap_points' => 1,
+                'score_params' => json_encode(['rate' => 0.2]),
                 'order_no' => 4
-            ];
-        }
+            ],
 
-        // ---------------- Community Involvement ----------------
-        $commSections = DB::table('rubric_sections')
-            ->where('category_id', 4)
-            ->pluck('section_id');
+            // Academic (GWA bands = options)
+            [
+                'key' => 'academic.gwa.level',
+                'section_key' => 'academic.gwa',
+                'sub_section' => 'GWA Band',
+                'scoring_method' => 'option',
+                'unit' => 'gwa_level',
+                'cap_points' => null,
+                'score_params' => null,
+                'order_no' => 1
+            ],
 
-        foreach ($commSections as $sectionId) {
-            $sections[] = [
-                'section_id' => $sectionId,
+            // Awards (levels = options)
+            [
+                'key' => 'awards.recognition.level',
+                'section_key' => 'awards.recognition',
+                'sub_section' => 'Award Level',
+                'scoring_method' => 'option',
+                'unit' => 'award_level',
+                'cap_points' => 20,
+                'score_params' => null,
+                'order_no' => 1
+            ],
+
+            // Community (rates per level)
+            [
+                'key' => 'community.service.international',
+                'section_key' => 'community.service',
                 'sub_section' => 'International Activity',
-                'evidence_needed' => " Certificate / Program / Photos",
-                'max_points' => 0.8,
-                'notes' => null,
+                'scoring_method' => 'rate',
+                'unit' => 'day',
+                'cap_points' => null,
+                'score_params' => json_encode(['rate' => 0.8]),
                 'order_no' => 1
-            ];
-            $sections[] = [
-                'section_id' => $sectionId,
+            ],
+            [
+                'key' => 'community.service.national',
+                'section_key' => 'community.service',
                 'sub_section' => 'National Activity',
-                'evidence_needed' => " Certificate / Program / Photos",
-                'max_points' => 0.6,
-                'notes' => null,
+                'scoring_method' => 'rate',
+                'unit' => 'day',
+                'cap_points' => null,
+                'score_params' => json_encode(['rate' => 0.6]),
                 'order_no' => 2
-            ];
-            $sections[] = [
-                'section_id' => $sectionId,
-                'sub_section' => 'Regional Activity / Mindanao-wide',
-                'evidence_needed' => " Certificate / Program / Photos",
-                'max_points' => 0.4,
-                'notes' => null,
+            ],
+            [
+                'key' => 'community.service.regional',
+                'section_key' => 'community.service',
+                'sub_section' => 'Regional / Mindanao-wide',
+                'scoring_method' => 'rate',
+                'unit' => 'day',
+                'cap_points' => null,
+                'score_params' => json_encode(['rate' => 0.4]),
                 'order_no' => 3
-            ];
-            $sections[] = [
-                'section_id' => $sectionId,
+            ],
+            [
+                'key' => 'community.service.local',
+                'section_key' => 'community.service',
                 'sub_section' => 'Local Activity (Institutional, City/College/Campus)',
-                'evidence_needed' => " Certificate / Program / Photos",
-                'max_points' => 0.2,
-                'notes' => null,
+                'scoring_method' => 'rate',
+                'unit' => 'day',
+                'cap_points' => null,
+                'score_params' => json_encode(['rate' => 0.2]),
                 'order_no' => 4
-            ];
-        }
+            ],
 
-        // ---------------- Conduct ----------------
-        $conductSections = DB::table('rubric_sections')
-            ->where('category_id', 5)
-            ->pluck('section_id');
-
-        foreach ($conductSections as $sectionId) {
-            $sections[] = [
-                'section_id' => $sectionId,
-                'sub_section' => 'Sport Reports Recorded',
-                'evidence_needed' => " Taken charge by OSAS",
-                'max_points' => -1.0,
-                'notes' => null,
+            // Conduct (infractions = options; points are negative)
+            [
+                'key' => 'conduct.good_conduct.offense',
+                'section_key' => 'conduct.good_conduct',
+                'sub_section' => 'Infractions',
+                'scoring_method' => 'option',
+                'unit' => 'offense',
+                'cap_points' => 10,
+                'score_params' => json_encode(['deduction' => true]),
                 'order_no' => 1
-            ];
-            $sections[] = [
-                'section_id' => $sectionId,
-                'sub_section' => 'Disciplinary Concerns Documented',
-                'evidence_needed' => " Taken charge by OSAS",
-                'max_points' => -2.0,
-                'notes' => null,
-                'order_no' => 2
-            ];
-        }
+            ],
+        ];
 
-        DB::table('rubric_subsections')->insert($sections);
+        foreach ($rows as $r) {
+            DB::table('rubric_subsections')->insert([
+                'section_id'      => $sectionId[$r['section_key']],
+                'key'             => $r['key'],
+                'sub_section'     => $r['sub_section'],
+                'evidence_needed' => null,
+                'max_points'      => null,
+                'cap_points'      => $r['cap_points'],
+                'scoring_method'  => $r['scoring_method'],
+                'unit'            => $r['unit'],
+                'score_params'    => $r['score_params'],
+                'notes'           => null,
+                'order_no'        => $r['order_no'],
+                'created_at'      => $now,
+                'updated_at' => $now,
+            ]);
+        }
     }
 }

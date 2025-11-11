@@ -38,7 +38,7 @@
                     <p><strong>Contact Number:</strong> <span>{{ $student->contact_number ?? 'N/A' }}</span></p>
                     <p><strong>Email Address:</strong> <span>{{ $student->email_address }}</span></p>
                     <p><strong>Birth Date:</strong>
-                        <span>{{ \Carbon\Carbon::parse($student->date_of_birth)->format('F d, Y') }}</span>
+                        <span>{{ $student->birth_date ? \Carbon\Carbon::parse($student->birth_date)->format('F d, Y') : 'N/A' }}</span>
                     </p>
                     <p><strong>Age:</strong> <span>{{ $student->age ?? 'N/A' }}</span></p>
                 </div>
@@ -47,9 +47,9 @@
                 <div class="profile-info">
                     <h3>Academic Information</h3>
                     <p><strong>Student ID:</strong> <span>{{ $student->student_id }}</span></p>
+                    <p><strong>College:</strong> <span>{{ $student->academicInformation->collegeProgram->college_name ?? 'N/A' }}</span></p>
                     <p><strong>Program:</strong> <span>{{ $student->academicInformation->program ?? 'N/A' }}</span></p>
                     <p><strong>Major:</strong> <span>{{ $student->academicInformation->major ?? 'N/A' }}</span></p>
-                    <p><strong>College:</strong> <span>{{ $student->academicInformation->college ?? 'N/A' }}</span></p>
                     <p><strong>Year Level:</strong> <span>{{ $student->academicInformation->year_level ?? 'N/A' }}</span></p>
                     <p><strong>Expected Year to Graduate:</strong> <span>{{ $student->academicInformation->expected_grad_year ?? 'N/A' }}</span></p>
                 </div>
@@ -74,12 +74,12 @@
                         <tbody>
                             @forelse ($student->leadershipInformation as $lead)
                             <tr>
-                                <td>{{ $lead->type ?? '—' }}</td>
+                                <td>{{ $lead->leadership_type ?? '—' }}</td>
                                 <td>{{ $lead->organization_name ?? '—' }}</td>
-                                <td>{{ $lead->role ?? '—' }}</td>
+                                <td>{{ $lead->position ?? '—' }}</td>
                                 <td>{{ $lead->term ?? '—' }}</td>
                                 <td>{{ $lead->issued_by ?? '—' }}</td>
-                                <td>{{ $lead->status ?? '—' }}</td>
+                                <td>{{ $lead->leadership_status ?? '—' }}</td>
                             </tr>
                             @empty
                             <tr>
@@ -91,19 +91,22 @@
                 </div>
             </section>
 
-            <!-- Settings: Change Password | Update Year Level | Upload COR -->
+            <!-- Settings -->
             <section class="settings-grid" style="margin-top:24px;">
                 <!-- Change Password -->
-                <div class="change-password settings-left" style="max-width:none;">
+                <div class="change-password settings-left">
                     <h3>Change Password</h3>
 
                     <form action="{{ route('student.changePassword') }}" method="POST">
                         @csrf
                         <label for="current_password">Present Password</label>
-                        <input id="current_password" name="current_password" type="password" required>
+                        <div class="password-wrapper">
+                            <input id="current_password" name="current_password" type="password" required>
+                            <i class="fas fa-eye toggle-password" data-target="current_password"></i>
+                        </div>
 
-                        <div class="requirements">
-                            <p>A new password must contain the following:</p>
+                        <div class="requirements visible-box">
+                            <strong>A new password must contain the following:</strong>
                             <ul id="passwordChecklist">
                                 <li>Minimum of 8 characters</li>
                                 <li>An uppercase character</li>
@@ -114,52 +117,64 @@
                         </div>
 
                         <label for="password">New Password</label>
-                        <input id="password" name="password" type="password" required>
+                        <div class="password-wrapper">
+                            <input id="password" name="password" type="password" required>
+                            <i class="fas fa-eye toggle-password" data-target="password"></i>
+                        </div>
 
                         <label for="password_confirmation">Confirm Password</label>
-                        <input id="password_confirmation" name="password_confirmation" type="password" required>
+                        <div class="password-wrapper">
+                            <input id="password_confirmation" name="password_confirmation" type="password" required>
+                            <i class="fas fa-eye toggle-password" data-target="password_confirmation"></i>
+                        </div>
 
                         <button class="change-btn" type="submit">Change Password</button>
                     </form>
                 </div>
 
                 <!-- Update Year Level -->
-                <div class="profile-info settings-year" style="max-width:none;">
-                    <h3>Update Year Level</h3>
+                <div class="profile-info settings-year">
+                    <h3>Update Academic Details</h3>
                     <form action="{{ route('student.updateAcademic') }}" method="POST">
                         @csrf
-                        <label for="year_level">Select year level</label>
-                        <select id="year_level" name="year_level" required>
-                            <option value="">— Select —</option>
-                            @foreach(['1st Year', '2nd Year', '3rd Year', '4th Year'] as $level)
-                            <option value="{{ $level }}"
-                                {{ ($student->academicInformation->year_level ?? '') === $level ? 'selected' : '' }}>
-                                {{ $level }}
-                            </option>
-                            @endforeach
-                        </select>
+                        <div class="form-group">
+                            <label for="year_level">Year Level</label>
+                            <select id="year_level" name="year_level" required>
+                                <option value="">— Select —</option>
+                                @foreach(['1st Year', '2nd Year', '3rd Year', '4th Year'] as $level)
+                                <option value="{{ $level }}"
+                                    {{ ($student->academicInformation->year_level ?? '') === $level ? 'selected' : '' }}>
+                                    {{ $level }}
+                                </option>
+                                @endforeach
+                            </select>
+                        </div>
 
-                        <label for="program" style="margin-top:10px;">Program</label>
-                        <input id="program" name="program" type="text"
-                            value="{{ $student->academicInformation->program ?? '' }}" required>
+                        <div class="form-group">
+                            <label for="program">Program</label>
+                            <input id="program" name="program" type="text"
+                                value="{{ $student->academicInformation->program ?? '' }}" required>
+                        </div>
 
-                        <label for="major" style="margin-top:10px;">Major (optional)</label>
-                        <input id="major" name="major" type="text"
-                            value="{{ $student->academicInformation->major ?? '' }}">
+                        <div class="form-group">
+                            <label for="major">Major (optional)</label>
+                            <input id="major" name="major" type="text"
+                                value="{{ $student->academicInformation->major ?? '' }}">
+                        </div>
 
-                        <button class="change-btn" type="submit" style="margin-top:14px;">Update</button>
+                        <button class="change-btn" type="submit">Update</button>
                     </form>
                 </div>
 
                 <!-- Upload COR -->
-                <div class="profile-info settings-cor" style="max-width:none;">
+                <div class="profile-info settings-cor">
                     <h3>Upload Certificate of Registration</h3>
                     <form action="{{ route('student.uploadCOR') }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         <label for="cor">Choose file</label>
                         <input id="cor" name="cor" type="file" accept=".jpg,.jpeg,.png,.pdf" required>
-                        <small>max size 5MB • JPG, PNG or PDF</small>
-                        <button class="change-btn" type="submit" style="margin-top:14px;">Upload</button>
+                        <small>Max size 5MB • JPG, PNG, or PDF</small>
+                        <button class="change-btn" type="submit" style="margin-top:12px;">Upload</button>
 
                         @if(!empty($student->academicInformation->cor_file))
                         <p style="margin-top:8px;">
@@ -176,8 +191,9 @@
     </div>
 </div>
 
-{{-- Custom styles --}}
+{{-- Styles & JS --}}
 <style>
+    /* === Settings Grid Layout === */
     .student-profile-page .settings-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -188,21 +204,134 @@
         align-items: start;
     }
 
-    .student-profile-page .settings-left {
+    .settings-left {
         grid-area: left;
         display: flex;
         flex-direction: column;
     }
 
-    .student-profile-page .settings-year {
+    .settings-year {
         grid-area: rightTop;
+        padding-bottom: 15px;
     }
 
-    .student-profile-page .settings-cor {
+    .settings-cor {
         grid-area: rightBottom;
+        min-height: 280px;
     }
 
-    @media (max-width:1200px) {
+    /* === Password Requirement Box === */
+    .requirements.visible-box {
+        background-color: #fff8f8;
+        border: 1px solid #e5bebe;
+        border-left: 5px solid #c0392b;
+        border-radius: 10px;
+        padding: 14px 18px;
+        margin: 14px 0 20px;
+        color: #2d2d2d;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
+    }
+
+    /* Strong title */
+    .requirements.visible-box strong {
+        display: block;
+        font-weight: 700;
+        color: #b21d1d;
+        margin-bottom: 6px;
+        font-size: 15px;
+    }
+
+    /* Checklist text */
+    #passwordChecklist li {
+        color: #333 !important;
+        font-size: 14px;
+        padding: 3px 0;
+        list-style: circle;
+        margin-left: 20px;
+    }
+
+    /* Subtle hover feedback */
+    #passwordChecklist li:hover {
+        color: #b21d1d;
+        font-weight: 500;
+    }
+
+
+    /* === Input Groups === */
+    .form-group {
+        margin-bottom: 14px;
+    }
+
+    label {
+        display: block;
+        margin-bottom: 4px;
+        font-weight: 600;
+    }
+
+    select,
+    input[type="text"],
+    input[type="password"],
+    input[type="file"] {
+        width: 100%;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 8px 10px;
+        transition: border-color 0.2s ease;
+    }
+
+    select:focus,
+    input:focus {
+        border-color: #b21d1d;
+        outline: none;
+    }
+
+    /* === Password Visibility Toggle === */
+    .password-wrapper {
+        position: relative;
+    }
+
+    .toggle-password {
+        position: absolute;
+        top: 50%;
+        right: 12px;
+        transform: translateY(-50%);
+        cursor: pointer;
+        color: #555;
+        font-size: 1rem;
+        transition: color 0.2s;
+    }
+
+    .toggle-password:hover {
+        color: #c0392b;
+    }
+
+    /* === Buttons === */
+    .change-btn {
+        background-color: #c0392b;
+        border: none;
+        color: white;
+        padding: 10px 16px;
+        border-radius: 6px;
+        font-weight: 600;
+        transition: 0.25s;
+        width: 100%;
+    }
+
+    .change-btn:hover {
+        background-color: #a93226;
+    }
+
+    /* === Cards === */
+    .profile-info,
+    .change-password {
+        border-top: 3px solid #c0392b;
+        background-color: white;
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06);
+        border-radius: 10px;
+        padding: 20px;
+    }
+
+    @media (max-width: 1200px) {
         .student-profile-page .settings-grid {
             grid-template-columns: 1fr;
             grid-template-areas:
@@ -212,4 +341,16 @@
         }
     }
 </style>
+
+
+<script>
+    document.querySelectorAll('.toggle-password').forEach(icon => {
+        icon.addEventListener('click', () => {
+            const target = document.getElementById(icon.dataset.target);
+            const isPassword = target.type === 'password';
+            target.type = isPassword ? 'text' : 'password';
+            icon.classList.toggle('fa-eye-slash', isPassword);
+        });
+    });
+</script>
 @endsection

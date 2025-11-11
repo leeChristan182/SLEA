@@ -9,53 +9,69 @@ class RubricCategorySeeder extends Seeder
 {
     public function run(): void
     {
-        DB::table('rubric_categories')->truncate();
+        DB::table('rubric_categories')->delete();
 
+        $now = now();
         DB::table('rubric_categories')->insert([
             [
                 'key' => 'leadership',
                 'title' => 'Leadership Excellence',
-                'description' => 'Covers the applicant’s leadership experience, including elective/appointive roles in campus or community organizations and participation in co-curricular/extracurricular activities.',
+                'description' => 'Leadership roles in campus/community orgs, designations, and leadership trainings.',
                 'max_points' => 20,
+                'min_required_points' => 0,
+                'aggregation' => 'capped_sum',
+                'aggregation_params' => null,
                 'order_no' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'created_at' => $now,
+                'updated_at' => $now,
             ],
             [
                 'key' => 'academic',
                 'title' => 'Academic Excellence',
-                'description' => 'Assesses the student’s academic standing throughout their leadership period, balancing academics and extracurriculars.',
+                'description' => 'Academic standing during the leadership period.',
                 'max_points' => 20,
+                'min_required_points' => 0,
+                'aggregation' => 'capped_sum',
+                'aggregation_params' => null,
                 'order_no' => 2,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'created_at' => $now,
+                'updated_at' => $now,
             ],
             [
                 'key' => 'awards',
                 'title' => 'Awards/Recognition Received',
-                'description' => 'Recognizes co-curricular and extracurricular awards or distinctions received from credible bodies at different levels.',
+                'description' => 'Co-/extracurricular distinctions with a selection process.',
                 'max_points' => 20,
+                'min_required_points' => 0,
+                'aggregation' => 'capped_sum',
+                'aggregation_params' => null,
                 'order_no' => 3,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'created_at' => $now,
+                'updated_at' => $now,
             ],
             [
                 'key' => 'community',
                 'title' => 'Community Involvement',
-                'description' => 'Evaluates the student’s participation in community service, outreach, and civic activities at local, regional, national, or international levels.',
+                'description' => 'Service/outreach/civic activities.',
                 'max_points' => 20,
+                'min_required_points' => 0,
+                'aggregation' => 'capped_sum',
+                'aggregation_params' => null,
                 'order_no' => 4,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'created_at' => $now,
+                'updated_at' => $now,
             ],
             [
                 'key' => 'conduct',
                 'title' => 'Good Conduct',
-                'description' => 'Assesses the student’s behavior and disciplinary record throughout their stay in the university.',
-                'max_points' => 20,
+                'description' => 'Behavioral record; deductions up to 10.',
+                'max_points' => 10, // max deduction is 10
+                'min_required_points' => 0,
+                'aggregation' => 'capped_sum',
+                'aggregation_params' => json_encode(['deduction' => true]),
                 'order_no' => 5,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'created_at' => $now,
+                'updated_at' => $now,
             ],
         ]);
     }

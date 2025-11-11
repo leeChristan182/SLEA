@@ -2,143 +2,293 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
-use App\Models\StudentPersonalInformation;
-use App\Models\AcademicInformation;
-use App\Models\LeadershipInformation;
-use App\Models\StudentAccount;
-use App\Models\SystemMonitoringAndLog;
 
 class StudentController extends Controller
 {
-    /**
-     * Show the logged-in student's full profile dashboard.
-     */
+    /* =========================
+     | PROFILE & DASHBOARD
+     * ========================= */
+
+    // GET /student/profile
     public function profile()
     {
+        /** @var User $user */
         $user = Auth::user();
 
-        // Fetch student data with all related info
-        $student = StudentPersonalInformation::with([
-            'academicInformation',
-            'leadershipInformation'
-        ])
-            ->where('email_address', $user->email_address)
-            ->firstOrFail();
+        $academic = Schema::hasTable('student_academic')
+            ? DB::table('student_academic')->where('user_id', $user->id)->first()
+            : null;
 
-        return view('student.profile', compact('student'));
+        return view('student.profile', compact('user', 'academic'));
     }
 
-    /**
-     * Update the student's year level, program, or major.
-     */
-    public function updateAcademicInfo(Request $request)
-    {
-        $validated = $request->validate([
-            'year_level' => 'required|string|max:20',
-            'program' => 'required|string|max:100',
-            'major' => 'nullable|string|max:100',
-        ]);
-
-        $user = Auth::user();
-        $academic = AcademicInformation::where('student_id', $user->student_id)->first();
-
-        if ($academic) {
-            $academic->update($validated);
-        } else {
-            $validated['student_id'] = $user->student_id;
-            AcademicInformation::create($validated);
-        }
-
-        // Log action
-        SystemMonitoringAndLog::create([
-            'user_email' => $user->email_address,
-            'activity' => 'Updated academic information',
-        ]);
-
-        return back()->with('success', 'Academic information updated successfully.');
-    }
-
-    /**
-     * Change student password securely.
-     */
-    public function changePassword(Request $request)
-    {
-        $validated = $request->validate([
-            'current_password' => 'required|string',
-            'password' => 'required|string|min:8|confirmed',
-        ]);
-
-        $student = Auth::user();
-
-        if (!Hash::check($validated['current_password'], $student->password)) {
-            return back()->withErrors(['current_password' => 'Incorrect current password.']);
-        }
-
-        $student->password = Hash::make($validated['password']);
-        $student->save();
-
-        SystemMonitoringAndLog::create([
-            'user_email' => $student->email_address,
-            'activity' => 'Changed account password',
-        ]);
-
-        return back()->with('success', 'Password changed successfully!');
-    }
-
-    /**
-     * Upload Certificate of Registration (COR).
-     */
-    public function uploadCOR(Request $request)
-    {
-        $request->validate([
-            'cor' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
-        ]);
-
-        $user = Auth::user();
-        $path = $request->file('cor')->store('certificates/cor', 'public');
-
-        $academic = AcademicInformation::where('student_id', $user->student_id)->first();
-        if ($academic) {
-            $academic->update(['cor_file' => $path]);
-        }
-
-        SystemMonitoringAndLog::create([
-            'user_email' => $user->email_address,
-            'activity' => 'Uploaded Certificate of Registration',
-        ]);
-
-        return back()->with('success', 'Certificate of Registration uploaded successfully!');
-    }
-
-    /**
-     * Update student profile picture (avatar).
-     */
+    // POST /student/update-avatar
     public function updateAvatar(Request $request)
     {
         $request->validate([
-            'avatar' => 'required|image|mimes:jpg,jpeg,png|max:2048',
+            'avatar' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
+        /** @var User $user */
         $user = Auth::user();
+
         $path = $request->file('avatar')->store('avatars', 'public');
 
-        $student = StudentPersonalInformation::where('student_id', $user->student_id)->first();
-        if ($student) {
-            if ($student->profile_picture_path) {
-                Storage::disk('public')->delete($student->profile_picture_path);
-            }
-            $student->update(['profile_picture_path' => $path]);
+        if ($user->profile_picture_path && Storage::disk('public')->exists($user->profile_picture_path)) {
+            Storage::disk('public')->delete($user->profile_picture_path);
         }
 
-        SystemMonitoringAndLog::create([
-            'user_email' => $user->email_address,
-            'activity' => 'Updated profile picture',
+        $user->update(['profile_picture_path' => $path]);
+
+        return back()->with('status', 'Profile picture updated.');
+    }
+
+    // POST /student/change-password
+    public function changePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => ['required'],
+            'password'         => ['required', 'confirmed', PasswordRule::min(8)],
         ]);
 
-        return back()->with('success', 'Profile picture updated!');
+        /** @var User $user */
+        $user = Auth::user();
+
+        if (! Hash::check($request->current_password, $user->password)) {
+            return back()->withErrors(['current_password' => 'Your current password is incorrect.']);
+        }
+
+        $user->password = $request->password; // model mutator will hash
+        $user->save();
+
+        return back()->with('status', 'Password updated.');
+    }
+
+    /* =========================
+     | ACADEMIC INFO & LEADERSHIP
+     * ========================= */
+
+    // POST /student/update-academic
+    public function updateAcademicInfo(Request $request)
+    {
+        $data = $request->validate([
+            'student_number' => ['nullable', 'string', 'max:30'],
+            'year_level'     => ['nullable', 'string', 'max:20'],
+            'college_id'     => ['nullable', 'integer'],
+            'program_id'     => ['nullable', 'integer'],
+            'major_id'       => ['nullable', 'integer'],
+        ]);
+
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        if (! Schema::hasTable('student_academic')) {
+            return back()->withErrors(['student_number' => 'Academic table not found.']);
+        }
+
+        // Current row (if any)
+        $current = DB::table('student_academic')->where('user_id', $user->id)->first();
+
+        // --- Compute expected graduation year ---
+        // Rule: take the first 4 digits of student_number as entry year, add 4.
+        $expectedGradYear = null;
+        $numberForCalc = $data['student_number'] ?? ($current->student_number ?? null);
+        if (is_string($numberForCalc) && preg_match('/^\s*(\d{4})/', $numberForCalc, $m)) {
+            $entry = (int) $m[1];
+            if ($entry > 1900 && $entry < 3000) {
+                $expectedGradYear = $entry + 4; // adjust to +5 if your school uses 5-year tracks
+            }
+        }
+
+        // Determine if program/major changed (which forces revalidation)
+        $programChanged = isset($data['program_id']) && $current && (int)$current->program_id !== (int)$data['program_id'];
+        $majorChanged   = isset($data['major_id'])   && $current && (int)$current->major_id   !== (int)$data['major_id'];
+
+        // Exceeded expected year?
+        $nowYear = (int) now()->year;
+        $exceeded = $expectedGradYear ? ($nowYear > $expectedGradYear) : false;
+
+        // Decide new eligibility_status
+        // - If exceeded OR program/major changed → under_review
+        // - Else keep whatever is stored (default to eligible)
+        $oldEligibility = $current->eligibility_status ?? 'eligible';
+        $newEligibility = ($exceeded || $programChanged || $majorChanged) ? 'under_review' : $oldEligibility;
+
+        // Build payload
+        $payload = array_merge($data, [
+            'user_id'             => $user->id,
+            'expected_grad_year'  => $expectedGradYear ?? ($current->expected_grad_year ?? null),
+            'eligibility_status'  => $newEligibility,
+            'updated_at'          => now(),
+        ]);
+
+        // Upsert
+        if ($current) {
+            DB::table('student_academic')->where('user_id', $user->id)->update($payload);
+        } else {
+            $payload['created_at'] = now();
+            DB::table('student_academic')->insert($payload);
+        }
+
+        // Messaging hint for UX
+        $msg = $newEligibility === 'under_review'
+            ? 'Academic information saved. Your eligibility is now under review.'
+            : 'Academic information saved.';
+
+        return back()->with('status', $msg);
+    }
+
+    // POST /student/update-leadership
+    public function updateLeadership(Request $request)
+    {
+        // Expect an array of leadership entries (id for update, else create)
+        $request->validate([
+            'leadership'               => ['required', 'array'],
+            'leadership.*.id'          => ['nullable', 'integer'],
+            'leadership.*.org_id'      => ['required', 'integer'],
+            'leadership.*.position_id' => ['required', 'integer'],
+            'leadership.*.scope'       => ['nullable', 'string', 'max:32'], // must match scope_levels.key if enforced
+            'leadership.*.from'        => ['nullable', 'date'],
+            'leadership.*.to'          => ['nullable', 'date', 'after_or_equal:leadership.*.from'],
+        ]);
+
+        /** @var User $user */
+        $user = Auth::user();
+
+        if (! Schema::hasTable('student_leaderships')) {
+            return back()->withErrors(['leadership' => 'Leadership table not found.']);
+        }
+
+        foreach ($request->input('leadership') as $row) {
+            $base = [
+                'user_id'     => $user->id,
+                'org_id'      => $row['org_id'],
+                'position_id' => $row['position_id'],
+                'scope'       => $row['scope'] ?? null,
+                'from'        => $row['from'] ?? null,
+                'to'          => $row['to'] ?? null,
+                'status'      => 'pending', // default; admin/assessor can approve later
+                'updated_at'  => now(),
+            ];
+
+            if (!empty($row['id'])) {
+                DB::table('student_leaderships')->where('id', $row['id'])->where('user_id', $user->id)->update($base);
+            } else {
+                $base['created_at'] = now();
+                DB::table('student_leaderships')->insert($base);
+            }
+        }
+
+        return back()->with('status', 'Leadership records saved.');
+    }
+    // GET /student/revalidation
+    public function revalidation()
+    {
+        $user = auth()->user();
+        $academic = \Illuminate\Support\Facades\Schema::hasTable('student_academic')
+            ? \Illuminate\Support\Facades\DB::table('student_academic')->where('user_id', $user->id)->first()
+            : null;
+
+        return view('student.revalidation', compact('user', 'academic')); // simple page w/ 3 forms
+    }
+
+    // POST /student/upload-cor
+    public function uploadCOR(Request $request)
+    {
+        $request->validate([
+            'cor' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:6144'], // 6 MB
+        ]);
+
+        /** @var User $user */
+        $user = Auth::user();
+
+        if (! Schema::hasTable('student_academic')) {
+            return back()->withErrors(['cor' => 'Academic table not found.']);
+        }
+
+        $path = $request->file('cor')->store('cor', 'public');
+
+        // Update academic row
+        $now  = now();
+        $data = [
+            'user_id'                        => $user->id,
+            'certificate_of_registration_path' => $path,
+            'updated_at'                     => $now,
+        ];
+
+        $exists = DB::table('student_academic')->where('user_id', $user->id)->first();
+        if ($exists) {
+            DB::table('student_academic')->where('user_id', $user->id)->update($data);
+        } else {
+            $data['created_at'] = $now;
+            DB::table('student_academic')->insert($data);
+        }
+
+        // Optional: log to user_documents
+        if (Schema::hasTable('user_documents')) {
+            DB::table('user_documents')->insert([
+                'user_id'    => $user->id,
+                'type'       => 'cor',
+                'path'       => $path,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+        \DB::table('student_academic')->where('user_id', $user->id)->update([
+            'certificate_of_registration_path' => $path,
+            'eligibility_status' => \DB::raw("CASE WHEN expected_grad_year IS NOT NULL AND expected_grad_year < strftime('%Y','now') THEN 'under_review' ELSE COALESCE(eligibility_status,'eligible') END"),
+            'updated_at' => now(),
+        ]);
+
+        return back()->with('status', 'Certificate of Registration uploaded.');
+    }
+
+    /* =========================
+     | VIEWS: PERFORMANCE / CRITERIA / HISTORY
+     * ========================= */
+
+    // GET /student/performance
+    public function performance()
+    {
+        // keep simple; you can replace with real aggregates later
+        $metrics = [
+            'submissions' => Schema::hasTable('submissions')
+                ? DB::table('submissions')->where('user_id', Auth::id())->count()
+                : 0,
+            'approved' => Schema::hasTable('submissions')
+                ? DB::table('submissions')->where('user_id', Auth::id())->where('status', 'approved')->count()
+                : 0,
+        ];
+
+        return view('student.performance', compact('metrics'));
+    }
+
+    // GET /student/criteria
+    public function criteria()
+    {
+        // show rubric sections/subsections if available
+        $sections = Schema::hasTable('rubric_sections')
+            ? DB::table('rubric_sections')->orderBy('order')->get()
+            : collect();
+
+        return view('student.criteria', compact('sections'));
+    }
+
+    // GET /student/history
+    public function history()
+    {
+        $history = Schema::hasTable('submission_history')
+            ? DB::table('submission_history')->where('user_id', Auth::id())->orderByDesc('created_at')->paginate(20)
+            : collect();
+
+        return view('student.history', compact('history'));
     }
 }

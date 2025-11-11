@@ -12,7 +12,7 @@
         <!-- Profile Header Banner -->
         <div class="profile-banner">
             <div class="profile-avatar">
-                <img src="{{ $assessor->picture_path ? asset('storage/' . $assessor->picture_path) : asset('images/avatars/default-avatar.png') }}"
+                <img src="{{ $user->profile_picture_path ? asset('storage/' . $user->profile_picture_path) : asset('images/avatars/default-avatar.png') }}"
                     alt="Profile Picture"
                     id="profilePicture">
 
@@ -27,17 +27,17 @@
             </div>
 
             <h1 class="profile-name">
-                {{ $assessor->account->first_name ?? 'N/A' }}
-                {{ $assessor->account->last_name ?? '' }}
+                {{ $user->first_name ?? 'N/A' }}
+                {{ $user->last_name ?? '' }}
             </h1>
             <p class="small {{ session('dark_mode') ? 'text-white-50' : 'text-muted' }}">
-                {{ $assessor->account->position ?? 'Assessor' }}
+                {{ ucfirst($user->role ?? 'assessor') }}
             </p>
         </div>
 
         <!-- FLASH MESSAGES -->
-        @if(session('success'))
-        <div class="alert alert-success text-center mt-3">{{ session('success') }}</div>
+        @if(session('status'))
+        <div class="alert alert-success text-center mt-3">{{ session('status') }}</div>
         @endif
 
         @if($errors->any())
@@ -61,28 +61,28 @@
                     <!-- Display Mode -->
                     <div id="displayMode" class="info-grid">
                         <div class="info-field">
-                            <label class="field-label">ASSESSOR ID</label>
-                            <input type="text" class="field-input" value="{{ $assessor->assessor_id ?? 'N/A' }}" readonly>
+                            <label class="field-label">ASSIGNED ID</label>
+                            <input type="text" class="field-input" value="{{ $user->id ?? 'N/A' }}" readonly>
                         </div>
                         <div class="info-field">
                             <label class="field-label">First Name</label>
-                            <input type="text" class="field-input" value="{{ $assessor->account->first_name ?? '' }}" readonly>
+                            <input type="text" class="field-input" value="{{ $user->first_name ?? '' }}" readonly>
                         </div>
                         <div class="info-field">
                             <label class="field-label">Last Name</label>
-                            <input type="text" class="field-input" value="{{ $assessor->account->last_name ?? '' }}" readonly>
+                            <input type="text" class="field-input" value="{{ $user->last_name ?? '' }}" readonly>
                         </div>
                         <div class="info-field">
-                            <label class="field-label">Position</label>
-                            <input type="text" class="field-input" value="{{ $assessor->account->position ?? '' }}" readonly>
+                            <label class="field-label">Role</label>
+                            <input type="text" class="field-input" value="{{ ucfirst($user->role ?? '') }}" readonly>
                         </div>
                         <div class="info-field">
                             <label class="field-label">Email Address</label>
-                            <input type="text" class="field-input" value="{{ $assessor->account->email_address ?? '' }}" readonly>
+                            <input type="text" class="field-input" value="{{ $user->email ?? '' }}" readonly>
                         </div>
                         <div class="info-field">
                             <label class="field-label">Contact Number</label>
-                            <input type="text" class="field-input" value="{{ $assessor->account->contact_number ?? 'N/A' }}" readonly>
+                            <input type="text" class="field-input" value="{{ $user->contact ?? 'N/A' }}" readonly>
                         </div>
                     </div>
 
@@ -93,28 +93,28 @@
                             @method('PUT')
                             <div class="info-grid">
                                 <div class="info-field">
-                                    <label class="field-label">ASSESSOR ID</label>
-                                    <input type="text" class="field-input" name="assessor_id" value="{{ $assessor->assessor_id ?? '' }}" readonly>
+                                    <label class="field-label">USER ID</label>
+                                    <input type="text" class="field-input" value="{{ $user->id ?? '' }}" readonly>
                                 </div>
                                 <div class="info-field">
                                     <label class="field-label">First Name</label>
-                                    <input type="text" class="field-input" name="first_name" value="{{ $assessor->account->first_name ?? '' }}">
+                                    <input type="text" class="field-input" name="first_name" value="{{ $user->first_name ?? '' }}">
                                 </div>
                                 <div class="info-field">
                                     <label class="field-label">Last Name</label>
-                                    <input type="text" class="field-input" name="last_name" value="{{ $assessor->account->last_name ?? '' }}">
+                                    <input type="text" class="field-input" name="last_name" value="{{ $user->last_name ?? '' }}">
                                 </div>
                                 <div class="info-field">
-                                    <label class="field-label">Position</label>
-                                    <input type="text" class="field-input" name="position" value="{{ $assessor->account->position ?? '' }}">
+                                    <label class="field-label">Middle Name</label>
+                                    <input type="text" class="field-input" name="middle_name" value="{{ $user->middle_name ?? '' }}">
                                 </div>
                                 <div class="info-field">
                                     <label class="field-label">Email Address</label>
-                                    <input type="email" class="field-input" name="email_address" value="{{ $assessor->account->email_address ?? '' }}" readonly>
+                                    <input type="email" class="field-input" name="email" value="{{ $user->email ?? '' }}">
                                 </div>
                                 <div class="info-field">
                                     <label class="field-label">Contact Number</label>
-                                    <input type="tel" class="field-input" name="contact_number" value="{{ $assessor->account->contact_number ?? '' }}">
+                                    <input type="tel" class="field-input" name="contact" value="{{ $user->contact ?? '' }}">
                                 </div>
                             </div>
                             <div class="form-actions" style="display:none;">
@@ -167,11 +167,11 @@
 
                             <div class="info-field">
                                 <label class="field-label">New Password</label>
-                                <input type="password" class="field-input" name="new_password" id="newPassword" oninput="validatePassword()" required>
+                                <input type="password" class="field-input" name="password" id="newPassword" oninput="validatePassword()" required>
                             </div>
                             <div class="info-field">
                                 <label class="field-label">Confirm Password</label>
-                                <input type="password" class="field-input" name="new_password_confirmation" id="confirmPassword" required>
+                                <input type="password" class="field-input" name="password_confirmation" id="confirmPassword" required>
                             </div>
 
                             <div class="checkbox-field">

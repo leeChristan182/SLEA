@@ -9,17 +9,14 @@ return new class extends Migration {
     {
         Schema::create('positions', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('leadership_type_id'); // linked to leadership_types
-            $table->string('name', 255); // Position name, e.g., President, Treasurer, etc.
+            $table->string('key', 150)->unique();   // e.g., president, vp_internal
+            $table->string('name', 255)->unique();  // canonical label
+            $table->unsignedSmallInteger('rank_order')->default(100);
+            $table->boolean('is_executive')->default(false);
+            $table->boolean('is_elected')->default(true);
             $table->timestamps();
-
-            $table->foreign('leadership_type_id')
-                ->references('id')
-                ->on('leadership_types')
-                ->onDelete('cascade');
         });
     }
-
     public function down(): void
     {
         Schema::dropIfExists('positions');

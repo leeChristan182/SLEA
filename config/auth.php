@@ -37,23 +37,13 @@ return [
 
     'guards' => [
         'web' => [
-            'driver' => 'session',
-            'provider' => 'students', // or a generic provider
+            'driver'   => 'session',
+            'provider' => 'users',
         ],
-
-        'admin' => [
-            'driver' => 'session',
-            'provider' => 'admins',
-        ],
-
-        'assessor' => [
-            'driver' => 'session',
-            'provider' => 'assessors',
-        ],
-
-        'student' => [
-            'driver' => 'session',
-            'provider' => 'students',
+        'api' => [
+            'driver'   => 'token',   // or 'sanctum' if you use it
+            'provider' => 'users',
+            'hash'     => false,
         ],
     ],
 
@@ -74,22 +64,10 @@ return [
     |
     */
 
-
-
     'providers' => [
-        'admins' => [
+        'users' => [
             'driver' => 'eloquent',
-            'model' => App\Models\AdminAccount::class,
-        ],
-
-        'assessors' => [
-            'driver' => 'eloquent',
-            'model' => App\Models\AssessorAccount::class,
-        ],
-
-        'students' => [
-            'driver' => 'eloquent',
-            'model' => App\Models\StudentAccount::class,
+            'model'  => App\Models\User::class,
         ],
     ],
     /*
@@ -110,26 +88,11 @@ return [
     | quickly generating a very large amount of password reset tokens.
     |
     */
-
     'passwords' => [
-        'students' => [
-            'provider' => 'students',
-            'table' => 'password_reset_tokens',
-            'expire' => 60,
-            'throttle' => 60,
-        ],
-
-        'assessors' => [
-            'provider' => 'assessors',
-            'table' => 'password_reset_tokens',
-            'expire' => 60,
-            'throttle' => 60,
-        ],
-
-        'admins' => [
-            'provider' => 'admins',
-            'table' => 'password_reset_tokens',
-            'expire' => 60,
+        'users' => [
+            'provider' => 'users',
+            'table'    => 'password_reset_tokens',
+            'expire'   => 60,
             'throttle' => 60,
         ],
     ],
@@ -146,6 +109,6 @@ return [
     |
     */
 
-    'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
+    'password_timeout' => 10800,
 
 ];

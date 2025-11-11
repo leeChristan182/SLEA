@@ -8,27 +8,29 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('rubric_subsections', function (Blueprint $table) {
-            $table->bigIncrements('sub_items'); // Primary Key
-            $table->unsignedBigInteger('section_id'); // FK -> rubric_sections.section_id
+            $table->id('sub_section_id');
 
+            $table->unsignedBigInteger('section_id');
+            $table->foreign('section_id')->references('section_id')->on('rubric_sections')->onDelete('cascade');
+
+            $table->string('key', 150)->nullable()->unique();
             $table->string('sub_section', 255);
-            $table->text('evidence_needed')->nullable(); // allow longer text than 255
-            $table->decimal('max_points', 5, 2)->nullable(); // supports positive/negative values
-            $table->text('notes')->nullable(); // allows full paragraph notes
-            $table->unsignedTinyInteger('order_no')->default(1);
+            $table->text('evidence_needed')->nullable();
+            $table->decimal('max_points', 8, 2)->nullable();
+            $table->decimal('cap_points', 8, 2)->nullable();
+
+            $table->string('scoring_method', 10)->default('fixed');
+            $table->foreign('scoring_method')->references('key')->on('scoring_methods');
+            $table->string('unit', 50)->nullable();
+            $table->json('score_params')->nullable();
+
+            $table->text('notes')->nullable();
+            $table->unsignedSmallInteger('order_no')->default(1);
             $table->timestamps();
 
-            // Foreign key relationship
-            $table->foreign('section_id')
-                ->references('section_id')
-                ->on('rubric_sections')
-                ->cascadeOnDelete();
-
-            // Ensure each subsection order is unique within a section
-            $table->unique(['section_id', 'order_no']);
+            $table->unique(['section_id', 'sub_section']);
         });
     }
-
     public function down(): void
     {
         Schema::dropIfExists('rubric_subsections');

@@ -3,95 +3,84 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\RubricSection;
-use App\Models\RubricSubsectionLeadership;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 class RubricSubsectionLeadershipController extends Controller
 {
-    /**
-     * Admin view showing leadership rubric table
-     */
-    public function adminView()
-    {
-        $sections = \App\Models\RubricSection::with([
-            'subsections.leadershipPositions', // eager-load nested relationships
-            'category'
-        ])
-            ->whereHas('category', fn($q) => $q->where('key', 'leadership'))
-            ->orderBy('order_no')
-            ->get();
-
-        // ✅ passes $sections to the Blade view
-        return view('admin.rubrics.sections.leadership', compact('sections'));
-    }
-
-    // ✅ Resource CRUD methods remain the same
+    // GET /admin/rubrics/leadership
     public function index()
     {
-        $leadership = RubricSubsectionLeadership::with(['section.category'])
-            ->orderBy('section_id')
-            ->orderBy('position_order')
-            ->paginate(12);
+        $rows = Schema::hasTable('rubric_leadership')
+            ? DB::table('rubric_leadership')->orderBy('id')->get()
+            : collect();
 
-        return view('leadership-subsections.index', compact('leadership'));
+        return view('admin.rubrics.leadership.index', compact('rows'));
     }
 
+    // GET /admin/rubrics/leadership/create
     public function create()
     {
-        $sections = RubricSection::with('category')
-            ->orderBy('category_id')
-            ->orderBy('order_no')
-            ->get()
-            ->mapWithKeys(fn($s) => [$s->section_id => '[' . ($s->category->title ?? 'N/A') . '] ' . $s->title]);
-
-        return view('leadership-subsections.create', compact('sections'));
+        return view('admin.rubrics.leadership.create');
     }
 
+    // POST /admin/rubrics/leadership
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'section_id'     => ['required', 'integer', 'exists:rubric_sections,section_id'],
-            'sub_section_id' => ['nullable', 'integer', 'exists:rubric_subsections,sub_items'],
-            'position'       => ['required', 'string', 'max:255'],
-            'points'         => ['required', 'numeric', 'between:-99.99,99.99'],
-            'position_order' => ['required', 'integer', 'between:1,255'],
+        $request->validate([
+            'name'       => ['required', 'string', 'max:150'],
+            'max_points' => ['required', 'numeric', 'min:0'],
         ]);
 
-        RubricSubsectionLeadership::create($data);
-        return redirect()->route('admin.leadership')
-            ->with('success', 'Leadership position created successfully.');
+        if (Schema::hasTable('rubric_leadership')) {
+            DB::table('rubric_leadership')->insert([
+                'name'       => $request->name,
+                'max_points' => $request->max_points,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        return redirect()->route('admin.rubrics.leadership.index')->with('status', 'Leadership rubric added.');
     }
 
-    public function edit(RubricSubsectionLeadership $leadership_subsection)
+    // GET /admin/rubrics/leadership/{id}/edit
+    public function edit(int $id)
     {
-        $sections = RubricSection::with('category')
-            ->orderBy('category_id')
-            ->orderBy('order_no')
-            ->get()
-            ->mapWithKeys(fn($s) => [$s->section_id => '[' . ($s->category->title ?? 'N/A') . '] ' . $s->title]);
+        $row = Schema::hasTable('rubric_leadership')
+            ? DB::table('rubric_leadership')->where('id', $id)->first()
+            : null;
 
-        return view('leadership-subsections.edit', compact('leadership_subsection', 'sections'));
+        abort_if(! $row, 404);
+        return view('admin.rubrics.leadership.edit', compact('row'));
     }
 
-    public function update(Request $request, RubricSubsectionLeadership $leadership_subsection)
+    // PUT/PATCH /admin/rubrics/leadership/{id}
+    public function update(Request $request, int $id)
     {
-        $data = $request->validate([
-            'section_id'     => ['required', 'integer', 'exists:rubric_sections,section_id'],
-            'sub_section_id' => ['nullable', 'integer', 'exists:rubric_subsections,sub_items'],
-            'position'       => ['required', 'string', 'max:255'],
-            'points'         => ['required', 'numeric', 'between:-99.99,99.99'],
-            'position_order' => ['required', 'integer', 'between:1,255'],
+        $request->validate([
+            'name'       => ['required', 'string', 'max:150'],
+            'max_points' => ['required', 'numeric', 'min:0'],
         ]);
 
-        $leadership_subsection->update($data);
-        return redirect()->route('admin.leadership')
-            ->with('success', 'Leadership position updated successfully.');
+        if (Schema::hasTable('rubric_leadership')) {
+            DB::table('rubric_leadership')->where('id', $id)->update([
+                'name'       => $request->name,
+                'max_points' => $request->max_points,
+                'updated_at' => now(),
+            ]);
+        }
+
+        return redirect()->route('admin.rubrics.leadership.index')->with('status', 'Leadership rubric updated.');
     }
 
-    public function destroy(RubricSubsectionLeadership $leadership_subsection)
+    // DELETE /admin/rubrics/leadership/{id}
+    public function destroy(int $id)
     {
-        $leadership_subsection->delete();
-        return redirect()->route('admin.leadership')
-            ->with('success', 'Leadership position deleted successfully.');
+        if (Schema::hasTable('rubric_leadership')) {
+            DB::table('rubric_leadership')->where('id', $id)->delete();
+        }
+
+        return redirect()->route('admin.rubrics.leadership.index')->with('status', 'Leadership rubric deleted.');
     }
 }

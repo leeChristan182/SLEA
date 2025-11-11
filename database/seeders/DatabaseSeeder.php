@@ -3,10 +3,9 @@
 namespace Database\Seeders;
 
 use Illuminate\Support\Facades\DB;
-use App\Models\RubricSection;
 use Illuminate\Database\Seeder;
-use Database\Seeders\AdminSeeder;
-use Database\Seeders\CollegeProgramSeeder;
+use Database\Seeders\UsersAdminSeeder;
+use Database\Seeders\CollegesProgramsMajorsSeeder;
 use Database\Seeders\ClusterSeeder;
 use Database\Seeders\LeadershipTypeSeeder;
 use Database\Seeders\OrganizationSeeder;
@@ -14,7 +13,7 @@ use Database\Seeders\PositionSeeder;
 use Database\Seeders\RubricCategorySeeder;
 use Database\Seeders\RubricSectionsSeeder;
 use Database\Seeders\RubricSubsectionsSeeder;
-use Database\Seeders\RubricSubsectionsLeadershipSeeder;
+use Database\Seeders\RubricOptionsSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -26,8 +25,8 @@ class DatabaseSeeder extends Seeder
 
         // Call all your seeders safely
         $this->call([
-            AdminSeeder::class,
-            CollegeProgramSeeder::class,
+            UsersAdminSeeder::class,
+            CollegesProgramsMajorsSeeder::class,
             LeadershipTypeSeeder::class,
             ClusterSeeder::class,
             OrganizationSeeder::class,
@@ -35,11 +34,12 @@ class DatabaseSeeder extends Seeder
             RubricCategorySeeder::class,
             RubricSectionsSeeder::class,
             RubricSubsectionsSeeder::class,
-            RubricSubsectionsLeadershipSeeder::class,
+            RubricOptionsSeeder::class,
         ]);
 
         // 🔓 Re-enable foreign key checks
         DB::statement('PRAGMA foreign_keys = ON;');
         // For MySQL: DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+
     }
 }

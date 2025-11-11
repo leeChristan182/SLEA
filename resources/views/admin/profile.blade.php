@@ -2,8 +2,24 @@
 
 @section('title', 'Admin Profile')
 
-@section('content')
+@section('head')
 <meta name="csrf-token" content="{{ csrf_token() }}">
+{{-- Belt-and-suspenders redirect (routes already use role:admin middleware) --}}
+@if(auth()->check() && auth()->user()->role !== 'admin')
+@php
+$redir = auth()->user()->role === 'assessor'
+? route('assessor.profile')
+: route('student.profile');
+@endphp
+<meta http-equiv="refresh" content="0; url={{ $redir }}">
+@endif
+@endsection
+
+@section('content')
+@php
+/** Normalize var (controller passes $user or $admin) */
+$admin = isset($admin) ? $admin : (isset($user) ? $user : auth()->user());
+@endphp
 
 <div class="container">
     @include('partials.sidebar')
@@ -12,7 +28,8 @@
         <!-- Profile Header Banner -->
         <div class="profile-banner">
             <div class="profile-avatar">
-                <img src="{{ $admin->profile_picture_path ? asset('storage/' . $admin->profile_picture_path) : asset('images/avatars/default-avatar.png') }}"
+                <img
+                    src="{{ $admin->profile_picture_path ? asset('storage/'.$admin->profile_picture_path) : asset('images/avatars/default-avatar.png') }}"
                     alt="Profile Picture"
                     id="profilePicture">
 
@@ -28,13 +45,13 @@
 
             <h1 class="profile-name">{{ $admin->first_name }} {{ $admin->last_name }}</h1>
             <p class="small {{ session('dark_mode') ? 'text-white-50' : 'text-muted' }}">
-                {{ $admin->position ?? 'Administrator' }}
+                Administrator
             </p>
         </div>
 
-        <!-- FLASH MESSAGES -->
-        @if(session('success'))
-        <div class="alert alert-success text-center mt-3">{{ session('success') }}</div>
+        {{-- FLASH MESSAGES --}}
+        @if(session('status'))
+        <div class="alert alert-success text-center mt-3">{{ session('status') }}</div>
         @endif
         @if($errors->any())
         <div class="alert alert-danger text-center mt-3">
@@ -53,12 +70,13 @@
                 <div class="card-header">
                     <h2 class="card-title">Personal Information</h2>
                 </div>
+
                 <div class="card-content">
                     <!-- Display Mode -->
                     <div id="displayMode" class="info-grid">
                         <div class="info-field">
-                            <label class="field-label">Admin ID</label>
-                            <input type="text" class="field-input" value="{{ $admin->admin_id }}" readonly>
+                            <label class="field-label">User ID</label>
+                            <input type="text" class="field-input" value="{{ $admin->id }}" readonly>
                         </div>
                         <div class="info-field">
                             <label class="field-label">First Name</label>
@@ -69,48 +87,57 @@
                             <input type="text" class="field-input" value="{{ $admin->last_name }}" readonly>
                         </div>
                         <div class="info-field">
-                            <label class="field-label">Position</label>
-                            <input type="text" class="field-input" value="{{ $admin->position }}" readonly>
+                            <label class="field-label">Middle Name</label>
+                            <input type="text" class="field-input" value="{{ $admin->middle_name }}" readonly>
                         </div>
                         <div class="info-field">
                             <label class="field-label">Email Address</label>
-                            <input type="text" class="field-input" value="{{ $admin->email_address }}" readonly>
+                            <input type="text" class="field-input" value="{{ $admin->email }}" readonly>
                         </div>
                         <div class="info-field">
                             <label class="field-label">Contact Number</label>
-                            <input type="text" class="field-input" value="{{ $admin->contact_number }}" readonly>
+                            <input type="text" class="field-input" value="{{ $admin->contact }}" readonly>
+                        </div>
+                        <div class="info-field">
+                            <label class="field-label">Birth Date</label>
+                            <input type="text" class="field-input"
+                                value="{{ $admin->birth_date ? \Carbon\Carbon::parse($admin->birth_date)->format('F d, Y') : '—' }}"
+                                readonly>
                         </div>
                     </div>
 
                     <!-- Edit Mode -->
                     <div id="editMode" class="edit-form" style="display:none;">
-                        <form id="updateForm" method="POST" action="{{ route('admin.profile.update') }}">
+                        <form id="updateForm"
+                            method="POST"
+                            action="{{ route('admin.profile.update') }}"
+                            data-ajax="true" data-method="PUT" data-reload="true">
                             @csrf
                             @method('PUT')
                             <div class="info-grid">
                                 <div class="info-field">
-                                    <label class="field-label">Admin ID</label>
-                                    <input type="text" class="field-input" name="admin_id" value="{{ $admin->admin_id }}" readonly>
-                                </div>
-                                <div class="info-field">
                                     <label class="field-label">First Name</label>
-                                    <input type="text" class="field-input" name="first_name" value="{{ $admin->first_name }}">
+                                    <input type="text" class="field-input" name="first_name" value="{{ $admin->first_name }}" required>
                                 </div>
                                 <div class="info-field">
                                     <label class="field-label">Last Name</label>
-                                    <input type="text" class="field-input" name="last_name" value="{{ $admin->last_name }}">
+                                    <input type="text" class="field-input" name="last_name" value="{{ $admin->last_name }}" required>
                                 </div>
                                 <div class="info-field">
-                                    <label class="field-label">Position</label>
-                                    <input type="text" class="field-input" name="position" value="{{ $admin->position }}">
+                                    <label class="field-label">Middle Name</label>
+                                    <input type="text" class="field-input" name="middle_name" value="{{ $admin->middle_name }}">
                                 </div>
                                 <div class="info-field">
                                     <label class="field-label">Email Address</label>
-                                    <input type="email" class="field-input" name="email_address" value="{{ $admin->email_address }}" readonly>
+                                    <input type="email" class="field-input" name="email" value="{{ $admin->email }}" required>
                                 </div>
                                 <div class="info-field">
                                     <label class="field-label">Contact Number</label>
-                                    <input type="tel" class="field-input" name="contact_number" value="{{ $admin->contact_number }}">
+                                    <input type="text" class="field-input" name="contact" value="{{ $admin->contact }}">
+                                </div>
+                                <div class="info-field">
+                                    <label class="field-label">Birth Date</label>
+                                    <input type="date" class="field-input" name="birth_date" value="{{ $admin->birth_date }}">
                                 </div>
                             </div>
                             <div class="form-actions" style="display:none;">
@@ -120,6 +147,7 @@
                         </form>
                     </div>
                 </div>
+
                 <div class="card-footer">
                     <button class="edit-btn" id="editPersonalBtn">
                         <i class="fas fa-edit"></i> Edit
@@ -132,21 +160,26 @@
                 <div class="card-header">
                     <h2 class="card-title">Change Password</h2>
                 </div>
+
                 <div class="card-content">
                     <div id="passwordDisplayMode" class="password-display">
                         <div class="password-info">
                             <i class="fas fa-lock"></i>
-                            <span>Password last changed recently</span>
+                            <span>Keep your account secure with a strong password.</span>
                         </div>
                     </div>
 
                     <div id="passwordEditMode" class="password-edit" style="display:none;">
-                        <form id="passwordForm" method="POST" action="{{ route('admin.profile.password.update') }}">
+                        <form id="passwordForm"
+                            method="POST"
+                            action="{{ route('admin.profile.password.update') }}"
+                            data-ajax="true" data-method="PUT">
                             @csrf
                             @method('PUT')
+
                             <div class="info-field">
                                 <label class="field-label">Current Password</label>
-                                <input type="password" class="field-input" name="current_password" id="currentPassword" required>
+                                <input type="password" class="field-input" name="current_password" id="currentPassword" required autocomplete="current-password">
                             </div>
 
                             <div class="password-requirements">
@@ -162,16 +195,16 @@
 
                             <div class="info-field">
                                 <label class="field-label">New Password</label>
-                                <input type="password" class="field-input" name="new_password" id="newPassword" oninput="validatePassword()" required>
+                                <input type="password" class="field-input" name="password" id="newPassword" oninput="validatePassword()" required autocomplete="new-password">
                             </div>
                             <div class="info-field">
                                 <label class="field-label">Confirm Password</label>
-                                <input type="password" class="field-input" name="new_password_confirmation" id="confirmPassword" required>
+                                <input type="password" class="field-input" name="password_confirmation" id="confirmPassword" required autocomplete="new-password">
                             </div>
 
                             <div class="checkbox-field">
                                 <label class="checkbox-label">
-                                    <input type="checkbox" id="togglePasswordCheckbox"> Show Password
+                                    <input type="checkbox" id="togglePasswordCheckbox" onclick="togglePassword()"> Show Password
                                 </label>
                             </div>
 
@@ -182,6 +215,7 @@
                         </form>
                     </div>
                 </div>
+
                 <div class="card-footer">
                     <button class="edit-btn" id="editPasswordBtn">
                         <i class="fas fa-edit"></i> Edit
@@ -192,7 +226,7 @@
     </main>
 </div>
 
-<!-- Success Modal -->
+{{-- Optional success modal (kept) --}}
 <div id="successModal" class="modal" style="display:none;">
     <div class="modal-content">
         <div class="modal-header">
@@ -214,5 +248,6 @@
 
 @push('scripts')
 <script src="https://kit.fontawesome.com/a2e0ad2a6a.js" crossorigin="anonymous"></script>
-<script src="{{ asset('js/admin_profile.js') }}"></script>
+{{-- Use the unified script (replace admin_profile.js) --}}
+<script src="{{ asset('js/user_profile.js') }}"></script>
 @endpush
