@@ -7,56 +7,105 @@ use Illuminate\Support\Facades\DB;
 
 class RubricSectionsSeeder extends Seeder
 {
-    public function run()
+    public function run(): void
     {
-        // Disable foreign keys first
-        DB::statement('PRAGMA foreign_keys = OFF;');
+        DB::table('rubric_sections')->delete();
 
-        // Clear table safely
-        DB::table('rubric_sections')->truncate();
+        $catId = DB::table('rubric_categories')->pluck('id', 'key');
+        $now = now();
 
-        // Re-enable foreign keys
-        DB::statement('PRAGMA foreign_keys = ON;');
+        $rows = [
+            // Leadership grouping (no caps here; caps are at category or subsection level)
+            [
+                'key' => 'leadership.campus_government',
+                'category_key' => 'leadership',
+                'title' => 'A. Campus-Based Student Government',
+                'evidence' => 'Oath of Office; Certification from the Organization Adviser / Immediate Supervisor',
+                'aggregation' => 'sum',
+                'order_no' => 1
+            ],
 
-        // Get categories
-        $cat1 = DB::table('rubric_categories')->where('title', 'Leadership Excellence')->first();
-        $cat2 = DB::table('rubric_categories')->where('title', 'Academic Excellence')->first();
-        $cat3 = DB::table('rubric_categories')->where('title', 'Awards/Recognition Received')->first();
-        $cat4 = DB::table('rubric_categories')->where('title', 'Community Involvement')->first();
-        $cat5 = DB::table('rubric_categories')->where('title', 'Good Conduct')->first();
+            [
+                'key' => 'leadership.designations',
+                'category_key' => 'leadership',
+                'title' => 'B. Designation in Special Orders / Office Orders',
+                'evidence' => 'Certification from Chair/Committee; Accomplishment Report',
+                'aggregation' => 'sum',
+                'order_no' => 2
+            ],
 
-        // Insert sections using upsert (safe for duplicates)
-        if ($cat1) {
-            DB::table('rubric_sections')->upsert([
-                ['section_id' => 'LEAD_A', 'category_id' => $cat1->category_id, 'title' => 'Campus-Based', 'order_no' => 1],
-                ['section_id' => 'LEAD_B', 'category_id' => $cat1->category_id, 'title' => 'Special Orders', 'order_no' => 2],
-                ['section_id' => 'LEAD_C', 'category_id' => $cat1->category_id, 'title' => 'Community-Based', 'order_no' => 3],
-                ['section_id' => 'LEAD_D', 'category_id' => $cat1->category_id, 'title' => 'Trainings / Seminars', 'order_no' => 4],
-            ], ['category_id', 'order_no']);
-        }
+            [
+                'key' => 'leadership.community_based',
+                'category_key' => 'leadership',
+                'title' => 'C. Community-Based',
+                'evidence' => 'Oath of Office; Certification from Org Adviser / Immediate Supervisor',
+                'aggregation' => 'sum',
+                'order_no' => 3
+            ],
 
-        if ($cat2) {
-            DB::table('rubric_sections')->upsert([
-                ['section_id' => 'NONE_2', 'category_id' => $cat2->category_id, 'title' => 'Academic Excellence', 'order_no' => 1],
-            ], ['category_id', 'order_no']);
-        }
+            [
+                'key' => 'leadership.trainings',
+                'category_key' => 'leadership',
+                'title' => 'D. Leadership Trainings / Seminars / Conferences Attended',
+                'evidence' => 'Certificate of Attendance / Appreciation / Participation',
+                'aggregation' => 'sum',
+                'order_no' => 4
+            ],
 
-        if ($cat3) {
-            DB::table('rubric_sections')->upsert([
-                ['section_id' => 'NONE_3', 'category_id' => $cat3->category_id, 'title' => 'Awards / Recognition', 'order_no' => 1],
-            ], ['category_id', 'order_no']);
-        }
+            // Academic
+            [
+                'key' => 'academic.gwa',
+                'category_key' => 'academic',
+                'title' => 'General Weighted Average (1st Semester)',
+                'evidence' => 'Certificate of Grades (Portal Generated) from 1st year to 1st sem of current AY',
+                'aggregation' => 'max_only',
+                'order_no' => 1
+            ],
 
-        if ($cat4) {
-            DB::table('rubric_sections')->upsert([
-                ['section_id' => 'NONE_4', 'category_id' => $cat4->category_id, 'title' => 'Community Involvement', 'order_no' => 1],
-            ], ['category_id', 'order_no']);
-        }
+            // Awards
+            [
+                'key' => 'awards.recognition',
+                'category_key' => 'awards',
+                'title' => 'Awards / Recognition Received',
+                'evidence' => 'Certificate of Recognition; Selection Criteria/Guidelines',
+                'aggregation' => 'sum',
+                'order_no' => 1
+            ],
 
-        if ($cat5) {
-            DB::table('rubric_sections')->upsert([
-                ['section_id' => 'NONE_5', 'category_id' => $cat5->category_id, 'title' => 'Good Conduct', 'order_no' => 1],
-            ], ['category_id', 'order_no']);
+            // Community
+            [
+                'key' => 'community.service',
+                'category_key' => 'community',
+                'title' => 'Community Involvement',
+                'evidence' => 'Certificate; Program/Invitation; Photos',
+                'aggregation' => 'sum',
+                'order_no' => 1
+            ],
+
+            // Conduct
+            [
+                'key' => 'conduct.good_conduct',
+                'category_key' => 'conduct',
+                'title' => 'Good Conduct',
+                'evidence' => 'OSAS official behavioral record',
+                'aggregation' => 'sum',
+                'order_no' => 1
+            ],
+        ];
+
+        foreach ($rows as $r) {
+            DB::table('rubric_sections')->insert([
+                'category_id' => $catId[$r['category_key']],
+                'key' => $r['key'],
+                'title' => $r['title'],
+                'evidence' => $r['evidence'],
+                'aggregation' => $r['aggregation'],
+                'aggregation_params' => null,
+                'notes' => null,
+                'order_no' => $r['order_no'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
         }
     }
 }

@@ -1,4 +1,5 @@
 @extends('layouts.app')
+
 @section('title', 'Submit Record')
 
 @section('content')
@@ -7,9 +8,10 @@
         @include('partials.sidebar')
 
         <main class="main-content">
-            <!-- Upload Dropzone -->
+
+            <!-- 🔹 Upload Dropzone -->
             <section class="sr-card sr-drop">
-                <input id="fileInput" type="file" accept=".jpg,.jpeg,.png,.pdf" multiple hidden>
+                <input id="fileInput" type="file" name="document_file" accept=".jpg,.jpeg,.png,.pdf" multiple hidden>
                 <div id="dropzone" class="sr-dropzone" role="button" tabindex="0" aria-label="Click to upload">
                     <i class="fa-solid fa-upload"></i>
                     <div class="sr-drop-title">Click to Upload</div>
@@ -23,114 +25,98 @@
                 <ul id="fileList" class="sr-filelist"></ul>
             </section>
 
-            <!-- Activity + SLEA Classification -->
-            <form id="submitForm" class="sr-card sr-form" onsubmit="return false;">
-                <h3>Activity</h3>
+            <!-- 🔹 Submission Form -->
+            <form id="submitForm"
+                class="sr-card sr-form"
+                method="POST"
+                action="{{ route('student.submissions.store') }}"
+                enctype="multipart/form-data">
+                @csrf
+
+                <h3>Activity Details</h3>
                 <div class="sr-grid">
                     <div class="sr-field">
-                        <label for="title">Title of Activity</label>
-                        <input id="title" type="text" placeholder="e.g., Leadership Training">
+                        <label for="activity_title">Title of Activity <span class="text-danger">*</span></label>
+                        <input id="activity_title" name="activity_title" type="text" placeholder="e.g., Leadership Training" required>
                     </div>
                     <div class="sr-field">
-                        <label for="type">Type of Activity</label>
-                        <input id="type" type="text" placeholder="e.g., Seminar / Workshop">
+                        <label for="activity_type">Type of Activity <span class="text-danger">*</span></label>
+                        <input id="activity_type" name="activity_type" type="text" placeholder="e.g., Seminar / Workshop" required>
                     </div>
                     <div class="sr-field">
-                        <label for="role">Role in Activity</label>
-                        <input id="role" type="text" placeholder="e.g., Participant / Speaker">
+                        <label for="activity_role">Role in Activity <span class="text-danger">*</span></label>
+                        <input id="activity_role" name="activity_role" type="text" placeholder="e.g., Participant / Speaker" required>
                     </div>
                     <div class="sr-field">
-                        <label for="date">Date of Activity</label>
-                        <input id="date" type="date">
+                        <label for="activity_date">Date of Activity <span class="text-danger">*</span></label>
+                        <input id="activity_date" name="activity_date" type="date" required>
                     </div>
                     <div class="sr-field">
-                        <label for="orgBody">Organizing Body</label>
-                        <input id="orgBody" type="text" placeholder="e.g., OSAS">
+                        <label for="organizing_body">Organizing Body <span class="text-danger">*</span></label>
+                        <input id="organizing_body" name="organizing_body" type="text" placeholder="e.g., OSAS / Department" required>
+                    </div>
+                    <div class="sr-field">
+                        <label for="term">Term / Semester</label>
+                        <input id="term" name="term" type="text" placeholder="e.g., 1st Semester AY 2024–2025">
+                    </div>
+                    <div class="sr-field">
+                        <label for="issued_by">Issued By</label>
+                        <input id="issued_by" name="issued_by" type="text" placeholder="e.g., OSAS Director">
                     </div>
                     <div class="sr-field">
                         <label for="note">Note (optional)</label>
-                        <input id="note" type="text" placeholder="Any additional info">
-                    </div>
-                    <div class="sr-field">
-                        <label for="term">Term</label>
-                        <input id="term" type="text" placeholder="AY 2024–2025">
-                    </div>
-                    <div class="sr-field">
-                        <label for="issuedBy">Issued by</label>
-                        <input id="issuedBy" type="text" placeholder="e.g., OSAS">
+                        <input id="note" name="note" type="text" placeholder="Any additional info">
                     </div>
                 </div>
 
                 <h3 style="margin-top:18px;">SLEA Classification</h3>
                 <div class="sr-grid">
                     <div class="sr-field">
-                        <label for="docType">Document Type</label>
-                        <select id="docType">
+                        <label for="document_type">Document Type</label>
+                        <select id="document_type" name="document_type">
                             <option value="">Select document type</option>
-                            <option>Certificate</option>
-                            <option>Appointment</option>
-                            <option>Report</option>
+                            <option value="Certificate">Certificate</option>
+                            <option value="Appointment">Appointment</option>
+                            <option value="Report">Report</option>
+                            <option value="Others">Others</option>
                         </select>
                     </div>
+
+                    <!-- Category Dropdown -->
                     <div class="sr-field">
-                        <label for="sleacat">SLEA Category</label>
-                        <select id="sleacat">
+                        <label for="category_id">SLEA Category</label>
+                        <select id="category_id" name="category_id" required>
                             <option value="">Select category</option>
-                            <option>Department</option>
-                            <option>College</option>
-                            <option>University</option>
-                            <option>Organization</option>
+                            @foreach($categories as $cat)
+                            <option value="{{ $cat->category_id }}">{{ $cat->title }}</option>
+                            @endforeach
                         </select>
                     </div>
+
+                    <!-- Section Dropdown -->
                     <div class="sr-field">
-                        <label for="subSection">Subsection</label>
-                        <select id="subSection">
+                        <label for="section_id">Section</label>
+                        <select id="section_id" name="section_id">
+                            <option value="">Select section</option>
+                        </select>
+                    </div>
+
+                    <!-- Subsection Dropdown -->
+                    <div class="sr-field">
+                        <label for="sub_items">Subsection</label>
+                        <select id="sub_items" name="sub_items">
                             <option value="">Select subsection</option>
-                            <option>Leadership</option>
-                            <option>Service</option>
-                            <option>Academic</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="sr-actions">
-                    <button type="button" class="sr-btn sr-btn-primary" id="btnProceed">Proceed</button>
-                    <button type="button" class="sr-btn sr-btn-ghost" id="btnAnother">Submit Another</button>
-                    <button type="button" class="sr-btn sr-btn-ghost" id="btnCancel">Cancel</button>
+                    <button type="submit" class="sr-btn sr-btn-primary" id="btnSubmit">Submit</button>
+                    <button type="reset" class="sr-btn sr-btn-ghost" id="btnReset">Clear</button>
                 </div>
             </form>
 
-            <!-- Draft Modal -->
-            <div id="modalDraft" class="sr-modal" aria-hidden="true">
-                <div class="sr-modal-backdrop"></div>
-                <div class="sr-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="draftTitle">
-                    <div class="sr-modal-body">
-                        <h4 id="draftTitle" class="sr-modal-title">Draft</h4>
-                        <p class="sr-modal-subtitle">Please review your submission!</p>
-                        <ul id="draftList" class="sr-draft-list"></ul>
-                        <div class="sr-modal-actions">
-                            <button class="sr-btn sr-btn-primary" id="btnSubmitDraft">Submit</button>
-                            <button class="sr-btn sr-btn-ghost" data-close="modalDraft">Cancel</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Confirm Modal -->
-            <div id="modalConfirm" class="sr-modal" aria-hidden="true">
-                <div class="sr-modal-backdrop"></div>
-                <div class="sr-modal-dialog sr-modal-sm" role="dialog" aria-modal="true">
-                    <div class="sr-modal-body">
-                        <p class="sr-confirm-text">Are you sure you want to submit?</p>
-                        <div class="sr-modal-actions">
-                            <button class="sr-btn sr-btn-primary" id="btnConfirmOk">Okay</button>
-                            <button class="sr-btn sr-btn-ghost" data-close="modalConfirm">Cancel</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Success Modal -->
+            <!-- 🔹 Success Modal -->
             <div id="modalSuccess" class="sr-modal" aria-hidden="true">
                 <div class="sr-modal-backdrop"></div>
                 <div class="sr-modal-dialog sr-modal-sm" role="alertdialog" aria-modal="true">
@@ -144,8 +130,9 @@
     </div>
 </div>
 
-{{-- SCOPED CSS + JS (inline so it always loads) --}}
+<!-- 🔹 Scoped CSS and JS -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+
 <style>
     /* === Scoped ONLY to Submit Record page === */
     .submit-record-page .sr-card {
@@ -453,174 +440,113 @@
 </style>
 
 <script>
-    (() => {
-        let files = [];
-        const maxSize = 5 * 1024 * 1024;
-        const acceptExt = /\.(pdf|jpg|jpeg|png)$/i;
-
-        const fileInput = document.getElementById('fileInput');
+    document.addEventListener('DOMContentLoaded', () => {
         const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
         const fileList = document.getElementById('fileList');
-
-        const btnProceed = document.getElementById('btnProceed');
-        const btnAnother = document.getElementById('btnAnother');
-        const btnCancel = document.getElementById('btnCancel');
-
-        const modalDraft = document.getElementById('modalDraft');
-        const modalConfirm = document.getElementById('modalConfirm');
+        const form = document.getElementById('submitForm');
         const modalSuccess = document.getElementById('modalSuccess');
 
-        const draftList = document.getElementById('draftList');
-        const btnSubmitDraft = document.getElementById('btnSubmitDraft');
-        const btnConfirmOk = document.getElementById('btnConfirmOk');
+        let files = [];
+
+        // --- Dropzone ---
+        dropzone.addEventListener('click', () => fileInput.click());
+        ['dragenter', 'dragover'].forEach(evn => dropzone.addEventListener(evn, e => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('sr-drag');
+        }));
+        ['dragleave', 'drop'].forEach(evn => dropzone.addEventListener(evn, e => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('sr-drag');
+        }));
+        dropzone.addEventListener('drop', e => {
+            files = [...files, ...e.dataTransfer.files];
+            renderFileList();
+        });
+        fileInput.addEventListener('change', e => {
+            files = [...files, ...e.target.files];
+            renderFileList();
+        });
+        const renderFileList = () => {
+            fileList.innerHTML = files.map((f, i) => `
+            <li>${f.name}
+                <button class="sr-remove" data-index="${i}"><i class="fa-solid fa-xmark"></i></button>
+            </li>
+        `).join('');
+        };
+        fileList.addEventListener('click', e => {
+            const idx = e.target.closest('[data-index]')?.dataset.index;
+            if (idx !== undefined) {
+                files.splice(idx, 1);
+                renderFileList();
+            }
+        });
+
+        // --- Dependent Dropdowns for Rubric ---
+        const sectionSelect = document.getElementById('section_id');
+        const subSelect = document.getElementById('sub_items');
+
+        document.getElementById('category_id').addEventListener('change', e => {
+            const catId = e.target.value;
+            sectionSelect.innerHTML = `<option value="">Loading...</option>`;
+            fetch(`/rubric/${catId}/sections`)
+                .then(r => r.json())
+                .then(sections => {
+                    sectionSelect.innerHTML = '<option value="">Select section</option>';
+                    sections.forEach(sec => {
+                        sectionSelect.insertAdjacentHTML('beforeend',
+                            `<option value="${sec.section_id}">${sec.section_title}</option>`);
+                    });
+                    subSelect.innerHTML = '<option value="">Select subsection</option>';
+                });
+        });
+
+        sectionSelect.addEventListener('change', e => {
+            const secId = e.target.value;
+            subSelect.innerHTML = `<option value="">Loading...</option>`;
+            fetch(`/rubric/section/${secId}/subsections`)
+                .then(r => r.json())
+                .then(subs => {
+                    subSelect.innerHTML = '<option value="">Select subsection</option>';
+                    subs.forEach(s => {
+                        subSelect.insertAdjacentHTML('beforeend',
+                            `<option value="${s.sub_items}">${s.subsection_title}</option>`);
+                    });
+                });
+        });
+
+        // --- AJAX Submission (with FormData) ---
+        form.addEventListener('submit', e => {
+            e.preventDefault();
+            const data = new FormData(form);
+            if (files.length) data.append('document_file', files[0]);
+
+            fetch(form.action, {
+                    method: 'POST',
+                    body: data,
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('input[name=_token]').value
+                    }
+                })
+                .then(r => r.ok ? r.json() : Promise.reject(r))
+                .then(resp => {
+                    if (resp.success) {
+                        openModal(modalSuccess);
+                        form.reset();
+                        files = [];
+                        renderFileList();
+                        setTimeout(() => closeModal(modalSuccess), 1500);
+                    } else {
+                        alert(resp.message || 'Error occurred.');
+                    }
+                })
+                .catch(() => alert('Submission failed.'));
+        });
 
         const openModal = el => el.setAttribute('aria-hidden', 'false');
         const closeModal = el => el.setAttribute('aria-hidden', 'true');
-
-        const renderQuickList = () => {
-            fileList.innerHTML = files.map((f, i) => `
-      <li>
-        <span>${f.name}</span>
-        <button class="sr-remove" data-remove="${i}" title="Remove"><i class="fa-solid fa-xmark"></i></button>
-      </li>
-    `).join('');
-        };
-
-        const renderDraftList = () => {
-            if (!files.length) {
-                draftList.innerHTML = `<li><em>No files added yet.</em></li>`;
-                return;
-            }
-            draftList.innerHTML = files.map((f, i) => `
-      <li>
-        <span>${f.name}</span>
-        <div class="sr-draft-actions">
-          <button class="sr-pill sr-pill-x" data-remove="${i}" title="Remove"><i class="fa-solid fa-xmark"></i></button>
-          <button class="sr-pill sr-pill-edit" data-edit="${i}">Edit</button>
-        </div>
-      </li>
-    `).join('');
-        };
-
-        const tryAddFile = (f) => {
-            if (!acceptExt.test(f.name)) {
-                alert('Only JPG, PNG, or PDF allowed.');
-                return;
-            }
-            if (f.size > maxSize) {
-                alert('File exceeds 5MB.');
-                return;
-            }
-            files.push({
-                name: f.name,
-                file: f
-            });
-        };
-
-        dropzone.addEventListener('click', () => fileInput.click());
-        dropzone.addEventListener('keydown', e => {
-            if (e.key === 'Enter' || e.key === ' ') fileInput.click();
-        });
-
-        ['dragenter', 'dragover'].forEach(evt => {
-            dropzone.addEventListener(evt, e => {
-                e.preventDefault();
-                e.stopPropagation();
-                dropzone.classList.add('sr-drag');
-            });
-        });
-        ['dragleave', 'drop'].forEach(evt => {
-            dropzone.addEventListener(evt, e => {
-                e.preventDefault();
-                e.stopPropagation();
-                dropzone.classList.remove('sr-drag');
-            });
-        });
-        dropzone.addEventListener('drop', e => {
-            for (const f of e.dataTransfer.files) tryAddFile(f);
-            renderQuickList();
-        });
-
-        fileInput.addEventListener('change', e => {
-            for (const f of e.target.files) tryAddFile(f);
-            fileInput.value = '';
-            renderQuickList();
-        });
-
-        fileList.addEventListener('click', e => {
-            const rm = e.target.closest('[data-remove]');
-            if (rm) {
-                files.splice(+rm.getAttribute('data-remove'), 1);
-                renderQuickList();
-            }
-        });
-
-        btnProceed.addEventListener('click', () => {
-            renderDraftList();
-            openModal(modalDraft);
-        });
-
-        draftList.addEventListener('click', e => {
-            const rm = e.target.closest('[data-remove]');
-            const ed = e.target.closest('[data-edit]');
-            if (rm) {
-                files.splice(+rm.getAttribute('data-remove'), 1);
-                renderQuickList();
-                renderDraftList();
-            }
-            if (ed) {
-                const idx = +ed.getAttribute('data-edit');
-                const tmp = document.createElement('input');
-                tmp.type = 'file';
-                tmp.accept = '.jpg,.jpeg,.png,.pdf';
-                tmp.onchange = ev => {
-                    const nf = ev.target.files[0];
-                    if (!nf) return;
-                    if (!acceptExt.test(nf.name)) return alert('Only JPG, PNG, or PDF allowed.');
-                    if (nf.size > maxSize) return alert('File exceeds 5MB.');
-                    files[idx] = {
-                        name: nf.name,
-                        file: nf
-                    };
-                    renderQuickList();
-                    renderDraftList();
-                };
-                tmp.click();
-            }
-        });
-
-        btnSubmitDraft.addEventListener('click', () => openModal(modalConfirm));
-        btnConfirmOk.addEventListener('click', () => {
-            closeModal(modalConfirm);
-            closeModal(modalDraft);
-            openModal(modalSuccess);
-            setTimeout(() => {
-                closeModal(modalSuccess);
-                document.getElementById('submitForm').reset();
-                files = [];
-                renderQuickList();
-                window.scrollTo({
-                    top: 0,
-                    behavior: 'smooth'
-                });
-            }, 1100);
-        });
-
-        document.addEventListener('click', e => {
-            const closer = e.target.closest('[data-close]');
-            if (closer) closeModal(document.getElementById(closer.getAttribute('data-close')));
-        });
-
-        btnAnother.addEventListener('click', () => {
-            document.getElementById('submitForm').reset();
-            files = [];
-            renderQuickList();
-        });
-        btnCancel.addEventListener('click', () => {
-            document.getElementById('submitForm').reset();
-            files = [];
-            renderQuickList();
-        });
-    })();
+    });
 </script>
 @endsection

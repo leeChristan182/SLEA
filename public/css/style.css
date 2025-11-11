@@ -6442,6 +6442,9 @@ body.dark-mode .form-group input:focus {
 body.dark-mode .form-group label {
   color: #f0f0f0 !important;
 }
+body .dark-mode #passwordChecklist li {
+    color: white !important;
+}
 
 body.dark-mode .form-group input {
   background: #4a4a4a !important;

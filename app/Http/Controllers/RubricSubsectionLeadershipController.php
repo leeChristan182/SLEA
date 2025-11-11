@@ -2,106 +2,85 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\RubricSubsectionLeadership;
-use App\Models\RubricSubsection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 class RubricSubsectionLeadershipController extends Controller
 {
+    // GET /admin/rubrics/leadership
     public function index()
     {
-        $leadership = RubricSubsectionLeadership::with(['subsection.section.category'])
-            ->orderBy('position_order')
-            ->paginate(12);
+        $rows = Schema::hasTable('rubric_leadership')
+            ? DB::table('rubric_leadership')->orderBy('id')->get()
+            : collect();
 
-        return view('leadership-subsections.index', compact('leadership'));
+        return view('admin.rubrics.leadership.index', compact('rows'));
     }
 
+    // GET /admin/rubrics/leadership/create
     public function create()
     {
-        $subsections = RubricSubsection::with(['section.category'])
-            ->orderBy('section_id')
-            ->orderBy('order_no')
-            ->get()
-            ->mapWithKeys(function ($subsection) {
-                $label = sprintf(
-                    '[%s] %s - %s',
-                    $subsection->section->category->title ?? 'N/A',
-                    $subsection->section->title ?? 'N/A',
-                    $subsection->sub_section
-                );
-                return [$subsection->sub_items => $label];
-            });
-        
-        return view('leadership-subsections.create', compact('subsections'));
+        return view('admin.rubrics.leadership.create');
     }
 
+    // POST /admin/rubrics/leadership
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'sub_items'      => ['required', 'integer', 'exists:rubric_subsections,sub_items'],
-            'position'       => ['required', 'string', 'max:255'],
-            'points'         => ['required', 'numeric', 'between:-99.99,99.99'],
-            'position_order' => ['required', 'integer', 'between:1,255'],
+        $request->validate([
+            'name'       => ['required', 'string', 'max:150'],
+            'max_points' => ['required', 'numeric', 'min:0'],
         ]);
 
-        $leadership = RubricSubsectionLeadership::create($data);
+        if (Schema::hasTable('rubric_leadership')) {
+            DB::table('rubric_leadership')->insert([
+                'name'       => $request->name,
+                'max_points' => $request->max_points,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
 
-        return redirect()
-            ->route('leadership-subsections.show', $leadership)
-            ->with('success', 'Leadership position created.');
+        return redirect()->route('admin.rubrics.leadership.index')->with('status', 'Leadership rubric added.');
     }
 
-    public function show(RubricSubsectionLeadership $leadership_subsection)
+    // GET /admin/rubrics/leadership/{id}/edit
+    public function edit(int $id)
     {
-        $leadership_subsection->load(['subsection.section.category', 'edits']);
-        return view('leadership-subsections.show', ['leadership' => $leadership_subsection]);
+        $row = Schema::hasTable('rubric_leadership')
+            ? DB::table('rubric_leadership')->where('id', $id)->first()
+            : null;
+
+        abort_if(! $row, 404);
+        return view('admin.rubrics.leadership.edit', compact('row'));
     }
 
-    public function edit(RubricSubsectionLeadership $leadership_subsection)
+    // PUT/PATCH /admin/rubrics/leadership/{id}
+    public function update(Request $request, int $id)
     {
-        $subsections = RubricSubsection::with(['section.category'])
-            ->orderBy('section_id')
-            ->orderBy('order_no')
-            ->get()
-            ->mapWithKeys(function ($subsection) {
-                $label = sprintf(
-                    '[%s] %s - %s',
-                    $subsection->section->category->title ?? 'N/A',
-                    $subsection->section->title ?? 'N/A',
-                    $subsection->sub_section
-                );
-                return [$subsection->sub_items => $label];
-            });
-        
-        return view('leadership-subsections.edit', [
-            'leadership' => $leadership_subsection, 
-            'subsections' => $subsections
-        ]);
-    }
-
-    public function update(Request $request, RubricSubsectionLeadership $leadership_subsection)
-    {
-        $data = $request->validate([
-            'sub_items'      => ['required', 'integer', 'exists:rubric_subsections,sub_items'],
-            'position'       => ['required', 'string', 'max:255'],
-            'points'         => ['required', 'numeric', 'between:-99.99,99.99'],
-            'position_order' => ['required', 'integer', 'between:1,255'],
+        $request->validate([
+            'name'       => ['required', 'string', 'max:150'],
+            'max_points' => ['required', 'numeric', 'min:0'],
         ]);
 
-        $leadership_subsection->update($data);
+        if (Schema::hasTable('rubric_leadership')) {
+            DB::table('rubric_leadership')->where('id', $id)->update([
+                'name'       => $request->name,
+                'max_points' => $request->max_points,
+                'updated_at' => now(),
+            ]);
+        }
 
-        return redirect()
-            ->route('leadership-subsections.show', $leadership_subsection)
-            ->with('success', 'Leadership position updated.');
+        return redirect()->route('admin.rubrics.leadership.index')->with('status', 'Leadership rubric updated.');
     }
 
-    public function destroy(RubricSubsectionLeadership $leadership_subsection)
+    // DELETE /admin/rubrics/leadership/{id}
+    public function destroy(int $id)
     {
-        $leadership_subsection->delete();
+        if (Schema::hasTable('rubric_leadership')) {
+            DB::table('rubric_leadership')->where('id', $id)->delete();
+        }
 
-        return redirect()
-            ->route('leadership-subsections.index')
-            ->with('success', 'Leadership position deleted.');
+        return redirect()->route('admin.rubrics.leadership.index')->with('status', 'Leadership rubric deleted.');
     }
 }

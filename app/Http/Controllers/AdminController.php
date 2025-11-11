@@ -2,452 +2,353 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-
-use Illuminate\Http\Request;
 use App\Models\User;
-use App\Models\AssessorAccount;
-use App\Models\PendingSubmission;
-use App\Models\SubmissionRecord;
-use App\Models\SystemMonitoringAndLog;
-use App\Models\AdminProfile;
-use App\Models\StudentPersonalInformation;
-use App\Models\Submission;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password as PasswordRule;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 class AdminController extends Controller
 {
-    public function dashboard()
-    {
-        $studentCount   = StudentPersonalInformation::count();
-        $assessorCount  = AssessorAccount::count();
-        $adminCount     = AdminProfile::count(); // fixed reference
-        $submissionCount = Submission::count();
-        $logs           = SystemMonitoringAndLog::latest()->take(10)->get();
-        $recentAssessors = AssessorAccount::latest()->take(5)->get();
-        $recentLogs = SystemMonitoringAndLog::latest()->take(5)->get();
+    /* =========================
+     | PROFILE & PASSWORD
+     * ========================= */
 
-        return view('admin.dashboard', compact(
-            'studentCount',
-            'assessorCount',
-            'adminCount',
-            'submissionCount',
-            'logs'
-        ));
-    }
-
+    // GET /admin/profile
     public function profile()
     {
-        $admin = AdminProfile::where('email_address', auth()->user()->email_address)->first();
-        return view('admin.profile', compact('admin'));
+        $user = Auth::user();
+        return view('admin.profile', compact('user'));
     }
 
+    // PUT /admin/profile/update
     public function updateProfile(Request $request)
     {
-        $admin = AdminProfile::where('email_address', auth()->user()->email_address)->first();
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
 
-        $admin->update($request->only(
-            'first_name',
-            'last_name',
-            'contact_number',
-            'position'
-        ));
-
-        SystemMonitoringAndLog::create([
-            'user_role' => 'Admin',
-            'user_name' => $admin->email_address,
-            'activity_type' => 'Update Profile',
-            'description' => 'Updated admin profile information',
-            'created_at' => now(),
+        $data = $request->validate([
+            'first_name' => ['required', 'string', 'max:50'],
+            'last_name'  => ['required', 'string', 'max:50'],
+            'middle_name' => ['nullable', 'string', 'max:50'],
+            'email'      => ['required', 'email', 'max:100', Rule::unique('users', 'email')->ignore($user->id)],
+            'contact'    => ['nullable', 'string', 'max:20'],
+            'birth_date' => ['nullable', 'date'],
         ]);
 
-        return back()->with('success', 'Profile updated successfully!');
+        $user->update($data);
+
+        return back()->with('status', 'Profile updated.');
     }
+
+    // POST /admin/profile/avatar
     public function updateAvatar(Request $request)
     {
-        $request->validate(['avatar' => 'required|image|max:5120']);
+        $request->validate([
+            'avatar' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ]);
 
-        $admin = AdminProfile::where('email_address', auth()->user()->email_address)->first();
-
-        if (!$admin) {
-            return back()->withErrors(['error' => 'Admin profile not found.']);
-        }
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
 
         $path = $request->file('avatar')->store('avatars', 'public');
 
-        $admin->update(['profile_picture' => $path]);
+        if ($user->profile_picture_path && Storage::disk('public')->exists($user->profile_picture_path)) {
+            Storage::disk('public')->delete($user->profile_picture_path);
+        }
 
-        SystemMonitoringAndLog::record(
-            'Admin',
-            $admin->email_address,
-            'Update Profile Picture',
-            'Admin changed their profile picture'
-        );
+        $user->update(['profile_picture_path' => $path]);
 
-        return back()->with('success', 'Profile picture updated successfully!');
+        return back()->with('status', 'Avatar updated.');
     }
 
-
+    // PUT /admin/profile/password
     public function updatePassword(Request $request)
     {
         $request->validate([
-            'current_password' => 'required',
-            'new_password' => 'required|string|min:8|confirmed',
+            'current_password' => ['required'],
+            'password'         => ['required', 'confirmed', PasswordRule::min(8)],
         ]);
 
-        // Get current admin profile
-        $admin = AdminProfile::where('email_address', auth()->user()->email_address)->first();
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
 
-        if (!$admin) {
-            return back()->withErrors(['profile' => 'Admin profile not found.']);
+        if (! Hash::check($request->current_password, $user->password)) {
+            return back()->withErrors(['current_password' => 'Your current password is incorrect.']);
         }
 
-        // Get or create the admin_password record
-        $adminPassword = \App\Models\AdminPassword::firstOrNew(['admin_id' => $admin->admin_id]);
-
-        // If the record already exists, verify the current password
-        if ($adminPassword->exists) {
-            if (!Hash::check($request->current_password, $adminPassword->password_hashed)) {
-                return back()->withErrors(['current_password' => 'Current password is incorrect.']);
-            }
+        // Optional: audit password change if table exists
+        if (Schema::hasTable('password_changes')) {
+            DB::table('password_changes')->insert([
+                'user_id'                => $user->id,
+                'previous_password_hash' => $user->password,
+                'changed_at'             => now(),
+                'changed_by'             => 'self',
+                'ip'                     => $request->ip(),
+                'user_agent'             => substr((string) $request->userAgent(), 0, 255),
+                'created_at'             => now(),
+                'updated_at'             => now(),
+            ]);
         }
 
-        // Update password and date
-        $adminPassword->password_hashed = Hash::make($request->new_password);
-        $adminPassword->date_pass_created = now();
-        $adminPassword->save();
+        $user->password = $request->password; // auto-hash via model mutator
+        $user->save();
 
-        // Log activity
-        SystemMonitoringAndLog::create([
-            'user_role' => 'Admin',
-            'user_name' => $admin->email_address,
-            'activity_type' => 'Change Password',
-            'description' => 'Admin updated account password',
-            'created_at' => now(),
-        ]);
-
-        return back()->with('success', 'Password updated successfully!');
+        return back()->with('status', 'Password updated.');
     }
 
-    public function createAssessor(Request $request)
+    /* =========================
+     | USER MANAGEMENT
+     * ========================= */
+
+    // GET /admin/manage  (filters: ?role=assessor&status=approved&q=lee)
+    public function manageAccount(Request $request)
     {
-        $validated = $request->validate([
-            'first_name' => 'required|string|max:50',
-            'last_name'  => 'required|string|max:50',
-            'email_address' => 'required|email|unique:assessor_accounts,email_address',
-            'position' => 'required|string|max:50',
-        ]);
+        $users = User::query()
+            ->when($request->filled('role'),   fn($q) => $q->where('role', $request->role))
+            ->when($request->filled('status'), fn($q) => $q->where('status', $request->status))
+            ->when($request->filled('q'),      fn($q) => $q->where(function ($x) use ($request) {
+                $like = '%' . $request->q . '%';
+                $x->where('first_name', 'like', $like)
+                    ->orWhere('last_name', 'like', $like)
+                    ->orWhere('email', 'like', $like);
+            }))
+            ->orderBy('last_name')
+            ->paginate(20)
+            ->withQueryString();
 
-        $assessor = AssessorAccount::create([
-            'email_address'     => $validated['email_address'],
-            'admin_id'          => auth()->user()->admin_id,
-            'first_name'        => $validated['first_name'],
-            'last_name'         => $validated['last_name'],
-            'middle_name'       => $request->input('middle_name'),
-            'position'          => $validated['position'],
-            'default_password'  => bcrypt('password123'),
-            'dateacc_created'   => now(),
-        ]);
-
-        SystemMonitoringAndLog::create([
-            'user_role'    => 'Admin',
-            'user_name'    => auth()->user()->email_address,
-            'activity_type' => 'Create Assessor',
-            'description'  => 'Created assessor account for ' . $assessor->email_address,
-            'created_at'   => now(),
-        ]);
-
-        return redirect()->back()->with('success', 'Assessor created successfully!');
+        return view('admin.manage', compact('users'));
     }
 
-    public function approveReject(Request $request)
+    // GET /admin/create_assessor
+    public function createUser()
     {
-        $query = User::with(['studentPersonalInformation', 'leadershipInformation'])
-            ->where('user_role', 'student')
-            ->where('is_approved', false);
+        $limit     = (int) config('slea.max_admin_accounts', 3); // change in .env via SLEA_MAX_ADMINS
+        $adminCnt  = User::where('role', 'admin')->count();
+        $remaining = max($limit - $adminCnt, 0);
 
-        // Search functionality
-        if ($request->filled('q')) {
-            $searchTerm = $request->q;
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('name', 'like', "%{$searchTerm}%")
-                    ->orWhere('email', 'like', "%{$searchTerm}%")
-                    ->orWhere('student_id', 'like', "%{$searchTerm}%");
-            });
-        }
-
-        // Filter by role
-        if ($request->filled('filter')) {
-            $query->where('user_role', $request->filter);
-        }
-
-        // Sort functionality
-        if ($request->filled('sort')) {
-            switch ($request->sort) {
-                case 'name':
-                    $query->orderBy('name');
-                    break;
-                case 'date':
-                    $query->orderBy('created_at', 'desc');
-                    break;
-                case 'status':
-                    $query->orderBy('is_approved');
-                    break;
-                default:
-                    $query->orderBy('created_at', 'desc');
-            }
-        } else {
-            $query->orderBy('created_at', 'desc');
-        }
-
-        $users = $query->paginate(10);
-
-        return view('admin.approve-reject', compact('users'));
+        // points to resources/views/admin/create_user.blade.php
+        return view('admin.create_user', [
+            'limit'     => $limit,
+            'adminCnt'  => $adminCnt,
+            'remaining' => $remaining,
+        ]);
     }
 
-    public function submissionOversight(Request $request)
+    // app/Http/Controllers/AdminController.php
+
+    public function storeUser(Request $request)
     {
-        $query = PendingSubmission::with(['submission.studentPersonalInformation'])
-            ->join('submission_records', 'pending_submissions.subrec_id', '=', 'submission_records.subrec_id')
-            ->select('pending_submissions.*', 'submission_records.document_title', 'submission_records.student_id', 'submission_records.category');
+        $limit    = (int) config('slea.max_admin_accounts', 3);
+        $roleList = ['admin', 'assessor'];
 
-        // Search functionality
-        if ($request->filled('q')) {
-            $searchTerm = $request->q;
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('submission_records.document_title', 'like', "%{$searchTerm}%")
-                    ->orWhere('submission_records.student_id', 'like', "%{$searchTerm}%");
-            });
-        }
+        $data = $request->validate([
+            'role'        => ['required', 'in:' . implode(',', $roleList)],
+            'last_name'   => ['required', 'string', 'max:50'],
+            'first_name'  => ['required', 'string', 'max:50'],
+            'middle_name' => ['nullable', 'string', 'max:50'],
+            'email'       => ['required', 'email', 'max:100', 'unique:users,email'],
+            'contact'     => ['nullable', 'string', 'max:20'],
+        ]);
 
-        // Filter functionality
-        if ($request->filled('filter')) {
-            switch ($request->filter) {
-                case 'pending':
-                    $query->whereNull('assessed_date');
-                    break;
-                case 'approved':
-                    $query->where('action', 'approved');
-                    break;
-                case 'rejected':
-                    $query->where('action', 'rejected');
-                    break;
-                case 'flagged':
-                    $query->where('is_flagged', true);
-                    break;
+        // Enforce admin cap
+        if ($data['role'] === 'admin') {
+            $adminCnt = \App\Models\User::where('role', 'admin')->count();
+            if ($adminCnt >= $limit) {
+                return back()->withErrors(['role' => "Admin account limit of {$limit} reached."])->withInput();
             }
         }
 
-        // Sort functionality
-        if ($request->filled('sort')) {
-            switch ($request->sort) {
-                case 'title':
-                    $query->orderBy('submission_records.document_title');
-                    break;
-                case 'student':
-                    $query->orderBy('submission_records.student_id');
-                    break;
-                case 'category':
-                    $query->orderBy('submission_records.category');
-                    break;
-                case 'status':
-                    $query->orderBy('action');
-                    break;
-                case 'date':
-                    $query->orderBy('pending_submissions.pending_queued_date', 'desc');
-                    break;
-                default:
-                    $query->orderBy('pending_submissions.pending_queued_date', 'desc');
-            }
-        } else {
-            $query->orderBy('pending_submissions.pending_queued_date', 'desc');
+        // 1) Create with a placeholder password (will be replaced immediately)
+        $user = \App\Models\User::create([
+            'first_name'  => $data['first_name'],
+            'last_name'   => $data['last_name'],
+            'middle_name' => $data['middle_name'] ?? null,
+            'email'       => $data['email'],
+            'contact'     => $data['contact'] ?? null,
+            'password'    => 'placeholder',   // will be overwritten; mutator will hash
+            'role'        => $data['role'],
+            'status'      => 'approved',
+        ]);
+
+        // 2) Set friendly temp password based on its auto-increment ID (no migration needed)
+        $plain = 'password_' . $user->id;
+        $user->password = $plain;  // hashed by your User model mutator
+        $user->save();
+
+        // (Optional) Insert admin privileges if table exists
+        if ($data['role'] === 'admin' && \Illuminate\Support\Facades\Schema::hasTable('admin_privileges')) {
+            \Illuminate\Support\Facades\DB::table('admin_privileges')->insert([
+                'user_id'     => $user->id,
+                'admin_level' => 'standard',
+                'permissions' => null,
+                'created_at'  => now(),
+                'updated_at'  => now(),
+            ]);
         }
 
-        $submissions = $query->paginate(10);
+        return redirect()
+            ->route('admin.create_user')
+            ->with([
+                'success'            => ucfirst($data['role']) . ' account created.',
+                'generated_password' => $plain, // shown once in your modal
+            ]);
+    }
 
-        return view('admin.submission-oversight', compact('submissions'));
+
+    // GET /admin/approve-reject
+    public function approveReject()
+    {
+        $pending = User::query()
+            ->where('role', User::ROLE_STUDENT)
+            ->where('status', User::STATUS_PENDING)
+            ->orderByDesc('created_at')
+            ->paginate(20);
+
+        return view('admin.users.approve-reject', compact('pending'));
+    }
+
+    // POST /admin/approve/{student_id}
+    public function approveUser(int $student_id)
+    {
+        $user = User::findOrFail($student_id);
+
+        if (! $user->isStudent() || ! $user->isPending()) {
+            return back()->withErrors(['email' => 'Only pending student accounts can be approved.']);
+        }
+
+        $user->approve();
+        // TODO: notify user (mail/notification)
+
+        return back()->with('status', 'Student approved.');
+    }
+
+    // POST /admin/reject/{student_id}
+    public function rejectUser(int $student_id)
+    {
+        $user = User::findOrFail($student_id);
+
+        if (! $user->isStudent() || ! $user->isPending()) {
+            return back()->withErrors(['email' => 'Only pending student accounts can be rejected.']);
+        }
+
+        $user->reject();
+        // TODO: notify user
+
+        return back()->with('status', 'Student rejected.');
+    }
+
+    // PATCH /admin/manage/{user}/toggle   (approved <-> disabled)
+    public function toggleUser(User $user)
+    {
+        // Safety: don’t toggle yourself
+        if (Auth::id() === $user->id) {
+            return back()->withErrors(['email' => 'You cannot disable your own account.']);
+        }
+
+        // Safety: don’t leave zero active admins
+        if ($user->isAdmin()) {
+            $activeAdmins = User::role(User::ROLE_ADMIN)->approved()->count();
+            if ($activeAdmins <= 1 && $user->isApproved()) {
+                return back()->withErrors(['email' => 'You cannot disable the last active admin.']);
+            }
+        }
+
+        $user->toggle(); // model handles approved <-> disabled
+
+        return back()->with('status', 'User status toggled.');
+    }
+
+    // DELETE /admin/manage/{user}
+    public function destroyUser(User $user)
+    {
+        // Safety: don’t delete yourself
+        if (Auth::id() === $user->id) {
+            return back()->withErrors(['email' => 'You cannot delete your own account.']);
+        }
+
+        // Safety: don’t delete the last admin
+        if ($user->isAdmin()) {
+            $adminCount = User::role(User::ROLE_ADMIN)->count();
+            if ($adminCount <= 1) {
+                return back()->withErrors(['email' => 'You cannot delete the last admin.']);
+            }
+        }
+
+        // Best-effort: delete stored avatar
+        if ($user->profile_picture_path && Storage::disk('public')->exists($user->profile_picture_path)) {
+            Storage::disk('public')->delete($user->profile_picture_path);
+        }
+
+        $user->delete();
+
+        return back()->with('status', 'User deleted.');
+    }
+    // GET /admin/revalidation
+    public function revalidationQueue()
+    {
+        $rows = \DB::table('users as u')
+            ->join('student_academic as a', 'a.user_id', '=', 'u.id')
+            ->select('u.id', 'u.first_name', 'u.last_name', 'u.email', 'a.expected_grad_year', 'a.eligibility_status', 'a.updated_at')
+            ->where('u.role', 'student')
+            ->whereIn('a.eligibility_status', ['needs_revalidation', 'under_review'])
+            ->orderByDesc('a.updated_at')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('admin.users.revalidation', compact('rows'));
+    }
+
+    // POST /admin/revalidation/{user}/approve
+    public function approveRevalidation(User $user)
+    {
+        // trust updated academic info + COR already uploaded; mark eligible again
+        \DB::table('student_academic')->where('user_id', $user->id)->update([
+            'eligibility_status' => 'eligible',
+            'revalidated_at'     => now(),
+            'updated_at'         => now(),
+        ]);
+
+        return back()->with('status', 'Revalidation approved.');
+    }
+
+    // POST /admin/revalidation/{user}/reject
+    public function rejectRevalidation(User $user)
+    {
+        \DB::table('student_academic')->where('user_id', $user->id)->update([
+            'eligibility_status' => 'ineligible',
+            'updated_at'         => now(),
+        ]);
+
+        return back()->with('status', 'Revalidation rejected.');
+    }
+
+    /* =========================
+     | SYSTEM PAGES (stubs)
+     * ========================= */
+
+    public function submissionOversight()
+    {
+        return view('admin.system.submission-oversight');
     }
 
     public function finalReview()
     {
-        // For now, return the view without data
-        // Later you can add logic to fetch students for final review from database
-        return view('admin.final-review');
+        return view('admin.system.final-review');
     }
 
     public function awardReport()
     {
-        // For now, return the view without data
-        // Later you can add logic to fetch award report data from database
-        return view('admin.award-report');
+        return view('admin.system.award-report');
     }
 
     public function systemMonitoring()
     {
-        // Placeholder view for system monitoring and logs
-        return view('admin.system-monitoring');
-    }
-
-    /**
-     * Manage Account – list, filter, sort, search
-     */
-    public function manageAccount(Request $request)
-    {
-        // Start query on assessor_accounts
-        $q = AssessorAccount::query()->with('admin'); // eager load admin info if needed
-
-        // 🔍 Search
-        if ($term = $request->input('q')) {
-            $q->where(function ($w) use ($term) {
-                $w->where('first_name', 'like', "%{$term}%")
-                    ->orWhere('last_name', 'like', "%{$term}%")
-                    ->orWhere('email_address', 'like', "%{$term}%")
-                    ->orWhere('position', 'like', "%{$term}%");
-            });
-        }
-
-        // 🧩 Filter (status)
-        if ($filter = $request->input('filter')) {
-            match ($filter) {
-                'active'   => $q->where('status', 'active'),
-                'inactive' => $q->where('status', 'inactive'),
-                'pending'  => $q->where('status', 'pending'),
-                default    => null,
-            };
-        }
-
-        // 📅 Sort options
-        if ($sort = $request->input('sort')) {
-            match ($sort) {
-                'name'       => $q->orderBy('first_name'),
-                'email'      => $q->orderBy('email_address'),
-                'date'       => $q->orderByDesc('dateacc_created'),
-                'position'   => $q->orderBy('position'),
-                'status'     => $q->orderBy('status'),
-                default      => $q->latest('dateacc_created'),
-            };
-        } else {
-            $q->latest('dateacc_created');
-        }
-
-        // 🔢 Pagination (10 per page)
-        $assessors = $q->paginate(10);
-
-        // ✅ Pass to Blade
-        return view('admin.manage-account', compact('assessors'));
-    }
-
-    /**
-     * Toggle enable/disable
-     */
-    public function toggleUser(User $user)
-    {
-        $user->is_disabled = ! (bool) $user->is_disabled;
-        $user->save();
-
-        $message = $user->is_disabled ? 'User disabled successfully.' : 'User enabled successfully.';
-
-        if (request()->ajax()) {
-            return response()->json(['message' => $message, 'status' => $user->is_disabled ? 'disabled' : 'active']);
-        }
-
-        return back()->with('status', $message);
-    }
-
-    /**
-     * Delete user
-     */
-    public function destroyUser(User $user)
-    {
-        $userName = $user->name ?? $user->email;
-        $user->delete();
-
-        $message = "User '{$userName}' deleted successfully.";
-
-        if (request()->ajax()) {
-            return response()->json(['message' => $message]);
-        }
-
-        return back()->with('status', $message);
-    }
-
-    /**
-     * Approve a user account
-     */
-    public function approveUser(User $user)
-    {
-        $user->is_approved = true;
-        $user->save();
-
-        // Log the activity
-        SystemMonitoringAndLog::create([
-            'log_id' => null,
-            'user_role' => 'admin',
-            'user_name' => auth()->check() ? auth()->user()->name : 'Admin',
-            'activity_type' => 'account_approval',
-            'description' => "Approved account for user: {$user->name} ({$user->email})",
-        ]);
-
-        $message = "User '{$user->name}' has been approved successfully.";
-
-        if (request()->ajax()) {
-            return response()->json(['message' => $message, 'status' => 'approved']);
-        }
-
-        return back()->with('status', $message);
-    }
-
-    /**
-     * Reject a user account
-     */
-    public function rejectUser(User $user)
-    {
-        $userName = $user->name ?? $user->email;
-        $user->delete();
-
-        // Log the activity
-        SystemMonitoringAndLog::create([
-            'log_id' => null,
-            'user_role' => 'admin',
-            'user_name' => auth()->check() ? auth()->user()->name : 'Admin',
-            'activity_type' => 'account_rejection',
-            'description' => "Rejected and deleted account for user: {$userName}",
-        ]);
-
-        $message = "User '{$userName}' has been rejected and removed from the system.";
-
-        if (request()->ajax()) {
-            return response()->json(['message' => $message, 'status' => 'rejected']);
-        }
-
-        return back()->with('status', $message);
-    }
-}
-class AdminAccount extends Authenticatable
-{
-    use Notifiable;
-
-    protected $primaryKey = 'admin_id';
-    public $timestamps = true;
-
-    protected $fillable = [
-        'email_address',
-        'password',
-        'created_at',
-        'updated_at',
-    ];
-
-    protected $hidden = [
-        'password',
-    ];
-
-    // Relationship
-    public function profile()
-    {
-        return $this->hasOne(AdminProfile::class, 'admin_id');
+        return view('admin.system.monitoring');
     }
 }

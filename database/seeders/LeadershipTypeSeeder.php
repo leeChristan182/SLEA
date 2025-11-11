@@ -13,16 +13,14 @@ class LeadershipTypeSeeder extends Seeder
     public function run()
     {
         $types = [
-            ['name' => 'University Student Goverment(USG)'],
-            ['name' => 'Obrero Student Council(OSC)'],
-            ['name' => 'Local Council (LC)'],
-            ['name' => 'Council of Clubs and Organizations (CCO)'],
-            ['name' => '    University League of Class Mayors'],
-            ['name' => 'Local Government Unit (LGU)'],
+            ['key' => 'elective',    'name' => 'Elective'],
+            ['key' => 'appointive',  'name' => 'Appointive'],
+            ['key' => 'designation', 'name' => 'Designation'],
+            ['key' => 'training',    'name' => 'Training / Seminar'],
         ];
 
-        foreach ($types as $type) {
-            LeadershipType::firstOrCreate($type);
+        foreach ($types as $t) {
+            \App\Models\LeadershipType::updateOrCreate(['name' => $t['name']], $t);
         }
     }
 }

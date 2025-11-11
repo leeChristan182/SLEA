@@ -2,289 +2,252 @@
 
 @section('title', 'Admin Profile')
 
+@section('head')
+<meta name="csrf-token" content="{{ csrf_token() }}">
+{{-- Belt-and-suspenders redirect (routes already use role:admin middleware) --}}
+@if(auth()->check() && auth()->user()->role !== 'admin')
+@php
+$redir = auth()->user()->role === 'assessor'
+? route('assessor.profile')
+: route('student.profile');
+@endphp
+<meta http-equiv="refresh" content="0; url={{ $redir }}">
+@endif
+@endsection
+
 @section('content')
-<div class="container-fluid slea-profile-container">
+@php
+/** Normalize var (controller passes $user or $admin) */
+$admin = isset($admin) ? $admin : (isset($user) ? $user : auth()->user());
+@endphp
+
+<div class="container">
     @include('partials.sidebar')
 
     <main class="main-content">
+        <!-- Profile Header Banner -->
+        <div class="profile-banner">
+            <div class="profile-avatar">
+                <img
+                    src="{{ $admin->profile_picture_path ? asset('storage/'.$admin->profile_picture_path) : asset('images/avatars/default-avatar.png') }}"
+                    alt="Profile Picture"
+                    id="profilePicture">
 
-        {{-- =================== PROFILE HEADER =================== --}}
-        <section class="profile-header text-center py-4">
-            <div class="profile-avatar-container position-relative d-inline-block">
-                <img src="{{ $admin->profile_picture ? asset('storage/' . $admin->profile_picture) : asset('images/avatars/default-avatar.svg') }}"
-                    id="profilePicture"
-                    class="rounded-circle border shadow-sm profile-avatar-img"
-                    alt="Profile Picture">
+                <form id="avatarForm" method="POST" action="{{ route('admin.profile.avatar') }}" enctype="multipart/form-data">
+                    @csrf
+                    <input type="file" id="avatarUpload" name="avatar" accept="image/*" style="display:none;">
+                </form>
 
-                <button class="upload-photo-btn position-absolute bottom-0 end-0 bg-white border rounded-circle p-2"
-                    onclick="document.getElementById('avatarUpload').click()">
+                <button type="button" class="upload-photo-btn" id="uploadPhotoBtn" title="Change Profile Picture">
                     <i class="fas fa-camera"></i>
                 </button>
-                <input type="file" id="avatarUpload" accept="image/*" class="d-none" onchange="previewAvatar(event)">
             </div>
-            <h2 class="fw-bold mt-3 text-uppercase">{{ $admin->first_name }} {{ $admin->last_name }}</h2>
-            <p class="text-muted small">{{ $admin->position ?? 'Administrator' }}</p>
-        </section>
 
-        {{-- =================== TWO BOXES (INFO + PASSWORD) =================== --}}
-        <div class="profile-wrapper d-flex flex-column flex-lg-row gap-4 justify-content-center p-3">
+            <h1 class="profile-name">{{ $admin->first_name }} {{ $admin->last_name }}</h1>
+            <p class="small {{ session('dark_mode') ? 'text-white-50' : 'text-muted' }}">
+                Administrator
+            </p>
+        </div>
 
-            {{-- LEFT COLUMN: PERSONAL INFO --}}
-            <div class="col-12 col-lg-5">
-                <div class="card shadow-sm rounded-4 p-4 h-100">
-                    <h2 class="card-title fw-bold mb-3">Personal Information</h2>
+        {{-- FLASH MESSAGES --}}
+        @if(session('status'))
+        <div class="alert alert-success text-center mt-3">{{ session('status') }}</div>
+        @endif
+        @if($errors->any())
+        <div class="alert alert-danger text-center mt-3">
+            <ul class="mb-0 list-unstyled">
+                @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+        @endif
 
-                    <div class="info-field mb-2">
-                        <label class="fw-semibold">Admin ID</label>
-                        <input type="text" class="form-control" value="{{ $admin->admin_id }}" readonly>
+        <!-- Profile Content -->
+        <div class="profile-content">
+            <!-- Personal Information Card -->
+            <div class="profile-card">
+                <div class="card-header">
+                    <h2 class="card-title">Personal Information</h2>
+                </div>
+
+                <div class="card-content">
+                    <!-- Display Mode -->
+                    <div id="displayMode" class="info-grid">
+                        <div class="info-field">
+                            <label class="field-label">User ID</label>
+                            <input type="text" class="field-input" value="{{ $admin->id }}" readonly>
+                        </div>
+                        <div class="info-field">
+                            <label class="field-label">First Name</label>
+                            <input type="text" class="field-input" value="{{ $admin->first_name }}" readonly>
+                        </div>
+                        <div class="info-field">
+                            <label class="field-label">Last Name</label>
+                            <input type="text" class="field-input" value="{{ $admin->last_name }}" readonly>
+                        </div>
+                        <div class="info-field">
+                            <label class="field-label">Middle Name</label>
+                            <input type="text" class="field-input" value="{{ $admin->middle_name }}" readonly>
+                        </div>
+                        <div class="info-field">
+                            <label class="field-label">Email Address</label>
+                            <input type="text" class="field-input" value="{{ $admin->email }}" readonly>
+                        </div>
+                        <div class="info-field">
+                            <label class="field-label">Contact Number</label>
+                            <input type="text" class="field-input" value="{{ $admin->contact }}" readonly>
+                        </div>
+                        <div class="info-field">
+                            <label class="field-label">Birth Date</label>
+                            <input type="text" class="field-input"
+                                value="{{ $admin->birth_date ? \Carbon\Carbon::parse($admin->birth_date)->format('F d, Y') : '—' }}"
+                                readonly>
+                        </div>
                     </div>
 
-                    <div class="info-field mb-2">
-                        <label class="fw-semibold">First Name</label>
-                        <input type="text" class="form-control" value="{{ $admin->first_name }}" readonly>
+                    <!-- Edit Mode -->
+                    <div id="editMode" class="edit-form" style="display:none;">
+                        <form id="updateForm"
+                            method="POST"
+                            action="{{ route('admin.profile.update') }}"
+                            data-ajax="true" data-method="PUT" data-reload="true">
+                            @csrf
+                            @method('PUT')
+                            <div class="info-grid">
+                                <div class="info-field">
+                                    <label class="field-label">First Name</label>
+                                    <input type="text" class="field-input" name="first_name" value="{{ $admin->first_name }}" required>
+                                </div>
+                                <div class="info-field">
+                                    <label class="field-label">Last Name</label>
+                                    <input type="text" class="field-input" name="last_name" value="{{ $admin->last_name }}" required>
+                                </div>
+                                <div class="info-field">
+                                    <label class="field-label">Middle Name</label>
+                                    <input type="text" class="field-input" name="middle_name" value="{{ $admin->middle_name }}">
+                                </div>
+                                <div class="info-field">
+                                    <label class="field-label">Email Address</label>
+                                    <input type="email" class="field-input" name="email" value="{{ $admin->email }}" required>
+                                </div>
+                                <div class="info-field">
+                                    <label class="field-label">Contact Number</label>
+                                    <input type="text" class="field-input" name="contact" value="{{ $admin->contact }}">
+                                </div>
+                                <div class="info-field">
+                                    <label class="field-label">Birth Date</label>
+                                    <input type="date" class="field-input" name="birth_date" value="{{ $admin->birth_date }}">
+                                </div>
+                            </div>
+                            <div class="form-actions" style="display:none;">
+                                <button type="submit" class="btn-save">Save Changes</button>
+                                <button type="button" class="btn-cancel" id="cancelPersonalBtn">Cancel</button>
+                            </div>
+                        </form>
                     </div>
+                </div>
 
-                    <div class="info-field mb-2">
-                        <label class="fw-semibold">Last Name</label>
-                        <input type="text" class="form-control" value="{{ $admin->last_name }}" readonly>
-                    </div>
-
-                    <div class="info-field mb-2">
-                        <label class="fw-semibold">Email Address</label>
-                        <input type="text" class="form-control" value="{{ $admin->email_address }}" readonly>
-                    </div>
-
-                    <div class="info-field mb-2">
-                        <label class="fw-semibold">Contact Number</label>
-                        <input type="text" class="form-control" value="{{ $admin->contact_number }}" readonly>
-                    </div>
-
-                    <div class="info-field mb-2">
-                        <label class="fw-semibold">Position</label>
-                        <input type="text" class="form-control" value="{{ $admin->position }}" readonly>
-                    </div>
+                <div class="card-footer">
+                    <button class="edit-btn" id="editPersonalBtn">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
                 </div>
             </div>
 
-            {{-- RIGHT COLUMN: CHANGE PASSWORD --}}
-            <div class="col-12 col-lg-5">
-                <div class="card shadow-sm rounded-4 p-4 h-100">
-                    <h2 class="card-title fw-bold mb-3">Change Password</h2>
+            <!-- Change Password Card -->
+            <div class="profile-card">
+                <div class="card-header">
+                    <h2 class="card-title">Change Password</h2>
+                </div>
 
-                    <form id="passwordForm" method="POST" action="{{ route('admin.profile.password.update') }}">
-                        @csrf
-                        @method('PUT')
-
-                        <div class="mb-3">
-                            <label for="currentPassword" class="fw-semibold">Current Password</label>
-                            <input type="password" name="current_password" id="currentPassword"
-                                class="form-control" placeholder="Enter current password" required>
+                <div class="card-content">
+                    <div id="passwordDisplayMode" class="password-display">
+                        <div class="password-info">
+                            <i class="fas fa-lock"></i>
+                            <span>Keep your account secure with a strong password.</span>
                         </div>
+                    </div>
 
-                        <div class="password-checklist mb-3">
-                            <label class="fw-semibold">Password must contain:</label>
-                            <!-- replace your <ul id="passwordChecklist"> ... </ul> with this -->
-                            <ul class="list-unstyled ms-3" id="passwordChecklist">
-                                <li id="length" class="text-secondary">
-                                    <span class="icon-wrap">
-                                        <i class="fa fa-circle circle-icon me-2" aria-hidden="true"></i>
-                                        <i class="fa fa-check check-icon me-2 d-none" aria-hidden="true"></i>
-                                    </span>
-                                    8+ characters
-                                </li>
-                                <li id="uppercase" class="text-secondary">
-                                    <span class="icon-wrap">
-                                        <i class="fa fa-circle circle-icon me-2" aria-hidden="true"></i>
-                                        <i class="fa fa-check check-icon me-2 d-none" aria-hidden="true"></i>
-                                    </span>
-                                    Uppercase letter
-                                </li>
-                                <li id="lowercase" class="text-secondary">
-                                    <span class="icon-wrap">
-                                        <i class="fa fa-circle circle-icon me-2" aria-hidden="true"></i>
-                                        <i class="fa fa-check check-icon me-2 d-none" aria-hidden="true"></i>
-                                    </span>
-                                    Lowercase letter
-                                </li>
-                                <li id="number" class="text-secondary">
-                                    <span class="icon-wrap">
-                                        <i class="fa fa-circle circle-icon me-2" aria-hidden="true"></i>
-                                        <i class="fa fa-check check-icon me-2 d-none" aria-hidden="true"></i>
-                                    </span>
-                                    Number
-                                </li>
-                                <li id="special" class="text-secondary">
-                                    <span class="icon-wrap">
-                                        <i class="fa fa-circle circle-icon me-2" aria-hidden="true"></i>
-                                        <i class="fa fa-check check-icon me-2 d-none" aria-hidden="true"></i>
-                                    </span>
-                                    Special character
-                                </li>
-                            </ul>
+                    <div id="passwordEditMode" class="password-edit" style="display:none;">
+                        <form id="passwordForm"
+                            method="POST"
+                            action="{{ route('admin.profile.password.update') }}"
+                            data-ajax="true" data-method="PUT">
+                            @csrf
+                            @method('PUT')
 
-                        </div>
+                            <div class="info-field">
+                                <label class="field-label">Current Password</label>
+                                <input type="password" class="field-input" name="current_password" id="currentPassword" required autocomplete="current-password">
+                            </div>
 
-                        <div class="mb-3">
-                            <label for="newPassword" class="fw-semibold">New Password</label>
-                            <input type="password" name="new_password" id="newPassword" required
-                                class="form-control" placeholder="Enter new password"
-                                oninput="validatePassword()" required>
-                        </div>
+                            <div class="password-requirements">
+                                <p class="requirements-title">Password Requirements:</p>
+                                <ul class="requirements-list" id="passwordChecklist">
+                                    <li id="length" class="requirement-item invalid"><i class="fas fa-circle"></i> Minimum of 8 characters</li>
+                                    <li id="uppercase" class="requirement-item invalid"><i class="fas fa-circle"></i> An uppercase character</li>
+                                    <li id="lowercase" class="requirement-item invalid"><i class="fas fa-circle"></i> A lowercase character</li>
+                                    <li id="number" class="requirement-item invalid"><i class="fas fa-circle"></i> A number</li>
+                                    <li id="special" class="requirement-item invalid"><i class="fas fa-circle"></i> A special character</li>
+                                </ul>
+                            </div>
 
-                        <div class="mb-3">
-                            <label for="confirmPassword" class="fw-semibold">Confirm Password</label>
-                            <input type="password" name="new_password_confirmation" id="confirmPassword" required
-                                class="form-control" placeholder="Confirm new password" required>
-                        </div>
+                            <div class="info-field">
+                                <label class="field-label">New Password</label>
+                                <input type="password" class="field-input" name="password" id="newPassword" oninput="validatePassword()" required autocomplete="new-password">
+                            </div>
+                            <div class="info-field">
+                                <label class="field-label">Confirm Password</label>
+                                <input type="password" class="field-input" name="password_confirmation" id="confirmPassword" required autocomplete="new-password">
+                            </div>
 
-                        <div class="form-check mb-4">
-                            <input class="form-check-input" type="checkbox" id="showPassword" onclick="togglePassword()">
-                            <label class="form-check-label" for="showPassword">Show Password</label>
-                        </div>
+                            <div class="checkbox-field">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="togglePasswordCheckbox" onclick="togglePassword()"> Show Password
+                                </label>
+                            </div>
 
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-danger rounded-pill fw-semibold">
-                                Change Password
-                            </button>
-                        </div>
-                    </form>
+                            <div class="form-actions">
+                                <button type="submit" class="btn-save">Change Password</button>
+                                <button type="button" class="btn-cancel" id="cancelPasswordBtn">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card-footer">
+                    <button class="edit-btn" id="editPasswordBtn">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
                 </div>
             </div>
         </div>
     </main>
 </div>
 
-{{-- SUCCESS MODAL --}}
+{{-- Optional success modal (kept) --}}
 <div id="successModal" class="modal" style="display:none;">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow rounded-4">
-            <div class="modal-header border-0">
-                <h5 class="modal-title fw-bold">Success</h5>
-                <button type="button" class="btn-close" onclick="closeSuccessModal()"></button>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Success</h3>
+            <span class="close" id="closeSuccessModal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="success-message">
+                <i class="fas fa-check-circle"></i>
+                <p id="successMessage">Operation completed successfully!</p>
             </div>
-            <div class="modal-body text-center">
-                <i class="fa-solid fa-check text-success fa-3x mb-3"></i>
-                <p id="successMessage" class="fw-semibold">Operation completed successfully!</p>
-            </div>
-            <div class="modal-footer border-0 text-center">
-                <button type="button" class="btn btn-primary rounded-pill" onclick="closeSuccessModal()">OK</button>
-            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-primary" id="okSuccessModal">OK</button>
         </div>
     </div>
 </div>
 @endsection
 
 @push('scripts')
-<script>
-    function togglePassword() {
-        ['currentPassword', 'newPassword', 'confirmPassword'].forEach(id => {
-            const input = document.getElementById(id);
-            input.type = input.type === 'password' ? 'text' : 'password';
-        });
-    }
-
-    function validatePassword() {
-        const val = document.getElementById('newPassword').value;
-        const rules = {
-            length: val.length >= 8,
-            uppercase: /[A-Z]/.test(val),
-            lowercase: /[a-z]/.test(val),
-            number: /\d/.test(val),
-            special: /[!@#$%^&*(),.?":{}|<>]/.test(val)
-        };
-
-        Object.entries(rules).forEach(([key, valid]) => {
-            const el = document.getElementById(key);
-            if (!el) return;
-            // text coloring
-            el.classList.toggle('text-success', valid);
-            el.classList.toggle('text-secondary', !valid);
-
-            // icons
-            const circle = el.querySelector('.circle-icon');
-            const check = el.querySelector('.check-icon');
-            if (circle) circle.classList.toggle('d-none', valid); // hide circle when valid
-            if (check) check.classList.toggle('d-none', !valid); // show check when valid
-        });
-    }
-
-
-    function previewAvatar(event) {
-        const file = event.target.files[0];
-        if (!file || !file.type.startsWith('image/')) return alert('Please upload a valid image.');
-        if (file.size > 5 * 1024 * 1024) return alert('Max file size is 5MB.');
-        const reader = new FileReader();
-        reader.onload = e => {
-            document.getElementById('profilePicture').src = e.target.result;
-            showSuccessModal('Profile picture updated successfully!');
-        };
-        reader.readAsDataURL(file);
-    }
-
-    function showSuccessModal(message) {
-        document.getElementById('successMessage').textContent = message;
-        document.getElementById('successModal').style.display = 'block';
-    }
-
-    function closeSuccessModal() {
-        document.getElementById('successModal').style.display = 'none';
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-        const saved = localStorage.getItem('profileImage');
-        if (saved) document.getElementById('profilePicture').src = saved;
-    });
-</script>
-@endpush
-
-@push('styles')
-<style>
-    /* Scoped styling for Admin Profile page only */
-
-    .profile-avatar-container {
-        width: 130px;
-        height: 130px;
-    }
-
-    .profile-avatar-img {
-        width: 130px;
-        height: 130px;
-        object-fit: cover;
-    }
-
-    .passwordChecklist li.text-success i.check-icon {
-        color: #28a745 !important;
-    }
-
-    .passwordChecklist li.text-secondary i.circle-icon {
-        color: #aaa !important;
-    }
-
-
-    /* Dark mode visibility improvements */
-    body.dark-mode .card {
-        background-color: #1e1e1e !important;
-        color: #e0e0e0 !important;
-    }
-
-    body.dark-mode .form-control[readonly] {
-        background-color: #2a2a2a !important;
-        color: #f5f5f5 !important;
-        border-color: #444 !important;
-    }
-
-    body.dark-mode label,
-    body.dark-mode h2,
-    body.dark-mode .fw-semibold {
-        color: #ffffff !important;
-    }
-
-    body.dark-mode input::placeholder {
-        color: #aaaaaa;
-    }
-
-    body.dark-mode .form-check-label {
-        color: #ddd !important;
-    }
-</style>
+<script src="https://kit.fontawesome.com/a2e0ad2a6a.js" crossorigin="anonymous"></script>
+{{-- Use the unified script (replace admin_profile.js) --}}
+<script src="{{ asset('js/user_profile.js') }}"></script>
 @endpush

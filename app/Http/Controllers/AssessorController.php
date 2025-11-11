@@ -2,301 +2,271 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Storage;
 use App\Models\User;
-use App\Models\Submission;
-use App\Models\Student;
-use App\Models\Document;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password as PasswordRule;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 class AssessorController extends Controller
 {
-    /**
-     * Display the assessor profile page.
-     */
+    /* =========================
+     | PROFILE
+     * ========================= */
+
+    // GET /assessor/profile
     public function profile()
     {
-        return view('assessor.profile');
+        $user = Auth::user();
+        return view('assessor.profile', compact('user'));
     }
 
-    /**
-     * Update the assessor's profile information.
-     */
+    // PUT /assessor/profile
     public function updateProfile(Request $request)
     {
-        // This will be implemented by your teammate with proper authentication
-        return redirect()->back()->with('error', 'Profile update not implemented yet.');
+        /** @var User $user */
+        $user = Auth::user();
+
+        $data = $request->validate([
+            'first_name' => ['required', 'string', 'max:50'],
+            'last_name'  => ['required', 'string', 'max:50'],
+            'middle_name' => ['nullable', 'string', 'max:50'],
+            'email'      => ['required', 'email', 'max:100', Rule::unique('users', 'email')->ignore($user->id)],
+            'contact'    => ['nullable', 'string', 'max:20'],
+        ]);
+
+        $user->update($data);
+
+        return back()->with('status', 'Profile updated.');
     }
 
-    /**
-     * Update the assessor's password.
-     */
+    // PATCH /assessor/password
     public function updatePassword(Request $request)
     {
-        // This will be implemented by your teammate with proper authentication
-        return redirect()->back()->with('error', 'Password update not implemented yet.');
+        $request->validate([
+            'current_password' => ['required'],
+            'password'         => ['required', 'confirmed', PasswordRule::min(8)],
+        ]);
+
+        /** @var User $user */
+        $user = Auth::user();
+
+        if (! Hash::check($request->current_password, $user->password)) {
+            return back()->withErrors(['current_password' => 'Your current password is incorrect.']);
+        }
+
+        // Optional: write to password_changes table if it exists
+        if (Schema::hasTable('password_changes')) {
+            DB::table('password_changes')->insert([
+                'user_id'                => $user->id,
+                'previous_password_hash' => $user->password,
+                'changed_at'             => now(),
+                'changed_by'             => 'self',
+                'ip'                     => $request->ip(),
+                'user_agent'             => substr((string)$request->userAgent(), 0, 255),
+                'created_at'             => now(),
+                'updated_at'             => now(),
+            ]);
+        }
+
+        $user->password = $request->password; // model mutator will hash
+        $user->save();
+
+        return back()->with('status', 'Password updated.');
     }
 
-    /**
-     * Upload and update profile picture.
-     */
-    public function updateProfilePicture(Request $request)
+    // POST /assessor/profile/picture
+    public function updateAvatar(Request $request)
     {
-        // This will be implemented by your teammate with proper authentication
-        return redirect()->back()->with('error', 'Profile picture update not implemented yet.');
+        $request->validate([
+            'avatar' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ]);
+
+        /** @var User $user */
+        $user = Auth::user();
+
+        $path = $request->file('avatar')->store('avatars', 'public');
+
+        if ($user->profile_picture_path && Storage::disk('public')->exists($user->profile_picture_path)) {
+            Storage::disk('public')->delete($user->profile_picture_path);
+        }
+
+        $user->update(['profile_picture_path' => $path]);
+
+        return back()->with('status', 'Profile picture updated.');
     }
 
-    /**
-     * Display the assessor dashboard.
-     */
-    public function dashboard()
+    /* =========================
+     | SUBMISSIONS & REVIEW
+     * ========================= */
+
+    // GET /assessor/pending-submissions
+    public function pendingSubmissions(Request $request)
     {
-        // Add any dashboard-specific data here
-        return view('assessor.dashboard');
+        // If you have models, prefer Eloquent; using DB for portability here.
+        if (! Schema::hasTable('submissions')) {
+            return view('assessor.submissions.index', ['submissions' => collect(), 'empty' => true]);
+        }
+
+        $query = DB::table('submissions as s')
+            ->select('s.id', 's.user_id', 's.title', 's.created_at', 's.status')
+            ->whereIn('s.status', ['pending', 'under_review'])
+            ->orderByDesc('s.created_at');
+
+        // Optional: show only those assigned to this assessor if you have an assignment table
+        if (Schema::hasTable('submission_reviews')) {
+            $query->leftJoin('submission_reviews as r', 'r.submission_id', '=', 's.id')
+                ->where(function ($q) {
+                    $q->whereNull('r.assessor_id')
+                        ->orWhere('r.assessor_id', Auth::id());
+                });
+        }
+
+        $submissions = $query->paginate(20)->withQueryString();
+
+        return view('assessor.submissions.index', compact('submissions'));
     }
 
-
-    /**
-     * Display pending submissions.
-     */
-    public function pendingSubmissions()
-    {
-        // Fetch all pending submissions (no user filtering for now)
-        $pendingSubmissions = Submission::with(['student', 'documents'])
-            ->pending()
-            ->orderBy('submitted_at', 'desc')
-            ->get();
-            
-        return view('assessor.pending-submissions', compact('pendingSubmissions'));
-    }
-
-    /**
-     * Display completed submissions.
-     */
+    // GET /assessor/submissions
     public function submissions()
     {
-        // Add logic to fetch completed submissions
-        return view('assessor.submissions');
+        if (! Schema::hasTable('submission_reviews')) {
+            // Fall back to all submissions if no reviews table yet
+            $subs = Schema::hasTable('submissions')
+                ? DB::table('submissions')->orderByDesc('created_at')->paginate(20)
+                : collect();
+            return view('assessor.submissions.mine', ['submissions' => $subs]);
+        }
+
+        $submissions = DB::table('submission_reviews as r')
+            ->join('submissions as s', 's.id', '=', 'r.submission_id')
+            ->select('s.id', 's.title', 's.status', 's.created_at', 'r.score', 'r.updated_at as reviewed_at')
+            ->where('r.assessor_id', Auth::id())
+            ->orderByDesc('r.updated_at')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('assessor.submissions.mine', compact('submissions'));
     }
 
-    /**
-     * Display final review page.
-     */
+    // GET /assessor/final-review
     public function finalReview()
     {
-        // Add logic for final review
-        return view('assessor.final-review');
+        // Show a high-level list; actual finalization is admin
+        if (! Schema::hasTable('final_reviews')) {
+            return view('assessor.final-review.index', ['rows' => collect()]);
+        }
+
+        $rows = DB::table('final_reviews as f')
+            ->join('submissions as s', 's.id', '=', 'f.submission_id')
+            ->select('s.id', 's.title', 'f.status', 'f.total_score', 'f.updated_at')
+            ->orderByDesc('f.updated_at')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('assessor.final-review.index', compact('rows'));
     }
 
-    /**
-     * Get submission details for review modal.
-     */
-    public function getSubmissionDetails($id)
+    // GET /assessor/submissions/{id}/details
+    public function getSubmissionDetails(int $id)
     {
-        $submission = Submission::with(['student', 'documents'])
-            ->where('id', $id)
+        if (! Schema::hasTable('submissions')) {
+            abort(404);
+        }
+
+        $submission = DB::table('submissions as s')
+            ->leftJoin('users as u', 'u.id', '=', 's.user_id')
+            ->select('s.*', 'u.first_name', 'u.last_name', 'u.email')
+            ->where('s.id', $id)
             ->first();
-            
-        if (!$submission) {
-            return response()->json(['error' => 'Submission not found'], 404);
-        }
-        
-        // Calculate auto-generated score if not already calculated
-        if (!$submission->auto_generated_score) {
-            $submission->auto_generated_score = $this->calculateAutoScore($submission);
-            $submission->save();
-        }
-        
-        return response()->json([
-            'submission' => [
-                'id' => $submission->id,
-                'student' => [
-                    'id' => $submission->student->student_id,
-                    'name' => $submission->student->name,
-                ],
-                'document_title' => $submission->document_title,
-                'slea_section' => $submission->slea_section,
-                'subsection' => $submission->subsection,
-                'role_in_activity' => $submission->role_in_activity,
-                'activity_date' => $submission->activity_date?->format('Y-m-d'),
-                'organizing_body' => $submission->organizing_body,
-                'description' => $submission->description,
-                'submitted_at' => $submission->submitted_at->format('Y-m-d H:i:s'),
-                'auto_generated_score' => $submission->auto_generated_score,
-                'assessor_score' => $submission->assessor_score,
-                'documents' => $submission->documents->map(function ($doc) {
-                    return [
-                        'id' => $doc->id,
-                        'original_filename' => $doc->original_filename,
-                        'file_type' => $doc->file_type,
-                        'file_size' => $doc->formatted_size,
-                        'url' => $doc->url,
-                        'is_image' => $doc->isImage(),
-                        'is_pdf' => $doc->isPdf(),
-                    ];
-                }),
-            ]
-        ]);
-    }
 
-    /**
-     * Handle assessor action on submission.
-     */
-    public function handleSubmissionAction(Request $request, $id)
-    {
-        $validator = Validator::make($request->all(), [
-            'action' => 'required|in:approve,reject,return,flag',
-            'remarks' => 'nullable|string|max:1000',
-            'assessor_score' => 'nullable|numeric|min:0|max:100',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+        if (! $submission) {
+            abort(404);
         }
 
-        $submission = Submission::where('id', $id)
-            ->first();
-            
-        if (!$submission) {
-            return response()->json(['error' => 'Submission not found'], 404);
-        }
+        $documents = Schema::hasTable('user_documents')
+            ? DB::table('user_documents')->where('user_id', $submission->user_id)->get()
+            : collect();
 
-        $action = $request->input('action');
-        $remarks = $request->input('remarks', '');
-        
-        // Validate remarks for actions that require them
-        if (in_array($action, ['reject', 'return', 'flag']) && empty($remarks)) {
-            return response()->json([
-                'error' => 'Remarks are required for ' . $action . ' action'
-            ], 422);
-        }
-
-        // Update submission based on action
-        switch ($action) {
-            case 'approve':
-                $submission->update([
-                    'status' => 'approved',
-                    'assessor_score' => $request->input('assessor_score', $submission->auto_generated_score),
-                    'assessor_remarks' => $remarks,
-                    'reviewed_at' => now(),
-                ]);
-                break;
-                
-            case 'reject':
-                $submission->update([
-                    'status' => 'rejected',
-                    'assessor_remarks' => $remarks,
-                    'rejection_reason' => $remarks,
-                    'reviewed_at' => now(),
-                ]);
-                break;
-                
-            case 'return':
-                $submission->update([
-                    'status' => 'returned',
-                    'assessor_remarks' => $remarks,
-                    'return_reason' => $remarks,
-                    'reviewed_at' => now(),
-                ]);
-                break;
-                
-            case 'flag':
-                $submission->update([
-                    'status' => 'flagged',
-                    'assessor_remarks' => $remarks,
-                    'flag_reason' => $remarks,
-                    'reviewed_at' => now(),
-                ]);
-                break;
-        }
+        $academic = Schema::hasTable('student_academic')
+            ? DB::table('student_academic')->where('user_id', $submission->user_id)->first()
+            : null;
 
         return response()->json([
-            'success' => true,
-            'message' => 'Submission ' . $action . 'd successfully',
-            'submission' => [
-                'id' => $submission->id,
-                'status' => $submission->status,
-            ]
+            'submission' => $submission,
+            'documents'  => $documents,
+            'academic'   => $academic,
         ]);
     }
 
-    /**
-     * Download document file.
-     */
-    public function downloadDocument($id)
+    // POST /assessor/submissions/{id}/action
+    public function handleSubmissionAction(Request $request, int $id)
     {
-        $document = Document::findOrFail($id);
-        
-        if (!Storage::exists($document->file_path)) {
-            abort(404, 'File not found');
+        $request->validate([
+            'action' => ['required', Rule::in(['approve', 'reject', 'resubmit', 'flagged', 'under_review'])],
+            'score'  => ['nullable', 'numeric', 'min:0'],
+            'notes'  => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        if (! Schema::hasTable('submissions')) {
+            return back()->withErrors(['action' => 'Submissions table not found.']);
         }
-        
-        return Storage::download($document->file_path, $document->original_filename);
+
+        $submission = DB::table('submissions')->where('id', $id)->first();
+        if (! $submission) {
+            return back()->withErrors(['action' => 'Submission not found.']);
+        }
+
+        // Write a review row if table exists
+        if (Schema::hasTable('submission_reviews')) {
+            DB::table('submission_reviews')->updateOrInsert(
+                ['submission_id' => $id, 'assessor_id' => Auth::id()],
+                [
+                    'score'      => $request->input('score'),
+                    'notes'      => $request->input('notes'),
+                    'updated_at' => now(),
+                    'created_at' => DB::raw('COALESCE(created_at, CURRENT_TIMESTAMP)'),
+                ]
+            );
+        }
+
+        // Update submission status based on action (map to your code table values)
+        $statusMap = [
+            'approve'      => 'qualified',
+            'reject'       => 'unqualified',
+            'resubmit'     => 'resubmit',
+            'flagged'      => 'flagged',
+            'under_review' => 'under_review',
+        ];
+
+        DB::table('submissions')->where('id', $id)->update([
+            'status'     => $statusMap[$request->action] ?? 'under_review',
+            'updated_at' => now(),
+        ]);
+
+        return back()->with('status', 'Submission updated.');
     }
 
-    /**
-     * Calculate auto-generated score based on submission criteria.
-     */
-    private function calculateAutoScore($submission)
+    // GET /assessor/documents/{id}/download
+    public function downloadDocument(int $id)
     {
-        $baseScore = 70; // Base score
-        $bonusPoints = 0;
-        
-        // Add points based on role in activity
-        switch (strtolower($submission->role_in_activity ?? '')) {
-            case 'president':
-            case 'chair':
-            case 'director':
-                $bonusPoints += 15;
-                break;
-            case 'vice president':
-            case 'vice chair':
-                $bonusPoints += 12;
-                break;
-            case 'secretary':
-            case 'treasurer':
-                $bonusPoints += 10;
-                break;
-            case 'coordinator':
-            case 'organizer':
-                $bonusPoints += 8;
-                break;
-            case 'member':
-            case 'participant':
-                $bonusPoints += 5;
-                break;
+        if (! Schema::hasTable('user_documents')) {
+            abort(404);
         }
-        
-        // Add points based on SLEA section
-        switch ($submission->slea_section) {
-            case 'Leadership Excellence':
-                $bonusPoints += 10;
-                break;
-            case 'Academic Excellence':
-                $bonusPoints += 8;
-                break;
-            case 'Community Engagement':
-                $bonusPoints += 7;
-                break;
-            case 'Innovation & Creativity':
-                $bonusPoints += 6;
-                break;
+
+        $doc = DB::table('user_documents')->where('id', $id)->first();
+        if (! $doc || ! $doc->path) {
+            abort(404);
         }
-        
-        // Add points if organizing body is specified
-        if ($submission->organizing_body) {
-            $bonusPoints += 3;
+
+        if (! Storage::disk('public')->exists($doc->path)) {
+            abort(404);
         }
-        
-        // Add points if description is provided
-        if ($submission->description && strlen($submission->description) > 50) {
-            $bonusPoints += 5;
-        }
-        
-        $finalScore = min(100, $baseScore + $bonusPoints);
-        
-        return round($finalScore, 2);
+
+        return Storage::disk('public')->download($doc->path, basename($doc->path));
     }
 }

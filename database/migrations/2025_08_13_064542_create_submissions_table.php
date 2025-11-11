@@ -8,24 +8,35 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('submissions', function (Blueprint $table) {
-            $table->increments('submission_id');              // INTEGER (AI) PK
+            $table->id();
 
-            $table->unsignedInteger('pending_sub_id');        // FK1 -> pending_submissions.pending_sub_id
-            $table->string('assessor_id', 15)->nullable();    // FK2 (string id, keep nullable / index only)
-            $table->string('action', 20);                     // e.g., Approved / Rejected
+            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('leadership_id')->nullable()->constrained('student_leaderships')->nullOnDelete();
 
+            $table->foreignId('rubric_category_id')->constrained('rubric_categories')->onDelete('cascade');
+
+            $table->unsignedBigInteger('rubric_section_id')->nullable();
+            $table->foreign('rubric_section_id')->references('section_id')->on('rubric_sections')->nullOnDelete();
+
+            $table->unsignedBigInteger('rubric_subsection_id')->nullable();
+            $table->foreign('rubric_subsection_id')->references('sub_section_id')->on('rubric_subsections')->nullOnDelete();
+
+            $table->string('activity_title', 255);
+            $table->text('description')->nullable();
+            $table->json('attachments')->nullable();
+            $table->json('meta')->nullable();
+
+            $table->string('status', 20)->default('pending');
+            $table->foreign('status')->references('key')->on('submission_statuses');
+
+            $table->text('remarks')->nullable();
+            $table->timestamp('submitted_at')->useCurrent();
             $table->timestamps();
 
-            $table->unique('pending_sub_id');                 // enforce 1:1 with pending
-            $table->index('assessor_id');
-
-            $table->foreign('pending_sub_id')
-                  ->references('pending_sub_id')
-                  ->on('pending_submissions')
-                  ->onDelete('cascade');
+            $table->index(['rubric_category_id', 'rubric_section_id', 'rubric_subsection_id']);
+            $table->index(['status', 'submitted_at']);
         });
     }
-
     public function down(): void
     {
         Schema::dropIfExists('submissions');

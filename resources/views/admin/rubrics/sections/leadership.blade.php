@@ -1,206 +1,154 @@
+@php
+$leadershipCategory = $categories->firstWhere('key', 'leadership');
+$sections = $leadershipCategory?->sections ?? collect();
+@endphp
+
 <div class="rubric-section">
-    <h4 class="rubric-heading">I. Leadership Excellence</h4>
+    <h4 class="rubric-heading">I. Leadership</h4>
 
-    <!-- Section A: Campus Based -->
-    <div class="subsection mb-4">
-        <h5 class="subsection-title">A. Campus Based</h5>
-        <div class="table-wrap">
-            <table class="manage-table">
-                <thead>
-                    <tr>
-                        <th>Category</th>
-                        <th>Position / Title</th>
-                        <th>Points</th>
-                        <th>Max Points</th>
-                        <th>Evidence</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Student Government</td>
-                        <td>President</td>
-                        <td>5.0</td>
-                        <td>5</td>
-                        <td>Certificate of Election</td>
-                        <td>
-                            <button class="btn btn-disable" title="Edit" onclick="openEditRubricModal(1, 'Student Government', 'President', '5.0', '5', 'Certificate of Election')"><i class="fas fa-edit"></i></button>
-                            <button class="btn btn-delete" title="Delete" onclick="openDeleteRubricModal(1, 'Student Government', 'President')"><i class="fas fa-trash"></i></button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Campus Student Council</td>
-                        <td>Vice President</td>
-                        <td>4.0</td>
-                        <td>5</td>
-                        <td>Oath of Office</td>
-                        <td>
-                            <button class="btn btn-disable" title="Edit" onclick="openEditRubricModal(2, 'Campus Student Council', 'Vice President', '4.0', '5', 'Oath of Office')"><i class="fas fa-edit"></i></button>
-                            <button class="btn btn-delete" title="Delete" onclick="openDeleteRubricModal(2, 'Campus Student Council', 'Vice President')"><i class="fas fa-trash"></i></button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Local Councils</td>
-                        <td>Secretary</td>
-                        <td>3.0</td>
-                        <td>5</td>
-                        <td>Appointment Letter</td>
-                        <td>
-                            <button class="btn btn-disable" title="Edit" onclick="openEditRubricModal(3, 'Local Councils', 'Secretary', '3.0', '5', 'Appointment Letter')"><i class="fas fa-edit"></i></button>
-                            <button class="btn btn-delete" title="Delete" onclick="openDeleteRubricModal(3, 'Local Councils', 'Secretary')"><i class="fas fa-trash"></i></button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Student Clubs and Organizations</td>
-                        <td>President</td>
-                        <td>3.0</td>
-                        <td>5</td>
-                        <td>Certificate of Election</td>
-                        <td>
-                            <button class="btn btn-disable" title="Edit" onclick="openEditRubricModal(4, 'Student Clubs and Organizations', 'President', '3.0', '5', 'Certificate of Election')"><i class="fas fa-edit"></i></button>
-                            <button class="btn btn-delete" title="Delete" onclick="openDeleteRubricModal(4, 'Student Clubs and Organizations', 'President')"><i class="fas fa-trash"></i></button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
+    {{-- Category description --}}
+    @if(!empty($leadershipCategory?->description))
+    <p class="rubric-category-description">{{ $leadershipCategory->description }}</p>
+    @endif
 
-    <!-- Section B: Designation in Special Orders/Office Orders -->
-    <div class="subsection mb-4">
-        <h5 class="subsection-title">B. Designation in Special Orders/Office Orders</h5>
-        <div class="table-wrap">
-            <table class="manage-table">
-                <thead>
-                    <tr>
-                        <th>Order Type</th>
-                        <th>Position / Title</th>
-                        <th>Points</th>
-                        <th>Max Points</th>
-                        <th>Evidence</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Special Order</td>
-                        <td>Committee Chair</td>
-                        <td>4.0</td>
-                        <td>5</td>
-                        <td>Special Order Document</td>
-                        <td>
-                            <button class="btn btn-disable" title="Edit" onclick="openEditRubricModal(3, 'Local Councils', 'Secretary', '3.0', '5', 'Appointment Letter')"><i class="fas fa-edit"></i></button>
-                            <button class="btn btn-delete" title="Delete" onclick="openDeleteRubricModal(3, 'Local Councils', 'Secretary')"><i class="fas fa-trash"></i></button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
+    @if($sections->isEmpty())
+    <p class="text-muted text-center">No leadership sections found.</p>
+    @else
+    <table class="manage-table">
+        <thead>
+            <tr>
+                <th>Section</th>
+                <th>Subsection</th>
+                <th>Position / Role</th>
+                <th>Points</th>
+                <th>Max Points</th>
+                <th>Evidence Needed</th>
+                <th>Notes</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($sections as $section)
+            @php
+            $subsections = $section->subsections;
+            $sectionRowCount = $subsections->sum(fn($sub) => max($sub->leadershipPositions->count(), 1));
+            $sectionPrinted = false;
+            @endphp
 
-    <!-- Section C: Community Based -->
-    <div class="subsection mb-4">
-        <h5 class="subsection-title">C. Community Based</h5>
-        <div class="table-wrap">
-            <table class="manage-table">
-                <thead>
-                    <tr>
-                        <th>Category</th>
-                        <th>Position / Title</th>
-                        <th>Points</th>
-                        <th>Max Points</th>
-                        <th>Evidence</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Local Government Unit</td>
-                        <td>Barangay Kagawad</td>
-                        <td>5.0</td>
-                        <td>5</td>
-                        <td>Certificate of Election</td>
-                        <td>
-                            <button class="btn btn-disable" title="Edit" onclick="openEditRubricModal(3, 'Local Councils', 'Secretary', '3.0', '5', 'Appointment Letter')"><i class="fas fa-edit"></i></button>
-                            <button class="btn btn-delete" title="Delete" onclick="openDeleteRubricModal(3, 'Local Councils', 'Secretary')"><i class="fas fa-trash"></i></button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Elective/Appointive Position</td>
-                        <td>Youth Council Member</td>
-                        <td>4.0</td>
-                        <td>5</td>
-                        <td>Appointment Letter</td>
-                        <td>
-                            <button class="btn btn-disable" title="Edit" onclick="openEditRubricModal(3, 'Local Councils', 'Secretary', '3.0', '5', 'Appointment Letter')"><i class="fas fa-edit"></i></button>
-                            <button class="btn btn-delete" title="Delete" onclick="openDeleteRubricModal(3, 'Local Councils', 'Secretary')"><i class="fas fa-trash"></i></button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
+            @foreach($subsections as $subsection)
+            @php
+            $positions = $subsection->leadershipPositions;
+            $rowCount = max($positions->count(), 1);
+            @endphp
 
-    <!-- Section D: Leadership Training/Seminars/Conferences -->
-    <div class="subsection mb-4">
-        <h5 class="subsection-title">D. Leadership Training/Seminars/Conferences Attended (max 5 points)</h5>
-        <div class="table-wrap">
-            <table class="manage-table">
-                <thead>
-                    <tr>
-                        <th>Training/Seminar/Conference</th>
-                        <th>Role</th>
-                        <th>Points</th>
-                        <th>Max Points</th>
-                        <th>Evidence</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Leadership Development Program</td>
-                        <td>Participant</td>
-                        <td>2.0</td>
-                        <td>5</td>
-                        <td>Certificate of Participation</td>
-                        <td>
-                            <button class="btn btn-disable" title="Edit" onclick="openEditRubricModal(3, 'Local Councils', 'Secretary', '3.0', '5', 'Appointment Letter')"><i class="fas fa-edit"></i></button>
-                            <button class="btn btn-delete" title="Delete" onclick="openDeleteRubricModal(3, 'Local Councils', 'Secretary')"><i class="fas fa-trash"></i></button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Student Leadership Conference</td>
-                        <td>Delegate</td>
-                        <td>3.0</td>
-                        <td>5</td>
-                        <td>Certificate of Attendance</td>
-                        <td>
-                            <button class="btn btn-disable" title="Edit" onclick="openEditRubricModal(3, 'Local Councils', 'Secretary', '3.0', '5', 'Appointment Letter')"><i class="fas fa-edit"></i></button>
-                            <button class="btn btn-delete" title="Delete" onclick="openDeleteRubricModal(3, 'Local Councils', 'Secretary')"><i class="fas fa-trash"></i></button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
+            @forelse($positions as $index => $pos)
+            <tr>
+                {{-- Section column rowspan --}}
+                @if(!$sectionPrinted)
+                <td rowspan="{{ $sectionRowCount }}">{{ $section->title }}</td>
+                @php $sectionPrinted = true; @endphp
+                @endif
 
-    <div class="mt-4">
-        <h5>Add New Leadership Item</h5>
-        <form>
+                {{-- Subsection column rowspan --}}
+                @if($index === 0)
+                <td rowspan="{{ $rowCount }}">{{ $subsection->sub_section }}</td>
+                @endif
+
+                <td>{{ $pos->position }}</td>
+                <td>{{ number_format($pos->points, 2) }}</td>
+                <td>{{ $section->max_points ?? '5' }}</td>
+
+                {{-- Evidence rowspan --}}
+                @if($index === 0)
+                <td rowspan="{{ $rowCount }}">
+                    @if(!empty($subsection->evidence_needed))
+                    <ul class="mb-0">
+                        @foreach(explode("\n", $subsection->evidence_needed) as $line)
+                        <li>{{ $line }}</li>
+                        @endforeach
+                    </ul>
+                    @else
+                    —
+                    @endif
+                </td>
+                @endif
+
+                {{-- Notes rowspan (section-level, show only once per section) --}}
+                @if(!$section->notes_printed ?? false)
+                <td rowspan="{{ $sectionRowCount }}">
+                    @if(!empty($section->notes))
+                    <ul class="mb-0">
+                        @foreach(explode("\n", $section->notes) as $line)
+                        <li>{{ $line }}</li>
+                        @endforeach
+                    </ul>
+                    @else
+                    —
+                    @endif
+                </td>
+                @php $section->notes_printed = true; @endphp
+                @endif
+
+                <td>
+                    <a href="{{ route('admin.rubrics.leadership.edit', $pos->id) }}"
+                        class="btn btn-disable" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <form action="{{ route('admin.rubrics.leadership.destroy', $pos->id) }}"
+                        method="POST" class="d-inline"
+                        onsubmit="return confirm('Delete this leadership position?');">
+                        @csrf
+                        @method('DELETE')
+                        <button class="btn btn-delete" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            @empty
+            <tr>
+                @if(!$sectionPrinted)
+                <td rowspan="{{ $sectionRowCount }}">{{ $section->title }}</td>
+                @php $sectionPrinted = true; @endphp
+                @endif
+                <td>{{ $subsection->sub_section }}</td>
+                <td colspan="6" class="text-muted text-center">No leadership positions listed</td>
+            </tr>
+            @endforelse
+            @endforeach
+            @endforeach
+        </tbody>
+    </table>
+
+    {{-- Add new leadership position forms per section --}}
+    @foreach($sections as $section)
+    <div class="mt-3">
+        <h6>Add New Leadership Position ({{ $section->title }})</h6>
+        <form action="{{ route('admin.rubrics.leadership.store') }}" method="POST">
+            @csrf
+            <input type="hidden" name="section_id" value="{{ $section->section_id }}">
             <div class="form-row">
-                <select class="form-control">
+                <select name="sub_section_id" class="form-control" required>
                     <option value="">Select Subsection</option>
-                    <option value="campus_based">A. Campus Based</option>
-                    <option value="special_orders">B. Special Orders/Office Orders</option>
-                    <option value="community_based">C. Community Based</option>
-                    <option value="training">D. Leadership Training/Seminars/Conferences</option>
+                    @foreach ($section->subsections as $sub)
+                    <option value="{{ $sub->sub_items }}">{{ $sub->sub_section }}</option>
+                    @endforeach
                 </select>
-                <input type="text" placeholder="Category/Type" class="form-control">
-                <input type="text" placeholder="Position / Title" class="form-control">
-                <input type="number" placeholder="Points" class="form-control" step="0.1" min="0" max="5">
-                <input type="text" placeholder="Evidence" class="form-control">
-                <button class="btn btn-disable" type="button" title="Add"><i class="fas fa-plus"></i></button>
+
+                <input type="text" name="position" placeholder="Position / Role" class="form-control" required>
+                <input type="number" name="points" placeholder="Points" class="form-control" step="0.1" min="0" required>
+                <input type="number" name="position_order" placeholder="Order No." class="form-control" min="1" required>
+                <button type="submit" class="btn btn-disable" title="Add">
+                    <i class="fas fa-plus"></i>
+                </button>
             </div>
         </form>
     </div>
+    @endforeach
+    @endif
 </div>
+<style>
+    .manage-table tbody tr:hover {
+        background-color: transparent;
+    }
+</style>

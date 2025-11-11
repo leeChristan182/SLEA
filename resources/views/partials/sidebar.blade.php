@@ -1,95 +1,271 @@
 @php
 use Illuminate\Support\Facades\Auth;
-$user = Auth::user();
-$role = null;
 
-if ($user) {
-if ($user instanceof \App\Models\AdminAccount) {
-$role = 'admin';
-} elseif ($user instanceof \App\Models\AssessorAccount) {
-$role = 'assessor';
-} else {
-$role = 'student';
-}
-}
+/** Current user + role (single users table) */
+$user = Auth::user();
+$role = $user?->role; // 'admin' | 'assessor' | 'student'
+$fullName = $user
+? trim($user->first_name.' '.($user->middle_name ? $user->middle_name.' ' : '').$user->last_name)
+: null;
+
+/** Avatar path */
+$avatarPath = $user && $user->profile_picture_path
+? asset('storage/'.$user->profile_picture_path)
+: asset('images/default-avatar.png');
 @endphp
 
-{{-- ===== BURGER MENU (always visible on mobile) ===== --}}
-<button id="globalSidebarToggle" class="sidebar-toggle-btn" aria-label="Toggle sidebar">
+<!-- Overlay for mobile only -->
+<div class="sidebar-overlay"></div>
+
+<!-- Burger Menu (mobile only) -->
+<button id="mobileSidebarToggle" class="mobile-sidebar-toggle" aria-label="Toggle mobile sidebar">
     <i class="fas fa-bars"></i>
 </button>
 
-{{-- ===== SIDEBAR ===== --}}
+<!-- Sidebar -->
 <aside id="sidebar" class="sidebar">
-    <div class="sidebar-header">
-        <img src="{{ asset('images/logo.png') }}" alt="Logo" class="sidebar-logo">
-        <h3>SLEA</h3>
+    <div class="menu-profile">
+        <div class="menu-toggle" id="menuToggle">
+            <i class="fas fa-bars"></i>
+        </div>
+
+        {{-- Avatar + Name (all roles) --}}
+        @if ($user)
+        <div class="sidebar-avatar-box">
+            <img id="sidebarAvatar" src="{{ $avatarPath }}" alt="Avatar" class="sidebar-avatar">
+            <p class="sidebar-name">{{ $fullName }}</p>
+            <p class="sidebar-role" style="margin:2px 0 0; font-size:12px; opacity:.8; text-transform:capitalize;">
+                {{ $role ?? 'guest' }}
+            </p>
+        </div>
+        @endif
     </div>
 
     <ul>
-        {{-- STUDENT MENU --}}
+        {{-- ===================== STUDENT MENU ===================== --}}
         @if ($role === 'student')
         <li class="{{ request()->routeIs('student.profile') ? 'active' : '' }}">
-            <a href="{{ route('student.profile') }}"><i class="fas fa-user"></i><span>Profile</span></a>
+            <a href="{{ route('student.profile') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                <i class="fas fa-user"></i><span>Profile</span>
+            </a>
         </li>
         <li class="{{ request()->routeIs('student.submit') ? 'active' : '' }}">
-            <a href="{{ route('student.submit') }}"><i class="fas fa-tasks"></i><span>Submit</span></a>
+            <a href="{{ route('student.submit') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                <i class="fas fa-tasks"></i><span>Submit</span>
+            </a>
         </li>
         <li class="{{ request()->routeIs('student.performance') ? 'active' : '' }}">
-            <a href="{{ route('student.performance') }}"><i class="fas fa-chart-line"></i><span>Performance</span></a>
+            <a href="{{ route('student.performance') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                <i class="fas fa-chart-line"></i><span>Performance</span>
+            </a>
         </li>
         <li class="{{ request()->routeIs('student.history') ? 'active' : '' }}">
-            <a href="{{ route('student.history') }}"><i class="fas fa-clock-rotate-left"></i><span>History</span></a>
+            <a href="{{ route('student.history') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                <i class="fas fa-clock-rotate-left"></i><span>History</span>
+            </a>
         </li>
+        {{-- Optional: criteria page if you keep it --}}
+        {{-- <li class="{{ request()->routeIs('student.criteria') ? 'active' : '' }}">
+        <a href="{{ route('student.criteria') }}"><i class="fas fa-list-check"></i><span>Criteria</span></a>
+        </li> --}}
         @endif
 
-        {{-- ASSESSOR MENU --}}
+        {{-- ===================== ASSESSOR MENU ===================== --}}
         @if ($role === 'assessor')
-        <li class="{{ request()->routeIs('assessor.dashboard') ? 'active' : '' }}">
-            <a href="{{ route('assessor.dashboard') }}"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a>
-        </li>
         <li class="{{ request()->routeIs('assessor.profile') ? 'active' : '' }}">
-            <a href="{{ route('assessor.profile') }}"><i class="fas fa-user"></i><span>Profile</span></a>
+            <a href="{{ route('assessor.profile') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                <i class="fas fa-user"></i><span>Profile</span>
+            </a>
         </li>
-        <li><a href="{{ route('assessor.pending-submissions') }}"><i class="fas fa-clock"></i><span>Pending</span></a></li>
-        <li><a href="{{ route('assessor.submissions') }}"><i class="fas fa-file-alt"></i><span>Submissions</span></a></li>
-        <li><a href="{{ route('assessor.final-review') }}"><i class="fas fa-clipboard-check"></i><span>Final Review</span></a></li>
+        <li class="{{ request()->routeIs('assessor.pending-submissions') ? 'active' : '' }}">
+            <a href="{{ route('assessor.pending-submissions') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                <i class="fas fa-clock"></i><span>Pending</span>
+            </a>
+        </li>
+        <li class="{{ request()->routeIs('assessor.submissions') ? 'active' : '' }}">
+            <a href="{{ route('assessor.submissions') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                <i class="fas fa-file-alt"></i><span>Submissions</span>
+            </a>
+        </li>
+        <li class="{{ request()->routeIs('assessor.final-review') ? 'active' : '' }}">
+            <a href="{{ route('assessor.final-review') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                <i class="fas fa-clipboard-check"></i><span>Final Review</span>
+            </a>
+        </li>
         @endif
 
-        {{-- ADMIN MENU --}}
+        {{-- ===================== ADMIN MENU ===================== --}}
         @if ($role === 'admin')
-        <li class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
-            <a href="{{ route('admin.dashboard') }}"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a>
-        </li>
         <li class="{{ request()->routeIs('admin.profile') ? 'active' : '' }}">
-            <a href="{{ route('admin.profile') }}"><i class="fas fa-user"></i><span>Profile</span></a>
+            <a href="{{ route('admin.profile') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                <i class="fas fa-user"></i><span>Profile</span>
+            </a>
         </li>
-        <li><a href="{{ route('admin.manage') }}"><i class="fas fa-users-cog"></i><span>Manage Accounts</span></a></li>
-        <li><a href="{{ route('admin.approve-reject') }}"><i class="fas fa-user-check"></i><span>Approve/Reject</span></a></li>
-        <li><a href="{{ route('admin.submission-oversight') }}"><i class="fas fa-file-alt"></i><span>Submissions</span></a></li>
-        <li><a href="{{ route('admin.final-review') }}"><i class="fas fa-clipboard-check"></i><span>Final Review</span></a></li>
-        <li><a href="{{ route('admin.award-report') }}"><i class="fas fa-trophy"></i><span>Award Report</span></a></li>
-        <li><a href="{{ route('admin.system-monitoring') }}"><i class="fas fa-server"></i><span>System Monitoring</span></a></li>
-        @endif
 
-        {{-- LOGOUT --}}
-        @if ($user)
-        <li class="logout-item">
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="logout-btn">
-                    <i class="fas fa-sign-out-alt"></i><span>Logout</span>
-                </button>
-            </form>
+        <li class="has-submenu {{ request()->routeIs('admin.create_user') || request()->routeIs('admin.approve-reject') || request()->routeIs('admin.manage') ? 'open' : '' }}">
+            <span class="submenu-title" style="display:flex;align-items:center;gap:10px;cursor:default;">
+                <i class="fas fa-users-cog"></i><span>User Account Management</span>
+            </span>
+            <ul class="submenu">
+                <li class="{{ request()->routeIs('admin.create_user') ? 'active' : '' }}">
+                    <a href="{{ route('admin.create_user') }}">Create Assessor's Account</a>
+                </li>
+                <li class="{{ request()->routeIs('admin.approve-reject') ? 'active' : '' }}">
+                    <a href="{{ route('admin.approve-reject') }}">Approve/Reject Account</a>
+                </li>
+                <li class="{{ request()->routeIs('admin.manage') ? 'active' : '' }}">
+                    <a href="{{ route('admin.manage') }}">Manage Account</a>
+                </li>
+                {{-- Revalidation queue we added --}}
+                <li class="{{ request()->routeIs('admin.revalidation') ? 'active' : '' }}">
+                    <a href="{{ route('admin.revalidation') }}">Academic Revalidation</a>
+                </li>
+            </ul>
+        </li>
+
+        <li class="{{ request()->routeIs('admin.rubrics.index') ? 'active' : '' }}">
+            <a href="{{ route('admin.rubrics.index') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                <i class="fas fa-tasks"></i><span>Scoring Rubric Configuration</span>
+            </a>
+        </li>
+
+        <li class="{{ request()->routeIs('admin.organizations.index') ? 'active' : '' }}">
+            <a href="{{ route('admin.organizations.index') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                <i class="fas fa-building"></i><span>Organization Management</span>
+            </a>
+        </li>
+
+        <li class="{{ request()->routeIs('admin.submission-oversight') ? 'active' : '' }}">
+            <a href="{{ route('admin.submission-oversight') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                <i class="fas fa-file-alt"></i><span>Submission Oversight</span>
+            </a>
+        </li>
+
+        <li class="{{ request()->routeIs('admin.final-review') ? 'active' : '' }}">
+            <a href="{{ route('admin.final-review') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                <i class="fas fa-clipboard-check"></i><span>Final Review</span>
+            </a>
+        </li>
+
+        <li class="{{ request()->routeIs('admin.award-report') ? 'active' : '' }}">
+            <a href="{{ route('admin.award-report') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                <i class="fas a fa-trophy"></i><span>Award Report</span>
+            </a>
+        </li>
+
+        <li class="{{ request()->routeIs('admin.system-monitoring') ? 'active' : '' }}">
+            <a href="{{ route('admin.system-monitoring') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                <i class="fas fa-server"></i><span>System Monitoring and Logs</span>
+            </a>
         </li>
         @endif
     </ul>
 </aside>
 
-{{-- ===== SIDEBAR TOGGLE SCRIPT ===== --}}
+{{-- Avatar + mobile CSS --}}
+<style>
+    .sidebar-avatar-box {
+        text-align: center;
+        margin-top: 15px;
+    }
+
+    .sidebar-avatar {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #fff;
+    }
+
+    .sidebar-name {
+        font-size: 14px;
+        font-weight: 600;
+        margin-top: 6px;
+    }
+
+    /* BURGER (mobile only) */
+    .mobile-sidebar-toggle {
+        position: fixed;
+        left: 20px;
+        top: 15px;
+        width: 40px;
+        height: 40px;
+        background: #7b0000;
+        color: #fff;
+        border: none;
+        border-radius: 50%;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 1100;
+    }
+
+    @media (max-width: 768px) {
+        .mobile-sidebar-toggle {
+            display: flex;
+        }
+
+        .sidebar {
+            left: -260px;
+            top: 0;
+            height: 100vh;
+        }
+
+        .sidebar.active {
+            left: 0;
+        }
+
+        .main-content {
+            margin-left: 0 !important;
+        }
+    }
+</style>
+
 <script>
-    document.getElementById('globalSidebarToggle').addEventListener('click', function() {
+    document.addEventListener('DOMContentLoaded', () => {
         const sidebar = document.getElementById('sidebar');
-        sidebar.classList.toggle('active');
+        const overlay = document.querySelector('.sidebar-overlay');
+        const toggleBtn = document.getElementById('mobileSidebarToggle');
+        const menuToggle = document.getElementById('menuToggle');
+        const submenuItems = document.querySelectorAll('.has-submenu');
+
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                sidebar.classList.toggle('active');
+                if (window.innerWidth <= 768) {
+                    overlay.classList.toggle('active');
+                    document.body.style.overflow = sidebar.classList.contains('active') ? 'hidden' : '';
+                }
+            });
+        }
+
+        if (overlay) {
+            overlay.addEventListener('click', () => {
+                sidebar.classList.remove('active');
+                overlay.classList.remove('active');
+                document.body.style.overflow = '';
+            });
+        }
+
+        if (menuToggle) {
+            menuToggle.addEventListener('click', () => {
+                if (window.innerWidth > 768) document.body.classList.toggle('collapsed');
+            });
+        }
+
+        submenuItems.forEach(item => {
+            const title = item.querySelector('.submenu-title');
+            title?.addEventListener('click', () => item.classList.toggle('open'));
+        });
+
+        // Keep avatar in sync with profile edits (matches unified user_profile.js)
+        try {
+            const saved = localStorage.getItem('profileImage');
+            const sidebarAvatar = document.getElementById('sidebarAvatar');
+            if (saved && sidebarAvatar) sidebarAvatar.src = saved;
+        } catch (e) {
+            /* ignore */
+        }
     });
 </script>

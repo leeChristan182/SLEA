@@ -22,7 +22,7 @@
 
   function apply() {
     const term   = searchInp.value.trim();
-    const status = filterSel.value.trim();
+    const status = filterSel.value.trim();0
 
     let visible = 0;
     rows.forEach(r => {
@@ -51,7 +51,7 @@
   });
 
   apply();
-  
+
 })();
 
 (() => {

@@ -4,7 +4,6 @@
 
 @section('content')
 <div class="container">
-    @include('partials.sidebar')
 
     <main class="main-content">
         <div class="page-with-back-button">
@@ -12,7 +11,7 @@
                 <!-- Back Button -->
                 <div class="rubric-header-nav">
                     <a href="{{ route('admin.profile') }}" class="btn btn-back">
-                        <i class="fas fa-arrow-left"></i> Back to Dashboard
+                        <i class="fas fa-arrow-left"></i> Back to Profile
                     </a>
                 </div>
 

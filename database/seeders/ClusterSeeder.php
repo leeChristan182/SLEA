@@ -4,24 +4,22 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Models\Cluster;
+use Illuminate\Support\Str;
 
 class ClusterSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run()
     {
         $clusters = [
-            ['name' => 'Academic Cluster'],
-            ['name' => 'Campus Ministry Cluster'],
-            ['name' => 'Culture and Arts Cluster'],
-            ['name' => 'Socio-Civic Cluster'],
-            ['name' => 'Sports Cluster'],
+            ['key' => 'academic',     'name' => 'Academic Cluster'],
+            ['key' => 'campus_min',   'name' => 'Campus Ministry Cluster'],
+            ['key' => 'culture_arts', 'name' => 'Culture and Arts Cluster'],
+            ['key' => 'socio_civic',  'name' => 'Socio-Civic Cluster'],
+            ['key' => 'sports',       'name' => 'Sports Cluster'],
         ];
 
-        foreach ($clusters as $cluster) {
-            Cluster::firstOrCreate($cluster);
+        foreach ($clusters as $c) {
+            \App\Models\Cluster::updateOrCreate(['name' => $c['name']], $c);
         }
     }
 }

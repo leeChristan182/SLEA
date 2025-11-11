@@ -1,88 +1,103 @@
+@php
+$categoryKey = 'academic';
+$category = App\Models\RubricCategory::with(['sections.subsections'])->where('key', $categoryKey)->first();
+@endphp
+
 <div class="rubric-section">
-    <h4 class="rubric-heading">II. Academic Excellence</h4>
+    <h4 class="rubric-heading">{{ $category->order_no }}. {{ $category->title }}</h4>
 
-    <div class="table-wrap">
-        <table class="manage-table">
-            <thead>
-                <tr>
-                    <th>Academic Achievement</th>
-                    <th>Level/Grade</th>
-                    <th>Points</th>
-                    <th>Max Points</th>
-                    <th>Evidence</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>Dean's List</td>
-                    <td>Semester 1</td>
-                    <td>5.0</td>
-                    <td>5</td>
-                    <td>Certificate of Recognition</td>
-                    <td>
-                        <button class="btn btn-disable" title="Edit"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-delete" title="Delete"><i class="fas fa-trash"></i></button>
-                    </td>
-                </tr>
-                <tr>
-                    <td>President's List</td>
-                    <td>Semester 2</td>
-                    <td>5.0</td>
-                    <td>5</td>
-                    <td>Certificate of Recognition</td>
-                    <td>
-                        <button class="btn btn-disable" title="Edit"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-delete" title="Delete"><i class="fas fa-trash"></i></button>
-                    </td>
-                </tr>
-                <tr>
-                    <td>Academic Scholarship</td>
-                    <td>Full Scholarship</td>
-                    <td>4.0</td>
-                    <td>5</td>
-                    <td>Scholarship Certificate</td>
-                    <td>
-                        <button class="btn btn-disable" title="Edit"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-delete" title="Delete"><i class="fas fa-trash"></i></button>
-                    </td>
-                </tr>
-                <tr>
-                    <td>High GPA</td>
-                    <td>3.75 - 4.0</td>
-                    <td>4.0</td>
-                    <td>5</td>
-                    <td>Official Transcript</td>
-                    <td>
-                        <button class="btn btn-disable" title="Edit"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-delete" title="Delete"><i class="fas fa-trash"></i></button>
-                    </td>
-                </tr>
-                <tr>
-                    <td>Academic Competition</td>
-                    <td>1st Place</td>
-                    <td>5.0</td>
-                    <td>5</td>
-                    <td>Certificate of Achievement</td>
-                    <td>
-                        <button class="btn btn-disable" title="Edit"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-delete" title="Delete"><i class="fas fa-trash"></i></button>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+    {{-- Category description --}}
+    @if(!empty($category->description))
+    <p class="rubric-category-description">{{ $category->description }}</p>
+    @endif
 
-    <div class="mt-4">
-        <h5>Add New Academic Achievement</h5>
-        <form>
-            <div class="form-row">
-                <input type="text" placeholder="Academic Achievement" class="form-control">
-                <input type="text" placeholder="Level/Grade" class="form-control">
-                <input type="number" placeholder="Points" class="form-control" step="0.1" min="0" max="5">
-                <input type="text" placeholder="Evidence" class="form-control">
-                <button class="btn btn-disable" type="button" title="Add"><i class="fas fa-plus"></i></button>
-            </div>
-        </form>
-    </div>
+    @if($category->sections->isEmpty())
+    <p class="text-muted text-center">No sections found for this category.</p>
+    @else
+    <table class="manage-table">
+        <thead>
+            <tr>
+                <th>Section</th>
+                <th>Subsection</th>
+                <th>Max Points</th>
+                <th>Evidence Needed</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($category->sections as $section)
+            @php
+            $subsections = $section->subsections;
+            $rowCount = max($subsections->count(), 1); // rowspan for section
+            $sectionPrinted = false;
+            @endphp
+
+            @foreach($subsections as $sub)
+            <tr>
+                {{-- Section column rowspan --}}
+                @if(!$sectionPrinted)
+                <td rowspan="{{ $rowCount }}">{{ $section->title }}</td>
+                @php $sectionPrinted = true; @endphp
+                @endif
+
+                <td>{{ $sub->sub_section }}</td>
+                <td>{{ $sub->max_points ?? '—' }}</td>
+
+                {{-- Evidence --}}
+                <td>
+                    @if(!empty($sub->evidence_needed))
+                    <ul class="mb-0">
+                        @foreach(explode("\n", $sub->evidence_needed) as $line)
+                        <li>{{ $line }}</li>
+                        @endforeach
+                    </ul>
+                    @else
+                    —
+                    @endif
+                </td>
+
+                {{-- Notes --}}
+                <td>
+                    @if(!empty($sub->notes))
+                    <ul class="mb-0">
+                        @foreach(explode("\n", $sub->notes) as $line)
+                        <li>{{ $line }}</li>
+                        @endforeach
+                    </ul>
+                    @else
+                    —
+                    @endif
+                </td>
+            </tr>
+            @endforeach
+            @endforeach
+        </tbody>
+    </table>
+    @endif
 </div>
+
+<style>
+    .manage-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1rem;
+    }
+
+    .manage-table th,
+    .manage-table td {
+        border: 1px solid #dee2e6;
+        padding: 0.5rem;
+        font-size: 0.9rem;
+        vertical-align: top;
+    }
+
+    .manage-table th {
+        background-color: #f8f9fa;
+        text-align: left;
+    }
+
+    /* Optional: remove row hover highlight if needed */
+    .manage-table tbody tr:hover {
+        background-color: transparent;
+    }
+</style>
