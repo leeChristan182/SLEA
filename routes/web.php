@@ -41,6 +41,23 @@ Route::group([
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register.show');
     Route::post('/register', [AuthController::class, 'register'])->name('register.store');
 
+    // Dependent dropdowns
+
+    Route::prefix('api')->name('ajax.')->group(function () {
+        Route::get('/programs',          [AuthController::class, 'getPrograms'])->name('programs');
+        Route::get('/majors',            [AuthController::class, 'getMajors'])->name('majors');
+        Route::get('/clusters',          [AuthController::class, 'getClusters'])->name('clusters');
+        Route::get('/organizations',     [AuthController::class, 'getOrganizations'])->name('organizations');
+        Route::get('/positions',         [AuthController::class, 'getPositions'])->name('positions');
+        // routes/web.php
+        Route::get('/ajax/academics-map', [AuthController::class, 'getAcademicsMap'])->name('ajax.academics.map');
+        Route::get('/ajax/council-positions', [AuthController::class, 'getCouncilPositions'])->name('ajax.council.positions');
+
+
+        // optional council/governance helpers (if you’ll use them)
+        Route::get('/council-orgs',      [AuthController::class, 'getCouncilOrgs'])->name('council_orgs');
+    });
+
     // OTP (optional)
     Route::get('/otp', [AuthController::class, 'showOtp'])->name('otp.show');
     Route::post('/otp', [AuthController::class, 'verifyOtp'])->name('otp.verify');

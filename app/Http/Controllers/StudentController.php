@@ -193,8 +193,8 @@ class StudentController extends Controller
     public function revalidation()
     {
         $user = auth()->user();
-        $academic = \Illuminate\Support\Facades\Schema::hasTable('student_academic')
-            ? \Illuminate\Support\Facades\DB::table('student_academic')->where('user_id', $user->id)->first()
+        $academic = Schema::hasTable('student_academic')
+            ? DB::table('student_academic')->where('user_id', $user->id)->first()
             : null;
 
         return view('student.revalidation', compact('user', 'academic')); // simple page w/ 3 forms
@@ -242,11 +242,16 @@ class StudentController extends Controller
                 'updated_at' => $now,
             ]);
         }
-        \DB::table('student_academic')->where('user_id', $user->id)->update([
-            'certificate_of_registration_path' => $path,
-            'eligibility_status' => \DB::raw("CASE WHEN expected_grad_year IS NOT NULL AND expected_grad_year < strftime('%Y','now') THEN 'under_review' ELSE COALESCE(eligibility_status,'eligible') END"),
-            'updated_at' => now(),
+        // Everyone without a status -> eligible
+        DB::table('student_academic')->whereNull('eligibility_status')->update([
+            'eligibility_status' => 'eligible',
         ]);
+
+        // Anyone past expected_grad_year -> needs_revalidation
+        DB::table('student_academic')
+            ->whereNotNull('expected_grad_year')
+            ->where('expected_grad_year', '<', now()->year)
+            ->update(['eligibility_status' => 'needs_revalidation']);
 
         return back()->with('status', 'Certificate of Registration uploaded.');
     }

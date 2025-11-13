@@ -3,14 +3,23 @@
 @section('title', 'Student Profile')
 
 @section('content')
+@php
+use Carbon\Carbon;
+/** @var \App\Models\User $student */
+$student = $student ?? auth()->user();
+$acad = optional($student->studentAcademic);
+$age = $student->birth_date ? Carbon::parse($student->birth_date)->age : null;
+@endphp
+
 <div class="student-profile-page">
     <div class="container">
         @include('partials.sidebar')
 
         <main class="main-content">
-            <!-- Avatar -->
+            {{-- Avatar --}}
             <div class="avatar-container">
-                <img src="{{ $student->profile_picture_path ? asset('storage/'.$student->profile_picture_path) : 'https://via.placeholder.com/120' }}"
+                <img
+                    src="{{ $student->profile_picture_path ? asset('storage/'.$student->profile_picture_path) : asset('images/avatars/default-avatar.png') }}"
                     class="avatar"
                     id="avatarPreview"
                     alt="Avatar">
@@ -27,35 +36,49 @@
                 </form>
             </div>
 
-            <!-- Personal + Academic -->
+            {{-- Personal + Academic --}}
             <section class="profile-section">
-                <!-- Personal Information -->
+                {{-- Personal Information --}}
                 <div class="profile-info">
                     <h3>Personal Information</h3>
                     <p><strong>Name:</strong>
                         <span>{{ strtoupper($student->last_name) }}, {{ $student->first_name }} {{ $student->middle_name }}</span>
                     </p>
-                    <p><strong>Contact Number:</strong> <span>{{ $student->contact_number ?? 'N/A' }}</span></p>
-                    <p><strong>Email Address:</strong> <span>{{ $student->email_address }}</span></p>
+                    <p><strong>Contact Number:</strong> <span>{{ $student->contact ?? 'N/A' }}</span></p>
+                    <p><strong>Email Address:</strong> <span>{{ $student->email }}</span></p>
                     <p><strong>Birth Date:</strong>
-                        <span>{{ $student->birth_date ? \Carbon\Carbon::parse($student->birth_date)->format('F d, Y') : 'N/A' }}</span>
+                        <span>{{ $student->birth_date ? Carbon::parse($student->birth_date)->format('F d, Y') : 'N/A' }}</span>
                     </p>
-                    <p><strong>Age:</strong> <span>{{ $student->age ?? 'N/A' }}</span></p>
+                    <p><strong>Age:</strong> <span>{{ $age ?? 'N/A' }}</span></p>
                 </div>
 
-                <!-- Academic Information -->
+                {{-- Academic Information --}}
                 <div class="profile-info">
                     <h3>Academic Information</h3>
-                    <p><strong>Student ID:</strong> <span>{{ $student->student_id }}</span></p>
-                    <p><strong>College:</strong> <span>{{ $student->academicInformation->collegeProgram->college_name ?? 'N/A' }}</span></p>
-                    <p><strong>Program:</strong> <span>{{ $student->academicInformation->program ?? 'N/A' }}</span></p>
-                    <p><strong>Major:</strong> <span>{{ $student->academicInformation->major ?? 'N/A' }}</span></p>
-                    <p><strong>Year Level:</strong> <span>{{ $student->academicInformation->year_level ?? 'N/A' }}</span></p>
-                    <p><strong>Expected Year to Graduate:</strong> <span>{{ $student->academicInformation->expected_grad_year ?? 'N/A' }}</span></p>
+                    <p><strong>Student Number:</strong> <span>{{ $acad->student_number ?? 'N/A' }}</span></p>
+                    <p><strong>College:</strong> <span>{{ $acad->college_name ?? 'N/A' }}</span></p>
+                    <p><strong>Program:</strong> <span>{{ $acad->program ?? 'N/A' }}</span></p>
+                    <p><strong>Major:</strong> <span>{{ $acad->major ?? 'N/A' }}</span></p>
+                    <p><strong>Year Level:</strong> <span>{{ $acad->year_level ?? 'N/A' }}</span></p>
+                    <p><strong>Expected Year to Graduate:</strong> <span>{{ $acad->expected_grad_year ?? 'N/A' }}</span></p>
+                    <p><strong>Eligibility Status:</strong>
+                        <span class="badge"
+                            style="background:#{{ [
+                                  'eligible' => '198754',              // green
+                                  'needs_revalidation' => 'fd7e14',    // orange
+                                  'under_review' => '0d6efd',          // blue
+                                  'ineligible' => 'dc3545',            // red
+                              ][$acad->eligibility_status ?? 'eligible'] ?? '6c757d' }};">
+                            {{ $acad->eligibility_status ?? 'eligible' }}
+                        </span>
+                    </p>
+                    @if($acad && $acad->eligibility_status !== 'eligible')
+                    <small class="text-muted">Some features may be locked until revalidation is cleared.</small>
+                    @endif
                 </div>
             </section>
 
-            <!-- Leadership Information -->
+            {{-- Leadership Information (optional, shows if you have a relation/table) --}}
             <section class="profile-info" style="margin-top:24px;">
                 <h3>Leadership Information</h3>
 
@@ -72,11 +95,11 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse ($student->leadershipInformation as $lead)
+                            @forelse (($student->leaderships ?? []) as $lead)
                             <tr>
-                                <td>{{ $lead->leadership_type ?? '—' }}</td>
-                                <td>{{ $lead->organization_name ?? '—' }}</td>
-                                <td>{{ $lead->position ?? '—' }}</td>
+                                <td>{{ $lead->type->name ?? $lead->leadership_type ?? '—' }}</td>
+                                <td>{{ $lead->organization->name ?? $lead->organization_name ?? '—' }}</td>
+                                <td>{{ $lead->position->name ?? $lead->position ?? '—' }}</td>
                                 <td>{{ $lead->term ?? '—' }}</td>
                                 <td>{{ $lead->issued_by ?? '—' }}</td>
                                 <td>{{ $lead->leadership_status ?? '—' }}</td>
@@ -91,9 +114,9 @@
                 </div>
             </section>
 
-            <!-- Settings -->
+            {{-- Settings --}}
             <section class="settings-grid" style="margin-top:24px;">
-                <!-- Change Password -->
+                {{-- Change Password --}}
                 <div class="change-password settings-left">
                     <h3>Change Password</h3>
 
@@ -132,19 +155,19 @@
                     </form>
                 </div>
 
-                <!-- Update Year Level -->
+                {{-- Update Academic Details --}}
                 <div class="profile-info settings-year">
                     <h3>Update Academic Details</h3>
                     <form action="{{ route('student.updateAcademic') }}" method="POST">
                         @csrf
                         <div class="form-group">
                             <label for="year_level">Year Level</label>
+                            {{-- Controller expects numeric 1..5 per our validation --}}
                             <select id="year_level" name="year_level" required>
                                 <option value="">— Select —</option>
-                                @foreach(['1st Year', '2nd Year', '3rd Year', '4th Year'] as $level)
-                                <option value="{{ $level }}"
-                                    {{ ($student->academicInformation->year_level ?? '') === $level ? 'selected' : '' }}>
-                                    {{ $level }}
+                                @foreach([1=>'1st Year',2=>'2nd Year',3=>'3rd Year',4=>'4th Year',5=>'5th Year'] as $val=>$label)
+                                <option value="{{ $val }}" {{ (string)($acad->year_level ?? '') === (string)$val ? 'selected' : '' }}>
+                                    {{ $label }}
                                 </option>
                                 @endforeach
                             </select>
@@ -153,20 +176,20 @@
                         <div class="form-group">
                             <label for="program">Program</label>
                             <input id="program" name="program" type="text"
-                                value="{{ $student->academicInformation->program ?? '' }}" required>
+                                value="{{ $acad->program ?? '' }}" required>
                         </div>
 
                         <div class="form-group">
                             <label for="major">Major (optional)</label>
                             <input id="major" name="major" type="text"
-                                value="{{ $student->academicInformation->major ?? '' }}">
+                                value="{{ $acad->major ?? '' }}">
                         </div>
 
                         <button class="change-btn" type="submit">Update</button>
                     </form>
                 </div>
 
-                <!-- Upload COR -->
+                {{-- Upload COR --}}
                 <div class="profile-info settings-cor">
                     <h3>Upload Certificate of Registration</h3>
                     <form action="{{ route('student.uploadCOR') }}" method="POST" enctype="multipart/form-data">
@@ -176,10 +199,10 @@
                         <small>Max size 5MB • JPG, PNG, or PDF</small>
                         <button class="change-btn" type="submit" style="margin-top:12px;">Upload</button>
 
-                        @if(!empty($student->academicInformation->cor_file))
+                        @if(!empty($acad->cor_file))
                         <p style="margin-top:8px;">
                             Current file:
-                            <a href="{{ asset('storage/'.$student->academicInformation->cor_file) }}" target="_blank">
+                            <a href="{{ asset('storage/'.$acad->cor_file) }}" target="_blank">
                                 View uploaded COR
                             </a>
                         </p>
@@ -232,7 +255,6 @@
         box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
     }
 
-    /* Strong title */
     .requirements.visible-box strong {
         display: block;
         font-weight: 700;
@@ -241,7 +263,6 @@
         font-size: 15px;
     }
 
-    /* Checklist text */
     #passwordChecklist li {
         color: #333 !important;
         font-size: 14px;
@@ -250,14 +271,12 @@
         margin-left: 20px;
     }
 
-    /* Subtle hover feedback */
     #passwordChecklist li:hover {
         color: #b21d1d;
         font-weight: 500;
     }
 
-
-    /* === Input Groups === */
+    /* === Inputs === */
     .form-group {
         margin-bottom: 14px;
     }
@@ -276,7 +295,7 @@
         border: 1px solid #ddd;
         border-radius: 6px;
         padding: 8px 10px;
-        transition: border-color 0.2s ease;
+        transition: border-color .2s ease;
     }
 
     select:focus,
@@ -298,7 +317,7 @@
         cursor: pointer;
         color: #555;
         font-size: 1rem;
-        transition: color 0.2s;
+        transition: color .2s;
     }
 
     .toggle-password:hover {
@@ -313,7 +332,7 @@
         padding: 10px 16px;
         border-radius: 6px;
         font-weight: 600;
-        transition: 0.25s;
+        transition: .25s;
         width: 100%;
     }
 
@@ -326,7 +345,7 @@
     .change-password {
         border-top: 3px solid #c0392b;
         background-color: white;
-        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06);
+        box-shadow: 0 3px 6px rgba(0, 0, 0, .06);
         border-radius: 10px;
         padding: 20px;
     }
@@ -342,11 +361,11 @@
     }
 </style>
 
-
 <script>
     document.querySelectorAll('.toggle-password').forEach(icon => {
         icon.addEventListener('click', () => {
             const target = document.getElementById(icon.dataset.target);
+            if (!target) return;
             const isPassword = target.type === 'password';
             target.type = isPassword ? 'text' : 'password';
             icon.classList.toggle('fa-eye-slash', isPassword);

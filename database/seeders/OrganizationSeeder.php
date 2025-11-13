@@ -24,6 +24,7 @@ class OrganizationSeeder extends Seeder
             ['name' => 'University Student Government (USG)', 'cluster' => 'Socio-Civic Cluster', 'domain' => 'campus', 'scope' => 'institutional'],
             ['name' => 'Obrero Student Council (OSC)',        'cluster' => 'Socio-Civic Cluster', 'domain' => 'campus', 'scope' => 'institutional'],
             ['name' => 'Local Council (LC)',                  'cluster' => 'Socio-Civic Cluster', 'domain' => 'college', 'scope' => 'institutional'],
+            ['name' => 'League of Class Mayors (LCM)',        'cluster' => 'Socio-Civic Cluster', 'domain' => 'college', 'scope' => 'institutional'],
             ['name' => 'Council of Clubs and Organizations (CCO)', 'cluster' => 'Socio-Civic Cluster', 'domain' => 'campus', 'scope' => 'institutional'],
             ['name' => 'Local Government Unit (LGU)',         'cluster' => 'Socio-Civic Cluster', 'domain' => 'lgu',    'scope' => 'local'],
 
