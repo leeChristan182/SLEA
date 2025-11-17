@@ -1,4 +1,4 @@
-/* register.js — Student Registration (cache-first, council-only safe) */
+/* register.js — Student Registration (cache-first, council/CCO-safe) */
 (function () {
   'use strict';
 
@@ -34,11 +34,18 @@
     const programSelect     = document.querySelector('select[name="program_id"], select[name="program"]');
     const majorSelect       = document.querySelector('select[name="major_id"], select[name="major_name"]');
 
-    // Leadership (council-mode supported)
+    // Leadership (council/CCO)
     const leadershipTypeSelect = document.getElementById('leadership_type_id');
     const clusterSelect        = document.getElementById('cluster_id');
     const organizationSelect   = document.getElementById('organization_id');
     const positionSelect       = document.getElementById('position_id');
+
+    // Wrappers / indicators (Step 3)
+    const clusterWrap  = document.getElementById('cluster_wrap');
+    const orgWrap      = document.getElementById('org_wrap');
+    const clusterStar  = document.getElementById('cluster_required_star');
+    const orgStar      = document.getElementById('org_required_star');
+    const orgOptHint   = document.getElementById('org_optional_hint');
 
     const councilFlagInput = document.querySelector('input[name="is_council"]');
     const isCouncilMode = !!(councilFlagInput && String(councilFlagInput.value) === '1');
@@ -52,6 +59,7 @@
       el.innerHTML = `<option value="">${placeholder}</option>`;
       el.disabled = false;
     }
+
     function setOptions(el, rows, selected) {
       if (!el) return;
       (rows || []).forEach(r => {
@@ -61,6 +69,19 @@
       });
       if (selected) el.value = String(selected);
     }
+
+    // convenience wrapper: expects [{id, name}]
+    function setOptionsFromArray(el, rows, selected) {
+      if (!el) return;
+      rows = rows || [];
+      rows.forEach(r => {
+        const id = String(r.id);
+        const label = r.name ?? id;
+        el.insertAdjacentHTML('beforeend', `<option value="${id}">${label}</option>`);
+      });
+      if (selected) el.value = String(selected);
+    }
+
     async function safeFetchJson(url, { retries = 2, signal } = {}) {
       for (let i = 0; i <= retries; i++) {
         try {
@@ -88,6 +109,7 @@
       const inferred = Math.min(currentYear - entryYear + 1, totalYears).toString();
       [...yearLevelSelect.options].forEach(o => { if (o.value === inferred) o.selected = true; });
     }
+
     function updateAge() {
       if (!ageInput || !birthDateInput?.value) { if (ageInput) ageInput.value = ''; return; }
       const b = new Date(birthDateInput.value); if (isNaN(b)) { ageInput.value = ''; return; }
@@ -96,6 +118,7 @@
       if (t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) age--;
       ageInput.value = age;
     }
+
     studentIdInput?.addEventListener('input', updateExpectedGrad);
     yearLevelSelect?.addEventListener('change', updateExpectedGrad);
     birthDateInput?.addEventListener('change', updateAge);
@@ -206,134 +229,247 @@
       }
     }
 
-    // -------- Leadership (Council-first) --------
-   // ------- Leadership: Council types vs CCO drilldown -------
-const URL_COUNCIL_POS = routesEl?.dataset.councilPositions || '';
+    // -------- Leadership (Council vs CCO) --------
+        // -------- Leadership (Council vs CCO) --------
+    const URL_COUNCIL_POS = URLS.councilPositions || '';
 
-const oldLeadershipType = leadershipTypeSelect?.dataset.old || leadershipTypeSelect?.value || '';
-const oldCluster        = clusterSelect?.dataset.old || clusterSelect?.value || '';
-const oldOrg            = organizationSelect?.dataset.old || organizationSelect?.value || '';
-const oldPosition       = positionSelect?.dataset.old || positionSelect?.value || '';
+    const oldLeadershipType = leadershipTypeSelect?.dataset.old || leadershipTypeSelect?.value || '';
+    const oldCluster        = clusterSelect?.dataset.old || '';
+    const oldOrg            = organizationSelect?.dataset.old || '';
+    const oldPosition       = positionSelect?.dataset.old || '';
 
-function setVisible(el, show) {
-  if (!el) return;
-  el.hidden = !show;
-}
-function setRequired(el, req, starEl) {
-  if (!el) return;
-  if (req) { el.setAttribute('required','required'); starEl?.removeAttribute('hidden'); }
-  else { el.removeAttribute('required'); starEl?.setAttribute('hidden',''); }
-}
-function isCCOSelected() {
-  const opt = leadershipTypeSelect?.selectedOptions?.[0];
-  return opt && (opt.dataset.kind === 'cco'
-    || /council of clubs and organizations/i.test(opt.textContent || ''));
-}
+    function setVisible(el, show) {
+      if (!el) return;
+      el.style.display = show ? '' : 'none';
+    }
 
-function loadCouncilPositions(leadershipTypeId, selectedPos=null) {
-  resetDropdown(positionSelect, 'Loading positions...');
-  if (!URL_COUNCIL_POS || !leadershipTypeId) { resetDropdown(positionSelect, 'Select Position'); return; }
-  fetch(`${URL_COUNCIL_POS}?leadership_type_id=${encodeURIComponent(leadershipTypeId)}`)
-    .then(r=>r.json())
-    .then(rows=>{
+    function setRequired(el, required, starEl) {
+      if (!el) return;
+      if (required) {
+        el.setAttribute('required', 'required');
+        if (starEl) {
+          starEl.removeAttribute('hidden');
+          starEl.style.display = '';
+        }
+      } else {
+        el.removeAttribute('required');
+        if (starEl) {
+          starEl.setAttribute('hidden', '');
+          starEl.style.display = 'none';
+        }
+      }
+    }
+
+    function setOptionsFromArray(el, rows, selected) {
+      if (!el) return;
+      rows = rows || [];
+      rows.forEach(r => {
+        const id = String(r.id);
+        const label = r.name ?? id;
+        el.insertAdjacentHTML('beforeend', `<option value="${id}">${label}</option>`);
+      });
+      if (selected) el.value = String(selected);
+    }
+
+    function isCCOSelected() {
+      const opt = leadershipTypeSelect?.selectedOptions?.[0];
+      if (!opt) return false;
+      const key = (opt.dataset.key || '').toLowerCase();
+      return key === 'cco' || /council of clubs and organizations/i.test(opt.textContent || '');
+    }
+
+    // Council types (USG/OSC/LC/LGU/LCM) → positions union
+    async function loadCouncilPositions(selectedPos = '') {
+      resetDropdown(positionSelect, 'Loading positions...');
+      if (!URL_COUNCIL_POS) {
+        resetDropdown(positionSelect, 'Select Position');
+        return;
+      }
+      const rows = await safeFetchJson(`${URL_COUNCIL_POS}?_=${Date.now()}`);
       resetDropdown(positionSelect, 'Select Position');
-      const list = Array.isArray(rows) ? rows : Object.entries(rows||{}).map(([id,name])=>({id,name}));
+      if (!rows) return;
+      setOptionsFromArray(positionSelect, rows, selectedPos);
+    }
+
+    // CCO club/org positions via generic positions endpoint
+    async function loadOrgPositions(orgId, selectedPos = '') {
+      resetDropdown(positionSelect, 'Loading positions...');
+      if (!URLS.positions || !orgId) {
+        resetDropdown(positionSelect, 'Select Position');
+        return;
+      }
+      const rows = await safeFetchJson(
+        `${URLS.positions}?organization_id=${encodeURIComponent(orgId)}&_=${Date.now()}`
+      );
+      resetDropdown(positionSelect, 'Select Position');
+      if (!rows) return;
+      const list = Array.isArray(rows) ? rows : rows;
       setOptionsFromArray(positionSelect, list, selectedPos);
-    })
-    .catch(()=> resetDropdown(positionSelect, 'Select Position'));
-}
+    }
 
-leadershipTypeSelect?.addEventListener('change', () => {
-  const typeId = leadershipTypeSelect.value;
+    async function loadClusters() {
+      resetDropdown(clusterSelect, 'Loading clusters...');
+      const pairs = await safeFetchJson(`${URLS.clusters}?_=${Date.now()}`);
+      resetDropdown(clusterSelect, 'Select Cluster');
+      if (!pairs) return;
+      const rows = Array.isArray(pairs)
+        ? pairs
+        : Object.entries(pairs || {}).map(([id, name]) => ({ id, name }));
+      setOptionsFromArray(clusterSelect, rows, oldCluster || '');
+      if (oldCluster) {
+        clusterSelect.dispatchEvent(new Event('change'));
+      }
+    }
 
-  // reset all three
-  resetDropdown(clusterSelect, 'Select Cluster');
-  resetDropdown(organizationSelect, 'Select Organization');
-  resetDropdown(positionSelect, 'Select Position');
-
-  if (!typeId) {
-    // hide CCO-only fields
-    setVisible(clusterWrap, false);
-    setVisible(orgWrap, false);
-    setRequired(clusterSelect, false, clusterStar);
-    setRequired(organizationSelect, false, orgStar);
-    orgOptHint?.setAttribute('hidden','');
-    return;
-  }
-
-  if (isCCOSelected()) {
-    // CCO → show cluster & org, both required; positions depend on org
-    setVisible(clusterWrap, true);
-    setVisible(orgWrap, true);
-    setRequired(clusterSelect, true, clusterStar);
-    setRequired(organizationSelect, true, orgStar);
-    orgOptHint?.removeAttribute('hidden');
-
-    // load CCO clusters scoped by leadership_type_id
-    fetch(`${URLS.clusters}?leadership_type_id=${encodeURIComponent(typeId)}`)
-      .then(r=>r.json())
-      .then(pairs=>{
-        const rows = Array.isArray(pairs) ? pairs : Object.entries(pairs||{}).map(([id,name])=>({id,name}));
-        setOptionsFromArray(clusterSelect, rows, oldCluster || '');
-        if (oldCluster) clusterSelect.dispatchEvent(new Event('change'));
-      })
-      .catch(()=> resetDropdown(clusterSelect,'Select Cluster'));
-  } else {
-    // Non-CCO → hide cluster/org, not required. Positions come straight from type.
-    setVisible(clusterWrap, false);
-    setVisible(orgWrap, false);
-    setRequired(clusterSelect, false, clusterStar);
-    setRequired(organizationSelect, false, orgStar);
-    orgOptHint?.setAttribute('hidden','');
-
-    loadCouncilPositions(typeId, oldPosition || '');
-  }
-});
-
-clusterSelect?.addEventListener('change', () => {
-  const clusterId = clusterSelect.value;
-  resetDropdown(organizationSelect, 'Loading organizations...');
-  resetDropdown(positionSelect, 'Select Position');
-  if (!clusterId) { resetDropdown(organizationSelect, 'Select Organization'); return; }
-  fetch(`${URLS.organizations}?cluster_id=${encodeURIComponent(clusterId)}`)
-    .then(r=>r.json())
-    .then(pairs=>{
-      const rows = Array.isArray(pairs) ? pairs : Object.entries(pairs||{}).map(([id,name])=>({id,name}));
+    async function loadOrganizations(clusterId) {
+      resetDropdown(organizationSelect, 'Loading organizations...');
+      resetDropdown(positionSelect, 'Select Position');
+      if (!clusterId) {
+        resetDropdown(organizationSelect, 'Select Organization');
+        return;
+      }
+      const pairs = await safeFetchJson(
+        `${URLS.organizations}?cluster_id=${encodeURIComponent(clusterId)}&_=${Date.now()}`
+      );
+      resetDropdown(organizationSelect, 'Select Organization');
+      if (!pairs) return;
+      const rows = Array.isArray(pairs)
+        ? pairs
+        : Object.entries(pairs || {}).map(([id, name]) => ({ id, name }));
       setOptionsFromArray(organizationSelect, rows, oldOrg || '');
-      if (oldOrg) organizationSelect.dispatchEvent(new Event('change'));
-    })
-    .catch(()=> resetDropdown(organizationSelect,'Select Organization'));
-});
+      if (oldOrg) {
+        organizationSelect.dispatchEvent(new Event('change'));
+      }
+    }
 
-organizationSelect?.addEventListener('change', () => {
-  const orgId = organizationSelect.value;
-  resetDropdown(positionSelect, 'Loading positions...');
-  if (!orgId) { resetDropdown(positionSelect, 'Select Position'); return; }
+    // Change handlers
+    leadershipTypeSelect?.addEventListener('change', () => {
+      const typeId = leadershipTypeSelect.value;
 
-  if (isCCOSelected()) {
-    // positions for the chosen CCO org via council-positions endpoint (with type for safety)
-    const typeId = leadershipTypeSelect.value;
-    fetch(`${URL_COUNCIL_POS}?leadership_type_id=${encodeURIComponent(typeId)}&organization_id=${encodeURIComponent(orgId)}`)
-      .then(r=>r.json())
-      .then(rows=>{
-        const list = Array.isArray(rows) ? rows : Object.entries(rows||{}).map(([id,name])=>({id,name}));
-        setOptionsFromArray(positionSelect, list, oldPosition || '');
-      })
-      .catch(()=> resetDropdown(positionSelect,'Select Position'));
-  } else {
-    // Non-CCO handled earlier; keep fallback for safety
-    loadPositions(orgId, oldPosition || '');
-  }
-});
+      resetDropdown(clusterSelect, 'Select Cluster');
+      resetDropdown(organizationSelect, 'Select Organization');
+      resetDropdown(positionSelect, 'Select Position');
 
-// Restore old state on load
-if (oldLeadershipType) {
-  leadershipTypeSelect.value = oldLeadershipType;
-  leadershipTypeSelect.dispatchEvent(new Event('change'));
-}
+      if (!typeId) {
+        setVisible(clusterWrap, false);
+        setVisible(orgWrap, false);
+        setRequired(clusterSelect, false, clusterStar);
+        setRequired(organizationSelect, false, orgStar);
+        if (orgOptHint) orgOptHint.style.display = 'none';
+        return;
+      }
+
+      if (isCCOSelected()) {
+        // CCO → show cluster & org, both required; positions depend on org
+        setVisible(clusterWrap, true);
+        setVisible(orgWrap, true);
+        setRequired(clusterSelect, true, clusterStar);
+        setRequired(organizationSelect, true, orgStar);
+        if (orgOptHint) orgOptHint.style.display = '';
+
+        loadClusters();
+      } else {
+        // Non-CCO (USG/OSC/LC/LGU/LCM) → only leadership_type + position
+        setVisible(clusterWrap, false);
+        setVisible(orgWrap, false);
+        setRequired(clusterSelect, false, clusterStar);
+        setRequired(organizationSelect, false, orgStar);
+        if (orgOptHint) orgOptHint.style.display = 'none';
+
+        loadCouncilPositions(oldPosition || '');
+      }
+    });
+
+    clusterSelect?.addEventListener('change', () => {
+      const clusterId = clusterSelect.value;
+      loadOrganizations(clusterId);
+    });
+
+    organizationSelect?.addEventListener('change', () => {
+      const orgId = organizationSelect.value;
+      if (!orgId) {
+        resetDropdown(positionSelect, 'Select Position');
+        return;
+      }
+      if (isCCOSelected()) {
+        loadOrgPositions(orgId, oldPosition || '');
+      }
+    });
+
+    // Restore old state on load (for validation errors)
+    if (oldLeadershipType) {
+      leadershipTypeSelect.value = oldLeadershipType;
+      leadershipTypeSelect.dispatchEvent(new Event('change'));
+    }
+
+    // Change handlers
+    leadershipTypeSelect?.addEventListener('change', () => {
+      const typeId = leadershipTypeSelect.value;
+
+      resetDropdown(clusterSelect, 'Select Cluster');
+      resetDropdown(organizationSelect, 'Select Organization');
+      resetDropdown(positionSelect, 'Select Position');
+
+      if (!typeId) {
+        setVisible(clusterWrap, false);
+        setVisible(orgWrap, false);
+        setRequired(clusterSelect, false, clusterStar);
+        setRequired(organizationSelect, false, orgStar);
+        if (orgOptHint) orgOptHint.style.display = 'none';
+        return;
+      }
+
+      if (isCCOSelected()) {
+        // CCO → cluster + org required, positions depend on org
+        setVisible(clusterWrap, true);
+        setVisible(orgWrap, true);
+        setRequired(clusterSelect, true, clusterStar);
+        setRequired(organizationSelect, true, orgStar);
+        if (orgOptHint) orgOptHint.style.display = '';
+
+        loadClustersForCCO(typeId);
+      } else {
+        // Council types: only leadership_type + position
+        setVisible(clusterWrap, false);
+        setVisible(orgWrap, false);
+        setRequired(clusterSelect, false, clusterStar);
+        setRequired(organizationSelect, false, orgStar);
+        if (orgOptHint) orgOptHint.style.display = 'none';
+
+        loadCouncilPositionsForType(typeId, oldPosition || '');
+      }
+    });
+
+    clusterSelect?.addEventListener('change', () => {
+      const clusterId = clusterSelect.value;
+      loadOrganizationsForCluster(clusterId);
+    });
+
+    organizationSelect?.addEventListener('change', () => {
+      const orgId  = organizationSelect.value;
+      const typeId = leadershipTypeSelect.value;
+
+      if (!orgId) {
+        resetDropdown(positionSelect, 'Select Position');
+        return;
+      }
+
+      if (isCCOSelected()) {
+        loadPositionsForCcoOrg(typeId, orgId, oldPosition || '');
+      }
+    });
+
+    // Restore old state on load (for validation errors)
+    if (oldLeadershipType) {
+      leadershipTypeSelect.value = oldLeadershipType;
+      leadershipTypeSelect.dispatchEvent(new Event('change'));
+    }
 
     // -------- Multi-step --------
-    pageNumbers.forEach((p, i) => p.addEventListener('click', () => { if (!validateStep()) return; currentStep = i; showStep(i); }));
+    pageNumbers.forEach((p, i) =>
+      p.addEventListener('click', () => { if (!validateStep()) return; currentStep = i; showStep(i); })
+    );
+
     function showStep(n) {
       formSteps.forEach((s, i) => s.classList.toggle('active', i === n));
       pageNumbers.forEach((p, i) => {
@@ -344,12 +480,14 @@ if (oldLeadershipType) {
       prevBtn.disabled = n === 0;
       nextBtn.textContent = n === formSteps.length - 1 ? 'Submit' : 'Next';
     }
+
     window.nextPrev = function (n) {
       if (n === 1 && !validateStep()) return false;
       currentStep += n;
       if (currentStep >= formSteps.length) { form.submit(); return false; }
       showStep(currentStep);
     };
+
     function validateStep() {
       let ok = true;
       formSteps[currentStep].querySelectorAll('input,select').forEach(i => {
@@ -358,11 +496,19 @@ if (oldLeadershipType) {
       });
       return ok;
     }
+
     showStep(currentStep);
 
     // -------- Password live check --------
     const passwordInput = document.getElementById('password');
-    const checks = { length: /.{8,}/, uppercase: /[A-Z]/, lowercase: /[a-z]/, number: /[0-9]/, special: /[^A-Za-z0-9]/ };
+    const checks = {
+      length: /.{8,}/,
+      uppercase: /[A-Z]/,
+      lowercase: /[a-z]/,
+      number: /[0-9]/,
+      special: /[^A-Za-z0-9]/
+    };
+
     passwordInput?.addEventListener('input', () => {
       Object.keys(checks).forEach(k => {
         const el = document.getElementById(k); if (!el) return;
@@ -378,7 +524,10 @@ if (oldLeadershipType) {
     });
 
     // -------- Dark mode --------
-    const body = document.body, toggleBtn = document.getElementById('darkModeToggle'), toggleBtn2 = document.getElementById('darkModeToggleFloating');
+    const body = document.body,
+      toggleBtn = document.getElementById('darkModeToggle'),
+      toggleBtn2 = document.getElementById('darkModeToggleFloating');
+
     function applyTheme(mode) {
       const d = mode === 'dark';
       body.classList.toggle('dark-mode', d);
@@ -386,6 +535,7 @@ if (oldLeadershipType) {
       toggleBtn2?.querySelector('i')?.classList.replace(d ? 'fa-moon' : 'fa-sun', d ? 'fa-sun' : 'fa-moon');
       localStorage.setItem('theme', mode);
     }
+
     applyTheme(localStorage.getItem('theme') || 'light');
     const flip = () => applyTheme(body.classList.contains('dark-mode') ? 'light' : 'dark');
     toggleBtn?.addEventListener('click', flip);

@@ -2,8 +2,13 @@
 
 @section('title', 'Assessor Profile')
 
-@section('content')
+@section('head')
 <meta name="csrf-token" content="{{ csrf_token() }}">
+@endsection
+
+@section('content')
+{{-- Used by profile.js to auto-detect assessor context --}}
+<input type="hidden" name="assessor_id" value="{{ $user->id }}">
 
 <div class="container">
     @include('partials.sidebar')
@@ -12,13 +17,19 @@
         <!-- Profile Header Banner -->
         <div class="profile-banner">
             <div class="profile-avatar">
-                <img src="{{ $user->profile_picture_path ? asset('storage/' . $user->profile_picture_path) : asset('images/avatars/default-avatar.png') }}"
+                <img
+                    src="{{ $user->profile_picture_path ? asset('storage/' . $user->profile_picture_path) : asset('images/avatars/default-avatar.png') }}"
                     alt="Profile Picture"
                     id="profilePicture">
 
                 <form id="avatarForm" method="POST" action="{{ route('assessor.profile.picture') }}" enctype="multipart/form-data">
                     @csrf
-                    <input type="file" id="avatarUpload" name="avatar" accept="image/*" style="display:none;">
+                    <input
+                        type="file"
+                        id="avatarUpload"
+                        name="avatar"
+                        accept="image/*"
+                        style="display:none;">
                 </form>
 
                 <button type="button" class="upload-photo-btn" id="uploadPhotoBtn" title="Change Profile Picture">
@@ -140,7 +151,7 @@
                     <div id="passwordDisplayMode" class="password-display">
                         <div class="password-info">
                             <i class="fas fa-lock"></i>
-                            <span>Password last changed recently</span>
+                            <span>Keep your account secure with a strong password.</span>
                         </div>
                     </div>
 
@@ -157,11 +168,21 @@
                             <div class="password-requirements">
                                 <p class="requirements-title">Password Requirements:</p>
                                 <ul class="requirements-list" id="passwordChecklist">
-                                    <li id="length" class="requirement-item invalid"><i class="fas fa-circle"></i> Minimum of 8 characters</li>
-                                    <li id="uppercase" class="requirement-item invalid"><i class="fas fa-circle"></i> An uppercase character</li>
-                                    <li id="lowercase" class="requirement-item invalid"><i class="fas fa-circle"></i> A lowercase character</li>
-                                    <li id="number" class="requirement-item invalid"><i class="fas fa-circle"></i> A number</li>
-                                    <li id="special" class="requirement-item invalid"><i class="fas fa-circle"></i> A special character</li>
+                                    <li id="length" class="requirement-item invalid">
+                                        <i class="fas fa-circle circle-icon"></i> Minimum of 8 characters
+                                    </li>
+                                    <li id="uppercase" class="requirement-item invalid">
+                                        <i class="fas fa-circle circle-icon"></i> An uppercase character
+                                    </li>
+                                    <li id="lowercase" class="requirement-item invalid">
+                                        <i class="fas fa-circle circle-icon"></i> A lowercase character
+                                    </li>
+                                    <li id="number" class="requirement-item invalid">
+                                        <i class="fas fa-circle circle-icon"></i> A number
+                                    </li>
+                                    <li id="special" class="requirement-item invalid">
+                                        <i class="fas fa-circle circle-icon"></i> A special character
+                                    </li>
                                 </ul>
                             </div>
 
@@ -176,7 +197,8 @@
 
                             <div class="checkbox-field">
                                 <label class="checkbox-label">
-                                    <input type="checkbox" id="togglePasswordCheckbox"> Show Password
+                                    <input type="checkbox" id="togglePasswordCheckbox" onclick="togglePassword()">
+                                    Show Password
                                 </label>
                             </div>
 
@@ -219,5 +241,5 @@
 
 @push('scripts')
 <script src="https://kit.fontawesome.com/a2e0ad2a6a.js" crossorigin="anonymous"></script>
-<script src="{{ asset('js/assessor_profile.js') }}"></script>
+<script src="{{ asset('js/profile.js') }}"></script>
 @endpush

@@ -3,63 +3,158 @@
 namespace App\Http\Controllers;
 
 use App\Models\Submission;
-use App\Models\PendingSubmission;
+use App\Models\RubricCategory;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Auth;
 
 class SubmissionController extends Controller
 {
-    // list finalized submissions
-    public function index(Request $request)
+    public function __construct()
     {
-        $items = Submission::with('pending.submission') // pending -> submission_record
-            ->latest()
-            ->paginate(15);
-
-        return view('assessed.index', compact('items'));
+        $this->middleware('auth');
     }
 
-    // finalize (create a row in submissions from a pending one)
+    /**
+     * Small helper for the Document Type dropdown.
+     */
+    protected function documentTypes(): array
+    {
+        return [
+            'certificate' => 'Certificate',
+            'appointment' => 'Appointment Letter',
+            'moa'         => 'Memorandum of Agreement',
+            'training'    => 'Training / Seminar',
+            'other'       => 'Other',
+        ];
+    }
+
+    /**
+     * GET /student/submit
+     * Show the student submission form.
+     */
+    public function create()
+    {
+        $user = Auth::user();
+
+        // Category → sections → subsections tree
+        $categories = RubricCategory::with(['sections.subsections'])
+            ->orderBy('order_no')
+            ->get();
+
+        // Student's existing submissions (optional table on the page)
+        $submissions = Submission::with(['category', 'subsection'])
+            ->where('user_id', $user->id)
+            ->orderByDesc('submitted_at')
+            ->paginate(10);
+
+        return view('student.submit', [
+            'categories'    => $categories,
+            'documentTypes' => $this->documentTypes(),
+            'submissions'   => $submissions,
+        ]);
+    }
+
+    /**
+     * POST /student/submit
+     * Store new submission.
+     */
     public function store(Request $request)
     {
+        $user = Auth::user();
+
         $data = $request->validate([
-            'pending_sub_id' => [
-                'required',
-                'integer',
-                'exists:pending_submissions,pending_sub_id',
-                Rule::unique('submissions', 'pending_sub_id'), // prevent duplicates
+            // SLEA classification
+            'rubric_category_id'   => ['required', 'exists:rubric_categories,id'],
+            'rubric_section_id'    => ['nullable', 'exists:rubric_sections,section_id'],
+            'rubric_subsection_id' => ['nullable', 'exists:rubric_subsections,sub_section_id'],
+
+            // Main activity fields
+            'activity_title'       => ['required', 'string', 'max:255'],
+            'description'          => ['nullable', 'string'], // not from UI yet but kept
+
+            // Extra UI fields → meta JSON
+            'activity_type'        => ['nullable', 'string', 'max:100'],
+            'role_in_activity'     => ['nullable', 'string', 'max:255'],
+            'date_of_activity'     => ['nullable', 'date'],
+            'organizing_body'      => ['nullable', 'string', 'max:255'],
+            'note'                 => ['nullable', 'string'],
+            'term'                 => ['nullable', 'string', 'max:50'],
+            'issued_by'            => ['nullable', 'string', 'max:255'],
+            'document_type'        => ['nullable', 'string', 'max:50'],
+
+            // Files: JPEG/PDF/PNG up to 5 MB each
+            'attachments.*'        => ['file', 'max:5120', 'mimes:jpeg,jpg,png,pdf'],
+        ]);
+
+        // Upload files → attachments JSON
+        $filesMeta = [];
+        if ($request->hasFile('attachments')) {
+            foreach ($request->file('attachments') as $file) {
+                if (!$file) {
+                    continue;
+                }
+                $path = $file->store('submissions', 'public');
+
+                $filesMeta[] = [
+                    'original' => $file->getClientOriginalName(),
+                    'path'     => $path,
+                    'size'     => $file->getSize(),
+                    'mime'     => $file->getClientMimeType(),
+                ];
+            }
+        }
+
+        Submission::create([
+            'user_id'             => $user->id,
+            'leadership_id'       => null, // later you can link to student_leaderships
+
+            'rubric_category_id'  => $data['rubric_category_id'],
+            'rubric_section_id'   => $data['rubric_section_id'] ?? null,
+            'rubric_subsection_id' => $data['rubric_subsection_id'] ?? null,
+
+            'activity_title'      => $data['activity_title'],
+            // Use the "note" as description for now
+            'description'         => $data['note'] ?? $data['description'] ?? null,
+
+            'attachments'         => $filesMeta ?: null,
+            'meta'                => [
+                'activity_type'   => $data['activity_type']    ?? null,
+                'role_in_activity' => $data['role_in_activity'] ?? null,
+                'date_of_activity' => $data['date_of_activity'] ?? null,
+                'organizing_body' => $data['organizing_body']  ?? null,
+                'term'            => $data['term']             ?? null,
+                'issued_by'       => $data['issued_by']        ?? null,
+                'document_type'   => $data['document_type']    ?? null,
             ],
-            'assessor_id' => ['nullable','string','max:15'],
-            'action'      => ['required','string','max:20','in:Approved,Rejected'],
+
+            // Must match submission_statuses.key
+            'status'              => 'pending',
+            'submitted_at'        => now(),
         ]);
 
-        $pending = PendingSubmission::findOrFail($data['pending_sub_id']);
+        // Two flows: Proceed vs Submit Another
+        $redirectRoute = $request->has('submit_another')
+            ? 'student.submit'   // stay on form
+            : 'student.history'; // or performance, up to you
 
-        // Create the final submission
-        $sub = Submission::create([
-            'pending_sub_id' => $pending->pending_sub_id,
-            'assessor_id'    => $data['assessor_id'] ?? $pending->assessor_id,
-            'action'         => $data['action'],
-        ]);
+        return redirect()
+            ->route($redirectRoute)
+            ->with('status', 'Record submitted for review.');
+    }
 
-        // Reflect status back on the pending row (and stamp date if not set)
-        $pending->update([
-            'action'        => $data['action'],
-            'assessor_id'   => $data['assessor_id'] ?? $pending->assessor_id,
-            'assessed_date' => $pending->assessed_date ?? now(),
-        ]);
-      
-if (in_array($pending->action, ['Approved','Rejected'])) {
-    Submission::firstOrCreate(
-        ['pending_sub_id' => $pending->pending_sub_id],
-        [
-            'assessor_id' => $pending->assessor_id,
-            'action'      => $pending->action,
-        ]
-    );
-}
+    /**
+     * GET /student/history
+     * Simple history view for logged-in student using submissions table.
+     */
+    public function history()
+    {
+        $user = Auth::user();
 
+        $submissions = Submission::with(['category', 'subsection'])
+            ->where('user_id', $user->id)
+            ->orderByDesc('submitted_at')
+            ->paginate(15);
 
-        return redirect()->route('assessed.index')->with('success', "Finalized submission #{$sub->submission_id}.");
+        return view('student.history', compact('submissions'));
     }
 }

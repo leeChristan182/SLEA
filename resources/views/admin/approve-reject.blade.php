@@ -3,63 +3,119 @@
 
 @section('content')
 <div class="container">
-    <h2 class="manage-title">Student Account Approval</h2>
+    <h2 class="manage-title mb-3">Student Account Approval</h2>
+
+    @if(session('status'))
+    <div class="alert alert-success">{{ session('status') }}</div>
+    @endif
+
+    @if($errors->any())
+    <div class="alert alert-danger">
+        <ul class="mb-0">
+            @foreach($errors->all() as $err)
+            <li>{{ $err }}</li>
+            @endforeach
+        </ul>
+    </div>
+    @endif
 
     <!-- Filter/Search -->
-    <form method="GET" class="filter-bar mb-3">
-        <input type="text" name="q" placeholder="Search by email or student ID" value="{{ request('q') }}">
-        <select name="status" onchange="this.form.submit()">
-            <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending</option>
-            <option value="approved" {{ request('status') == 'approved' ? 'selected' : '' }}>Approved</option>
-            <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>Rejected</option>
+    <form method="GET" class="filter-bar mb-3 d-flex flex-wrap gap-2 align-items-center">
+        <input type="text"
+            name="q"
+            class="form-control flex-grow-1"
+            placeholder="Search by email or student number"
+            value="{{ request('q') }}">
+
+        <select name="status" class="form-select w-auto" onchange="this.form.submit()">
+            <option value="{{ \App\Models\User::STATUS_PENDING }}"
+                {{ request('status', \App\Models\User::STATUS_PENDING) === \App\Models\User::STATUS_PENDING ? 'selected' : '' }}>
+                Pending
+            </option>
+            <option value="{{ \App\Models\User::STATUS_APPROVED }}"
+                {{ request('status') === \App\Models\User::STATUS_APPROVED ? 'selected' : '' }}>
+                Approved
+            </option>
+            <option value="{{ \App\Models\User::STATUS_REJECTED }}"
+                {{ request('status') === \App\Models\User::STATUS_REJECTED ? 'selected' : '' }}>
+                Rejected
+            </option>
         </select>
-        <button type="submit" class="btn btn-primary">Filter</button>
+
+        <button type="submit" class="btn btn-primary">
+            Filter
+        </button>
     </form>
 
-    <table class="table table-hover">
+    <table class="table table-hover align-middle">
         <thead>
             <tr>
-                <th>Student ID</th>
+                <th>Student No.</th>
                 <th>Email</th>
                 <th>Program</th>
                 <th>Year Level</th>
                 <th>Status</th>
-                <th>Action</th>
+                <th style="width: 180px;">Action</th>
             </tr>
         </thead>
         <tbody>
             @forelse($students as $student)
+            @php
+            $acad = $student->studentAcademic;
+            @endphp
             <tr>
-                <td>{{ $student->academicInfo->student_id ?? '-' }}</td>
-                <td>{{ $student->email_address }}</td>
-                <td>{{ $student->academicInfo->program ?? '-' }}</td>
-                <td>{{ $student->academicInfo->year_level ?? '-' }}</td>
+                <td>{{ $acad->student_number ?? '—' }}</td>
+                <td>{{ $student->email }}</td>
+                <td>{{ $acad->program->name ?? '—' }}</td>
+                <td>{{ $acad->year_level ?? '—' }}</td>
                 <td>
-                    <span class="badge {{ $student->status }}">{{ ucfirst($student->status) }}</span>
+                    @php
+                    $statusClass = match ($student->status) {
+                    \App\Models\User::STATUS_APPROVED => 'bg-success',
+                    \App\Models\User::STATUS_REJECTED => 'bg-danger',
+                    default => 'bg-warning text-dark',
+                    };
+                    @endphp
+                    <span class="badge {{ $statusClass }}">
+                        {{ ucfirst($student->status) }}
+                    </span>
                 </td>
                 <td>
-                    @if($student->status === 'pending')
-                    <form action="{{ route('admin.approve', $student->student_id) }}" method="POST" style="display:inline">
+                    @if($student->isPending())
+                    <form action="{{ route('admin.approve', $student) }}"
+                        method="POST"
+                        class="d-inline">
                         @csrf
-                        <button class="btn btn-success btn-sm">Approve</button>
+                        <button class="btn btn-success btn-sm">
+                            Approve
+                        </button>
                     </form>
-                    <form action="{{ route('admin.reject', $student->student_id) }}" method="POST" style="display:inline">
+
+                    <form action="{{ route('admin.reject', $student) }}"
+                        method="POST"
+                        class="d-inline ms-1">
                         @csrf
-                        <button class="btn btn-danger btn-sm">Reject</button>
+                        <button class="btn btn-danger btn-sm">
+                            Reject
+                        </button>
                     </form>
                     @else
-                    <em>No action available</em>
+                    <em class="text-muted">No action available</em>
                     @endif
                 </td>
             </tr>
             @empty
             <tr>
-                <td colspan="6" class="text-center">No student accounts found.</td>
+                <td colspan="6" class="text-center text-muted">
+                    No student accounts found.
+                </td>
             </tr>
             @endforelse
         </tbody>
     </table>
 
-    <div class="pagination">{{ $students->links() }}</div>
+    <div class="pagination">
+        {{ $students->links() }}
+    </div>
 </div>
 @endsection

@@ -53,15 +53,14 @@ class AuthController extends Controller
      * ========================= */
     public function showRegister()
     {
-        $colleges        = $this->getCollegesList();        // collection of {id, college_name}
-        $leadershipTypes = $this->getLeadershipTypesList(); // collection of {id, name, key, requires_org}
+        $colleges        = $this->getCollegesList();
+        $leadershipTypes = $this->getLeadershipTypesList();
 
         return view('auth.register', compact('colleges', 'leadershipTypes'));
     }
 
     public function register(Request $request)
     {
-        // -------- Base rules (cluster/org enforced later if needed)
         $rules = [
             // Step 1
             'last_name'     => ['required', 'string', 'max:50'],
@@ -84,7 +83,7 @@ class AuthController extends Controller
             'major_id'      => ['nullable', 'integer', 'exists:majors,id'],
             'year_level'    => ['required', 'in:1,2,3,4,5'],
 
-            // Step 3 (base)
+            // Step 3
             'leadership_type_id' => ['required', 'integer', 'exists:leadership_types,id'],
             'position_id'        => ['required', 'integer', 'exists:positions,id'],
             'term'               => ['required', 'string', 'max:25'],
@@ -100,10 +99,9 @@ class AuthController extends Controller
             'email_address.regex' => 'Please use a valid @usep.edu.ph email address.',
         ];
 
-        // First pass validation
         $validated = $request->validate($rules, $messages);
 
-        // Enforce cluster/org only when the selected leadership type requires it (e.g., CCO)
+        // Cluster/org enforcement for CCO etc.
         $needsOrg = $this->leadershipRequiresOrg((int) $validated['leadership_type_id']);
 
         if ($needsOrg) {
@@ -118,7 +116,7 @@ class AuthController extends Controller
             $validated['organization_id'] = null;
         }
 
-        // Compute expected graduation + eligibility
+        // Expected grad + eligibility
         $expectedGradYear = $this->computeExpectedGradYear(
             $validated['student_id'],
             (int) $validated['year_level']
@@ -160,8 +158,8 @@ class AuthController extends Controller
                 DB::table('student_leaderships')->insert([
                     'user_id'            => $user->id,
                     'leadership_type_id' => (int) $validated['leadership_type_id'],
-                    'cluster_id'         => $validated['cluster_id'],      // null if not needed
-                    'organization_id'    => $validated['organization_id'], // null if not needed
+                    'cluster_id'         => $validated['cluster_id'],
+                    'organization_id'    => $validated['organization_id'],
                     'position_id'        => (int) $validated['position_id'],
                     'term'               => $validated['term'],
                     'issued_by'          => $validated['issued_by'],
@@ -187,7 +185,7 @@ class AuthController extends Controller
     }
 
     /* =========================
-     |  OTP (placeholders)
+     |  OTP placeholders
      * ========================= */
     public function showOtp()
     {
@@ -203,7 +201,7 @@ class AuthController extends Controller
     }
 
     /* =========================
-     |  AJAX (dependent dropdowns)
+     |  AJAX DROPDOWNS
      * ========================= */
     public function getPrograms(Request $r)
     {
@@ -231,7 +229,6 @@ class AuthController extends Controller
         return response()->json($rows);
     }
 
-    /** Councils / governance: list of council org names (used by queries) */
     private function councilOrgNames(): array
     {
         return [
@@ -240,31 +237,93 @@ class AuthController extends Controller
             'Local Council (LC)',
             'Council of Clubs and Organizations (CCO)',
             'Local Government Unit (LGU)',
-            'League of Class Mayors (LCM)', // added
+            'League of Class Mayors (LCM)',
         ];
     }
 
-    /** Positions for council orgs union */
-    public function getCouncilPositions()
+    public function getCouncilPositions(Request $request)
     {
+        if (
+            !Schema::hasTable('organizations')
+            || !Schema::hasTable('positions')
+            || !Schema::hasTable('organization_position')
+            || !Schema::hasTable('leadership_types')
+        ) {
+            return response()->json([]);
+        }
+
+        $typeId = (int) $request->query('leadership_type_id');
+        $orgId  = (int) $request->query('organization_id');
+
+        if ($orgId) {
+            $rows = DB::table('organization_position as op')
+                ->join('positions as p', 'p.id', '=', 'op.position_id')
+                ->where('op.organization_id', $orgId)
+                ->orderBy('p.name')
+                ->select('p.id', 'p.name', 'op.alias')
+                ->get()
+                ->map(fn($r) => [
+                    'id'   => $r->id,
+                    'name' => $r->alias ?: $r->name,
+                ]);
+
+            return response()->json($rows);
+        }
+
+        if ($typeId) {
+            $typeKey = DB::table('leadership_types')->where('id', $typeId)->value('key');
+
+            $map = [
+                'usg' => 'University Student Government (USG)',
+                'osc' => 'Obrero Student Council (OSC)',
+                'lc'  => 'Local Council (LC)',
+                'lgu' => 'Local Government Unit (LGU)',
+                'lcm' => 'League of Class Mayors (LCM)',
+            ];
+
+            $orgName = $map[$typeKey] ?? null;
+
+            if ($orgName) {
+                $orgIdForType = DB::table('organizations')->where('name', $orgName)->value('id');
+
+                if ($orgIdForType) {
+                    $rows = DB::table('organization_position as op')
+                        ->join('positions as p', 'p.id', '=', 'op.position_id')
+                        ->where('op.organization_id', $orgIdForType)
+                        ->orderBy('p.name')
+                        ->select('p.id', 'p.name', 'op.alias')
+                        ->distinct()
+                        ->get()
+                        ->map(fn($r) => [
+                            'id'   => $r->id,
+                            'name' => $r->alias ?: $r->name,
+                        ]);
+
+                    return response()->json($rows);
+                }
+            }
+        }
+
         $orgIds = DB::table('organizations')
             ->whereIn('name', $this->councilOrgNames())
             ->pluck('id');
 
-        if ($orgIds->isEmpty()) return response()->json([]);
+        if ($orgIds->isEmpty()) {
+            return response()->json([]);
+        }
 
         $rows = DB::table('organization_position as op')
             ->join('positions as p', 'p.id', '=', 'op.position_id')
             ->whereIn('op.organization_id', $orgIds)
-            ->orderBy('p.name') // safer than rank_order
+            ->orderBy('p.name')
             ->select('p.id', 'p.name')
             ->distinct()
-            ->get();
+            ->get()
+            ->map(fn($r) => ['id' => $r->id, 'name' => $r->name]);
 
         return response()->json($rows);
     }
 
-    /** Positions by (non-council) organization via pivot */
     public function getPositions(Request $r)
     {
         $orgId = (int) $r->query('organization_id');
@@ -273,13 +332,12 @@ class AuthController extends Controller
         $rows = DB::table('organization_position as op')
             ->join('positions as p', 'p.id', '=', 'op.position_id')
             ->where('op.organization_id', $orgId)
-            ->orderBy('p.name') // safer than rank_order
+            ->orderBy('p.name')
             ->get(['p.id', 'p.name']);
 
         return response()->json($rows);
     }
 
-    /** Clusters (optionally filterable by leadership_type_id if column exists) */
     public function getClusters(Request $request)
     {
         if (!Schema::hasTable('clusters')) {
@@ -311,10 +369,10 @@ class AuthController extends Controller
         return response()->json($pairs);
     }
 
-    /** JSON list of leadership types (handy for AJAX UIs if needed) */
     public function getLeadershipTypes()
     {
         if (!Schema::hasTable('leadership_types')) return response()->json([]);
+
         $rows = DB::table('leadership_types')
             ->select('id', 'name', 'key', 'requires_org')
             ->orderBy('name')
@@ -323,9 +381,6 @@ class AuthController extends Controller
         return response()->json($rows);
     }
 
-    /* =========================
-     |  Helpers
-     * ========================= */
     private function getCollegesList()
     {
         if (Schema::hasTable('colleges')) {
@@ -350,13 +405,12 @@ class AuthController extends Controller
                 ->whereNotNull('college_name')
                 ->groupBy('college_name')
                 ->orderBy('college_name')
-                ->get(); // -> id (pseudo), college_name
+                ->get();
         }
 
         return collect();
     }
 
-    /** For Blade: full list with requires_org so the UI can toggle fields */
     private function getLeadershipTypesList()
     {
         if (!Schema::hasTable('leadership_types')) return collect();
@@ -367,10 +421,10 @@ class AuthController extends Controller
             ->get();
     }
 
-    /** True if the leadership type requires specifying cluster & organization (e.g., CCO) */
     private function leadershipRequiresOrg(?int $typeId): bool
     {
         if (!$typeId || !Schema::hasTable('leadership_types')) return false;
+
         return (bool) DB::table('leadership_types')
             ->where('id', $typeId)
             ->value('requires_org');
@@ -383,11 +437,11 @@ class AuthController extends Controller
         } else {
             $entryYear = (int) now()->format('Y') - max(0, $yearLevel - 1);
         }
+
         $defaultDuration = 4;
         return $entryYear + $defaultDuration;
     }
 
-    /** Map endpoint so the front-end can cache Programs/Majors and reduce errors */
     public function getAcademicsMap()
     {
         if (!Schema::hasTable('programs') || !Schema::hasTable('majors')) {

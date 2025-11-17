@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\StudentAcademic; // ⬅️ ADD THIS
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Support\Facades\Auth;
@@ -11,24 +12,57 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
+
 class StudentController extends Controller
 {
     /* =========================
      | PROFILE & DASHBOARD
      * ========================= */
 
-    // GET /student/profile
+
     public function profile()
     {
-        /** @var User $user */
+        /** @var \App\Models\User $user */
         $user = Auth::user();
 
+        // Academic info with relations (if table exists)
         $academic = Schema::hasTable('student_academic')
-            ? DB::table('student_academic')->where('user_id', $user->id)->first()
+            ? StudentAcademic::with(['college', 'program', 'major'])
+            ->where('user_id', $user->id)
+            ->first()
             : null;
 
-        return view('student.profile', compact('user', 'academic'));
+        // Leadership info from the new student_leaderships table if present,
+        // otherwise fall back to legacy leadership_information (if it still exists).
+        if (Schema::hasTable('student_leaderships')) {
+            $leaderships = DB::table('student_leaderships as sl')
+                ->leftJoin('leadership_types as lt', 'sl.leadership_type_id', '=', 'lt.id')
+                ->leftJoin('clusters as c', 'sl.cluster_id', '=', 'c.id')
+                ->leftJoin('organizations as o', 'sl.organization_id', '=', 'o.id')
+                ->leftJoin('positions as p', 'sl.position_id', '=', 'p.id')
+                ->where('sl.user_id', $user->id)
+                ->select(
+                    'sl.*',
+                    'lt.name as leadership_type_name',
+                    'c.name as cluster_name',
+                    'o.name as organization_name',
+                    'p.name as position_name'
+                )
+                ->get();
+        } elseif (Schema::hasTable('leadership_information')) {
+            // Legacy fallback
+            $leaderships = \App\Models\LeadershipInformation::where('student_id', $user->id)->get();
+        } else {
+            $leaderships = collect();
+        }
+
+        return view('student.profile', [
+            'user'        => $user,
+            'academic'    => $academic,
+            'leaderships' => $leaderships,
+        ]);
     }
+
 
     // POST /student/update-avatar
     public function updateAvatar(Request $request)
@@ -79,69 +113,99 @@ class StudentController extends Controller
     // POST /student/update-academic
     public function updateAcademicInfo(Request $request)
     {
-        $data = $request->validate([
-            'student_number' => ['nullable', 'string', 'max:30'],
-            'year_level'     => ['nullable', 'string', 'max:20'],
-            'college_id'     => ['nullable', 'integer'],
-            'program_id'     => ['nullable', 'integer'],
-            'major_id'       => ['nullable', 'integer'],
-        ]);
-
-        /** @var \App\Models\User $user */
+        /** @var User $user */
         $user = Auth::user();
 
         if (! Schema::hasTable('student_academic')) {
             return back()->withErrors(['student_number' => 'Academic table not found.']);
         }
 
-        // Current row (if any)
-        $current = DB::table('student_academic')->where('user_id', $user->id)->first();
+        // Validate only real columns / foreign keys
+        $data = $request->validate([
+            'student_number' => ['nullable', 'string', 'max:30'],
+            'year_level'     => ['nullable', 'string', 'max:20'],
+
+            'college_id'     => ['nullable', 'exists:colleges,id'],
+            'program_id'     => ['nullable', 'exists:programs,id'],
+            'major_id'       => ['nullable', 'exists:majors,id'],
+        ]);
+
+        // Current academic row if any
+        /** @var \App\Models\StudentAcademic|null $current */
+        $current = StudentAcademic::where('user_id', $user->id)->first();
 
         // --- Compute expected graduation year ---
-        // Rule: take the first 4 digits of student_number as entry year, add 4.
+        // Rule (same as before): take first 4 digits of student_number as entry year, add 4
         $expectedGradYear = null;
-        $numberForCalc = $data['student_number'] ?? ($current->student_number ?? null);
+        $numberForCalc = $data['student_number']
+            ?? ($current->student_number ?? null);
+
         if (is_string($numberForCalc) && preg_match('/^\s*(\d{4})/', $numberForCalc, $m)) {
             $entry = (int) $m[1];
             if ($entry > 1900 && $entry < 3000) {
-                $expectedGradYear = $entry + 4; // adjust to +5 if your school uses 5-year tracks
+                $expectedGradYear = $entry + 4; // adjust if you use 5-year programs
             }
         }
 
-        // Determine if program/major changed (which forces revalidation)
-        $programChanged = isset($data['program_id']) && $current && (int)$current->program_id !== (int)$data['program_id'];
-        $majorChanged   = isset($data['major_id'])   && $current && (int)$current->major_id   !== (int)$data['major_id'];
+        // Determine if program/major changed (forces revalidation)
+        $programChanged = isset($data['program_id']) && $current
+            && (int) $current->program_id !== (int) $data['program_id'];
+
+        $majorChanged = isset($data['major_id']) && $current
+            && (int) $current->major_id !== (int) $data['major_id'];
 
         // Exceeded expected year?
-        $nowYear = (int) now()->year;
-        $exceeded = $expectedGradYear ? ($nowYear > $expectedGradYear) : false;
+        $nowYear  = (int) now()->year;
+        $oldExpected = $current ? $current->expected_grad_year : null;
+        $baseExpected = $expectedGradYear ?? $oldExpected;
+        $exceeded = $baseExpected ? ($nowYear > $baseExpected) : false;
 
         // Decide new eligibility_status
         // - If exceeded OR program/major changed → under_review
-        // - Else keep whatever is stored (default to eligible)
-        $oldEligibility = $current->eligibility_status ?? 'eligible';
-        $newEligibility = ($exceeded || $programChanged || $majorChanged) ? 'under_review' : $oldEligibility;
+        // - Else → eligible
+        $oldEligibility = $current ? ($current->eligibility_status ?? 'eligible') : 'eligible';
 
-        // Build payload
-        $payload = array_merge($data, [
-            'user_id'             => $user->id,
-            'expected_grad_year'  => $expectedGradYear ?? ($current->expected_grad_year ?? null),
-            'eligibility_status'  => $newEligibility,
-            'updated_at'          => now(),
-        ]);
-
-        // Upsert
-        if ($current) {
-            DB::table('student_academic')->where('user_id', $user->id)->update($payload);
+        if ($exceeded || $programChanged || $majorChanged) {
+            $newEligibility = 'under_review';
         } else {
-            $payload['created_at'] = now();
-            DB::table('student_academic')->insert($payload);
+            $newEligibility = 'eligible';
+        }
+
+        // Build payload (fall back to current values when fields are omitted)
+        $payload = [
+            'user_id'            => $user->id,
+            'student_number'     => $data['student_number'] ?? ($current->student_number ?? null),
+            'college_id'         => $data['college_id'] ?? ($current->college_id ?? null),
+            'program_id'         => $data['program_id'] ?? ($current->program_id ?? null),
+            'major_id'           => $data['major_id'] ?? ($current->major_id ?? null),
+            'year_level'         => $data['year_level'] ?? ($current->year_level ?? null),
+            'graduate_prior'     => $current->graduate_prior ?? null,
+            'expected_grad_year' => $baseExpected,
+            'eligibility_status' => $newEligibility,
+            // Keep revalidated_at as-is here; you probably have a separate flow to set it.
+            'revalidated_at'     => $current->revalidated_at ?? null,
+        ];
+
+        if ($current) {
+            $current->fill($payload);
+            $current->save();
+            $academic = $current;
+        } else {
+            $academic = StudentAcademic::create($payload);
         }
 
         // Messaging hint for UX
         $msg = $newEligibility === 'under_review'
             ? 'Academic information saved. Your eligibility is now under review.'
             : 'Academic information saved.';
+
+        // If you’re saving via AJAX, you can return JSON; otherwise redirect back
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message'  => $msg,
+                'academic' => $academic->load(['college', 'program', 'major']),
+            ]);
+        }
 
         return back()->with('status', $msg);
     }
@@ -180,7 +244,10 @@ class StudentController extends Controller
             ];
 
             if (!empty($row['id'])) {
-                DB::table('student_leaderships')->where('id', $row['id'])->where('user_id', $user->id)->update($base);
+                DB::table('student_leaderships')
+                    ->where('id', $row['id'])
+                    ->where('user_id', $user->id)
+                    ->update($base);
             } else {
                 $base['created_at'] = now();
                 DB::table('student_leaderships')->insert($base);
@@ -189,15 +256,23 @@ class StudentController extends Controller
 
         return back()->with('status', 'Leadership records saved.');
     }
+
     // GET /student/revalidation
     public function revalidation()
     {
-        $user = auth()->user();
+        /** @var User $user */
+        $user = Auth::user();
+
+        // If this student is NOT locked anymore, send them to profile (or submit page)
+        if (! $user->awardLocked()) {
+            return redirect()->route('student.profile'); // or route('student.submissions.create')
+        }
+
         $academic = Schema::hasTable('student_academic')
             ? DB::table('student_academic')->where('user_id', $user->id)->first()
             : null;
 
-        return view('student.revalidation', compact('user', 'academic')); // simple page w/ 3 forms
+        return view('student.revalidation', compact('user', 'academic'));
     }
 
     // POST /student/upload-cor
@@ -219,12 +294,13 @@ class StudentController extends Controller
         // Update academic row
         $now  = now();
         $data = [
-            'user_id'                        => $user->id,
+            'user_id'                          => $user->id,
             'certificate_of_registration_path' => $path,
-            'updated_at'                     => $now,
+            'updated_at'                       => $now,
         ];
 
         $exists = DB::table('student_academic')->where('user_id', $user->id)->first();
+
         if ($exists) {
             DB::table('student_academic')->where('user_id', $user->id)->update($data);
         } else {
@@ -242,16 +318,26 @@ class StudentController extends Controller
                 'updated_at' => $now,
             ]);
         }
-        // Everyone without a status -> eligible
-        DB::table('student_academic')->whereNull('eligibility_status')->update([
-            'eligibility_status' => 'eligible',
-        ]);
 
-        // Anyone past expected_grad_year -> needs_revalidation
-        DB::table('student_academic')
-            ->whereNotNull('expected_grad_year')
-            ->where('expected_grad_year', '<', now()->year)
-            ->update(['eligibility_status' => 'needs_revalidation']);
+        // Recalculate eligibility only for this user
+        $academic = DB::table('student_academic')->where('user_id', $user->id)->first();
+
+        if ($academic) {
+            $nowYear = (int) now()->year;
+            $status = 'eligible';
+
+            if (!empty($academic->expected_grad_year) && $nowYear > (int) $academic->expected_grad_year) {
+                // Past expected graduation year → needs revalidation
+                $status = 'needs_revalidation';
+            }
+
+            DB::table('student_academic')
+                ->where('user_id', $user->id)
+                ->update([
+                    'eligibility_status' => $status,
+                    'updated_at'         => $now,
+                ]);
+        }
 
         return back()->with('status', 'Certificate of Registration uploaded.');
     }

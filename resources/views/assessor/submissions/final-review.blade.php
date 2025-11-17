@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="container">
-    @include('partials.assessor-sidebar')
+    @include('partials.assessor_sidebar')
 
     <main class="main-content">
         <div class="page-header">

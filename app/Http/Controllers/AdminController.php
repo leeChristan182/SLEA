@@ -49,21 +49,47 @@ class AdminController extends Controller
     // POST /admin/profile/avatar
     public function updateAvatar(Request $request)
     {
-        $request->validate([
-            'avatar' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
-        ]);
+        try {
+            // match client-side 5MB limit (5 * 1024 KB = 5120)
+            $request->validate([
+                'avatar' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            if ($request->ajax() || $request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed.',
+                    'errors'  => $e->errors(),
+                ], 422);
+            }
+            throw $e;
+        }
 
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
+        // Store new avatar
         $path = $request->file('avatar')->store('avatars', 'public');
 
-        if ($user->profile_picture_path && Storage::disk('public')->exists($user->profile_picture_path)) {
-            Storage::disk('public')->delete($user->profile_picture_path);
+        // Delete old avatar if present
+        if ($user->profile_picture_path && \Storage::disk('public')->exists($user->profile_picture_path)) {
+            \Storage::disk('public')->delete($user->profile_picture_path);
         }
 
         $user->update(['profile_picture_path' => $path]);
 
+        $avatarUrl = asset('storage/' . $path);
+
+        // JSON for AJAX
+        if ($request->ajax() || $request->expectsJson()) {
+            return response()->json([
+                'success'    => true,
+                'message'    => 'Avatar updated.',
+                'avatar_url' => $avatarUrl,
+            ]);
+        }
+
+        // Fallback for non-AJAX form submits
         return back()->with('status', 'Avatar updated.');
     }
 
@@ -122,7 +148,7 @@ class AdminController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        return view('admin.manage', compact('users'));
+        return view('admin.manage-account', compact('users'));
     }
 
     // GET /admin/create_assessor
@@ -202,16 +228,32 @@ class AdminController extends Controller
 
 
     // GET /admin/approve-reject
-    public function approveReject()
+    public function approveReject(Request $request)
     {
-        $pending = User::query()
-            ->where('role', User::ROLE_STUDENT)
-            ->where('status', User::STATUS_PENDING)
-            ->orderByDesc('created_at')
-            ->paginate(20);
+        $status = $request->input('status', User::STATUS_PENDING);
+        $search = $request->input('q');
 
-        return view('admin.users.approve-reject', compact('pending'));
+        $students = User::query()
+            ->where('role', User::ROLE_STUDENT)
+            ->when($status, fn($q) => $q->where('status', $status))
+            ->when($search, function ($q) use ($search) {
+                $like = '%' . $search . '%';
+
+                $q->where(function ($inner) use ($like) {
+                    $inner->where('email', 'like', $like)
+                        ->orWhereHas('studentAcademic', function ($qa) use ($like) {
+                            $qa->where('student_number', 'like', $like);
+                        });
+                });
+            })
+            ->with(['studentAcademic.program']) // eager load
+            ->orderByDesc('created_at')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('admin.approve-reject', compact('students', 'status', 'search'));
     }
+
 
     // POST /admin/approve/{student_id}
     public function approveUser(int $student_id)
@@ -223,25 +265,22 @@ class AdminController extends Controller
         }
 
         $user->approve();
-        // TODO: notify user (mail/notification)
-
         return back()->with('status', 'Student approved.');
     }
 
-    // POST /admin/reject/{student_id}
-    public function rejectUser(int $student_id)
-    {
-        $user = User::findOrFail($student_id);
 
+    // POST /admin/reject/{user}
+    public function rejectUser(User $user)
+    {
         if (! $user->isStudent() || ! $user->isPending()) {
             return back()->withErrors(['email' => 'Only pending student accounts can be rejected.']);
         }
 
-        $user->reject();
-        // TODO: notify user
+        $user->reject(); // assumes you have this helper on the model
 
         return back()->with('status', 'Student rejected.');
     }
+
 
     // PATCH /admin/manage/{user}/toggle   (approved <-> disabled)
     public function toggleUser(User $user)

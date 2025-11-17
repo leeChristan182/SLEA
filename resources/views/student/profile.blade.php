@@ -5,10 +5,25 @@
 @section('content')
 @php
 use Carbon\Carbon;
-/** @var \App\Models\User $student */
-$student = $student ?? auth()->user();
-$acad = optional($student->studentAcademic);
+/** @var \App\Models\User $user */
+
+// The controller provides `user` and `academic`. Fallback to the `student` guard then default auth.
+$student = $student ?? ($user ?? auth()->guard('student')->user() ?? auth()->user());
+$acad = $academic ?? optional($student->studentAcademic);
 $age = $student->birth_date ? Carbon::parse($student->birth_date)->age : null;
+
+// Safely resolve related names
+$collegeName = $acad && $acad->college
+? ($acad->college->college_name ?? $acad->college->name)
+: null;
+
+$programName = $acad && $acad->program
+? $acad->program->name
+: null;
+
+$majorName = $acad && $acad->major
+? $acad->major->name
+: null;
 @endphp
 
 <div class="student-profile-page">
@@ -56,9 +71,9 @@ $age = $student->birth_date ? Carbon::parse($student->birth_date)->age : null;
                 <div class="profile-info">
                     <h3>Academic Information</h3>
                     <p><strong>Student Number:</strong> <span>{{ $acad->student_number ?? 'N/A' }}</span></p>
-                    <p><strong>College:</strong> <span>{{ $acad->college_name ?? 'N/A' }}</span></p>
-                    <p><strong>Program:</strong> <span>{{ $acad->program ?? 'N/A' }}</span></p>
-                    <p><strong>Major:</strong> <span>{{ $acad->major ?? 'N/A' }}</span></p>
+                    <p><strong>College:</strong> <span>{{ $collegeName ?? 'N/A' }}</span></p>
+                    <p><strong>Program:</strong> <span>{{ $programName ?? 'N/A' }}</span></p>
+                    <p><strong>Major:</strong> <span>{{ $majorName ?? 'N/A' }}</span></p>
                     <p><strong>Year Level:</strong> <span>{{ $acad->year_level ?? 'N/A' }}</span></p>
                     <p><strong>Expected Year to Graduate:</strong> <span>{{ $acad->expected_grad_year ?? 'N/A' }}</span></p>
                     <p><strong>Eligibility Status:</strong>
@@ -78,7 +93,8 @@ $age = $student->birth_date ? Carbon::parse($student->birth_date)->age : null;
                 </div>
             </section>
 
-            {{-- Leadership Information (optional, shows if you have a relation/table) --}}
+            {{-- Leadership Information --}}
+            {{-- Leadership Information --}}
             <section class="profile-info" style="margin-top:24px;">
                 <h3>Leadership Information</h3>
 
@@ -95,11 +111,12 @@ $age = $student->birth_date ? Carbon::parse($student->birth_date)->age : null;
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse (($student->leaderships ?? []) as $lead)
+                            @forelse (($leaderships ?? []) as $lead)
                             <tr>
-                                <td>{{ $lead->type->name ?? $lead->leadership_type ?? '—' }}</td>
-                                <td>{{ $lead->organization->name ?? $lead->organization_name ?? '—' }}</td>
-                                <td>{{ $lead->position->name ?? $lead->position ?? '—' }}</td>
+                                {{-- These names match what we select in StudentController@profile --}}
+                                <td>{{ $lead->leadership_type_name ?? '—' }}</td>
+                                <td>{{ $lead->organization_name ?? '—' }}</td>
+                                <td>{{ $lead->position_name ?? '—' }}</td>
                                 <td>{{ $lead->term ?? '—' }}</td>
                                 <td>{{ $lead->issued_by ?? '—' }}</td>
                                 <td>{{ $lead->leadership_status ?? '—' }}</td>
@@ -160,9 +177,10 @@ $age = $student->birth_date ? Carbon::parse($student->birth_date)->age : null;
                     <h3>Update Academic Details</h3>
                     <form action="{{ route('student.updateAcademic') }}" method="POST">
                         @csrf
+
+                        {{-- Year Level only (program & major are shown but not edited here) --}}
                         <div class="form-group">
                             <label for="year_level">Year Level</label>
-                            {{-- Controller expects numeric 1..5 per our validation --}}
                             <select id="year_level" name="year_level" required>
                                 <option value="">— Select —</option>
                                 @foreach([1=>'1st Year',2=>'2nd Year',3=>'3rd Year',4=>'4th Year',5=>'5th Year'] as $val=>$label)
@@ -174,15 +192,22 @@ $age = $student->birth_date ? Carbon::parse($student->birth_date)->age : null;
                         </div>
 
                         <div class="form-group">
-                            <label for="program">Program</label>
-                            <input id="program" name="program" type="text"
-                                value="{{ $acad->program ?? '' }}" required>
+                            <label for="program_display">Program</label>
+                            <input
+                                id="program_display"
+                                type="text"
+                                value="{{ $programName ?? '' }}"
+                                readonly>
+                            <small class="text-muted">Program changes are handled during registration or by the office.</small>
                         </div>
 
                         <div class="form-group">
-                            <label for="major">Major (optional)</label>
-                            <input id="major" name="major" type="text"
-                                value="{{ $acad->major ?? '' }}">
+                            <label for="major_display">Major (if any)</label>
+                            <input
+                                id="major_display"
+                                type="text"
+                                value="{{ $majorName ?? '' }}"
+                                readonly>
                         </div>
 
                         <button class="change-btn" type="submit">Update</button>
@@ -199,10 +224,10 @@ $age = $student->birth_date ? Carbon::parse($student->birth_date)->age : null;
                         <small>Max size 5MB • JPG, PNG, or PDF</small>
                         <button class="change-btn" type="submit" style="margin-top:12px;">Upload</button>
 
-                        @if(!empty($acad->cor_file))
+                        @if(!empty($acad->certificate_of_registration_path))
                         <p style="margin-top:8px;">
                             Current file:
-                            <a href="{{ asset('storage/'.$acad->cor_file) }}" target="_blank">
+                            <a href="{{ asset('storage/'.$acad->certificate_of_registration_path) }}" target="_blank">
                                 View uploaded COR
                             </a>
                         </p>
@@ -360,6 +385,7 @@ $age = $student->birth_date ? Carbon::parse($student->birth_date)->age : null;
         }
     }
 </style>
+<script src="{{ asset('js/student_profile.js') }}"></script>
 
 <script>
     document.querySelectorAll('.toggle-password').forEach(icon => {

@@ -3,27 +3,27 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class History extends Model
 {
-    protected $table = 'history';
-    protected $primaryKey = 'history_id';
-    public $incrementing = true;
-    protected $keyType = 'int';
+    protected $table = 'submission_history';
 
     protected $fillable = [
-        'pending_sub_id',
-        'student_id',
-        'action',
+        'submission_id',
+        'changed_by',
+        'old_status',
+        'new_status',
+        'remarks',
     ];
 
-    public function pendingSubmission()
+    public function submission(): BelongsTo
     {
-        return $this->belongsTo(PendingSubmission::class, 'pending_sub_id', 'pending_sub_id');
+        return $this->belongsTo(Submission::class);
     }
 
-    public function student()
+    public function actor(): BelongsTo
     {
-        return $this->belongsTo(AcademicInformation::class, 'student_id', 'student_id');
+        return $this->belongsTo(User::class, 'changed_by');
     }
 }

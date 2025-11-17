@@ -1,40 +1,39 @@
 @extends('layouts.app')
 
-@section('title', 'Pending Submissions - Assessor Dashboard')
+@section('title', 'All Submissions - Assessor Dashboard')
 
 @section('content')
 <div class="container">
-    @include('partials.assessor-sidebar')
+    @include('partials.assessor_sidebar')
 
     <main class="main-content">
         <div class="page-header">
-            <h1>Pending Submissions</h1>
+            <h1>All Submissions</h1>
         </div>
 
-        <!-- Filter and Search Controls -->
+        <!-- Filter and Search Controls (to be implemented) -->
         <div class="controls-section">
             <div class="filter-controls">
                 <div class="filter-group">
-                    <label for="filterSelect">Filter</label>
-                    <select id="filterSelect" class="form-select">
-                        <option value="">None</option>
-                        <option value="recent">Recent</option>
-                        <option value="overdue">Overdue</option>
-                        <option value="priority">Priority</option>
+                    <label for="statusFilterSelect">Filter by Status</label>
+                    <select id="statusFilterSelect" class="form-select">
+                        <option value="">All</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
                     </select>
                 </div>
-
                 <div class="filter-group">
-                    <label for="sortSelect">Sort by</label>
-                    <select id="sortSelect" class="form-select">
-                        <option value="">None</option>
-                        <option value="date">Date Submitted</option>
-                        <option value="name">Student Name</option>
-                        <option value="title">Document Title</option>
+                    <label for="sectionFilterSelect">Filter by SLEA Section</label>
+                    <select id="sectionFilterSelect" class="form-select">
+                        <option value="">All</option>
+                        <option value="Leadership Excellence">Leadership Excellence</option>
+                        <option value="Academic Excellence">Academic Excellence</option>
+                        <option value="Awards Recognition">Awards Recognition</option>
+                        <option value="Community Involvement">Community Involvement</option>
+                        <option value="Good Conduct">Good Conduct</option>
                     </select>
                 </div>
             </div>
-
             <div class="search-controls">
                 <div class="search-group">
                     <input type="text" id="searchInput" class="form-control" placeholder="Search submissions...">
@@ -50,27 +49,33 @@
                     <tr>
                         <th>Student ID</th>
                         <th>Student Name</th>
-                        <th>Document Title</th>
-                        <th>Date Submitted</th>
+                        <th>Email</th>
+                        <th>Program</th>
+                        <th>College</th>
+                        <th>Total Submissions</th>
+                        <th>Date Reviewed</th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($pendingSubmissions as $submission)
+                    @forelse($students as $student)
                     <tr>
-                        <td>{{ $submission->student->student_id }}</td>
-                        <td>{{ $submission->student->name }}</td>
-                        <td>{{ $submission->document_title }}</td>
-                        <td>{{ $submission->submitted_at->format('Y-m-d') }}</td>
+                        <td>{{ $student->student_id }}</td>
+                        <td>{{ $student->user->name }}</td>
+                        <td>{{ $student->user->email }}</td>
+                        <td>{{ $student->program }}</td>
+                        <td>{{ $student->college }}</td>
+                        <td>{{ $student->submissions->count() }}</td>
+                        <td>{{ $student->latest_reviewed_at ? \Carbon\Carbon::parse($student->latest_reviewed_at)->format('Y-m-d') : 'N/A' }}</td>
                         <td>
-                            <button class="btn btn-view" onclick="openSubmissionModal({{ $submission->id }})" title="View Submission">
+                            <button class="btn btn-view" onclick="openStudentSubmissionsModal({{ $student->id }})" title="View Submissions">
                                 <i class="fas fa-eye"></i>
                             </button>
                         </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="5" class="text-center">No pending submissions found.</td>
+                        <td colspan="8" class="text-center">No students with approved or rejected submissions found.</td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -79,7 +84,7 @@
 
         <div class="pagination-container">
             <div class="pagination-info">
-                Showing <span id="showingStart">1</span>-<span id="showingEnd">5</span> of <span id="totalEntries">8</span> submissions
+                Showing <span id="showingStart">1</span>-<span id="showingEnd">5</span> of <span id="totalEntries">{{ $students->count() }}</span> students
             </div>
             <div class="pagination-controls">
                 <button class="pagination-btn" id="prevBtn" disabled>
@@ -96,17 +101,58 @@
     </main>
 </div>
 
-<!-- Review Submission Modal -->
-<div class="modal fade" id="submissionModal" tabindex="-1" aria-labelledby="submissionModalLabel" aria-hidden="true">
+<!-- Student Submissions Modal -->
+<div class="modal fade" id="studentSubmissionsModal" tabindex="-1" aria-labelledby="studentSubmissionsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="submissionModalLabel">Review Submission</h5>
+                <h5 class="modal-title" id="studentSubmissionsModalLabel">All Submissions for <span id="modalStudentNameTitle"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="student-details-card info-card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title">Student Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="detail-row">
+                            <span class="label">Student ID:</span>
+                            <span class="value" id="modalStudentIdDetail"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Name:</span>
+                            <span class="value" id="modalStudentNameDetail"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Program:</span>
+                            <span class="value" id="modalStudentProgramDetail"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">College:</span>
+                            <span class="value" id="modalStudentCollegeDetail"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="all-student-submissions-container" id="categorizedSubmissionsContainer">
+                    <h6 class="card-title mb-3">Submissions History</h6>
+                    <!-- Categorized submissions tables will be loaded here by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Review Individual Submission Modal -->
+<div class="modal fade" id="individualSubmissionModal" tabindex="-1" aria-labelledby="individualSubmissionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="individualSubmissionModalLabel">Review Submission</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div class="submission-content">
-                    <!-- Student Details Panel -->
                     <div class="info-card">
                         <div class="card-header">
                             <h6 class="card-title">Student Details</h6>
@@ -114,24 +160,31 @@
                         <div class="card-body">
                             <div class="detail-row">
                                 <span class="label">Student ID:</span>
-                                <span class="value" id="modalStudentId">-</span>
+                                <span class="value" id="modalIndividualStudentId">-</span>
                             </div>
                             <div class="detail-row">
                                 <span class="label">Student Name:</span>
-                                <span class="value" id="modalStudentName">-</span>
+                                <span class="value" id="modalIndividualStudentName">-</span>
                             </div>
                             <div class="detail-row">
                                 <span class="label">Document Title:</span>
-                                <span class="value" id="modalDocumentTitle">-</span>
+                                <span class="value" id="modalIndividualDocumentTitle">-</span>
                             </div>
                             <div class="detail-row">
                                 <span class="label">Date Submitted:</span>
-                                <span class="value" id="modalDateSubmitted">-</span>
+                                <span class="value" id="modalIndividualDateSubmitted">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="label">Current Status:</span>
+                                <span class="value" id="modalIndividualStatus">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="label">Assigned Assessor:</span>
+                                <span class="value" id="modalIndividualAssessorName">-</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Document Information Card -->
                     <div class="info-card">
                         <div class="card-header">
                             <h6 class="card-title">Document Information</h6>
@@ -139,44 +192,41 @@
                         <div class="card-body">
                             <div class="detail-row">
                                 <span class="label">SLEA Section:</span>
-                                <span class="value" id="modalSleaSection">-</span>
+                                <span class="value" id="modalIndividualSleaSection">-</span>
                             </div>
                             <div class="detail-row">
                                 <span class="label">Subsection:</span>
-                                <span class="value" id="modalSubsection">-</span>
+                                <span class="value" id="modalIndividualSubsection">-</span>
                             </div>
                             <div class="detail-row">
                                 <span class="label">Role in Activity:</span>
-                                <span class="value" id="modalRole">-</span>
+                                <span class="value" id="modalIndividualRole">-</span>
                             </div>
                             <div class="detail-row">
                                 <span class="label">Activity Date:</span>
-                                <span class="value" id="modalActivityDate">-</span>
+                                <span class="value" id="modalIndividualActivityDate">-</span>
                             </div>
                             <div class="detail-row">
                                 <span class="label">Organizing Body:</span>
-                                <span class="value" id="modalOrganizingBody">-</span>
+                                <span class="value" id="modalIndividualOrganizingBody">-</span>
                             </div>
                             <div class="detail-row">
                                 <span class="label">Description:</span>
-                                <span class="value" id="modalDescription">-</span>
+                                <span class="value" id="modalIndividualDescription">-</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Uploaded Document Preview -->
                     <div class="info-card">
                         <div class="card-header">
                             <h6 class="card-title">Uploaded Document</h6>
                         </div>
                         <div class="card-body">
-                            <div id="documentPreview" class="document-preview">
-                                <!-- Document preview/download buttons will be loaded here -->
+                            <div id="individualDocumentPreview" class="document-preview">
                             </div>
                         </div>
                     </div>
 
-                    <!-- System Auto-Generated Score -->
                     <div class="info-card">
                         <div class="card-header">
                             <h6 class="card-title">System Auto-Generated Score</h6>
@@ -185,7 +235,7 @@
                             <div class="score-display">
                                 <div class="score-main">
                                     <span class="score-label">Auto Score:</span>
-                                    <span class="score-value" id="modalAutoScore">-</span>
+                                    <span class="value" id="modalIndividualAutoScore">-</span>
                                 </div>
                                 <div class="score-note">
                                     <small>This score is calculated automatically based on submission criteria.</small>
@@ -194,19 +244,17 @@
                         </div>
                     </div>
 
-                    <!-- Assessor Remarks -->
                     <div class="info-card">
                         <div class="card-header">
                             <h6 class="card-title">Assessor Remarks (Optional)</h6>
                         </div>
                         <div class="card-body">
-                            <textarea id="assessorRemarks" class="form-control remarks-textarea" rows="4" placeholder="Enter your remarks and feedback..."></textarea>
+                            <textarea id="individualAssessorRemarks" class="form-control remarks-textarea" rows="4" placeholder="Enter your remarks and feedback..."></textarea>
                             <small class="remarks-note">Note: Remarks are required for Reject, Return, and Flag actions.</small>
                         </div>
                     </div>
                 </div>
 
-                <!-- Action Buttons -->
                 <div class="action-buttons-container">
                     <button type="button" class="btn btn-approve" onclick="handleSubmission('approve')" title="✅ Approve">
                         <i class="fas fa-check"></i>
@@ -226,6 +274,7 @@
     </div>
 </div>
 
+{{-- Reusing the styles from pending-submissions.blade.php for consistency --}}
 <style>
     .page-header {
         margin-bottom: 1.5rem;
@@ -736,7 +785,7 @@
     }
 
     /* Modal Styles - Override Main CSS */
-    #submissionModal {
+    #studentSubmissionsModal {
         display: none !important;
         position: fixed !important;
         z-index: 9999 !important;
@@ -748,13 +797,14 @@
         backdrop-filter: blur(5px);
     }
 
-    #submissionModal.show {
+    #studentSubmissionsModal.show {
         display: block !important;
     }
 
-    #submissionModal .modal-dialog {
-        max-width: 60vw !important;
-        width: 60vw !important;
+    #studentSubmissionsModal .modal-dialog {
+        max-width: 80vw !important;
+        /* Wider for student list */
+        width: 80vw !important;
         margin: 1.75rem auto !important;
         display: flex !important;
         align-items: center !important;
@@ -762,14 +812,15 @@
         position: relative !important;
     }
 
-    #submissionModal .modal-content {
+    #studentSubmissionsModal .modal-content {
         background-color: #fff !important;
         margin: 0 !important;
         padding: 0 !important;
         border-radius: 15px !important;
         width: 100% !important;
         max-width: none !important;
-        max-height: 70vh !important;
+        max-height: 80vh !important;
+        /* Adjusted for better vertical balance */
         overflow-y: auto !important;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
         display: flex !important;
@@ -777,7 +828,67 @@
         animation: modalSlideIn 0.3s ease-out !important;
     }
 
-    body.dark-mode #submissionModal .modal-content {
+    body.dark-mode #studentSubmissionsModal .modal-content {
+        background-color: #2a2a2a !important;
+        color: #f0f0f0 !important;
+    }
+
+    @keyframes modalSlideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-50px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    #individualSubmissionModal {
+        display: none !important;
+        position: fixed !important;
+        z-index: 9999 !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background-color: rgba(0, 0, 0, 0.5) !important;
+        backdrop-filter: blur(5px);
+    }
+
+    #individualSubmissionModal.show {
+        display: block !important;
+    }
+
+    #individualSubmissionModal .modal-dialog {
+        max-width: 65vw !important;
+        /* Adjusted for individual submission modal */
+        width: 65vw !important;
+        margin: 1.75rem auto !important;
+        display: flex !important;
+        align-items: center !important;
+        min-height: calc(100% - 3.5rem) !important;
+        position: relative !important;
+    }
+
+    #individualSubmissionModal .modal-content {
+        background-color: #fff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border-radius: 15px !important;
+        width: 100% !important;
+        max-width: none !important;
+        max-height: 75vh !important;
+        /* Adjusted for individual submission modal */
+        overflow-y: auto !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        animation: modalSlideIn 0.3s ease-out !important;
+    }
+
+    body.dark-mode #individualSubmissionModal .modal-content {
         background-color: #2a2a2a !important;
         color: #f0f0f0 !important;
     }
@@ -896,16 +1007,28 @@
         border-color: #ffc107;
     }
 
-    .status-approve {
+    .status-approved {
         background-color: #d4edda;
         color: #155724;
         border-color: #28a745;
     }
 
-    .status-reject {
+    .status-rejected {
         background-color: #f8d7da;
         color: #721c24;
         border-color: #dc3545;
+    }
+
+    .status-returned {
+        background-color: #cce5ff;
+        color: #004085;
+        border-color: #007bff;
+    }
+
+    .status-flagged {
+        background-color: #fce5d4;
+        color: #8b4a04;
+        border-color: #ff8c00;
     }
 
     /* Dark mode status badges */
@@ -915,16 +1038,28 @@
         border-color: #f6e05e;
     }
 
-    body.dark-mode .status-approve {
+    body.dark-mode .status-approved {
         background-color: #1e4d2b;
         color: #68d391;
         border-color: #68d391;
     }
 
-    body.dark-mode .status-reject {
+    body.dark-mode .status-rejected {
         background-color: #742a2a;
         color: #feb2b2;
         border-color: #feb2b2;
+    }
+
+    body.dark-mode .status-returned {
+        background-color: #1d3a5e;
+        color: #6cb6ff;
+        border-color: #6cb6ff;
+    }
+
+    body.dark-mode .status-flagged {
+        background-color: #7a431c;
+        color: #ffc107;
+        border-color: #ffc107;
     }
 
     .remarks-textarea {
@@ -1181,12 +1316,12 @@
         color: #f0f0f0;
     }
 
-    body.dark-mode #submissionModal .modal-body {
+    body.dark-mode #individualSubmissionModal .modal-body {
         background-color: #2a2a2a !important;
         color: #f0f0f0 !important;
     }
 
-    body.dark-mode #submissionModal .submission-content {
+    body.dark-mode #individualSubmissionModal .submission-content {
         background-color: #2a2a2a !important;
         color: #f0f0f0 !important;
     }
@@ -1255,7 +1390,7 @@
         border-top-color: #555 !important;
     }
 
-    #submissionModal .btn-close {
+    #individualSubmissionModal .btn-close {
         background: #dc3545 !important;
         color: white !important;
         border-radius: 4px !important;
@@ -1271,7 +1406,7 @@
         background-image: none !important;
     }
 
-    #submissionModal .btn-close::before {
+    #individualSubmissionModal .btn-close::before {
         content: "×" !important;
         font-size: 18px !important;
         font-weight: bold !important;
@@ -1279,26 +1414,26 @@
         line-height: 1 !important;
     }
 
-    #submissionModal .btn-close:hover {
+    #individualSubmissionModal .btn-close:hover {
         background: #c82333 !important;
         color: white !important;
         transform: translateY(-1px) !important;
         opacity: 1 !important;
     }
 
-    #submissionModal .btn-close:focus {
+    #individualSubmissionModal .btn-close:focus {
         background: #dc3545 !important;
         color: white !important;
         box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
     }
 
-    body.dark-mode #submissionModal .btn-close {
+    body.dark-mode #individualSubmissionModal .btn-close {
         background: #dc3545 !important;
         color: white !important;
         opacity: 1 !important;
     }
 
-    body.dark-mode #submissionModal .btn-close:hover {
+    body.dark-mode #individualSubmissionModal .btn-close:hover {
         background: #c82333 !important;
         color: white !important;
         opacity: 1 !important;
@@ -1319,6 +1454,132 @@
 
     body.dark-mode .btn-flag:hover {
         background-color: #8b0000 !important;
+    }
+
+    .slea-category-section .category-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #8B0000;
+        display: block;
+    }
+
+    body.dark-mode .slea-category-section .category-title {
+        color: #F9BD3D;
+        border-bottom-color: #F9BD3D;
+    }
+
+    .category-table {
+        border: 1px solid #c2c2c2;
+        /* Darker, subtle border */
+        border-collapse: separate;
+        /* Use separate to allow border-spacing */
+        border-spacing: 0;
+        /* Remove space between borders */
+        width: 100%;
+        margin-bottom: 1.5rem;
+        /* Increase margin for better separation */
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        /* More pronounced shadow */
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .category-table thead th {
+        background-color: #8B0000;
+        /* Dark red background for header */
+        color: white;
+        /* White text for header */
+        font-weight: 600;
+        padding: 0.75rem 1rem;
+        text-align: left;
+        border: 1px solid white;
+        /* White borders between header cells */
+    }
+
+    .category-table thead th:first-child {
+        border-left: none;
+        /* No left border for the first header cell */
+    }
+
+    .category-table thead th:last-child {
+        border-right: none;
+        /* No right border for the last header cell */
+    }
+
+    .category-table tbody td {
+        padding: 0.75rem 1rem;
+        border: 1px solid #e9ecef;
+        /* Light gray borders for body cells */
+        color: #333;
+        background-color: white;
+    }
+
+    .category-table tbody tr:last-child td {
+        border-bottom: none;
+        /* No bottom border for the last row */
+    }
+
+    body.dark-mode .category-table thead th {
+        background-color: #8B0000 !important;
+        color: white !important;
+        border: 1px solid #555 !important;
+        /* Darker borders for dark mode header */
+    }
+
+    body.dark-mode .category-table tbody td {
+        background-color: #363636 !important;
+        color: #f0f0f0 !important;
+        border: 1px solid #555 !important;
+        /* Darker borders for dark mode body cells */
+    }
+
+    .category-total-row td {
+        font-weight: 700;
+        background-color: #f2f2f2 !important;
+        /* Light background for total row */
+        border-top: 2px solid #8B0000 !important;
+        /* Stronger top border for total row */
+    }
+
+    body.dark-mode .category-total-row td {
+        background-color: #404040 !important;
+        border-top: 2px solid #F9BD3D !important;
+    }
+
+    /* Overall Total Score Section */
+    .overall-total-section {
+        margin-top: 2rem;
+    }
+
+    .overall-total-table {
+        border: 2px solid #8B0000;
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 0;
+        box-shadow: 0 8px 16px rgba(139, 0, 0, 0.3);
+    }
+
+    .overall-total-table .overall-total-row td {
+        background-color: #8B0000;
+        color: white;
+        font-size: 1.3rem;
+        font-weight: 700;
+        padding: 1.5rem;
+        text-align: center;
+        border: none;
+    }
+
+    body.dark-mode .overall-total-table {
+        border-color: #F9BD3D;
+        box-shadow: 0 8px 16px rgba(249, 189, 61, 0.3);
+    }
+
+    body.dark-mode .overall-total-table .overall-total-row td {
+        background-color: #F9BD3D;
+        color: #333;
     }
 
     @media (max-width: 768px) {
@@ -1361,13 +1622,11 @@
 
 <script>
     let currentSubmissionId = null;
+    let allStudentsData = []; // Store student data with submissions for filtering/pagination
 
-    async function openSubmissionModal(submissionId) {
+    async function openIndividualSubmissionModal(submissionId) {
         try {
-            // Show loading state
-            showModalLoading();
-
-            // Fetch submission details from API
+            showModalLoading('individualSubmissionModal');
             const response = await fetch(`/assessor/submissions/${submissionId}/details`);
             const data = await response.json();
 
@@ -1377,59 +1636,206 @@
 
             const submission = data.submission;
 
-            // Populate student details
-            document.getElementById('modalStudentId').textContent = submission.student.id;
-            document.getElementById('modalStudentName').textContent = submission.student.name;
-            document.getElementById('modalDocumentTitle').textContent = submission.document_title;
-            document.getElementById('modalDateSubmitted').textContent = new Date(submission.submitted_at).toLocaleDateString();
+            document.getElementById('modalIndividualStudentId').textContent = submission.student.student_id;
+            document.getElementById('modalIndividualStudentName').textContent = submission.student.user?.name || 'N/A';
+            document.getElementById('modalIndividualDocumentTitle').textContent = submission.document_title;
+            document.getElementById('modalIndividualDateSubmitted').textContent = new Date(submission.submitted_at).toLocaleDateString();
+            document.getElementById('modalIndividualStatus').innerHTML = `<span class="status-badge status-${submission.status?.toLowerCase() || 'unknown'}">${submission.status?.charAt(0).toUpperCase() + submission.status?.slice(1) || 'Unknown'}</span>`;
 
-            // Populate document information
-            document.getElementById('modalSleaSection').textContent = submission.slea_section || '-';
-            document.getElementById('modalSubsection').textContent = submission.subsection || '-';
-            document.getElementById('modalRole').textContent = submission.role_in_activity || '-';
-            document.getElementById('modalActivityDate').textContent = submission.activity_date || '-';
-            document.getElementById('modalOrganizingBody').textContent = submission.organizing_body || '-';
-
-            // Show description if available
-            const descriptionElement = document.getElementById('modalDescription');
+            document.getElementById('modalIndividualSleaSection').textContent = submission.slea_section || '-';
+            document.getElementById('modalIndividualSubsection').textContent = submission.subsection || '-';
+            document.getElementById('modalIndividualRole').textContent = submission.role_in_activity || '-';
+            document.getElementById('modalIndividualActivityDate').textContent = submission.activity_date || '-';
+            document.getElementById('modalIndividualOrganizingBody').textContent = submission.organizing_body || '-';
+            const descriptionElement = document.getElementById('modalIndividualDescription');
             if (descriptionElement) {
                 descriptionElement.textContent = submission.description || '-';
             }
 
-            // Display auto-generated score
-            document.getElementById('modalAutoScore').textContent = submission.auto_generated_score ?
+            document.getElementById('modalIndividualAutoScore').textContent = submission.auto_generated_score ?
                 `${submission.auto_generated_score}/100` : 'Not calculated';
 
-            // Populate document preview
-            populateDocumentPreview(submission.documents);
+            populateDocumentPreview(submission.documents, 'individualDocumentPreview');
 
-            // Clear previous remarks
-            document.getElementById('assessorRemarks').value = '';
+            document.getElementById('individualAssessorRemarks').value = submission.assessor_remarks || '';
+            document.getElementById('modalIndividualAssessorName').textContent = submission.assessor?.name || 'N/A';
 
-            // Store current submission ID for action handling
             currentSubmissionId = submissionId;
 
-            // Show modal
-            const modal = new bootstrap.Modal(document.getElementById('submissionModal'));
+            const modal = new bootstrap.Modal(document.getElementById('individualSubmissionModal'));
             modal.show();
-
         } catch (error) {
-            console.error('Error fetching submission details:', error);
+            console.error('Error fetching individual submission details:', error);
             showErrorModal('Failed to load submission details: ' + error.message);
         }
     }
 
-    function showModalLoading() {
-        // Show loading state in modal
-        document.getElementById('modalStudentId').textContent = 'Loading...';
-        document.getElementById('modalStudentName').textContent = 'Loading...';
-        document.getElementById('modalDocumentTitle').textContent = 'Loading...';
-        document.getElementById('modalDateSubmitted').textContent = 'Loading...';
-        document.getElementById('modalAutoScore').textContent = 'Loading...';
+    async function openStudentSubmissionsModal(studentId) {
+        try {
+            showModalLoading('studentSubmissionsModal');
+            const response = await fetch(`/assessor/students/${studentId}/details`);
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to fetch student details');
+            }
+
+            const student = data.student;
+            const categorizedSubmissions = data.submissions;
+            const categoryTotals = data.category_totals;
+
+            document.getElementById('modalStudentNameTitle').textContent = student.user.name;
+            document.getElementById('modalStudentIdDetail').textContent = student.student_id;
+            document.getElementById('modalStudentNameDetail').textContent = student.user.name;
+            document.getElementById('modalStudentProgramDetail').textContent = student.program;
+            document.getElementById('modalStudentCollegeDetail').textContent = student.college;
+
+            const submissionsContainer = document.getElementById('categorizedSubmissionsContainer');
+            submissionsContainer.innerHTML = ''; // Clear previous content
+
+            const overallTotalScore = data.overall_total_score || 0;
+
+            const sleaSectionsOrder = [
+                'Leadership Excellence',
+                'Academic Excellence',
+                'Awards Recognition',
+                'Community Involvement',
+                'Good Conduct'
+            ];
+
+            let romanNumeralMap = {
+                1: 'I',
+                2: 'II',
+                3: 'III',
+                4: 'IV',
+                5: 'V'
+            };
+
+            let sectionCounter = 1;
+
+            let hasSubmissions = false;
+            for (const section of sleaSectionsOrder) {
+                if (categorizedSubmissions[section] && categorizedSubmissions[section].length > 0) {
+                    hasSubmissions = true;
+                    break;
+                }
+            }
+
+            if (!hasSubmissions) {
+                submissionsContainer.innerHTML = '<p class="text-muted text-center">No submissions found for this student.</p>';
+            } else {
+                for (const section of sleaSectionsOrder) {
+                    const sectionSubmissions = categorizedSubmissions[section] || [];
+                    const totalCategoryScore = categoryTotals[section]?.score || 0;
+                    const maxCategoryScore = categoryTotals[section]?.max_score || 0;
+
+                    const sectionDiv = document.createElement('div');
+                    sectionDiv.className = 'slea-category-section mb-5';
+
+                    let tableRowsHtml = '';
+                    if (sectionSubmissions.length > 0) {
+                        sectionSubmissions.forEach(submission => {
+                            tableRowsHtml += `
+                            <tr>
+                                <td>${submission.document_title || '-'}</td>
+                                <td>${submission.subsection || '-'}</td>
+                                <td>${submission.role_in_activity || '-'}</td>
+                                <td>${submission.reviewed_at ? new Date(submission.reviewed_at).toLocaleDateString() : 'N/A'}</td>
+                                <td>${submission.assessor?.name || 'N/A'}</td>
+                                <td><span class="status-badge status-${submission.status?.toLowerCase() || 'unknown'}">${submission.status?.charAt(0).toUpperCase() + submission.status?.slice(1) || 'Unknown'}</span></td>
+                                <td>${submission.assessor_score ?? 'N/A'}</td>
+                            </tr>
+                        `;
+                        });
+                    } else {
+                        tableRowsHtml = '<tr><td colspan="7" class="text-center">No submissions for this category.</td></tr>';
+                    }
+
+                    sectionDiv.innerHTML = `
+                    <h5 class="category-title mb-3">${romanNumeralMap[sectionCounter++]}. <strong>${section}</strong></h5>
+                    <div class="table-responsive mb-3">
+                        <table class="table submissions-table category-table">
+                            <thead>
+                                <tr>
+                                    <th>Document Title</th>
+                                    <th>Type of Activity</th>
+                                    <th>Role in Activity</th>
+                                    <th>Date Reviewed</th>
+                                    <th>Reviewed By</th>
+                                    <th>Submission Status</th>
+                                    <th>Score</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tableRowsHtml}
+                                <tr class="category-total-row">
+                                    <td colspan="6" class="text-start"><strong>Total Score for ${section}:</strong></td>
+                                    <td><strong>${totalCategoryScore.toFixed(2)}</strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                    submissionsContainer.appendChild(sectionDiv);
+                }
+
+                // Add Overall Total Score section at the end
+                const overallTotalDiv = document.createElement('div');
+                overallTotalDiv.className = 'overall-total-section mt-4';
+                overallTotalDiv.innerHTML = `
+                <div class="table-responsive">
+                    <table class="table overall-total-table">
+                        <tbody>
+                            <tr class="overall-total-row">
+                                <td class="text-center">
+                                    <strong>Overall Total Score: ${overallTotalScore.toFixed(2)} / 75</strong>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            `;
+                submissionsContainer.appendChild(overallTotalDiv);
+            }
+
+            const modal = new bootstrap.Modal(document.getElementById('studentSubmissionsModal'));
+            modal.show();
+
+        } catch (error) {
+            console.error('Error fetching student submissions:', error);
+            showErrorModal('Failed to load student submissions: ' + error.message);
+        }
     }
 
-    function populateDocumentPreview(documents) {
-        const previewContainer = document.getElementById('documentPreview');
+    function showModalLoading(modalId) {
+        if (modalId === 'studentSubmissionsModal') {
+            document.getElementById('modalStudentNameTitle').textContent = 'Loading...';
+            document.getElementById('modalStudentIdDetail').textContent = 'Loading...';
+            document.getElementById('modalStudentNameDetail').textContent = 'Loading...';
+            document.getElementById('modalStudentProgramDetail').textContent = 'Loading...';
+            document.getElementById('modalStudentCollegeDetail').textContent = 'Loading...';
+            document.getElementById('categorizedSubmissionsContainer').innerHTML = '<p class="text-muted text-center"><i class="fas fa-spinner fa-spin"></i> Loading submissions...</p>';
+        } else if (modalId === 'individualSubmissionModal') {
+            document.getElementById('modalIndividualStudentId').textContent = 'Loading...';
+            document.getElementById('modalIndividualStudentName').textContent = 'Loading...';
+            document.getElementById('modalIndividualDocumentTitle').textContent = 'Loading...';
+            document.getElementById('modalIndividualDateSubmitted').textContent = 'Loading...';
+            document.getElementById('modalIndividualStatus').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            document.getElementById('modalIndividualSleaSection').textContent = 'Loading...';
+            document.getElementById('modalIndividualSubsection').textContent = 'Loading...';
+            document.getElementById('modalIndividualRole').textContent = 'Loading...';
+            document.getElementById('modalIndividualActivityDate').textContent = 'Loading...';
+            document.getElementById('modalIndividualOrganizingBody').textContent = 'Loading...';
+            document.getElementById('modalIndividualDescription').textContent = 'Loading...';
+            document.getElementById('modalIndividualAutoScore').textContent = 'Loading...';
+            document.getElementById('individualAssessorRemarks').value = 'Loading...';
+            document.getElementById('modalIndividualAssessorName').textContent = 'Loading...';
+            document.getElementById('individualDocumentPreview').innerHTML = '<p class="text-muted"><i class="fas fa-spinner fa-spin"></i> Loading documents...</p>';
+        }
+    }
+
+    function populateDocumentPreview(documents, containerId) {
+        const previewContainer = document.getElementById(containerId);
         previewContainer.innerHTML = '';
 
         if (!documents || documents.length === 0) {
@@ -1441,8 +1847,8 @@
             const documentItem = document.createElement('div');
             documentItem.className = 'document-item';
 
-            const iconClass = doc.is_pdf ? 'pdf' : doc.is_image ? 'image' : 'other';
-            const iconSymbol = doc.is_pdf ? '📄' : doc.is_image ? '🖼️' : '📎';
+            const iconClass = doc.file_type === 'pdf' ? 'pdf' : (['jpg', 'jpeg', 'png', 'gif'].includes(doc.file_type) ? 'image' : 'other');
+            const iconSymbol = doc.file_type === 'pdf' ? '📄' : (['jpg', 'jpeg', 'png', 'gif'].includes(doc.file_type) ? '🖼️' : '📎');
 
             documentItem.innerHTML = `
             <div class="document-info">
@@ -1451,12 +1857,12 @@
                 </div>
                 <div class="document-details">
                     <h6>${doc.original_filename}</h6>
-                    <small>${doc.file_type.toUpperCase()} • ${doc.file_size}</small>
+                    <small>${doc.file_type.toUpperCase()} • ${doc.formatted_size}</small>
                 </div>
             </div>
             <div class="document-actions">
-                ${doc.is_image ? `<button class="btn-preview" onclick="previewDocument(${doc.id})">Preview</button>` : ''}
-                <button class="btn-download" onclick="downloadDocument(${doc.id})">Download</button>
+                ${doc.file_type === 'pdf' || (['jpg', 'jpeg', 'png', 'gif'].includes(doc.file_type)) ? `<button class="btn-preview" onclick="previewDocument('${doc.file_path}', '${doc.mime_type}')">Preview</button>` : ''}
+                <button class="btn-download" onclick="downloadDocument('${doc.file_path}', '${doc.original_filename}')">Download</button>
             </div>
         `;
 
@@ -1470,22 +1876,29 @@
             return;
         }
 
-        const remarks = document.getElementById('assessorRemarks').value.trim();
+        const remarks = document.getElementById('individualAssessorRemarks').value.trim();
 
-        // Validate remarks for reject, return, and flag actions
         if ((action === 'reject' || action === 'return' || action === 'flag') && !remarks) {
             showValidationError('Please provide remarks before performing this action.');
             return;
         }
 
+        let score = null;
+        if (action === 'approve') {
+            score = prompt("Enter assessor score (0-100):");
+            if (score === null || isNaN(score) || score < 0 || score > 100) {
+                showValidationError("Please enter a valid score between 0 and 100.");
+                return;
+            }
+            score = parseFloat(score);
+        }
+
         try {
-            // Show loading state
             const actionButton = event.target.closest('.btn');
             const originalText = actionButton.innerHTML;
             actionButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
             actionButton.disabled = true;
 
-            // Send action to backend
             const response = await fetch(`/assessor/submissions/${currentSubmissionId}/action`, {
                 method: 'POST',
                 headers: {
@@ -1494,7 +1907,8 @@
                 },
                 body: JSON.stringify({
                     action: action,
-                    remarks: remarks
+                    remarks: remarks,
+                    assessor_score: score
                 })
             });
 
@@ -1504,50 +1918,44 @@
                 throw new Error(data.error || 'Failed to process action');
             }
 
-            // Close the submission modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('submissionModal'));
-            modal.hide();
+            const individualModal = bootstrap.Modal.getInstance(document.getElementById('individualSubmissionModal'));
+            individualModal.hide();
 
-            // Show success message
             showSuccessMessage(action);
-
-            // Remove the row from the table or refresh the page
-            removeSubmissionFromTable(currentSubmissionId);
+            location.reload();
 
         } catch (error) {
             console.error('Error processing submission action:', error);
             showErrorModal('Failed to process action: ' + error.message);
-
-            // Restore button state
             const actionButton = event.target.closest('.btn');
             actionButton.innerHTML = originalText;
             actionButton.disabled = false;
         }
     }
 
-    function downloadDocument(documentId) {
-        window.open(`/assessor/documents/${documentId}/download`, '_blank');
+    function downloadDocument(filePath, fileName) {
+        const link = document.createElement('a');
+        link.href = `/storage/${filePath}`;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 
-    function previewDocument(documentId) {
-        // For now, just download the document
-        // In a real implementation, you might want to show a preview modal
-        downloadDocument(documentId);
+    function previewDocument(filePath, mimeType) {
+        const fileExtension = filePath.split('.').pop().toLowerCase();
+        const viewerUrl = `/assessor/document-viewer?path=${encodeURIComponent(filePath)}&mime=${encodeURIComponent(mimeType)}`;
+
+        if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExtension)) {
+            window.open(`/storage/${filePath}`, '_blank');
+        } else if (fileExtension === 'pdf') {
+            window.open(viewerUrl, '_blank');
+        } else {
+            alert('No preview available for this file type. Downloading instead.');
+            downloadDocument(filePath, filePath.split('/').pop());
+        }
     }
 
-    function removeSubmissionFromTable(submissionId) {
-        // Find and remove the row from the table
-        const tableRows = document.querySelectorAll('.submissions-table tbody tr');
-        tableRows.forEach(row => {
-            const viewButton = row.querySelector('.btn-view');
-            if (viewButton && viewButton.onclick.toString().includes(submissionId)) {
-                row.remove();
-            }
-        });
-
-        // Update pagination info
-        updatePaginationInfo();
-    }
 
     function showErrorModal(message) {
         const errorModal = document.createElement('div');
@@ -1580,7 +1988,6 @@
     }
 
     function showValidationError(message) {
-        // Create validation error modal
         const errorModal = document.createElement('div');
         errorModal.className = 'modal fade';
         errorModal.id = 'validationModal';
@@ -1601,14 +2008,10 @@
         </div>
     `;
 
-        // Add to body
         document.body.appendChild(errorModal);
-
-        // Show modal
         const modal = new bootstrap.Modal(errorModal);
         modal.show();
 
-        // Remove modal from DOM when hidden
         errorModal.addEventListener('hidden.bs.modal', function() {
             document.body.removeChild(errorModal);
         });
@@ -1646,7 +2049,6 @@
                 color = '#007bff';
         }
 
-        // Create success modal
         const successModal = document.createElement('div');
         successModal.className = 'modal fade';
         successModal.id = 'successModal';
@@ -1667,89 +2069,81 @@
         </div>
     `;
 
-        // Add to body
         document.body.appendChild(successModal);
-
-        // Show modal
         const modal = new bootstrap.Modal(successModal);
         modal.show();
 
-        // Remove modal from DOM when hidden
         successModal.addEventListener('hidden.bs.modal', function() {
             document.body.removeChild(successModal);
         });
     }
 
-    // Search functionality
-    document.getElementById('searchInput').addEventListener('input', function(e) {
-        const searchTerm = e.target.value.toLowerCase();
-        const tableRows = document.querySelectorAll('.submissions-table tbody tr');
-
-        tableRows.forEach(row => {
-            const text = row.textContent.toLowerCase();
-            if (text.includes(searchTerm)) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-    });
-
-    // Filter functionality
-    document.getElementById('filterSelect').addEventListener('change', function(e) {
-        // Implement filter logic here
-        console.log('Filter changed:', e.target.value);
-    });
-
-    // Sort functionality
-    document.getElementById('sortSelect').addEventListener('change', function(e) {
-        // Implement sort logic here
-        console.log('Sort changed:', e.target.value);
-    });
-
-    // Dynamic Pagination
+    // Search and Filter Logic for Student Table
     let currentPage = 1;
     const entriesPerPage = 5;
     let totalEntries = 0;
     let totalPages = 0;
 
-    // Initialize pagination
-    function initializePagination() {
-        // Count total entries (rows in table)
-        const tableRows = document.querySelectorAll('.submissions-table tbody tr');
-        totalEntries = tableRows.length;
-        totalPages = Math.ceil(totalEntries / entriesPerPage);
+    // This will store the initial student data from the server
+    let initialStudentsData = [];
 
-        // Update pagination info
-        updatePaginationInfo();
-
-        // Generate page buttons
-        generatePageButtons();
-
-        // Show/hide entries based on current page
-        showPageEntries();
+    function initializeStudentPage() {
+        const studentRows = document.querySelectorAll('.submissions-table tbody tr');
+        initialStudentsData = Array.from(studentRows).map(row => {
+            return {
+                element: row,
+                studentId: row.children[0].textContent.toLowerCase(),
+                studentName: row.children[1].textContent.toLowerCase(),
+                program: row.children[2].textContent.toLowerCase(),
+                college: row.children[3].textContent.toLowerCase()
+            };
+        });
+        filterAndPaginateStudents();
     }
 
-    // Update pagination info
+    function filterAndPaginateStudents() {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+
+        const filteredStudents = initialStudentsData.filter(student => {
+            return student.studentId.includes(searchTerm) ||
+                student.studentName.includes(searchTerm) ||
+                student.program.includes(searchTerm) ||
+                student.college.includes(searchTerm);
+        });
+
+        totalEntries = filteredStudents.length;
+        totalPages = Math.ceil(totalEntries / entriesPerPage);
+        currentPage = 1;
+
+        initialStudentsData.forEach(student => student.element.style.display = 'none');
+
+        const start = (currentPage - 1) * entriesPerPage;
+        const end = start + entriesPerPage;
+        filteredStudents.slice(start, end).forEach(student => {
+            student.element.style.display = '';
+        });
+
+        updatePaginationInfo();
+        generatePageButtons();
+        updateNavigationButtons();
+    }
+
     function updatePaginationInfo() {
         const start = (currentPage - 1) * entriesPerPage + 1;
         const end = Math.min(currentPage * entriesPerPage, totalEntries);
 
-        document.getElementById('showingStart').textContent = start;
+        document.getElementById('showingStart').textContent = totalEntries === 0 ? 0 : start;
         document.getElementById('showingEnd').textContent = end;
         document.getElementById('totalEntries').textContent = totalEntries;
     }
 
-    // Generate page buttons
     function generatePageButtons() {
         const paginationPages = document.getElementById('paginationPages');
         paginationPages.innerHTML = '';
 
-        // Show max 5 page buttons
         let startPage = Math.max(1, currentPage - 2);
         let endPage = Math.min(totalPages, startPage + 4);
 
-        // Adjust start page if we're near the end
         if (endPage - startPage < 4) {
             startPage = Math.max(1, endPage - 4);
         }
@@ -1766,56 +2160,34 @@
         }
     }
 
-    // Go to specific page
     function goToPage(page) {
         currentPage = page;
-        showPageEntries();
-        updatePaginationInfo();
-        generatePageButtons();
-        updateNavigationButtons();
+        filterAndPaginateStudents();
     }
 
-    // Show entries for current page
-    function showPageEntries() {
-        const tableRows = document.querySelectorAll('.submissions-table tbody tr');
-        const start = (currentPage - 1) * entriesPerPage;
-        const end = start + entriesPerPage;
-
-        tableRows.forEach((row, index) => {
-            if (index >= start && index < end) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-    }
-
-    // Update navigation buttons
     function updateNavigationButtons() {
         const prevBtn = document.getElementById('prevBtn');
         const nextBtn = document.getElementById('nextBtn');
 
         prevBtn.disabled = currentPage === 1;
-        nextBtn.disabled = currentPage === totalPages;
+        nextBtn.disabled = currentPage === totalPages || totalPages === 0;
     }
 
-    // Previous page
-    document.getElementById('prevBtn').addEventListener('click', function() {
-        if (currentPage > 1) {
-            goToPage(currentPage - 1);
-        }
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+        filterAndPaginateStudents();
     });
 
-    // Next page
-    document.getElementById('nextBtn').addEventListener('click', function() {
-        if (currentPage < totalPages) {
-            goToPage(currentPage + 1);
-        }
-    });
-
-    // Initialize pagination when page loads
     document.addEventListener('DOMContentLoaded', function() {
-        initializePagination();
+        initializeStudentPage();
+    });
+
+    // Close the student submissions modal when individual submission modal is opened
+    const individualSubmissionModalElement = document.getElementById('individualSubmissionModal');
+    individualSubmissionModalElement.addEventListener('show.bs.modal', function() {
+        const studentSubmissionsModal = bootstrap.Modal.getInstance(document.getElementById('studentSubmissionsModal'));
+        if (studentSubmissionsModal) {
+            studentSubmissionsModal.hide();
+        }
     });
 </script>
 @endsection

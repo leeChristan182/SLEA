@@ -32,7 +32,12 @@ $avatarPath = $user && $user->profile_picture_path
         {{-- Avatar + Name (all roles) --}}
         @if ($user)
         <div class="sidebar-avatar-box">
-            <img id="sidebarAvatar" src="{{ $avatarPath }}" alt="Avatar" class="sidebar-avatar">
+            <img
+                id="sidebarAvatar"
+                src="{{ $avatarPath }}"
+                alt="Avatar"
+                class="sidebar-avatar"
+                @if($user) data-user-id="{{ $user->id }}" @endif>
             <p class="sidebar-name">{{ $fullName }}</p>
             <p class="sidebar-role" style="margin:2px 0 0; font-size:12px; opacity:.8; text-transform:capitalize;">
                 {{ $role ?? 'guest' }}
@@ -77,17 +82,20 @@ $avatarPath = $user && $user->profile_picture_path
                 <i class="fas fa-user"></i><span>Profile</span>
             </a>
         </li>
-        <li class="{{ request()->routeIs('assessor.pending-submissions') ? 'active' : '' }}">
-            <a href="{{ route('assessor.pending-submissions') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+
+        <li class="{{ request()->routeIs('assessor.submissions.pending-submissions') ? 'active' : '' }}">
+            <a href="{{ route('assessor.submissions.pending-submissions') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
                 <i class="fas fa-clock"></i><span>Pending</span>
             </a>
         </li>
-        <li class="{{ request()->routeIs('assessor.submissions') ? 'active' : '' }}">
-            <a href="{{ route('assessor.submissions') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+
+        <li class="{{ request()->routeIs('assessor.submissions.submissions') ? 'active' : '' }}">
+            <a href="{{ route('assessor.submissions.submissions') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
                 <i class="fas fa-file-alt"></i><span>Submissions</span>
             </a>
         </li>
-        <li class="{{ request()->routeIs('assessor.final-review') ? 'active' : '' }}">
+
+        <li class="{{ request()->routeIs('assessor.final-review*') ? 'active' : '' }}">
             <a href="{{ route('assessor.final-review') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
                 <i class="fas fa-clipboard-check"></i><span>Final Review</span>
             </a>
@@ -102,7 +110,7 @@ $avatarPath = $user && $user->profile_picture_path
             </a>
         </li>
 
-        <li class="has-submenu {{ request()->routeIs('admin.create_user') || request()->routeIs('admin.approve-reject') || request()->routeIs('admin.manage') ? 'open' : '' }}">
+        <li class="has-submenu {{ request()->routeIs('admin.create_user') || request()->routeIs('admin.approve-reject') || request()->routeIs('admin.manage-account') ? 'open' : '' }}">
             <span class="submenu-title" style="display:flex;align-items:center;gap:10px;cursor:default;">
                 <i class="fas fa-users-cog"></i><span>User Account Management</span>
             </span>
@@ -113,8 +121,8 @@ $avatarPath = $user && $user->profile_picture_path
                 <li class="{{ request()->routeIs('admin.approve-reject') ? 'active' : '' }}">
                     <a href="{{ route('admin.approve-reject') }}">Approve/Reject Account</a>
                 </li>
-                <li class="{{ request()->routeIs('admin.manage') ? 'active' : '' }}">
-                    <a href="{{ route('admin.manage') }}">Manage Account</a>
+                <li class="{{ request()->routeIs('admin.manage-account') ? 'active' : '' }}">
+                    <a href="{{ route('admin.manage-account') }}">Manage Account</a>
                 </li>
                 {{-- Revalidation queue we added --}}
                 <li class="{{ request()->routeIs('admin.revalidation') ? 'active' : '' }}">
