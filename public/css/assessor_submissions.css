@@ -1,340 +1,4 @@
-@extends('layouts.app')
 
-@section('title', 'All Submissions - Assessor Dashboard')
-
-@section('content')
-<div class="container">
-
-    {{-- Sidebar --}}
-    @include('partials.sidebar')
-
-    <main class="main-content">
-
-        {{-- Page Header --}}
-        <div class="page-header">
-            <h1>All Submissions</h1>
-        </div>
-
-        {{-- Filters + Search --}}
-        <div class="controls-section">
-            <div class="filter-controls">
-                <div class="filter-group">
-                    <label for="statusFilterSelect">Filter by Status</label>
-                    <select id="statusFilterSelect" class="form-select">
-                        <option value="">All</option>
-                        <option value="approved">Approved</option>
-                        <option value="rejected">Rejected</option>
-                    </select>
-                </div>
-
-                <div class="filter-group">
-                    <label for="sectionFilterSelect">Filter by SLEA Section</label>
-                    <select id="sectionFilterSelect" class="form-select">
-                        <option value="">All</option>
-                        <option value="Leadership Excellence">Leadership Excellence</option>
-                        <option value="Academic Excellence">Academic Excellence</option>
-                        <option value="Awards Recognition">Awards Recognition</option>
-                        <option value="Community Involvement">Community Involvement</option>
-                        <option value="Good Conduct">Good Conduct</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="search-controls">
-                <div class="search-group">
-                    <input type="text" id="searchInput" class="form-control" placeholder="Search submissions...">
-                    <i class="fas fa-search search-icon"></i>
-                </div>
-            </div>
-        </div>
-
-        {{-- Table: Students With Approved/Rejected Submissions --}}
-        <div class="submissions-table-container">
-            <table class="table submissions-table">
-                <thead>
-                    <tr>
-                        <th>Student ID</th>
-                        <th>Student Name</th>
-                        <th>Email</th>
-                        <th>Program</th>
-                        <th>College</th>
-                        <th>Total Submissions</th>
-                        <th>Date Reviewed</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-                    @forelse($students as $student)
-                    <tr>
-                        <td>{{ $student->student_id }}</td>
-                        <td>{{ $student->user->full_name }}</td>
-                        <td>{{ $student->user->email }}</td>
-                        <td>{{ $student->program }}</td>
-                        <td>{{ $student->college }}</td>
-                        <td>{{ $student->submissions->count() }}</td>
-                        <td>{{ $student->latest_reviewed_at ? \Carbon\Carbon::parse($student->latest_reviewed_at)->format('Y-m-d') : 'N/A' }}</td>
-                        <td>
-                            <button
-                                class="btn btn-view"
-                                onclick="openStudentSubmissionsModal({{ $student->id }})"
-                                title="View Submissions">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="8" class="text-center">No students with approved or rejected submissions found.</td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-
-        {{-- Pagination --}}
-        <div class="pagination-container">
-            <div class="pagination-info">
-                Showing
-                <span id="showingStart">1</span> -
-                <span id="showingEnd">5</span>
-                of
-                <span id="totalEntries">{{ $students->count() }}</span>
-                students
-            </div>
-
-            <div class="pagination-controls">
-                <button class="pagination-btn" id="prevBtn" disabled>
-                    <i class="fas fa-chevron-left"></i> Previous
-                </button>
-
-                <span class="pagination-pages" id="paginationPages"></span>
-
-                <button class="pagination-btn" id="nextBtn">
-                    Next <i class="fas fa-chevron-right"></i>
-                </button>
-            </div>
-        </div>
-
-    </main>
-</div>
-
-{{-- ===========================
-    MODAL: STUDENT SUBMISSION LIST
-=========================== --}}
-<div class="modal fade" id="studentSubmissionsModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-xxl modal-dialog-scrollable">
-
-        <div class="modal-content">
-
-            {{-- Header --}}
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    All Submissions for <span id="modalStudentNameTitle"></span>
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-
-            {{-- Body --}}
-            <div class="modal-body">
-
-                {{-- Student Info --}}
-                <div class="student-details-card info-card mb-4">
-                    <div class="card-header">
-                        <h6 class="card-title">Student Information</h6>
-                    </div>
-
-                    <div class="card-body">
-                        <div class="detail-row">
-                            <span class="label">Student ID:</span>
-                            <span class="value" id="modalStudentIdDetail"></span>
-                        </div>
-
-                        <div class="detail-row">
-                            <span class="label">Name:</span>
-                            <span class="value" id="modalStudentNameDetail"></span>
-                        </div>
-
-                        <div class="detail-row">
-                            <span class="label">Program:</span>
-                            <span class="value" id="modalStudentProgramDetail"></span>
-                        </div>
-
-                        <div class="detail-row">
-                            <span class="label">College:</span>
-                            <span class="value" id="modalStudentCollegeDetail"></span>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Categorized Tables --}}
-                <div id="categorizedSubmissionsContainer">
-                    <h6 class="card-title mb-3">Submissions History</h6>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-{{-- ===========================
-    MODAL: INDIVIDUAL SUBMISSION REVIEW
-=========================== --}}
-<div class="modal fade" id="individualSubmissionModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-xxl modal-dialog-scrollable">
-
-        <div class="modal-content">
-
-            {{-- Header --}}
-            <div class="modal-header">
-                <h5 class="modal-title">Review Submission</h5>
-                <button class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-
-            {{-- Body --}}
-            <div class="modal-body">
-
-                <div class="submission-content">
-
-                    {{-- Student Details --}}
-                    <div class="info-card">
-                        <div class="card-header">
-                            <h6 class="card-title">Student Details</h6>
-                        </div>
-
-                        <div class="card-body">
-                            <div class="detail-row">
-                                <span class="label">Student ID:</span>
-                                <span class="value" id="modalIndividualStudentId"></span>
-                            </div>
-
-                            <div class="detail-row">
-                                <span class="label">Student Name:</span>
-                                <span class="value" id="modalIndividualStudentName"></span>
-                            </div>
-
-                            <div class="detail-row">
-                                <span class="label">Document Title:</span>
-                                <span class="value" id="modalIndividualDocumentTitle"></span>
-                            </div>
-
-                            <div class="detail-row">
-                                <span class="label">Date Submitted:</span>
-                                <span class="value" id="modalIndividualDateSubmitted"></span>
-                            </div>
-
-                            <div class="detail-row">
-                                <span class="label">Current Status:</span>
-                                <span class="value" id="modalIndividualStatus"></span>
-                            </div>
-
-                            <div class="detail-row">
-                                <span class="label">Assigned Assessor:</span>
-                                <span class="value" id="modalIndividualAssessorName"></span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Document Information --}}
-                    <div class="info-card">
-                        <div class="card-header">
-                            <h6 class="card-title">Document Information</h6>
-                        </div>
-
-                        <div class="card-body">
-                            <div class="detail-row">
-                                <span class="label">SLEA Section:</span>
-                                <span class="value" id="modalIndividualSleaSection"></span>
-                            </div>
-
-                            <div class="detail-row">
-                                <span class="label">Subsection:</span>
-                                <span class="value" id="modalIndividualSubsection"></span>
-                            </div>
-
-                            <div class="detail-row">
-                                <span class="label">Role in Activity:</span>
-                                <span class="value" id="modalIndividualRole"></span>
-                            </div>
-
-                            <div class="detail-row">
-                                <span class="label">Activity Date:</span>
-                                <span class="value" id="modalIndividualActivityDate"></span>
-                            </div>
-
-                            <div class="detail-row">
-                                <span class="label">Organizing Body:</span>
-                                <span class="value" id="modalIndividualOrganizingBody"></span>
-                            </div>
-
-                            <div class="detail-row">
-                                <span class="label">Description:</span>
-                                <span class="value" id="modalIndividualDescription"></span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Uploaded Documents --}}
-                    <div class="info-card">
-                        <div class="card-header">
-                            <h6 class="card-title">Uploaded Document</h6>
-                        </div>
-                        <div class="card-body">
-                            <div id="individualDocumentPreview" class="document-preview"></div>
-                        </div>
-                    </div>
-
-                    {{-- Auto Score --}}
-                    <div class="info-card">
-                        <div class="card-header">
-                            <h6 class="card-title">System Auto-Generated Score</h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="score-display">
-                                <span id="modalIndividualAutoScore" class="score-value">-</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Remarks --}}
-                    <div class="info-card">
-                        <div class="card-header">
-                            <h6 class="card-title">Assessor Remarks</h6>
-                        </div>
-
-                        <div class="card-body">
-                            <textarea
-                                id="individualAssessorRemarks"
-                                class="form-control remarks-textarea"
-                                rows="4"
-                                placeholder="Remarks..."></textarea>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Action Buttons --}}
-                <div class="action-buttons-container">
-                    <button type="button" class="btn btn-approve" onclick="handleSubmission('approve')">
-                        <i class="fas fa-check"></i>
-                    </button>
-
-                    <button type="button" class="btn btn-reject" onclick="handleSubmission('reject')">
-                        <i class="fas fa-times"></i>
-                    </button>
-
-                    <button type="button" class="btn btn-return" onclick="handleSubmission('return')">
-                        <i class="fas fa-undo"></i>
-                    </button>
-
-                    <button type="button" class="btn btn-flag" onclick="handleSubmission('flag')">
-                        <i class="fas fa-flag"></i>
-                    </button>
-                </div>
-
-            </div>
-        </div>
-    </div>
-</div>
-<style>
     .page-header {
         margin-bottom: 1.5rem;
     }
@@ -845,30 +509,32 @@
 
     /* Modal Styles - Override Main CSS */
 
-    /* Clean modal sizing – let Bootstrap handle centering */
-    /* Make "All Submissions" modal wide and centered */
+/* Clean modal sizing – let Bootstrap handle centering */
+/* Bigger, truly centered modals */
+#studentSubmissionsModal .modal-dialog {
+    width: 95vw !important;      /* take almost full width */
+    max-width: 1400px !important;/* hard cap on huge screens */
+    margin: 1.5rem auto !important;
+}
 
+#studentSubmissionsModal .modal-content {
+    height: 85vh !important;     /* tall */
+    max-height: 85vh !important;
+    overflow-y: auto !important; /* scroll inside, not the whole page */
+}
 
-    #studentSubmissionsModal .modal-content {
-        height: 85vh !important;
-        max-height: 85vh !important;
-        overflow-y: auto !important;
-        /* scroll inside modal, not whole page */
-    }
+/* Individual submission modal a bit narrower */
+#individualSubmissionModal .modal-dialog {
+    width: 80vw !important;
+    max-width: 1100px !important;
+    margin: 1.5rem auto !important;
+}
 
-
-    /* Individual submission modal a bit narrower */
-    #individualSubmissionModal .modal-dialog {
-        width: 80vw !important;
-        max-width: 1100px !important;
-        margin: 1.5rem auto !important;
-    }
-
-    #individualSubmissionModal .modal-content {
-        height: 80vh !important;
-        max-height: 80vh !important;
-        overflow-y: auto !important;
-    }
+#individualSubmissionModal .modal-content {
+    height: 80vh !important;
+    max-height: 80vh !important;
+    overflow-y: auto !important;
+}
 
     @keyframes modalSlideIn {
         from {
@@ -1514,13 +1180,13 @@
         /* Darker borders for dark mode body cells */
     }
 
-    .category-total-row td {
-        font-weight: 700;
-        background-color: #f2f2f2 !important;
-        border-top: 2px solid #8B0000 !important;
-        text-align: right;
-        white-space: nowrap;
-    }
+.category-total-row td {
+    font-weight: 700;
+    background-color: #f2f2f2 !important;
+    border-top: 2px solid #8B0000 !important;
+    text-align: right;
+    white-space: nowrap;
+}
 
 
     body.dark-mode .category-total-row td {
@@ -1597,11 +1263,4 @@
             text-align: left;
         }
     }
-</style>
-@endsection
-
-
-
-@push('scripts')
-<script src="{{ asset('js/assessor_submission.js') }}"></script>
-@endpush
+<

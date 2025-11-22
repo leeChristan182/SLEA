@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Models\StudentAcademic; // ⬅️ ADD THIS
+use App\Models\StudentAcademic;
+use App\Models\Submission;
+
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Support\Facades\Auth;
@@ -376,10 +378,23 @@ class StudentController extends Controller
     // GET /student/history
     public function history()
     {
-        $history = Schema::hasTable('submission_history')
-            ? DB::table('submission_history')->where('user_id', Auth::id())->orderByDesc('created_at')->paginate(20)
-            : collect();
+        if (! Schema::hasTable('submissions')) {
+            $submissions = collect();
+        } else {
+            $submissions = Submission::with([
+                'category',
+                'leadership',
+                'latestHistory', // from Submission model
+            ])
+                ->where('user_id', Auth::id())
+                ->orderByDesc('submitted_at')
+                ->orderByDesc('created_at')
+                ->paginate(15);
+        }
 
-        return view('student.history', compact('history'));
+        // resources/views/student/history.blade.php
+        return view('student.history', [
+            'submissions' => $submissions,
+        ]);
     }
 }

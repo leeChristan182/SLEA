@@ -9,10 +9,6 @@ use Illuminate\Support\Facades\Auth;
 
 class AssessorFinalReviewController extends Controller
 {
-    public function __construct()
-    {
-        $this->middleware('auth');
-    }
 
     // POST /assessor/final-review/{student}
     public function storeForStudent(int $studentId, Request $request)

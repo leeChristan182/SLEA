@@ -4,30 +4,34 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\AuthController;
+use App\Http\Middleware\SecurityHeaders;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AssessorController;
 use App\Http\Controllers\SubmissionRecordController;
 use App\Http\Controllers\OrganizationController;
-use App\Http\Controllers\RubricSectionController;
-use App\Http\Controllers\RubricOptionController;
+use App\Http\Controllers\RubricController;
 use App\Http\Controllers\AssessorSubmissionController;
 use App\Http\Controllers\AssessorCompiledScoreController;
+use App\Http\Controllers\AssessorStudentSubmissionsController;
 use App\Http\Controllers\AssessorFinalReviewController;
 use App\Http\Controllers\FinalReviewController;
+use App\Http\Controllers\AssessorStudentSubmissionController;
 /*
 |--------------------------------------------------------------------------
 | AUTH ROUTES (guest-only)
 |--------------------------------------------------------------------------
 */
 
-Route::middleware('guest')->group(function () {
+Route::middleware(['guest', SecurityHeaders::class])->group(function () {
     Route::get('/', [AuthController::class, 'showLogin'])->name('login.show');
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'authenticate'])->name('login.auth');
+    Route::post('/login', [AuthController::class, 'authenticate'])->name('login.auth')
+        ->middleware('throttle:5,1');
 
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register.show');
-    Route::post('/register', [AuthController::class, 'register'])->name('register.store');
+    Route::post('/register', [AuthController::class, 'register'])->name('register.store')
+        ->middleware('throttle:3,60');
 
     Route::prefix('api')->name('ajax.')->group(function () {
         Route::get('/programs',      [AuthController::class, 'getPrograms'])->name('programs');
@@ -42,14 +46,17 @@ Route::middleware('guest')->group(function () {
     });
 
     Route::get('/otp',         [AuthController::class, 'showOtp'])->name('otp.show');
-    Route::post('/otp',        [AuthController::class, 'verifyOtp'])->name('otp.verify');
-    Route::post('/otp/resend', [AuthController::class, 'resendOtp'])->name('otp.resend');
+    Route::post('/otp',        [AuthController::class, 'verifyOtp'])->name('otp.verify')
+        ->middleware('throttle:5,1');
+    Route::post('/otp/resend', [AuthController::class, 'resendOtp'])->name('otp.resend')
+        ->middleware('throttle:5,1');
 });
 
 // logout still just needs auth
 Route::post('/logout', [AuthController::class, 'logout'])
-    ->middleware('auth')
+    ->middleware(['auth', SecurityHeaders::class])
     ->name('logout');
+Route::get('/logout', [AuthController::class, 'logout']);
 /*
 |--------------------------------------------------------------------------
 | STUDENT ROUTES
@@ -87,8 +94,8 @@ Route::prefix('student')
                 ->name('submissions.store');
 
             // download
-            Route::get('/submissions/download/{id}', [SubmissionRecordController::class, 'download'])
-                ->name('submissions.download');
+            Route::get('/submissions/preview/{id}', [SubmissionRecordController::class, 'preview'])
+                ->name('submissions.preview');
         });
     });
 
@@ -127,13 +134,45 @@ Route::prefix('admin')
         Route::put('/organizations/{organization}', [OrganizationController::class, 'update'])->name('organizations.update');
         Route::delete('/organizations/{organization}', [OrganizationController::class, 'destroy'])->name('organizations.destroy');
 
-        Route::get('/rubrics', [RubricSectionController::class, 'index'])->name('rubrics.index');
-        Route::post('/rubrics', [RubricSectionController::class, 'store'])->name('rubrics.store');
+        /*
+         |------------------------------------------------------
+         | RUBRICS (Categories, Sections, Subsections, Options)
+         |------------------------------------------------------
+         */
+        Route::prefix('rubrics')->name('rubrics.')->group(function () {
+            Route::get('/', [RubricController::class, 'index'])->name('index');
 
-        Route::prefix('rubrics')->group(function () {
-            Route::resource('leadership', RubricOptionController::class)
-                ->except(['show'])
-                ->names('rubrics.leadership');
+            // Categories
+            Route::get('/categories', [RubricController::class, 'categoryIndex'])->name('categories.index');
+            Route::get('/categories/create', [RubricController::class, 'categoryCreate'])->name('categories.create');
+            Route::post('/categories', [RubricController::class, 'categoryStore'])->name('categories.store');
+            Route::get('/categories/{category}/edit', [RubricController::class, 'categoryEdit'])->name('categories.edit');
+            Route::put('/categories/{category}', [RubricController::class, 'categoryUpdate'])->name('categories.update');
+            Route::delete('/categories/{category}', [RubricController::class, 'categoryDestroy'])->name('categories.destroy');
+
+            // Sections
+            Route::get('/sections', [RubricController::class, 'sectionIndex'])->name('sections.index');
+            Route::get('/sections/create', [RubricController::class, 'sectionCreate'])->name('sections.create');
+            Route::post('/sections', [RubricController::class, 'sectionStore'])->name('sections.store');
+            Route::get('/sections/{section}/edit', [RubricController::class, 'sectionEdit'])->name('sections.edit');
+            Route::put('/sections/{section}', [RubricController::class, 'sectionUpdate'])->name('sections.update');
+            Route::delete('/sections/{section}', [RubricController::class, 'sectionDestroy'])->name('sections.destroy');
+
+            // Subsections
+            Route::get('/subsections', [RubricController::class, 'subsectionIndex'])->name('subsections.index');
+            Route::get('/subsections/create', [RubricController::class, 'subsectionCreate'])->name('subsections.create');
+            Route::post('/subsections', [RubricController::class, 'subsectionStore'])->name('subsections.store');
+            Route::get('/subsections/{subsection}/edit', [RubricController::class, 'subsectionEdit'])->name('subsections.edit');
+            Route::put('/subsections/{subsection}', [RubricController::class, 'subsectionUpdate'])->name('subsections.update');
+            Route::delete('/subsections/{subsection}', [RubricController::class, 'subsectionDestroy'])->name('subsections.destroy');
+
+            // Options (positions / bands)
+            Route::get('/options', [RubricController::class, 'optionIndex'])->name('options.index');
+            Route::get('/options/create', [RubricController::class, 'optionCreate'])->name('options.create');
+            Route::post('/options', [RubricController::class, 'optionStore'])->name('options.store');
+            Route::get('/options/{option}/edit', [RubricController::class, 'optionEdit'])->name('options.edit');
+            Route::put('/options/{option}', [RubricController::class, 'optionUpdate'])->name('options.update');
+            Route::delete('/options/{option}', [RubricController::class, 'optionDestroy'])->name('options.destroy');
         });
 
         Route::get('/submission-oversight', [AdminController::class, 'submissionOversight'])->name('submission-oversight');
@@ -160,53 +199,44 @@ Route::prefix('assessor')
             Route::post('/profile/picture', 'updateAvatar')->name('profile.picture');
         });
 
-        // ⬇⬇ Assessor submissions
+        // Pending submissions list + actions
         Route::controller(AssessorSubmissionController::class)->group(function () {
-
-            // Pending list page -> /assessor/submissions/pending-submissions
-            // Route name: assessor.submissions.pending-submissions
+            // Pending list page
             Route::get('/submissions/pending-submissions', 'pending')
                 ->name('submissions.pending-submissions');
 
             // JSON details for modal
-            // Route name: assessor.submissions.details
             Route::get('/submissions/{submission}/details', 'details')
                 ->name('submissions.details');
 
-            // Handle approve/reject/return/flag (handleAction method)
-            // Route name: assessor.submissions.action
+            // Handle approve/reject/return/flag
             Route::post('/submissions/{submission}/action', 'handleAction')
                 ->name('submissions.action');
 
-            // Download attachments via "submissionId:index"
-            // Route name: assessor.documents.download
-            // Inline view (for iframe/image preview)
-            // Route name: assessor.documents.view
+            // View / download attachments
             Route::get('/documents/{documentId}/view', 'viewDocument')
                 ->name('documents.view');
 
-            // Download attachments via "submissionId:index"
-            // Route name: assessor.documents.download
             Route::get('/documents/{documentId}/download', 'downloadDocument')
                 ->name('documents.download');
         });
 
-        // 2) Consolidated per student & category
-        // Route name: assessor.submissions.submissions
-        Route::get(
-            '/submissions/compiled',
-            [AssessorCompiledScoreController::class, 'index']
-        )->name('submissions.submissions');
+        // ✅ All reviewed submissions per student (this is the page using submissions.blade.php)
+        Route::get('/students/submissions', [AssessorStudentSubmissionController::class, 'index'])
+            ->name('students.submissions');
+
+        // ✅ JSON details for one student (used by the JS modal)
+        Route::get('/students/{student}/details', [AssessorStudentSubmissionController::class, 'studentDetails'])
+            ->name('students.details');
+
+        // 2) Consolidated per student & category (compiled scores)
+        Route::get('/submissions/compiled', [AssessorCompiledScoreController::class, 'index'])
+            ->name('submissions.compiled');
 
         // 3) Assessor final review (students list + send to final)
-        // Route name: assessor.final-review
-        Route::get(
-            '/final-review',
-            [AssessorFinalReviewController::class, 'index']
-        )->name('final-review');
+        Route::get('/final-review', [AssessorFinalReviewController::class, 'index'])
+            ->name('final-review');
 
-        Route::post(
-            '/final-review/{student}',
-            [AssessorFinalReviewController::class, 'storeForStudent']
-        )->name('final-review.store');
+        Route::post('/final-review/{student}', [AssessorFinalReviewController::class, 'storeForStudent'])
+            ->name('final-review.store');
     });

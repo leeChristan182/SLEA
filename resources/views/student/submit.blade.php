@@ -557,7 +557,6 @@
         }
     }
 </style>
-
 <script>
     (() => {
         // ======== RUBRIC DROPDOWNS (Category → Section → Subsection) ========
@@ -840,24 +839,35 @@
                     method: 'POST',
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Accept': 'application/json', // 👈 add this
-
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
                     },
                     body: fd,
                 })
                 .then(async res => {
                     if (!res.ok) {
-                        let data;
+                        let payload;
                         try {
-                            data = await res.json();
+                            payload = await res.json();
                         } catch (e) {
-                            data = await res.text();
+                            payload = await res.text();
                         }
-                        console.error('Submit error:', data);
-                        alert('There was a problem submitting your record.');
+                        console.error('Submit error (status ' + res.status + '):', payload);
+
+                        // If it's a validation error, show first message
+                        if (payload && payload.errors) {
+                            const firstField = Object.keys(payload.errors)[0];
+                            const firstMsg = payload.errors[firstField][0];
+                            alert(firstMsg);
+                        } else if (payload && payload.message) {
+                            alert(payload.message);
+                        } else {
+                            alert('There was a problem submitting your record.');
+                        }
                         return;
                     }
 
+                    // success
                     closeModal(modalDraft);
                     openModal(modalSuccess);
 
@@ -866,7 +876,6 @@
                         form.reset();
                         files = [];
                         renderQuickList();
-                        // Redirect to submissions page after success
                         window.location.href = '{{ route("student.submit") }}';
                     }, 1100);
                 })
@@ -891,4 +900,5 @@
         btnCancel.addEventListener('click', resetForm);
     })();
 </script>
+
 @endsection

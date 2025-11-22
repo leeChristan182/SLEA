@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Submission extends Model
 {
@@ -32,38 +34,48 @@ class Submission extends Model
         'submitted_at' => 'datetime',
     ];
 
-    /* ============
-     | RELATIONS
-     * ============ */
-
     public function user(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\User::class);
+        return $this->belongsTo(User::class);
     }
 
     public function leadership(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\LeadershipInformation::class, 'leadership_id');
+        return $this->belongsTo(LeadershipInformation::class, 'leadership_id');
     }
 
     public function category(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\RubricCategory::class, 'rubric_category_id');
+        return $this->belongsTo(RubricCategory::class, 'rubric_category_id');
     }
 
     public function section(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\RubricSection::class, 'rubric_section_id', 'section_id');
+        return $this->belongsTo(RubricSection::class, 'rubric_section_id', 'section_id');
     }
 
     public function subsection(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\RubricSubsection::class, 'rubric_subsection_id', 'sub_section_id');
+        return $this->belongsTo(RubricSubsection::class, 'rubric_subsection_id', 'sub_section_id');
     }
 
     public function statusRef(): BelongsTo
     {
-        // submission_statuses.key ←→ submissions.status
-        return $this->belongsTo(\App\Models\SubmissionStatus::class, 'status', 'key');
+        return $this->belongsTo(SubmissionStatus::class, 'status', 'key');
+    }
+
+    public function histories(): HasMany
+    {
+        return $this->hasMany(History::class, 'submission_id');
+    }
+
+    public function latestHistory(): HasOne
+    {
+        return $this->hasOne(History::class, 'submission_id')->latestOfMany();
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(SubmissionReview::class, 'submission_id');
     }
 }

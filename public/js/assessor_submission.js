@@ -1,0 +1,801 @@
+// assessor-all-submissions.js
+
+let currentSubmissionId = null;
+
+// Pagination + search
+let currentPage = 1;
+const entriesPerPage = 5;
+let totalEntries = 0;
+let totalPages = 0;
+let initialStudentsData = [];
+
+/* -----------------------------
+   MODAL HELPERS
+----------------------------- */
+
+function showModalLoading(modalId) {
+    if (modalId === 'studentSubmissionsModal') {
+        const nameTitle = document.getElementById('modalStudentNameTitle');
+        const idDetail = document.getElementById('modalStudentIdDetail');
+        const nameDetail = document.getElementById('modalStudentNameDetail');
+        const programDetail = document.getElementById('modalStudentProgramDetail');
+        const collegeDetail = document.getElementById('modalStudentCollegeDetail');
+        const container = document.getElementById('categorizedSubmissionsContainer');
+
+        if (nameTitle) nameTitle.textContent = 'Loading...';
+        if (idDetail) idDetail.textContent = 'Loading...';
+        if (nameDetail) nameDetail.textContent = 'Loading...';
+        if (programDetail) programDetail.textContent = 'Loading...';
+        if (collegeDetail) collegeDetail.textContent = 'Loading...';
+        if (container) {
+            container.innerHTML = '<p class="text-muted text-center"><i class="fas fa-spinner fa-spin"></i> Loading submissions...</p>';
+        }
+    } else if (modalId === 'individualSubmissionModal') {
+        const idEl = document.getElementById('modalIndividualStudentId');
+        const nameEl = document.getElementById('modalIndividualStudentName');
+        const titleEl = document.getElementById('modalIndividualDocumentTitle');
+        const dateEl = document.getElementById('modalIndividualDateSubmitted');
+        const statusEl = document.getElementById('modalIndividualStatus');
+        const sectionEl = document.getElementById('modalIndividualSleaSection');
+        const subsectionEl = document.getElementById('modalIndividualSubsection');
+        const roleEl = document.getElementById('modalIndividualRole');
+        const dateActivityEl = document.getElementById('modalIndividualActivityDate');
+        const orgBodyEl = document.getElementById('modalIndividualOrganizingBody');
+        const descEl = document.getElementById('modalIndividualDescription');
+        const autoScoreEl = document.getElementById('modalIndividualAutoScore');
+        const remarksEl = document.getElementById('individualAssessorRemarks');
+        const assessorNameEl = document.getElementById('modalIndividualAssessorName');
+        const docPreview = document.getElementById('individualDocumentPreview');
+
+        if (idEl) idEl.textContent = 'Loading...';
+        if (nameEl) nameEl.textContent = 'Loading...';
+        if (titleEl) titleEl.textContent = 'Loading...';
+        if (dateEl) dateEl.textContent = 'Loading...';
+        if (statusEl) statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        if (sectionEl) sectionEl.textContent = 'Loading...';
+        if (subsectionEl) subsectionEl.textContent = 'Loading...';
+        if (roleEl) roleEl.textContent = 'Loading...';
+        if (dateActivityEl) dateActivityEl.textContent = 'Loading...';
+        if (orgBodyEl) orgBodyEl.textContent = 'Loading...';
+        if (descEl) descEl.textContent = 'Loading...';
+        if (autoScoreEl) autoScoreEl.textContent = 'Loading...';
+        if (remarksEl) remarksEl.value = 'Loading...';
+        if (assessorNameEl) assessorNameEl.textContent = 'Loading...';
+        if (docPreview) {
+            docPreview.innerHTML = '<p class="text-muted"><i class="fas fa-spinner fa-spin"></i> Loading documents...</p>';
+        }
+    }
+}
+
+/* -----------------------------
+   DOCUMENT PREVIEW
+----------------------------- */
+
+function populateDocumentPreview(documents, containerId) {
+    const previewContainer = document.getElementById(containerId);
+    if (!previewContainer) return;
+
+    previewContainer.innerHTML = '';
+
+    if (!documents || documents.length === 0) {
+        previewContainer.innerHTML = '<p class="text-muted">No documents uploaded.</p>';
+        return;
+    }
+
+    documents.forEach(doc => {
+        const documentItem = document.createElement('div');
+        documentItem.className = 'document-item';
+
+        const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes((doc.file_type || '').toLowerCase());
+        const isPdf = (doc.file_type || '').toLowerCase() === 'pdf';
+
+        const iconClass = isPdf ? 'pdf' : (isImage ? 'image' : 'other');
+        const iconSymbol = isPdf ? '📄' : (isImage ? '🖼️' : '📎');
+
+        documentItem.innerHTML = `
+            <div class="document-info">
+                <div class="document-icon ${iconClass}">
+                    ${iconSymbol}
+                </div>
+                <div class="document-details">
+                    <h6>${doc.original_filename}</h6>
+                    <small>${(doc.file_type || '').toUpperCase()} • ${doc.formatted_size || ''}</small>
+                </div>
+            </div>
+            <div class="document-actions">
+                ${
+                    isPdf || isImage
+                        ? `<button class="btn-preview" data-file-path="${doc.file_path}" data-mime-type="${doc.mime_type}">Preview</button>`
+                        : ''
+                }
+                <button class="btn-download" data-file-path="${doc.file_path}" data-file-name="${doc.original_filename}">
+                    Download
+                </button>
+            </div>
+        `;
+
+        previewContainer.appendChild(documentItem);
+    });
+
+    // Attach click handlers for preview & download
+    previewContainer.querySelectorAll('.btn-download').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const filePath = btn.getAttribute('data-file-path');
+            const fileName = btn.getAttribute('data-file-name');
+            downloadDocument(filePath, fileName);
+        });
+    });
+
+    previewContainer.querySelectorAll('.btn-preview').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const filePath = btn.getAttribute('data-file-path');
+            const mimeType = btn.getAttribute('data-mime-type');
+            previewDocument(filePath, mimeType);
+        });
+    });
+}
+
+function downloadDocument(filePath, fileName) {
+    if (!filePath) return;
+    const link = document.createElement('a');
+    link.href = `/storage/${filePath}`;
+    link.download = fileName || filePath.split('/').pop();
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function previewDocument(filePath, mimeType) {
+    if (!filePath) return;
+
+    const fileExtension = filePath.split('.').pop().toLowerCase();
+    const viewerUrl = `/assessor/document-viewer?path=${encodeURIComponent(filePath)}&mime=${encodeURIComponent(mimeType || '')}`;
+
+    if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExtension)) {
+        window.open(`/storage/${filePath}`, '_blank');
+    } else if (fileExtension === 'pdf') {
+        window.open(viewerUrl, '_blank');
+    } else {
+        alert('No preview available for this file type. Downloading instead.');
+        downloadDocument(filePath);
+    }
+}
+
+/* -----------------------------
+   FETCH: INDIVIDUAL SUBMISSION
+----------------------------- */
+
+async function openIndividualSubmissionModal(submissionId) {
+    try {
+        currentSubmissionId = submissionId;
+        showModalLoading('individualSubmissionModal');
+
+        const response = await fetch(`/assessor/submissions/${submissionId}/details`);
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to fetch submission details');
+        }
+
+        const submission = data.submission;
+
+        const idEl = document.getElementById('modalIndividualStudentId');
+        const nameEl = document.getElementById('modalIndividualStudentName');
+        const titleEl = document.getElementById('modalIndividualDocumentTitle');
+        const dateEl = document.getElementById('modalIndividualDateSubmitted');
+        const statusEl = document.getElementById('modalIndividualStatus');
+        const sectionEl = document.getElementById('modalIndividualSleaSection');
+        const subsectionEl = document.getElementById('modalIndividualSubsection');
+        const roleEl = document.getElementById('modalIndividualRole');
+        const dateActivityEl = document.getElementById('modalIndividualActivityDate');
+        const orgBodyEl = document.getElementById('modalIndividualOrganizingBody');
+        const descEl = document.getElementById('modalIndividualDescription');
+        const autoScoreEl = document.getElementById('modalIndividualAutoScore');
+        const remarksEl = document.getElementById('individualAssessorRemarks');
+        const assessorNameEl = document.getElementById('modalIndividualAssessorName');
+
+        if (idEl) idEl.textContent = submission.student?.student_id || '-';
+        if (nameEl) nameEl.textContent = submission.student?.user?.name || 'N/A';
+        if (titleEl) titleEl.textContent = submission.document_title || '-';
+        if (dateEl) dateEl.textContent = submission.submitted_at ? new Date(submission.submitted_at).toLocaleDateString() : '-';
+
+        if (statusEl) {
+            const status = submission.status || 'Unknown';
+            const normalized = (status || '').toLowerCase();
+            statusEl.innerHTML = `
+                <span class="status-badge status-${normalized}">
+                    ${status.charAt(0).toUpperCase() + status.slice(1)}
+                </span>
+            `;
+        }
+
+        if (sectionEl) sectionEl.textContent = submission.slea_section || '-';
+        if (subsectionEl) subsectionEl.textContent = submission.subsection || '-';
+        if (roleEl) roleEl.textContent = submission.role_in_activity || '-';
+        if (dateActivityEl) dateActivityEl.textContent = submission.activity_date || '-';
+        if (orgBodyEl) orgBodyEl.textContent = submission.organizing_body || '-';
+        if (descEl) descEl.textContent = submission.description || '-';
+
+        if (autoScoreEl) {
+            autoScoreEl.textContent = submission.auto_generated_score
+                ? `${submission.auto_generated_score}/100`
+                : 'Not calculated';
+        }
+
+        if (remarksEl) {
+            remarksEl.value = submission.assessor_remarks || '';
+        }
+
+        if (assessorNameEl) {
+            assessorNameEl.textContent = submission.assessor?.name || 'N/A';
+        }
+
+        populateDocumentPreview(submission.documents || [], 'individualDocumentPreview');
+
+        const modalEl = document.getElementById('individualSubmissionModal');
+        if (modalEl) {
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+
+    } catch (error) {
+        console.error('Error fetching individual submission details:', error);
+        showErrorModal('Failed to load submission details: ' + error.message);
+    }
+}
+
+/* -----------------------------
+   FETCH: STUDENT + ALL SUBMISSIONS
+----------------------------- */
+
+async function openStudentSubmissionsModal(studentId) {
+    try {
+        showModalLoading('studentSubmissionsModal');
+
+        const response = await fetch(`/assessor/students/${studentId}/details`);
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to fetch student details');
+        }
+
+        const student = data.student;
+        const categorizedSubmissions = data.submissions || {};
+const categoryTotals = data.category_totals || {};
+// Make sure it's a real number, not a string
+const overallTotalScore = Number(data.overall_total_score ?? 0);
+
+// Compute max possible total from all categories
+const overallMaxScore = Object.values(categoryTotals).reduce((sum, cat) => {
+    const max = Number(cat?.max_score ?? 0);
+    return sum + (isNaN(max) ? 0 : max);
+}, 0);
+
+
+        const nameTitle = document.getElementById('modalStudentNameTitle');
+        const idDetail = document.getElementById('modalStudentIdDetail');
+        const nameDetail = document.getElementById('modalStudentNameDetail');
+        const programDetail = document.getElementById('modalStudentProgramDetail');
+        const collegeDetail = document.getElementById('modalStudentCollegeDetail');
+
+        if (nameTitle) nameTitle.textContent = student.user?.name || '';
+        if (idDetail) idDetail.textContent = student.student_id || '';
+        if (nameDetail) nameDetail.textContent = student.user?.name || '';
+        if (programDetail) programDetail.textContent = student.program || '';
+        if (collegeDetail) collegeDetail.textContent = student.college || '';
+
+        const submissionsContainer = document.getElementById('categorizedSubmissionsContainer');
+        if (!submissionsContainer) return;
+
+        submissionsContainer.innerHTML = '';
+
+        const sleaSectionsOrder = [
+            'Leadership Excellence',
+            'Academic Excellence',
+            'Awards Recognition',
+            'Community Involvement',
+            'Good Conduct'
+        ];
+
+        const romanNumeralMap = {
+            1: 'I',
+            2: 'II',
+            3: 'III',
+            4: 'IV',
+            5: 'V'
+        };
+
+        let sectionCounter = 1;
+        let hasSubmissions = false;
+
+        sleaSectionsOrder.forEach(section => {
+            if (categorizedSubmissions[section] && categorizedSubmissions[section].length > 0) {
+                hasSubmissions = true;
+            }
+        });
+
+        if (!hasSubmissions) {
+            submissionsContainer.innerHTML = '<p class="text-muted text-center">No submissions found for this student.</p>';
+        } else {
+            sleaSectionsOrder.forEach(section => {
+const sectionSubmissions = categorizedSubmissions[section] || [];
+const totalCategoryScore = Number(categoryTotals[section]?.score ?? 0);
+const maxCategoryScore = Number(categoryTotals[section]?.max_score ?? 0);
+
+
+                const sectionDiv = document.createElement('div');
+                sectionDiv.className = 'slea-category-section mb-5';
+
+                let tableRowsHtml = '';
+
+                if (sectionSubmissions.length > 0) {
+                    sectionSubmissions.forEach(submission => {
+                        const status = submission.status || 'Unknown';
+                        const normalized = (status || '').toLowerCase();
+
+                        tableRowsHtml += `
+                            <tr>
+                                <td>${submission.document_title || '-'}</td>
+                                <td>${submission.subsection || '-'}</td>
+                                <td>${submission.role_in_activity || '-'}</td>
+                                <td>${submission.reviewed_at ? new Date(submission.reviewed_at).toLocaleDateString() : 'N/A'}</td>
+                                <td>${submission.assessor?.name || 'N/A'}</td>
+                                <td>
+                                    <span class="status-badge status-${normalized}">
+                                        ${status.charAt(0).toUpperCase() + status.slice(1)}
+                                    </span>
+                                </td>
+                                <td>${submission.assessor_score != null ? submission.assessor_score : 'N/A'}</td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    tableRowsHtml = '<tr><td colspan="7" class="text-center">No submissions for this category.</td></tr>';
+                }
+
+sectionDiv.innerHTML = `
+    <h5 class="category-title mb-3">
+        ${romanNumeralMap[sectionCounter++]}. <strong>${section}</strong>
+    </h5>
+    <div class="table-responsive mb-3">
+        <table class="table submissions-table category-table">
+            <thead>
+                <tr>
+                    <th>Document Title</th>
+                    <th>Type of Activity</th>
+                    <th>Role in Activity</th>
+                    <th>Date Reviewed</th>
+                    <th>Reviewed By</th>
+                    <th>Submission Status</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${tableRowsHtml}
+                <tr class="category-total-row">
+                    <td colspan="7" class="text-end">
+                        <strong>
+                            Total Score for ${section}:
+                            ${totalCategoryScore.toFixed(2)}
+                            ${maxCategoryScore ? ` / ${maxCategoryScore.toFixed(2)}` : ''}
+                        </strong>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+`;
+
+
+                submissionsContainer.appendChild(sectionDiv);
+            });
+
+            // Overall total at bottom
+            const overallTotalDiv = document.createElement('div');
+            overallTotalDiv.className = 'overall-total-section mt-4';
+overallTotalDiv.innerHTML = `
+    <div class="table-responsive">
+        <table class="table overall-total-table">
+            <tbody>
+                <tr class="overall-total-row">
+                    <td class="text-center">
+                        <strong>
+                            Overall Total Score:
+                            ${overallTotalScore.toFixed(2)}
+                            ${overallMaxScore ? ` / ${overallMaxScore.toFixed(2)}` : ''}
+                        </strong>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+`;
+
+
+            submissionsContainer.appendChild(overallTotalDiv);
+        }
+
+        const modalEl = document.getElementById('studentSubmissionsModal');
+        if (modalEl) {
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+
+    } catch (error) {
+        console.error('Error fetching student submissions:', error);
+        showErrorModal('Failed to load student submissions: ' + error.message);
+    }
+}
+
+/* -----------------------------
+   HANDLE ACTIONS (APPROVE / REJECT / RETURN / FLAG)
+----------------------------- */
+
+async function handleSubmission(action) {
+    if (!currentSubmissionId) {
+        showErrorModal('No submission selected.');
+        return;
+    }
+
+    const remarksEl = document.getElementById('individualAssessorRemarks');
+    const remarks = remarksEl ? remarksEl.value.trim() : '';
+
+    if ((action === 'reject' || action === 'return' || action === 'flag') && !remarks) {
+        showValidationError('Please provide remarks before performing this action.');
+        return;
+    }
+
+    let score = null;
+    if (action === 'approve') {
+        const input = prompt('Enter assessor score (0-100):');
+        if (input === null) return; // cancelled
+
+        const parsed = parseFloat(input);
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) {
+            showValidationError('Please enter a valid score between 0 and 100.');
+            return;
+        }
+        score = parsed;
+    }
+
+    // Attempt to get the button that triggered this action (from global event)
+    let actionButton = null;
+    if (typeof event !== 'undefined' && event.target) {
+        const target = event.target;
+        if (target.closest) {
+            actionButton = target.closest('.btn');
+        }
+    }
+
+    let originalHtml = '';
+    if (actionButton) {
+        originalHtml = actionButton.innerHTML;
+        actionButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        actionButton.disabled = true;
+    }
+
+    try {
+        const response = await fetch(`/assessor/submissions/${currentSubmissionId}/action`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+            },
+            body: JSON.stringify({
+                action: action,
+                remarks: remarks,
+                assessor_score: score
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to process action');
+        }
+
+        const individualModalEl = document.getElementById('individualSubmissionModal');
+        if (individualModalEl) {
+            const individualModal = bootstrap.Modal.getInstance(individualModalEl);
+            if (individualModal) individualModal.hide();
+        }
+
+        showSuccessMessage(action);
+
+        // Reload to reflect status updates in tables
+        window.location.reload();
+
+    } catch (error) {
+        console.error('Error processing submission action:', error);
+        showErrorModal('Failed to process action: ' + error.message);
+
+        if (actionButton) {
+            actionButton.innerHTML = originalHtml;
+            actionButton.disabled = false;
+        }
+    }
+}
+
+/* -----------------------------
+   MODAL: ERROR / VALIDATION / SUCCESS
+----------------------------- */
+
+function showErrorModal(message) {
+    const errorModal = document.createElement('div');
+    errorModal.className = 'modal fade';
+    errorModal.id = 'errorModal';
+
+    errorModal.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content validation-modal-content">
+                <div class="modal-body text-center p-4">
+                    <div class="validation-icon mb-3">
+                        <i class="fas fa-exclamation-triangle" style="color: #dc3545; font-size: 3rem;"></i>
+                    </div>
+                    <h5 class="validation-title mb-3">Error</h5>
+                    <p class="validation-message mb-4">${message}</p>
+                    <button type="button" class="btn btn-warning" data-bs-dismiss="modal">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(errorModal);
+    const modal = new bootstrap.Modal(errorModal);
+    modal.show();
+
+    errorModal.addEventListener('hidden.bs.modal', function () {
+        document.body.removeChild(errorModal);
+    });
+}
+
+function showValidationError(message) {
+    const validationModal = document.createElement('div');
+    validationModal.className = 'modal fade';
+    validationModal.id = 'validationModal';
+
+    validationModal.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content validation-modal-content">
+                <div class="modal-body text-center p-4">
+                    <div class="validation-icon mb-3">
+                        <i class="fas fa-exclamation-triangle" style="color: #dc3545; font-size: 3rem;"></i>
+                    </div>
+                    <h5 class="validation-title mb-3">Validation Required</h5>
+                    <p class="validation-message mb-4">${message}</p>
+                    <button type="button" class="btn btn-warning" data-bs-dismiss="modal">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(validationModal);
+    const modal = new bootstrap.Modal(validationModal);
+    modal.show();
+
+    validationModal.addEventListener('hidden.bs.modal', function () {
+        document.body.removeChild(validationModal);
+    });
+}
+
+function showSuccessMessage(action) {
+    let message = '';
+    let icon = '';
+    let color = '';
+
+    switch (action) {
+        case 'approve':
+            message = 'Submission has been successfully approved!';
+            icon = 'fas fa-check-circle';
+            color = '#28a745';
+            break;
+        case 'reject':
+            message = 'Submission has been successfully rejected.';
+            icon = 'fas fa-times-circle';
+            color = '#8B0000';
+            break;
+        case 'return':
+            message = 'Submission has been returned to the student for revision.';
+            icon = 'fas fa-undo';
+            color = '#FFD700';
+            break;
+        case 'flag':
+            message = 'Submission has been flagged for further review.';
+            icon = 'fas fa-flag';
+            color = '#dc3545';
+            break;
+        default:
+            message = 'Action completed successfully!';
+            icon = 'fas fa-info-circle';
+            color = '#007bff';
+    }
+
+    const successModal = document.createElement('div');
+    successModal.className = 'modal fade';
+    successModal.id = 'successModal';
+
+    successModal.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content success-modal-content">
+                <div class="modal-body text-center p-4">
+                    <div class="success-icon mb-3">
+                        <i class="${icon}" style="color: ${color}; font-size: 3rem;"></i>
+                    </div>
+                    <h5 class="success-title mb-3">Success!</h5>
+                    <p class="success-message mb-4">${message}</p>
+                    <button type="button" class="btn btn-success" data-bs-dismiss="modal">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(successModal);
+    const modal = new bootstrap.Modal(successModal);
+    modal.show();
+
+    successModal.addEventListener('hidden.bs.modal', function () {
+        document.body.removeChild(successModal);
+    });
+}
+
+/* -----------------------------
+   TABLE SEARCH + PAGINATION
+----------------------------- */
+
+function initializeStudentPage() {
+    const studentRows = document.querySelectorAll('.submissions-table tbody tr');
+
+    initialStudentsData = Array.from(studentRows)
+        .filter(row => row.querySelector('td')) // ignore "no data" row
+        .map(row => {
+            const cells = row.children;
+            return {
+                element: row,
+                studentId: (cells[0]?.textContent || '').toLowerCase(),
+                studentName: (cells[1]?.textContent || '').toLowerCase(),
+                email: (cells[2]?.textContent || '').toLowerCase(),
+                program: (cells[3]?.textContent || '').toLowerCase(),
+                college: (cells[4]?.textContent || '').toLowerCase()
+            };
+        });
+
+    filterAndPaginateStudents();
+}
+
+function filterAndPaginateStudents() {
+    const searchInput = document.getElementById('searchInput');
+    const searchTerm = (searchInput?.value || '').toLowerCase();
+
+    const filteredStudents = initialStudentsData.filter(student => {
+        return (
+            student.studentId.includes(searchTerm) ||
+            student.studentName.includes(searchTerm) ||
+            student.email.includes(searchTerm) ||
+            student.program.includes(searchTerm) ||
+            student.college.includes(searchTerm)
+        );
+    });
+
+    totalEntries = filteredStudents.length;
+    totalPages = Math.ceil(totalEntries / entriesPerPage) || 1;
+
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    // Hide all
+    initialStudentsData.forEach(s => {
+        s.element.style.display = 'none';
+    });
+
+    const start = (currentPage - 1) * entriesPerPage;
+    const end = start + entriesPerPage;
+
+    filteredStudents.slice(start, end).forEach(s => {
+        s.element.style.display = '';
+    });
+
+    updatePaginationInfo();
+    generatePageButtons();
+    updateNavigationButtons();
+}
+
+function updatePaginationInfo() {
+    const showingStart = document.getElementById('showingStart');
+    const showingEnd = document.getElementById('showingEnd');
+    const totalEntriesEl = document.getElementById('totalEntries');
+
+    const start = totalEntries === 0 ? 0 : (currentPage - 1) * entriesPerPage + 1;
+    const end = Math.min(currentPage * entriesPerPage, totalEntries);
+
+    if (showingStart) showingStart.textContent = start;
+    if (showingEnd) showingEnd.textContent = end;
+    if (totalEntriesEl) totalEntriesEl.textContent = totalEntries;
+}
+
+function generatePageButtons() {
+    const paginationPages = document.getElementById('paginationPages');
+    if (!paginationPages) return;
+
+    paginationPages.innerHTML = '';
+
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, startPage + 4);
+
+    if (endPage - startPage < 4) {
+        startPage = Math.max(1, endPage - 4);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        const pageBtn = document.createElement('button');
+        pageBtn.className = 'pagination-page';
+        if (i === currentPage) pageBtn.classList.add('active');
+        pageBtn.textContent = String(i);
+        pageBtn.addEventListener('click', () => {
+            currentPage = i;
+            filterAndPaginateStudents();
+        });
+        paginationPages.appendChild(pageBtn);
+    }
+}
+
+function updateNavigationButtons() {
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+
+    if (prevBtn) {
+        prevBtn.disabled = currentPage === 1;
+        prevBtn.onclick = () => {
+            if (currentPage > 1) {
+                currentPage--;
+                filterAndPaginateStudents();
+            }
+        };
+    }
+
+    if (nextBtn) {
+        nextBtn.disabled = currentPage === totalPages || totalPages === 0;
+        nextBtn.onclick = () => {
+            if (currentPage < totalPages) {
+                currentPage++;
+                filterAndPaginateStudents();
+            }
+        };
+    }
+}
+
+/* -----------------------------
+   DOM READY
+----------------------------- */
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Initialize table search + pagination
+    initializeStudentPage();
+
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            currentPage = 1;
+            filterAndPaginateStudents();
+        });
+    }
+
+    // When individual modal opens, hide student list modal (if open)
+    const individualSubmissionModalElement = document.getElementById('individualSubmissionModal');
+    if (individualSubmissionModalElement) {
+        individualSubmissionModalElement.addEventListener('show.bs.modal', function () {
+            const studentSubmissionsModalEl = document.getElementById('studentSubmissionsModal');
+            if (studentSubmissionsModalEl) {
+                const studentSubmissionsModal = bootstrap.Modal.getInstance(studentSubmissionsModalEl);
+                if (studentSubmissionsModal) {
+                    studentSubmissionsModal.hide();
+                }
+            }
+        });
+    }
+});

@@ -4,11 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Submission;
 use App\Models\RubricCategory;
-use App\Models\AssessorFinalReview; // ⬅️ NEW: to revert final-review when new submission arrives
+use App\Models\AssessorFinalReview;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class SubmissionRecordController extends Controller
 {
@@ -74,16 +75,13 @@ class SubmissionRecordController extends Controller
         $user = Auth::user();
 
         $data = $request->validate([
-            // SLEA classification (FKs)
             'rubric_category_id'   => ['required', 'exists:rubric_categories,id'],
             'rubric_section_id'    => ['nullable', 'exists:rubric_sections,section_id'],
             'rubric_subsection_id' => ['nullable', 'exists:rubric_subsections,sub_section_id'],
 
-            // Main activity fields
             'activity_title'       => ['required', 'string', 'max:255'],
             'description'          => ['nullable', 'string'],
 
-            // Extra UI fields → meta JSON
             'activity_type'        => ['nullable', 'string', 'max:100'],
             'role_in_activity'     => ['nullable', 'string', 'max:255'],
             'date_of_activity'     => ['nullable', 'date'],
@@ -93,23 +91,19 @@ class SubmissionRecordController extends Controller
             'issued_by'            => ['nullable', 'string', 'max:255'],
             'document_type'        => ['nullable', 'string', 'max:50'],
 
-            // Files: JPEG/PDF/PNG up to 5 MB each
             'attachments'          => ['required'],
             'attachments.*'        => ['file', 'max:5120', 'mimes:jpeg,jpg,png,pdf'],
         ]);
 
-        // Upload files → attachments JSON (array of metadata)
+        // ---- upload files ----
         $filesMeta = [];
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $file) {
-                if (! $file) {
-                    continue;
-                }
+                if (! $file) continue;
 
                 $path = $file->store('submissions', 'public');
 
                 $filesMeta[] = [
-                    // ⬇️ NOTE: keeping this as 'original' (we'll read this key on assessor side)
                     'original' => $file->getClientOriginalName(),
                     'path'     => $path,
                     'size'     => $file->getSize(),
@@ -118,10 +112,10 @@ class SubmissionRecordController extends Controller
             }
         }
 
-        // Create the submission record
+        // ---- create submission ----
         $submission = Submission::create([
             'user_id'              => $user->id,
-            'leadership_id'        => null, // later you can link to student_leaderships
+            'leadership_id'        => null,
 
             'rubric_category_id'   => $data['rubric_category_id'],
             'rubric_section_id'    => $data['rubric_section_id'] ?? null,
@@ -142,29 +136,22 @@ class SubmissionRecordController extends Controller
                 'document_type'    => $data['document_type']    ?? null,
             ],
 
-            // Must match submission_statuses.key
-            'status'              => 'pending',
-            'remarks'             => null,
-            'submitted_at'        => now(),
+            'status'       => 'pending',  // matches submission_statuses.key
+            'remarks'      => null,
+            'submitted_at' => now(),
         ]);
 
-        /**
-         * ⬇️ REVERT RULE:
-         * If this student already has entries in assessor_final_reviews
-         * (meaning they were in the assessor's final-review list),
-         * any new submission should move them back to "tracking" so
-         * assessors know there is new evidence to re-check.
-         *
-         * Adjust the status keys to match your final_review_statuses table.
-         */
-        AssessorFinalReview::where('student_id', $user->id)
-            ->whereIn('status', ['finalized', 'submitted']) // e.g. “ready_for_admin” states
-            ->update([
-                'status'      => 'tracking', // this key must exist in final_review_statuses
-                'reviewed_at' => now(),
-            ]);
+        // ---- REVERT RULE (safe) ----
+        if (Schema::hasTable('assessor_final_reviews')) {
+            AssessorFinalReview::where('student_id', $user->id)
+                ->whereIn('status', ['finalized', 'submitted'])
+                ->update([
+                    'status'      => 'tracking',
+                    'reviewed_at' => now(),
+                ]);
+        }
 
-        // For your JS fetch() flow on the submit page:
+        // JSON response for fetch()
         if ($request->wantsJson()) {
             return response()->json([
                 'ok'      => true,
@@ -173,38 +160,52 @@ class SubmissionRecordController extends Controller
             ]);
         }
 
-        // Fallback for normal form posts
         return redirect()
             ->route('student.submit')
             ->with('status', 'Submission uploaded.');
     }
 
-    /**
-     * Currently downloads the *first* attachment of the submission.
-     * (If you later want per-file download, add an {attachmentIndex} param.)
-     */
-    public function download(int $id)
+    public function preview(int $id)
     {
-        if (! Schema::hasTable('submissions')) {
-            abort(404);
+        // Only the owner can preview
+        $submission = Submission::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        $files = $submission->attachments;   // casted to array in the model
+        $path  = null;
+
+        // Case 1: your normal case – array of file info like you showed in tinker
+        if (is_array($files)) {
+            // if it's a "flat" file info array
+            if (isset($files['path']) && is_string($files['path'])) {
+                $path = $files['path'];
+            }
+            // if it's an array of file info arrays
+            elseif (isset($files[0])) {
+                if (is_array($files[0]) && isset($files[0]['path']) && is_string($files[0]['path'])) {
+                    $path = $files[0]['path'];
+                } elseif (is_string($files[0])) {
+                    $path = $files[0];
+                }
+            }
         }
 
-        $submission = Submission::where('user_id', Auth::id())->findOrFail($id);
-
-        $attachments = $submission->attachments ?? [];
-        if (! is_array($attachments) || empty($attachments)) {
-            abort(404);
+        // Case 2: attachments accidentally stored as plain string
+        if (! $path && is_string($files) && trim($files) !== '') {
+            $path = trim($files);
         }
 
-        // For now, just serve the first file
-        $file = $attachments[0];
-
-        if (empty($file['path']) || ! Storage::disk('public')->exists($file['path'])) {
-            abort(404);
+        if (! $path) {
+            abort(404, 'No attachment found for this submission.');
         }
 
-        $downloadName = $file['original'] ?? basename($file['path']);
+        // Make sure it exists on the public disk
+        if (! Storage::disk('public')->exists($path)) {
+            abort(404, 'File not found on disk.');
+        }
 
-        return Storage::disk('public')->download($file['path'], $downloadName);
+        // Inline preview in browser (perfect for the iframe)
+        return Storage::disk('public')->response($path);
     }
 }

@@ -49,7 +49,11 @@ class AssessorController extends Controller
     {
         $request->validate([
             'current_password' => ['required'],
-            'password'         => ['required', 'confirmed', PasswordRule::min(8)],
+            'password'         => ['required', 'confirmed', PasswordRule::min(12)
+                ->mixedCase()
+                ->numbers()
+                ->symbols()
+                ->uncompromised()],
         ]);
 
         /** @var User $user */

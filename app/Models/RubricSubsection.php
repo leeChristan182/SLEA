@@ -26,7 +26,9 @@ class RubricSubsection extends Model
         'notes',
         'order_no',
     ];
-
+    protected $casts = [
+        'score_params' => 'array',
+    ];
     public function section()
     {
         return $this->belongsTo(RubricSection::class, 'section_id', 'section_id');

@@ -8,6 +8,21 @@
 
     <div class="manage-container orgs-box">
         <h2 class="manage-title">Organizations Management</h2>
+        @if (session('success'))
+        <div class="alert alert-success mt-2">
+            {{ session('success') }}
+        </div>
+        @endif
+
+        @if ($errors->any())
+        <div class="alert alert-danger mt-2">
+            <ul class="mb-0">
+                @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+        @endif
 
         <!-- Back button -->
         <div class="rubric-header-nav mb-3">
@@ -50,7 +65,6 @@
                     <tr>
                         <th>Organization Name</th>
                         <th>Cluster</th>
-                        <th>Description</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -59,7 +73,6 @@
                     <tr>
                         <td>{{ $org->name }}</td>
                         <td>{{ $org->cluster->name ?? '—' }}</td>
-                        <td>{{ Str::limit($org->description, 60) ?? '—' }}</td>
                         <td class="action-cell">
                             <div class="action-buttons">
                                 <button class="action-btn btn-edit" title="Edit" onclick='openOrgModal(@json($org))'>

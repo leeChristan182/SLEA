@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\RubricCategory;
+use App\Models\RubricSection;
+use App\Models\RubricSubsection;
+use App\Models\User;
+use App\Models\RubricOption;
 use App\Models\History;
 use App\Models\SubmissionReview;
 use App\Models\AssessorCompiledScore;
 use App\Models\Submission;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 
@@ -17,8 +21,7 @@ class AssessorSubmissionController extends Controller
     // Page with pending list
     public function pending()
     {
-        // include user + academic for IDs/names
-        $pendingSubmissions = Submission::with(['user', 'user.studentAcademic'])
+        $pendingSubmissions = Submission::with(['user', 'user.studentAcademic', 'category', 'section', 'subsection'])
             ->where('status', 'pending')
             ->orderByDesc('submitted_at')
             ->get();
@@ -29,83 +32,108 @@ class AssessorSubmissionController extends Controller
     // JSON details for modal
     public function details(Submission $submission)
     {
-        // load relations, including subsection + its rubric options
         $submission->load([
             'user',
             'user.studentAcademic',
             'category',
             'section',
             'subsection.options',
+            'reviews.assessor',
         ]);
 
-        // ---------- Attachments → documents array ----------
+        // 🔹 Normalize attachments to an array
         $attachments = $submission->attachments ?? [];
+        if (is_string($attachments)) {
+            $attachments = json_decode($attachments, true) ?: [];
+        }
 
-        $documents = collect($attachments)->map(function ($att, $index) use ($submission) {
-            $mime    = $att['mime'] ?? '';
-            $isPdf   = str_contains($mime, 'pdf');
-            $isImage = str_starts_with($mime, 'image/');
+        $documents = collect($attachments)->map(function ($att, $index) {
+            $mime    = $att['mime'] ?? ($att['type'] ?? '');
+            $isPdf   = $mime && str_contains($mime, 'pdf');
+            $isImage = $mime && str_starts_with($mime, 'image/');
 
-            $docId = $submission->id . ':' . $index;
+            $path = $att['path'] ?? null;
+            $url  = $path ? Storage::url($path) : null;
 
             return [
-                'id'                => $docId,
-                'original_filename' => $att['original'] ?? basename($att['path'] ?? ''),
+                'id'                => $index,
+                'original_filename' => $att['original'] ?? basename($path ?? ''),
                 'file_type'         => $mime ?: 'file',
                 'file_size'         => $this->humanFileSize($att['size'] ?? null),
                 'is_pdf'            => $isPdf,
                 'is_image'          => $isImage,
-                'view_url'          => route('assessor.documents.view', ['documentId' => $docId]),
-                'download_url'      => route('assessor.documents.download', ['documentId' => $docId]),
+                'view_url'          => $url,   // 👈 JS just opens these in a new tab
+                'download_url'      => $url,
             ];
         })->values();
 
-        // ---------- Rubric options (for this subsection) ----------
+        $subsection = $submission->subsection;
+
+        // 🔹 Rubric options (for option-based subsections)
         $rubricOptions = [];
-        if ($submission->subsection) {
-            $rubricOptions = $submission->subsection->options
-                ->map(function ($opt) {
-                    return [
-                        'id'     => $opt->id,
-                        'label'  => $opt->label,
-                        'points' => $opt->points,
-                    ];
-                })
-                ->values();
+        if ($subsection) {
+            $rubricOptions = $subsection->options->map(function ($opt) {
+                return [
+                    'id'     => $opt->id,
+                    'label'  => $opt->label,
+                    'points' => $opt->points,
+                ];
+            })->values();
         }
 
-        // ---------- Student identity ----------
+        // 🔹 Decode score_params for rate-based subsections (trainings, community service, etc.)
+        $scoreParams = null;
+        if ($subsection && $subsection->score_params) {
+            $raw = $subsection->score_params;
+            if (is_array($raw)) {
+                $scoreParams = $raw;
+            } else {
+                $decoded = json_decode($raw, true);
+                $scoreParams = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+            }
+        }
+
+        $studentAcademic = optional($submission->user)->studentAcademic;
         $studentId = optional($submission->user->studentAcademic)->student_number
             ?? $submission->user->student_id
             ?? $submission->user->id;
 
-        $studentName = $submission->user->full_name
+        $studentName =
+            $submission->user->full_name
             ?? trim(($submission->user->first_name ?? '') . ' ' . ($submission->user->last_name ?? ''));
 
         return response()->json([
             'submission' => [
-                'id' => $submission->id,
+                'id'     => $submission->id,
+                'status' => $submission->status,
+
                 'student' => [
-                    'student_id' => $studentId,
+                    'student_id'     => $studentId,
+                    'student_number' => $studentId,
                     'name'       => $studentName,
                 ],
+
                 'document_title'       => $submission->activity_title,
                 'submitted_at'         => optional($submission->submitted_at)->toIso8601String(),
 
                 'slea_section'         => optional($submission->section)->title,
-                'subsection'           => optional($submission->subsection)->sub_section,
+                'subsection'           => optional($subsection)->sub_section,
                 'role_in_activity'     => $submission->meta['role_in_activity'] ?? null,
                 'activity_date'        => $submission->meta['date_of_activity'] ?? null,
                 'organizing_body'      => $submission->meta['organizing_body'] ?? null,
                 'description'          => $submission->description ?? null,
                 'auto_generated_score' => $submission->auto_score ?? null,
 
-                'documents'           => $documents,
+                'documents'            => $documents,
+
                 'rubric' => [
-                    'category'   => optional($submission->category)->title,
-                    'section'    => optional($submission->section)->title,
-                    'subsection' => optional($submission->subsection)->sub_section,
-                    'options'    => $rubricOptions,
+                    'category'       => optional($submission->category)->title,
+                    'section'        => optional($submission->section)->title,
+                    'subsection'     => optional($subsection)->sub_section,
+                    'scoring_method' => optional($subsection)->scoring_method,
+                    'cap_points'     => optional($subsection)->cap_points,
+                    'score_params'   => $scoreParams,   // 👈 this is the key for rate-based scoring
+                    'options'        => $rubricOptions,
                 ],
             ],
         ]);
@@ -117,14 +145,23 @@ class AssessorSubmissionController extends Controller
         abort_unless($user->isAssessor(), 403);
 
         $data = $request->validate([
-            'action'       => 'required|in:approve,reject,return,flag',
-            'remarks'      => 'nullable|string|max:2000',
-            'total_points' => 'nullable|numeric', // from rubric option
+            'action'         => 'required|in:approve,reject,return,flag',
+            'remarks'        => 'nullable|string|max:2000',
+            'total_points'   => 'nullable|numeric', // new name
+            'assessor_score' => 'nullable|numeric', // old name from JS (if any)
         ]);
 
         $action  = $data['action'];
         $remarks = $data['remarks'] ?? null;
-        $points  = $data['total_points'] ?? null;
+
+        // Prefer total_points, but fall back to assessor_score
+        $score = $data['total_points'] ?? $data['assessor_score'] ?? null;
+
+        // Optional: final fallback to auto_score if still null
+        if ($score === null && $submission->auto_score !== null) {
+            $score = $submission->auto_score;
+        }
+
 
         $decisionMap = [
             'approve' => 'approved',
@@ -134,8 +171,23 @@ class AssessorSubmissionController extends Controller
         ];
         $newStatus = $decisionMap[$action];
 
-        DB::transaction(function () use ($submission, $user, $newStatus, $remarks, $points) {
+        DB::transaction(function () use ($submission, $user, $newStatus, $remarks, $score) {
             $oldStatus = $submission->status;
+
+            // 🔹 Always store which rubric_subsection this review belongs to
+            $rubricSubsectionId = $submission->rubric_subsection_id;
+
+            // 🔹 Try to resolve the specific rubric option (for option-based items)
+            $rubricOptionId = null;
+            if ($rubricSubsectionId && $score !== null) {
+                $rubricOption = RubricOption::where('sub_section_id', $rubricSubsectionId)
+                    ->where('points', $score)
+                    ->first();
+
+                if ($rubricOption) {
+                    $rubricOptionId = $rubricOption->id;
+                }
+            }
 
             // 1) per-assessor review
             SubmissionReview::updateOrCreate(
@@ -144,14 +196,16 @@ class AssessorSubmissionController extends Controller
                     'assessor_id'   => $user->id,
                 ],
                 [
-                    'decision'     => $newStatus,
-                    'comments'     => $remarks,
-                    'total_points' => $points,
-                    'reviewed_at'  => now(),
+                    'sub_section_id'    => $rubricSubsectionId,   // ✅ matches migration + model
+                    'rubric_option_id'  => $rubricOptionId,
+                    'comments'          => $remarks,
+                    'score'             => $score,
+                    'reviewed_at'       => now(),
                 ]
             );
 
-            // 2) update submission
+
+            // 2) update submission workflow status
             $submission->status = $newStatus;
             if (!empty($remarks)) {
                 $submission->remarks = $remarks;
@@ -179,6 +233,8 @@ class AssessorSubmissionController extends Controller
         ]);
     }
 
+
+
     protected function recomputeCompiledScoreForStudentCategory(Submission $basis, $assessor): void
     {
         $categoryId = $basis->rubric_category_id;
@@ -191,13 +247,13 @@ class AssessorSubmissionController extends Controller
             })
             ->get();
 
-        $totalPoints = $reviews->sum('total_points');
+        $rawTotal = $reviews->sum('score');
 
         $category = $basis->category;
-        $max      = $category->max_points ?? 0;
+        $max      = $category->max_points ?? 20;     // 20 for most, 10 for conduct
         $minReq   = $category->min_required_points ?? 0;
 
-        $resultKey = $totalPoints >= $minReq ? 'meets' : 'does_not_meet';
+        $totalScore = min($rawTotal, $max);
 
         AssessorCompiledScore::updateOrCreate(
             [
@@ -206,10 +262,10 @@ class AssessorSubmissionController extends Controller
                 'rubric_category_id' => $categoryId,
             ],
             [
-                'total_points'        => $totalPoints,
+                'total_score'         => $totalScore,
                 'max_points'          => $max,
                 'min_required_points' => $minReq,
-                'category_result'     => $resultKey,
+                // 'category_result'     => $resultKey, // keep commented for now
             ]
         );
     }

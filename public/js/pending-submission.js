@@ -3,13 +3,20 @@
 let currentSubmissionId = null;
 const entriesPerPage = 5;
 
+// rubric context for currently open modal
+let currentAutoScore = null;        // numeric score we'll send
+let currentScoringMethod = null;    // 'option' | 'rate' | null
+let currentRate = null;             // for rate-based subsections
+let currentCap = null;              // cap_points at subsection level (may be null)
+let currentRubricOptionId = null;   // selected descriptor id (if any)
+
 // small helper to avoid "cannot set textContent of null"
 function setText(id, value) {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
 }
 
-// Minimal modal / message helpers (fallbacks).
+// Minimal modal / message helpers (fallbacks)
 function showErrorModal(message) {
     try {
         alert(message);
@@ -56,7 +63,7 @@ if (typeof initializePagination === 'undefined') {
    MODAL HELPERS
    ========================= */
 
-function showModalLoading() {
+function resetModalState() {
     [
         'modalStudentId',
         'modalStudentName',
@@ -70,11 +77,18 @@ function showModalLoading() {
         'modalDescription',
         'modalAutoScore'
     ].forEach(id => setText(id, 'Loading...'));
+
+    currentSubmissionId   = null;
+    currentAutoScore      = null;
+    currentScoringMethod  = null;
+    currentRate           = null;
+    currentCap            = null;
+    currentRubricOptionId = null;
 }
 
 window.openSubmissionModal = async function (submissionId) {
     try {
-        showModalLoading();
+        resetModalState();
 
         const response = await fetch(`/assessor/submissions/${submissionId}/details`, {
             headers: { 'Accept': 'application/json' }
@@ -87,6 +101,17 @@ window.openSubmissionModal = async function (submissionId) {
 
         const data = await response.json();
         const submission = data.submission;
+
+        const rubric = submission.rubric || {};
+        currentScoringMethod  = rubric.scoring_method || null;
+        currentCap            = rubric.cap_points ?? null;
+        currentRate           = rubric.score_params && rubric.score_params.rate != null
+            ? parseFloat(rubric.score_params.rate)
+            : null;
+        currentAutoScore      = submission.auto_generated_score != null
+            ? parseFloat(submission.auto_generated_score)
+            : null;
+        currentRubricOptionId = null;
 
         // student info
         setText(
@@ -119,18 +144,14 @@ window.openSubmissionModal = async function (submissionId) {
 
         setText(
             'modalAutoScore',
-            submission.auto_generated_score != null
-                ? `${submission.auto_generated_score} pts`
+            currentAutoScore != null && !isNaN(currentAutoScore)
+                ? `${currentAutoScore} pts`
                 : 'Not calculated'
         );
 
         // docs & rubric
         populateDocumentPreview(submission.documents || []);
-        populateRubricOptions(
-            submission.rubric && submission.rubric.options
-                ? submission.rubric.options
-                : []
-        );
+        populateRubricOptions(rubric.options || []);
 
         const remarksEl = document.getElementById('assessorRemarks');
         if (remarksEl) remarksEl.value = '';
@@ -204,7 +225,7 @@ window.downloadDocument = function (url) {
 };
 
 /* =========================
-   RUBRIC OPTIONS (cleaner + score pill)
+   RUBRIC OPTIONS (option vs rate)
    ========================= */
 
 function populateRubricOptions(options) {
@@ -213,44 +234,117 @@ function populateRubricOptions(options) {
 
     container.innerHTML = '';
 
-    if (!options || options.length === 0) {
-        container.innerHTML =
-            '<p class="text-muted mb-0">No rubric options defined for this subsection.</p>';
+    // CASE 1: option-based rubric (leadership A/B/C, academic, awards, conduct)
+    if (options && options.length > 0) {
+        const list = document.createElement('div');
+        list.className = 'rubric-options-list';
+
+        options.forEach(opt => {
+            const item = document.createElement('div');
+            item.className = 'form-check rubric-option';
+
+            item.innerHTML = `
+                <input class="form-check-input" type="radio"
+                       name="rubric_option" id="rubric_option_${opt.id}"
+                       value="${opt.points}"
+                       data-option-id="${opt.id}">
+                <label class="form-check-label" for="rubric_option_${opt.id}">
+                    <strong>${opt.label}</strong>
+                    ${opt.points !== null ? ` <span class="rubric-points">(${opt.points} pts)</span>` : ''}
+                </label>
+            `;
+
+            list.appendChild(item);
+        });
+
+        container.appendChild(list);
+
+        // Update score pill when a descriptor is picked
+        const radios = container.querySelectorAll('input[name="rubric_option"]');
+        radios.forEach(input => {
+            input.addEventListener('change', () => {
+                const pts = parseFloat(input.value);
+                const optId = parseInt(input.getAttribute('data-option-id'), 10);
+                if (!isNaN(pts)) {
+                    currentAutoScore = pts;
+                    setText('modalAutoScore', `${pts} pts`);
+                }
+                currentRubricOptionId = !isNaN(optId) ? optId : null;
+            });
+        });
+
         return;
     }
 
-    const list = document.createElement('div');
-    list.className = 'rubric-options-list';
+    // CASE 2: rate-based rubric (D trainings, community service, etc.)
+    if (currentScoringMethod === 'rate') {
+        const rateText = currentRate != null ? `${currentRate} pts/day` : 'rate not defined';
+        const currentScoreText =
+            currentAutoScore != null && !isNaN(currentAutoScore)
+                ? `${currentAutoScore} pts`
+                : 'No auto-calculated score available.';
 
-    options.forEach(opt => {
-        const item = document.createElement('div');
-        item.className = 'form-check rubric-option';
-
-        item.innerHTML = `
-            <input class="form-check-input" type="radio"
-                   name="rubric_option" id="rubric_option_${opt.id}"
-                   value="${opt.points}">
-            <label class="form-check-label" for="rubric_option_${opt.id}">
-                <strong>${opt.label}</strong>
-                ${opt.points !== null ? ` <span class="rubric-points">(${opt.points} pts)</span>` : ''}
-            </label>
+        container.innerHTML = `
+            <p class="text-muted mb-1">
+                This item uses a rate-based score (days × rate, capped per level).
+            </p>
+            <p class="mb-1"><strong>Rate:</strong> ${rateText}</p>
+            <div class="mb-2">
+                <label for="rateDaysInput" class="form-label">
+                    Number of days (enter based on the student's note):
+                </label>
+                <input type="number" min="0" step="0.5"
+                       id="rateDaysInput"
+                       class="form-control"
+                       placeholder="e.g. 3">
+            </div>
+            <p><strong>Score:</strong> <span id="rateScoreDisplay">${currentScoreText}</span></p>
         `;
 
-        list.appendChild(item);
-    });
+        const daysInput = document.getElementById('rateDaysInput');
+        const scoreDisplay = document.getElementById('rateScoreDisplay');
 
-    container.appendChild(list);
-
-    // update score pill when a descriptor is picked
-    const radios = container.querySelectorAll('input[name="rubric_option"]');
-    radios.forEach(input => {
-        input.addEventListener('change', () => {
-            const pts = parseFloat(input.value);
-            if (!isNaN(pts)) {
-                setText('modalAutoScore', `${pts} pts`);
+        if (daysInput && currentAutoScore != null && !isNaN(currentAutoScore) && currentRate) {
+            // Try to back-calc days just for convenience
+            const approxDays = currentAutoScore / currentRate;
+            if (!isNaN(approxDays)) {
+                daysInput.value = approxDays.toFixed(2).replace(/\.00$/, '');
             }
-        });
-    });
+        }
+
+        if (daysInput) {
+            daysInput.addEventListener('input', () => {
+                const days = parseFloat(daysInput.value);
+                if (isNaN(days) || days < 0 || currentRate == null) {
+                    currentAutoScore = null;
+                    scoreDisplay.textContent = 'No auto-calculated score available.';
+                    setText('modalAutoScore', 'Not calculated');
+                    return;
+                }
+
+                let score = days * currentRate;
+                if (currentCap != null && !isNaN(currentCap)) {
+                    score = Math.min(score, currentCap);
+                }
+
+                // Round to 2 decimals to match DB decimal(10,2)
+                score = Math.round(score * 100) / 100;
+
+                currentAutoScore = score;
+                const label = `${score} pts`;
+                scoreDisplay.textContent = label;
+                setText('modalAutoScore', label);
+            });
+        }
+
+        // no radios here
+        currentRubricOptionId = null;
+        return;
+    }
+
+    // Fallback if truly nothing defined
+    container.innerHTML =
+        '<p class="text-muted mb-0">No rubric options defined for this subsection.</p>';
 }
 
 /* =========================
@@ -271,14 +365,24 @@ window.handleSubmission = async function (action) {
     }
 
     const selectedOption = document.querySelector('input[name="rubric_option"]:checked');
-    const totalPoints = selectedOption ? parseFloat(selectedOption.value) : null;
+    let totalPoints = selectedOption ? parseFloat(selectedOption.value) : null;
 
-    if (action === 'approve' && (totalPoints === null || isNaN(totalPoints))) {
-        showValidationError('Please select a rubric descriptor (score) before approving.');
-        return;
+    // For approve: require either a radio (option-based) OR a valid auto score (rate-based/manual)
+    if (action === 'approve') {
+        if (selectedOption && !isNaN(totalPoints)) {
+            // descriptor-based path is fine
+        } else if (currentScoringMethod === 'rate' &&
+                   currentAutoScore != null &&
+                   !isNaN(currentAutoScore)) {
+            totalPoints = currentAutoScore;
+        } else {
+            showValidationError(
+                'Please select a rubric descriptor or enter the number of days to compute the score before approving.'
+            );
+            return;
+        }
     }
 
-    // CSRF token
     const csrfMeta = document.querySelector('meta[name="csrf-token"]');
     if (!csrfMeta) {
         showErrorModal('CSRF token not found in page. Please ensure <meta name="csrf-token"> is in the layout.');
@@ -292,20 +396,20 @@ window.handleSubmission = async function (action) {
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': csrfToken,
-                'Accept': 'application/json',              // 👈 important
-                'X-Requested-With': 'XMLHttpRequest',      // 👈 helps Laravel treat it as AJAX
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
             },
             body: JSON.stringify({
                 action: action,
                 remarks: remarks,
-                total_points: totalPoints
+                total_points: totalPoints,
+                rubric_option_id: currentRubricOptionId,
             })
         });
 
-        const raw = await response.text(); // get text first
+        const raw = await response.text();
         let data = null;
 
-        // Try to parse JSON if possible
         try {
             data = raw ? JSON.parse(raw) : null;
         } catch (e) {
@@ -317,7 +421,6 @@ window.handleSubmission = async function (action) {
         }
 
         if (!response.ok) {
-            // Laravel JSON errors often put message or errors here
             const msg =
                 data?.message ||
                 data?.error ||
@@ -326,7 +429,6 @@ window.handleSubmission = async function (action) {
             throw new Error(msg);
         }
 
-        // Success
         const modalEl = document.getElementById('submissionModal');
         const modal = bootstrap.Modal.getInstance(modalEl);
         if (modal) modal.hide();

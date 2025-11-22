@@ -89,8 +89,8 @@ $avatarPath = $user && $user->profile_picture_path
             </a>
         </li>
 
-        <li class="{{ request()->routeIs('assessor.submissions.submissions') ? 'active' : '' }}">
-            <a href="{{ route('assessor.submissions.submissions') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+        <li class="{{ request()->routeIs('assessor.students.submissions') ? 'active' : '' }}">
+            <a href="{{ route('assessor.students.submissions') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
                 <i class="fas fa-file-alt"></i><span>Submissions</span>
             </a>
         </li>
@@ -101,6 +101,8 @@ $avatarPath = $user && $user->profile_picture_path
             </a>
         </li>
         @endif
+
+
 
         {{-- ===================== ADMIN MENU ===================== --}}
         @if ($role === 'admin')

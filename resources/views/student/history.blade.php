@@ -5,62 +5,124 @@
 @section('content')
 <div class="student-history-page">
     <div class="container">
+        @include('partials.sidebar')
+
         <main class="main-content">
             <h2 class="page-title">Submission History</h2>
 
             <div class="history-table-wrapper">
-                <table class="history-table w-100" id="historyTable">
-                    <thead>
-                        <tr>
-                            <th>Date Submitted</th>
-                            <th>Activity Type</th>
-                            <th>Organization</th>
-                            <th>Role</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {{-- Example rows --}}
-                        @php
-                        $records = [
-                        ['date' => 'September 2, 2025', 'type' => 'Training', 'org' => 'CICS Society', 'role' => 'Participant', 'status' => 'Approved'],
-                        ['date' => 'August 10, 2025', 'type' => 'Seminar', 'org' => 'Google Dev Club', 'role' => 'Speaker', 'status' => 'Pending'],
-                        ['date' => 'July 15, 2025', 'type' => 'Workshop', 'org' => 'USEP DevTeam', 'role' => 'Lead', 'status' => 'Rejected']
-                        ];
-                        @endphp
+                <div class="history-table-wrapper">
+                    <table class="history-table w-100" id="historyTable">
+                        <thead>
+                            <tr>
+                                <th>Date Submitted</th>
+                                <th>Date of Activity</th>
+                                <th>Activity Type</th>
+                                <th>Organization</th>
+                                <th>Role in Activity</th>
+                                <th>Status</th>
+                                <th>Details</th>
+                                <th>Remarks</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
 
-                        @foreach ($records as $record)
-                        <tr>
-                            <td>{{ $record['date'] }}</td>
-                            <td>{{ $record['type'] }}</td>
-                            <td>{{ $record['org'] }}</td>
-                            <td>{{ $record['role'] }}</td>
-                            <td>
-                                <span class="history-status {{ strtolower($record['status']) }}">
-                                    {{ $record['status'] }}
-                                </span>
-                            </td>
-                            <td>
-                                @if (in_array($record['status'], ['Pending', 'Approved']))
-                                <button class="history-btn view-btn" data-file="{{ asset('samples/training.pdf') }}">View</button>
-                                @elseif ($record['status'] === 'Rejected')
-                                <button class="history-btn view-btn" data-file="{{ asset('samples/training.pdf') }}">View</button>
-                                <button class="history-btn resubmit-btn">Resubmit</button>
-                                @endif
-                            </td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                        <tbody>
+                            @forelse ($submissions as $submission)
+                            @php
+                            $submittedAt = $submission->submitted_at ?? $submission->created_at;
+
+                            // meta is cast to array in model
+                            $meta = is_array($submission->meta)
+                            ? $submission->meta
+                            : (json_decode($submission->meta ?? '[]', true) ?: []);
+
+                            $activityType = $meta['activity_type']
+                            ?? $submission->activity_title
+                            ?? optional($submission->category)->title
+                            ?? '—';
+
+                            $orgName = $meta['organizing_body']
+                            ?? optional($submission->leadership)->organization_name
+                            ?? '—';
+
+                            $roleInActivity = $meta['role_in_activity']
+                            ?? optional($submission->leadership)->position
+                            ?? '—';
+
+                            $dateOfActivity = isset($meta['date_of_activity']) && $meta['date_of_activity']
+                            ? \Illuminate\Support\Carbon::parse($meta['date_of_activity'])->format('F d, Y')
+                            : '—';
+
+                            $status = $submission->status
+                            ?? optional($submission->latestHistory)->new_status
+                            ?? 'Pending';
+
+                            $details = $submission->description ?? '';
+                            $remarks = $submission->remarks
+                            ?? optional($submission->latestHistory)->remarks
+                            ?? '';
+                            @endphp
+
+                            <tr>
+                                {{-- Date submitted to system --}}
+                                <td>{{ optional($submittedAt)->format('F d, Y') }}</td>
+
+                                {{-- Date of the actual activity --}}
+                                <td>{{ $dateOfActivity }}</td>
+
+                                {{-- Activity type from meta --}}
+                                <td>{{ $activityType }}</td>
+
+                                {{-- Organizing body from meta --}}
+                                <td>{{ $orgName }}</td>
+
+                                {{-- Role in activity --}}
+                                <td>{{ $roleInActivity }}</td>
+
+                                {{-- Status --}}
+                                <td>
+                                    <span class="history-status {{ strtolower($status) }}">
+                                        {{ strtoupper($status) }}
+                                    </span>
+                                </td>
+
+                                {{-- Details (student’s description of submission) --}}
+                                <td title="{{ $details }}">
+                                    {{ \Illuminate\Support\Str::limit($details, 40) ?: '—' }}
+                                </td>
+
+                                {{-- Remarks (assessor feedback) --}}
+                                <td title="{{ $remarks }}">
+                                    {{ \Illuminate\Support\Str::limit($remarks, 40) ?: '—' }}
+                                </td>
+
+                                {{-- View file --}}
+                                <td>
+                                    <button class="history-btn view-btn"
+                                        data-file="{{ route('student.submissions.preview', $submission->id) }}">
+                                        View
+                                    </button>
+                                </td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="9" class="text-center">No submissions yet.</td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+
+                    </table>
+                </div>
+
             </div>
 
-            <!-- PDF Viewer -->
+            {{-- Slide-in file viewer (just the file) --}}
             <div id="pdfViewerContainer" class="pdf-viewer-container hidden">
                 <iframe id="pdfViewer" src="" frameborder="0"></iframe>
             </div>
 
-            <!-- Floating Close Button -->
+            {{-- Floating Close Button --}}
             <button id="closeViewer" class="close-viewer-btn hidden" title="Close Preview">
                 <i class="fas fa-times"></i>
             </button>
@@ -68,8 +130,8 @@
     </div>
 </div>
 
+{{-- =============== STYLES =============== --}}
 <style>
-    /* ====================== HISTORY PAGE STYLES ====================== */
     .student-history-page {
         display: flex;
         width: 100%;
@@ -85,13 +147,12 @@
         font-weight: 600;
     }
 
-    /* === Table === */
-    .student-history-page .history-table-wrapper {
+    .history-table-wrapper {
         margin-top: 16px;
         overflow-x: auto;
     }
 
-    .student-history-page .history-table {
+    .history-table {
         width: 100%;
         border-collapse: collapse;
         background: #fff;
@@ -99,30 +160,29 @@
         text-align: left;
     }
 
-    .student-history-page .history-table th,
-    .student-history-page .history-table td {
+    .history-table th,
+    .history-table td {
         padding: 12px 10px;
         border-bottom: 1px solid #ddd;
         vertical-align: middle;
     }
 
-    .student-history-page .history-status.approved {
+    .history-status.approved {
         color: #2ecc71;
         font-weight: 600;
     }
 
-    .student-history-page .history-status.pending {
+    .history-status.pending {
         color: #f39c12;
         font-weight: 600;
     }
 
-    .student-history-page .history-status.rejected {
+    .history-status.rejected {
         color: #e74c3c;
         font-weight: 600;
     }
 
-    /* === Buttons === */
-    .student-history-page .history-btn {
+    .history-btn {
         background: #0056b3;
         color: #fff;
         border: none;
@@ -133,23 +193,14 @@
         font-size: 0.9rem;
         transition: background 0.2s;
         white-space: nowrap;
-        /* prevent cutting text */
     }
 
-    .student-history-page .history-btn:hover {
+    .history-btn:hover {
         background: #00448f;
     }
 
-    .student-history-page .resubmit-btn {
-        background: #6c757d;
-    }
-
-    .student-history-page .resubmit-btn:hover {
-        background: #565e64;
-    }
-
-    /* === PDF Viewer === */
-    .student-history-page .pdf-viewer-container {
+    /* Viewer panel */
+    .pdf-viewer-container {
         position: fixed;
         top: 80px;
         right: 0;
@@ -165,18 +216,18 @@
         transform: translateX(100%);
     }
 
-    .student-history-page .pdf-viewer-container.active {
+    .pdf-viewer-container.active {
         transform: translateX(0);
     }
 
-    .student-history-page .pdf-viewer-container iframe {
+    .pdf-viewer-container iframe {
         flex: 1;
         width: 100%;
         height: 100%;
     }
 
-    /* === Floating Close Button === */
-    .student-history-page .close-viewer-btn {
+    /* Close button */
+    .close-viewer-btn {
         position: fixed;
         top: 90px;
         right: 52%;
@@ -196,31 +247,33 @@
         transition: opacity 0.2s, transform 0.3s ease;
     }
 
-    .student-history-page .close-viewer-btn.hidden {
+    .close-viewer-btn.hidden {
         opacity: 0;
         pointer-events: none;
         transform: scale(0.8);
     }
 
-    .student-history-page .close-viewer-btn:hover {
+    .close-viewer-btn:hover {
         background: #a93226;
     }
 </style>
 
+{{-- =============== JS =============== --}}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const viewerContainer = document.getElementById('pdfViewerContainer');
         const viewerFrame = document.getElementById('pdfViewer');
         const closeBtn = document.getElementById('closeViewer');
 
-        // Open PDF viewer (for View buttons)
+        // Open file viewer
         document.querySelectorAll('.view-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const fileUrl = btn.getAttribute('data-file');
+
                 viewerFrame.src = fileUrl;
                 viewerContainer.classList.add('active');
                 closeBtn.classList.remove('hidden');
-                document.body.classList.add('collapsed'); // auto-collapse sidebar
+                document.body.classList.add('collapsed'); // auto-collapse sidebar if you use that class
             });
         });
 
@@ -229,15 +282,9 @@
             viewerContainer.classList.remove('active');
             closeBtn.classList.add('hidden');
             viewerFrame.src = '';
-            document.body.classList.remove('collapsed'); // restore sidebar
-        });
-
-        // Demo resubmit action
-        document.querySelectorAll('.resubmit-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                alert('Resubmission form popup goes here.');
-            });
+            document.body.classList.remove('collapsed');
         });
     });
 </script>
+
 @endsection

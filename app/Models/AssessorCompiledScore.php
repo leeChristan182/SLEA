@@ -13,7 +13,7 @@ class AssessorCompiledScore extends Model
         'student_id',
         'assessor_id',
         'rubric_category_id',
-        'total_points',
+        'total_score',
         'max_points',
         'min_required_points',
         'category_result',
