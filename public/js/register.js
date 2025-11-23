@@ -230,7 +230,6 @@
     }
 
     // -------- Leadership (Council vs CCO) --------
-        // -------- Leadership (Council vs CCO) --------
     const URL_COUNCIL_POS = URLS.councilPositions || '';
 
     const oldLeadershipType = leadershipTypeSelect?.dataset.old || leadershipTypeSelect?.value || '';
@@ -260,15 +259,18 @@
       }
     }
 
-    function setOptionsFromArray(el, rows, selected) {
+    function setDisabled(el, disabled) {
       if (!el) return;
-      rows = rows || [];
-      rows.forEach(r => {
-        const id = String(r.id);
-        const label = r.name ?? id;
-        el.insertAdjacentHTML('beforeend', `<option value="${id}">${label}</option>`);
-      });
-      if (selected) el.value = String(selected);
+      el.disabled = disabled;
+      if (disabled) {
+        el.setAttribute('readonly', 'readonly');
+        el.style.backgroundColor = '#e9ecef';
+        el.style.cursor = 'not-allowed';
+      } else {
+        el.removeAttribute('readonly');
+        el.style.backgroundColor = '';
+        el.style.cursor = '';
+      }
     }
 
     function isCCOSelected() {
@@ -278,20 +280,32 @@
       return key === 'cco' || /council of clubs and organizations/i.test(opt.textContent || '');
     }
 
-    // Council types (USG/OSC/LC/LGU/LCM) → positions union
-    async function loadCouncilPositions(selectedPos = '') {
+    // Load positions by leadership_type_id
+    async function loadPositionsByLeadershipType(typeId, selectedPos = '') {
+      resetDropdown(positionSelect, 'Select Leadership Type first');
+      if (!typeId) {
+        resetDropdown(positionSelect, 'Select Leadership Type first');
+        return;
+      }
+      
       resetDropdown(positionSelect, 'Loading positions...');
       if (!URL_COUNCIL_POS) {
         resetDropdown(positionSelect, 'Select Position');
         return;
       }
-      const rows = await safeFetchJson(`${URL_COUNCIL_POS}?_=${Date.now()}`);
+      
+      const rows = await safeFetchJson(
+        `${URL_COUNCIL_POS}?leadership_type_id=${encodeURIComponent(typeId)}&_=${Date.now()}`
+      );
       resetDropdown(positionSelect, 'Select Position');
-      if (!rows) return;
+      if (!rows || !Array.isArray(rows) || rows.length === 0) {
+        resetDropdown(positionSelect, 'No positions available');
+        return;
+      }
       setOptionsFromArray(positionSelect, rows, selectedPos);
     }
 
-    // CCO club/org positions via generic positions endpoint
+    // CCO club/org positions via organization (for non-CCO organizations)
     async function loadOrgPositions(orgId, selectedPos = '') {
       resetDropdown(positionSelect, 'Loading positions...');
       if (!URLS.positions || !orgId) {
@@ -342,7 +356,48 @@
       }
     }
 
-    // Change handlers
+    // Handle CCO special case: Set Cluster and Organization to "N/A"
+    function handleCCOSelection() {
+      // Set Cluster to N/A
+      resetDropdown(clusterSelect, 'Select Cluster');
+      clusterSelect.innerHTML = '<option value="N/A" selected>N/A</option>';
+      setDisabled(clusterSelect, true);
+      setRequired(clusterSelect, true, clusterStar);
+      
+      // Set Organization to N/A
+      resetDropdown(organizationSelect, 'Select Organization');
+      organizationSelect.innerHTML = '<option value="N/A" selected>N/A</option>';
+      setDisabled(organizationSelect, true);
+      setRequired(organizationSelect, true, orgStar);
+      
+      // Show the fields
+      setVisible(clusterWrap, true);
+      setVisible(orgWrap, true);
+      
+      // Load CCO positions
+      const typeId = leadershipTypeSelect.value;
+      loadPositionsByLeadershipType(typeId, oldPosition || '');
+    }
+
+    // Handle non-CCO selection: Restore normal functionality
+    function handleNonCCOSelection() {
+      // Re-enable Cluster and Organization
+      setDisabled(clusterSelect, false);
+      setDisabled(organizationSelect, false);
+      
+      // Hide Cluster and Organization fields for non-CCO
+      setVisible(clusterWrap, false);
+      setVisible(orgWrap, false);
+      setRequired(clusterSelect, false, clusterStar);
+      setRequired(organizationSelect, false, orgStar);
+      if (orgOptHint) orgOptHint.style.display = 'none';
+      
+      // Load positions for the selected leadership type
+      const typeId = leadershipTypeSelect.value;
+      loadPositionsByLeadershipType(typeId, oldPosition || '');
+    }
+
+    // Single change handler for Leadership Type
     leadershipTypeSelect?.addEventListener('change', () => {
       const typeId = leadershipTypeSelect.value;
 
@@ -355,107 +410,35 @@
         setVisible(orgWrap, false);
         setRequired(clusterSelect, false, clusterStar);
         setRequired(organizationSelect, false, orgStar);
+        setDisabled(clusterSelect, false);
+        setDisabled(organizationSelect, false);
         if (orgOptHint) orgOptHint.style.display = 'none';
+        resetDropdown(positionSelect, 'Select Leadership Type first');
         return;
       }
 
       if (isCCOSelected()) {
-        // CCO → show cluster & org, both required; positions depend on org
-        setVisible(clusterWrap, true);
-        setVisible(orgWrap, true);
-        setRequired(clusterSelect, true, clusterStar);
-        setRequired(organizationSelect, true, orgStar);
-        if (orgOptHint) orgOptHint.style.display = '';
-
-        loadClusters();
+        // CCO special case: N/A for Cluster and Organization
+        handleCCOSelection();
       } else {
-        // Non-CCO (USG/OSC/LC/LGU/LCM) → only leadership_type + position
-        setVisible(clusterWrap, false);
-        setVisible(orgWrap, false);
-        setRequired(clusterSelect, false, clusterStar);
-        setRequired(organizationSelect, false, orgStar);
-        if (orgOptHint) orgOptHint.style.display = 'none';
-
-        loadCouncilPositions(oldPosition || '');
+        // Non-CCO: Load positions directly by leadership type
+        handleNonCCOSelection();
       }
     });
 
     clusterSelect?.addEventListener('change', () => {
       const clusterId = clusterSelect.value;
-      loadOrganizations(clusterId);
+      // Only load organizations if not CCO and cluster is selected
+      if (!isCCOSelected() && clusterId) {
+        loadOrganizations(clusterId);
+      }
     });
 
     organizationSelect?.addEventListener('change', () => {
       const orgId = organizationSelect.value;
-      if (!orgId) {
-        resetDropdown(positionSelect, 'Select Position');
-        return;
-      }
-      if (isCCOSelected()) {
+      // Only load positions via organization if not CCO and org is selected
+      if (!isCCOSelected() && orgId) {
         loadOrgPositions(orgId, oldPosition || '');
-      }
-    });
-
-    // Restore old state on load (for validation errors)
-    if (oldLeadershipType) {
-      leadershipTypeSelect.value = oldLeadershipType;
-      leadershipTypeSelect.dispatchEvent(new Event('change'));
-    }
-
-    // Change handlers
-    leadershipTypeSelect?.addEventListener('change', () => {
-      const typeId = leadershipTypeSelect.value;
-
-      resetDropdown(clusterSelect, 'Select Cluster');
-      resetDropdown(organizationSelect, 'Select Organization');
-      resetDropdown(positionSelect, 'Select Position');
-
-      if (!typeId) {
-        setVisible(clusterWrap, false);
-        setVisible(orgWrap, false);
-        setRequired(clusterSelect, false, clusterStar);
-        setRequired(organizationSelect, false, orgStar);
-        if (orgOptHint) orgOptHint.style.display = 'none';
-        return;
-      }
-
-      if (isCCOSelected()) {
-        // CCO → cluster + org required, positions depend on org
-        setVisible(clusterWrap, true);
-        setVisible(orgWrap, true);
-        setRequired(clusterSelect, true, clusterStar);
-        setRequired(organizationSelect, true, orgStar);
-        if (orgOptHint) orgOptHint.style.display = '';
-
-        loadClustersForCCO(typeId);
-      } else {
-        // Council types: only leadership_type + position
-        setVisible(clusterWrap, false);
-        setVisible(orgWrap, false);
-        setRequired(clusterSelect, false, clusterStar);
-        setRequired(organizationSelect, false, orgStar);
-        if (orgOptHint) orgOptHint.style.display = 'none';
-
-        loadCouncilPositionsForType(typeId, oldPosition || '');
-      }
-    });
-
-    clusterSelect?.addEventListener('change', () => {
-      const clusterId = clusterSelect.value;
-      loadOrganizationsForCluster(clusterId);
-    });
-
-    organizationSelect?.addEventListener('change', () => {
-      const orgId  = organizationSelect.value;
-      const typeId = leadershipTypeSelect.value;
-
-      if (!orgId) {
-        resetDropdown(positionSelect, 'Select Position');
-        return;
-      }
-
-      if (isCCOSelected()) {
-        loadPositionsForCcoOrg(typeId, orgId, oldPosition || '');
       }
     });
 

@@ -8,6 +8,7 @@ use Database\Seeders\UsersAdminSeeder;
 use Database\Seeders\CollegesProgramsMajorsSeeder;
 use Database\Seeders\ClusterSeeder;
 use Database\Seeders\LeadershipTypeSeeder;
+use Database\Seeders\LeadershipStatusSeeder;
 use Database\Seeders\OrganizationSeeder;
 use Database\Seeders\PositionSeeder;
 use Database\Seeders\RubricCategorySeeder;
@@ -28,6 +29,7 @@ class DatabaseSeeder extends Seeder
             UsersAdminSeeder::class,
             CollegesProgramsMajorsSeeder::class,
             LeadershipTypeSeeder::class,
+            LeadershipStatusSeeder::class,
             ClusterSeeder::class,
             OrganizationSeeder::class,
             PositionSeeder::class,

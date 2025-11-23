@@ -60,23 +60,23 @@
     <!-- Registration Content -->
     <div class="register-container">
         <main class="flex-grow-1">
-            <div class="container py-5">
-                <h4 class="text-maroon mb-4 fs-1 fw-bold">Sign Up!</h4>
-                <p class="small fs-5 fw-normal">
+            <div class="container py-1">
+                <h4 class="text-maroon mb-1 fs-1 fw-bold">Sign Up!</h4>
+                <p class="small fs-5 fw-normal mb-1">
                     Already have an account? <a href="{{ route('login.show') }}">Login here</a>
                 </p>
 
-                @if ($errors->any())
+                    @if ($errors->any())
                 <div class="alert alert-danger" role="alert">
-                    <ul class="mb-0">
-                        @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-                @endif
+                        <ul class="mb-0">
+                            @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                    @endif
 
-                @if (session('status'))
+                    @if (session('status'))
                 <div class="alert alert-success" role="status">
                     {{ session('status') }}
                 </div>
@@ -89,7 +89,7 @@
 
                     <!-- Step 1: Personal Information -->
                     <div class="form-step active">
-                        <h5 class="mb-3">Personal Information</h5>
+                        <h5 class="mb-1">Personal Information</h5>
                         <div class="row g-3">
                             <div class="col-md-4">
                                 <label class="form-label" for="last_name">
@@ -110,28 +110,28 @@
                                 <label class="form-label" for="first_name">
                                     First Name <span class="required">*</span>
                                 </label>
-                                <input
+                            <input
                                     id="first_name"
-                                    type="text"
-                                    name="first_name"
-                                    class="form-control @error('first_name') is-invalid @enderror"
-                                    value="{{ old('first_name') }}"
-                                    required
-                                    autocomplete="given-name">
-                                @error('first_name') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
+                                type="text"
+                                name="first_name"
+                                class="form-control @error('first_name') is-invalid @enderror"
+                                value="{{ old('first_name') }}"
+                                required
+                                autocomplete="given-name">
+                            @error('first_name') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
 
                             <div class="col-md-4">
                                 <label class="form-label" for="middle_name">Middle Name</label>
-                                <input
+                            <input
                                     id="middle_name"
-                                    type="text"
-                                    name="middle_name"
-                                    class="form-control @error('middle_name') is-invalid @enderror"
-                                    value="{{ old('middle_name') }}"
-                                    autocomplete="additional-name">
-                                @error('middle_name') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
+                            type="text"
+                            name="middle_name"
+                            class="form-control @error('middle_name') is-invalid @enderror"
+                            value="{{ old('middle_name') }}"
+                            autocomplete="additional-name">
+                        @error('middle_name') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
 
                             <div class="col-md-4">
                                 <label class="form-label" for="birth_date">
@@ -165,9 +165,9 @@
                                 <label class="form-label" for="email_address">
                                     USeP Email <span class="required">*</span>
                                 </label>
-                                <input
+                            <input
                                     id="email_address"
-                                    type="email"
+                                type="email"
                                     name="email_address"
                                     class="form-control @error('email_address') is-invalid @enderror"
                                     placeholder="example@usep.edu.ph"
@@ -187,7 +187,7 @@
                                     name="contact"
                                     class="form-control @error('contact') is-invalid @enderror"
                                     value="{{ old('contact') }}"
-                                    required
+                                required
                                     autocomplete="tel">
                                 @error('contact') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
@@ -196,7 +196,7 @@
 
                     <!-- Step 2: Academic Information -->
                     <div class="form-step">
-                        <h5 class="mb-3">Academic Information</h5>
+                        <h5 class="mb-1">Academic Information</h5>
                         <div class="row g-3">
                             {{-- Student ID (stored as student_number in student_academic) --}}
                             <div class="col-md-4">
@@ -295,7 +295,7 @@
                                 <label class="form-label" for="expected_grad">
                                     Expected Year to Graduate <span class="required">*</span>
                                 </label>
-                                <input
+                            <input
                                     id="expected_grad"
                                     type="text"
                                     name="expected_grad"
@@ -308,7 +308,7 @@
 
                     <!-- Step 3: Leadership Involvement -->
                     <div class="form-step">
-                        <h5 class="mb-3">Leadership Information</h5>
+                        <h5 class="mb-1">Leadership Information</h5>
 
                         <div class="row g-3">
                             {{-- Leadership Type (council list incl. LCM; CCO requires cluster/org) --}}
@@ -373,19 +373,6 @@
                             </div>
                         </div>
 
-                        @php
-                        // Leadership status values should match the enum table + validation (Active / Inactive)
-                        $leadershipStatuses = [];
-                        try {
-                        $leadershipStatuses = \Illuminate\Support\Facades\DB::table('student_leadership_statuses')
-                        ->pluck('key')
-                        ->toArray();
-                        } catch (\Throwable $e) {
-                        // fallback if table doesn't exist in dev
-                        $leadershipStatuses = ['Active', 'Inactive'];
-                        }
-                        @endphp
-
                         <div class="row g-3 mt-1">
                             {{-- Positions --}}
                             <div class="col-md-6">
@@ -413,14 +400,13 @@
                                     name="leadership_status"
                                     class="form-select @error('leadership_status') is-invalid @enderror"
                                     required>
-                                    <option value="">Select Status</option>
-                                    @foreach($leadershipStatuses as $st)
-                                    <option
-                                        value="{{ $st }}"
-                                        {{ old('leadership_status') === (string)$st ? 'selected' : '' }}>
-                                        {{ ucfirst($st) }}
+                                    <option value="">Select your leadership status</option>
+                                    <option value="Active" {{ old('leadership_status') === 'Active' ? 'selected' : '' }}>
+                                        Active (Current Officer/Leader)
                                     </option>
-                                    @endforeach
+                                    <option value="Inactive" {{ old('leadership_status') === 'Inactive' ? 'selected' : '' }}>
+                                        Inactive (Former Officer/Leader)
+                                    </option>
                                 </select>
                                 @error('leadership_status') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
@@ -462,7 +448,7 @@
 
                     <!-- Step 4: Account Credentials -->
                     <div class="form-step">
-                        <h5 class="mb-3">Login Credentials</h5>
+                        <h5 class="mb-1">Login Credentials</h5>
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label" for="password">
@@ -477,7 +463,7 @@
                                     aria-describedby="passwordHelp">
                                 @error('password') <div class="invalid-feedback">{{ $message }}</div> @enderror
 
-                                <ul id="passwordHelp" class="password-requirements list-unstyled mt-2 small">
+                                    <ul id="passwordHelp" class="password-requirements list-unstyled mt-1 small">
                                     <li id="length" class="text-danger">
                                         <i class="fa-regular fa-circle-xmark me-1"></i> At least 8 characters
                                     </li>
@@ -500,17 +486,17 @@
                                 <label class="form-label" for="password_confirmation">
                                     Confirm Password <span class="required">*</span>
                                 </label>
-                                <input
+                            <input
                                     id="password_confirmation"
-                                    type="password"
-                                    name="password_confirmation"
-                                    class="form-control @error('password_confirmation') is-invalid @enderror"
+                                type="password"
+                                name="password_confirmation"
+                                class="form-control @error('password_confirmation') is-invalid @enderror"
                                     required>
-                                @error('password_confirmation') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            @error('password_confirmation') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
                         </div>
 
-                        <div class="form-check mt-3">
+                        <div class="form-check mt-2">
                             <input
                                 class="form-check-input @error('privacy_agree') is-invalid @enderror"
                                 id="privacy_agree"
@@ -529,7 +515,7 @@
                     </div>
 
                     <!-- Step Controls -->
-                    <div class="pagination-controls d-flex justify-content-center align-items-center mt-3 mb-2 gap-1">
+                    <div class="pagination-controls d-flex justify-content-center align-items-center">
                         <button
                             type="button"
                             class="btn btn-secondary px-3 py-2"
@@ -537,7 +523,7 @@
                             onclick="nextPrev(-1)"
                             disabled>
                             Back
-                        </button>
+                    </button>
 
                         <div class="page-numbers d-flex gap-1" aria-label="form steps">
                             <span class="page-number active">1</span>
@@ -558,18 +544,20 @@
             </div>
         </main>
 
-        <div class="floating-tools d-md-none">
+    <div class="floating-tools d-md-none">
             <button id="darkModeToggleFloating" class="floating-btn" title="Toggle Dark Mode">
-                <i class="fas fa-moon"></i>
-            </button>
-            <a href="#" class="floating-btn" title="Send us a message">
+            <i class="fas fa-moon"></i>
+        </button>
+        <a href="#" class="floating-btn" title="Send us a message">
                 <i class="fa-solid fa-envelope"></i>
-            </a>
+        </a>
         </div>
     </div>
 
-    <footer id="page-footer" class="mt-auto text-center py-3 small">
+    <footer id="page-footer" class="mt-auto text-center py-2 small">
         &copy; {{ date('Y') }} University of Southeastern Philippines. All rights reserved.
+        <a href="#" target="_blank">Terms of Use</a> |
+        <a href="https://www.usep.edu.ph/usep-data-privacy-statement/" target="_blank">Privacy Policy</a>
     </footer>
 
     {{-- main behaviour --}}

@@ -18,6 +18,13 @@ class LeadershipTypeSeeder extends Seeder
             ['key' => 'lcm', 'name' => 'League of Class Mayors (LCM)',                'domain' => 'campus',  'scope' => 'institutional', 'requires_org' => false],
         ];
 
+        // Get the keys that should exist
+        $validKeys = array_column($rows, 'key');
+
+        // Delete any leadership types that are not in the seeder list
+        LeadershipType::whereNotIn('key', $validKeys)->delete();
+
+        // Update or create the leadership types from the seeder
         foreach ($rows as $r) {
             LeadershipType::updateOrCreate(['key' => $r['key']], $r);
         }

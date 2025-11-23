@@ -105,8 +105,23 @@ class AuthController extends Controller
 
         // Cluster/org enforcement for CCO etc.
         $needsOrg = $this->leadershipRequiresOrg((int) $validated['leadership_type_id']);
+        
+        // Check if CCO is selected
+        $isCCO = DB::table('leadership_types')
+            ->where('id', (int) $validated['leadership_type_id'])
+            ->where('key', 'cco')
+            ->exists();
 
-        if ($needsOrg) {
+        if ($isCCO) {
+            // CCO: cluster_id and organization_id should be "N/A" (stored as null)
+            $request->validate([
+                'cluster_id'      => ['required', 'in:N/A'],
+                'organization_id' => ['required', 'in:N/A'],
+            ]);
+            $validated['cluster_id']      = null;
+            $validated['organization_id'] = null;
+        } elseif ($needsOrg) {
+            // Other types that require org: normal validation
             $request->validate([
                 'cluster_id'      => ['required', 'integer', 'exists:clusters,id'],
                 'organization_id' => ['required', 'integer', 'exists:organizations,id'],
@@ -114,6 +129,7 @@ class AuthController extends Controller
             $validated['cluster_id']      = (int) $request->input('cluster_id');
             $validated['organization_id'] = (int) $request->input('organization_id');
         } else {
+            // Types that don't require org
             $validated['cluster_id']      = null;
             $validated['organization_id'] = null;
         }
@@ -245,22 +261,19 @@ class AuthController extends Controller
 
     public function getCouncilPositions(Request $request)
     {
-        if (
-            !Schema::hasTable('organizations')
-            || !Schema::hasTable('positions')
-            || !Schema::hasTable('organization_position')
-            || !Schema::hasTable('leadership_types')
-        ) {
+        if (!Schema::hasTable('positions') || !Schema::hasTable('leadership_types')) {
             return response()->json([]);
         }
 
         $typeId = (int) $request->query('leadership_type_id');
         $orgId  = (int) $request->query('organization_id');
 
-        if ($orgId) {
+        // If organization_id is provided (for CCO), load positions via organization_position
+        if ($orgId && Schema::hasTable('organization_position')) {
             $rows = DB::table('organization_position as op')
                 ->join('positions as p', 'p.id', '=', 'op.position_id')
                 ->where('op.organization_id', $orgId)
+                ->orderBy('p.rank_order')
                 ->orderBy('p.name')
                 ->select('p.id', 'p.name', 'op.alias')
                 ->get()
@@ -272,58 +285,23 @@ class AuthController extends Controller
             return response()->json($rows);
         }
 
+        // Load positions directly by leadership_type_id
         if ($typeId) {
-            $typeKey = DB::table('leadership_types')->where('id', $typeId)->value('key');
+            $rows = DB::table('positions')
+                ->where('leadership_type_id', $typeId)
+                ->orderBy('rank_order')
+                ->orderBy('name')
+                ->select('id', 'name')
+                ->get()
+                ->map(fn($r) => [
+                    'id'   => $r->id,
+                    'name' => $r->name,
+                ]);
 
-            $map = [
-                'usg' => 'University Student Government (USG)',
-                'osc' => 'Obrero Student Council (OSC)',
-                'lc'  => 'Local Council (LC)',
-                'lgu' => 'Local Government Unit (LGU)',
-                'lcm' => 'League of Class Mayors (LCM)',
-            ];
-
-            $orgName = $map[$typeKey] ?? null;
-
-            if ($orgName) {
-                $orgIdForType = DB::table('organizations')->where('name', $orgName)->value('id');
-
-                if ($orgIdForType) {
-                    $rows = DB::table('organization_position as op')
-                        ->join('positions as p', 'p.id', '=', 'op.position_id')
-                        ->where('op.organization_id', $orgIdForType)
-                        ->orderBy('p.name')
-                        ->select('p.id', 'p.name', 'op.alias')
-                        ->distinct()
-                        ->get()
-                        ->map(fn($r) => [
-                            'id'   => $r->id,
-                            'name' => $r->alias ?: $r->name,
-                        ]);
-
-                    return response()->json($rows);
-                }
-            }
+            return response()->json($rows);
         }
 
-        $orgIds = DB::table('organizations')
-            ->whereIn('name', $this->councilOrgNames())
-            ->pluck('id');
-
-        if ($orgIds->isEmpty()) {
-            return response()->json([]);
-        }
-
-        $rows = DB::table('organization_position as op')
-            ->join('positions as p', 'p.id', '=', 'op.position_id')
-            ->whereIn('op.organization_id', $orgIds)
-            ->orderBy('p.name')
-            ->select('p.id', 'p.name')
-            ->distinct()
-            ->get()
-            ->map(fn($r) => ['id' => $r->id, 'name' => $r->name]);
-
-        return response()->json($rows);
+        return response()->json([]);
     }
 
     public function getPositions(Request $r)
@@ -417,9 +395,18 @@ class AuthController extends Controller
     {
         if (!Schema::hasTable('leadership_types')) return collect();
 
+        // Order by the same sequence as defined in LeadershipTypeSeeder
         return DB::table('leadership_types')
             ->select('id', 'name', 'key', 'requires_org')
-            ->orderBy('name')
+            ->orderByRaw("CASE `key` 
+                WHEN 'usg' THEN 1 
+                WHEN 'osc' THEN 2 
+                WHEN 'lc' THEN 3 
+                WHEN 'cco' THEN 4 
+                WHEN 'lgu' THEN 5 
+                WHEN 'lcm' THEN 6 
+                ELSE 99 
+            END")
             ->get();
     }
 
