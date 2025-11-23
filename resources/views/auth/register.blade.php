@@ -24,13 +24,11 @@
         data-academics-map="{{ route('ajax.academics.map') }}"
         @endif>
 
-    {{-- LOCAL STYLES ONLY (CSP-FRIENDLY) --}}
     <link href="{{ asset('css/header.css') }}" rel="stylesheet">
     <link href="{{ asset('css/register.css') }}" rel="stylesheet">
-    <link href="{{ asset('css/bootstrap.min.css') }}" rel="stylesheet">
-    <link href="{{ asset('css/fontawesome.min.css') }}" rel="stylesheet">
-    <link href="{{ asset('css/all.min.css') }}" rel="stylesheet">
-    {{-- Removed Google Fonts CDN; if you want Quicksand, best to self-host via CSS --}}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 
 <body class="d-flex flex-column min-vh-100 {{ session('dark_mode', false) ? 'dark-mode' : '' }}">
@@ -84,13 +82,7 @@
                 </div>
                 @endif
 
-                <form
-                    method="POST"
-                    action="{{ route('register.store') }}"
-                    novalidate
-                    autocomplete="off"
-                    autocapitalize="none"
-                    autocorrect="off">
+                <form method="POST" action="{{ route('register.store') }}" novalidate>
                     @csrf
                     {{-- Guard hint for auth --}}
                     <input type="hidden" name="guard" value="student">
@@ -181,7 +173,7 @@
                                     placeholder="example@usep.edu.ph"
                                     value="{{ old('email_address') }}"
                                     required
-                                    autocomplete="off">
+                                    autocomplete="email">
                                 @error('email_address') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
 
@@ -298,7 +290,7 @@
                                 @error('year_level') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
 
-                            {{-- Expected Graduation --}}
+                            {{-- Expected Graduation (display only, computed via JS / helper) --}}
                             <div class="col-md-4">
                                 <label class="form-label" for="expected_grad">
                                     Expected Year to Graduate <span class="required">*</span>
@@ -319,7 +311,7 @@
                         <h5 class="mb-3">Leadership Information</h5>
 
                         <div class="row g-3">
-                            {{-- Leadership Type --}}
+                            {{-- Leadership Type (council list incl. LCM; CCO requires cluster/org) --}}
                             <div class="col-md-6">
                                 <label class="form-label" for="leadership_type_id">
                                     Leadership Type <span class="required">*</span>
@@ -349,7 +341,7 @@
                         </div>
 
                         <div class="row g-3 mt-1">
-                            {{-- Cluster --}}
+                            {{-- Cluster (shown only when requires_org = true, e.g., CCO) --}}
                             <div class="col-md-6" id="cluster_wrap" style="display:none;">
                                 <label class="form-label" for="cluster_id">
                                     Cluster <span id="cluster_required_star" class="required" style="display:none;">*</span>
@@ -364,7 +356,7 @@
                                 @error('cluster_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
 
-                            {{-- Organization --}}
+                            {{-- Organization (shown only when requires_org = true, e.g., CCO) --}}
                             <div class="col-md-6" id="org_wrap" style="display:none;">
                                 <label class="form-label" for="organization_id">
                                     Organization <span id="org_required_star" class="required" style="display:none;">*</span>
@@ -382,12 +374,14 @@
                         </div>
 
                         @php
+                        // Leadership status values should match the enum table + validation (Active / Inactive)
                         $leadershipStatuses = [];
                         try {
                         $leadershipStatuses = \Illuminate\Support\Facades\DB::table('student_leadership_statuses')
                         ->pluck('key')
                         ->toArray();
                         } catch (\Throwable $e) {
+                        // fallback if table doesn't exist in dev
                         $leadershipStatuses = ['Active', 'Inactive'];
                         }
                         @endphp
@@ -480,8 +474,7 @@
                                     name="password"
                                     class="form-control @error('password') is-invalid @enderror"
                                     required
-                                    aria-describedby="passwordHelp"
-                                    autocomplete="new-password">
+                                    aria-describedby="passwordHelp">
                                 @error('password') <div class="invalid-feedback">{{ $message }}</div> @enderror
 
                                 <ul id="passwordHelp" class="password-requirements list-unstyled mt-2 small">
@@ -512,8 +505,7 @@
                                     type="password"
                                     name="password_confirmation"
                                     class="form-control @error('password_confirmation') is-invalid @enderror"
-                                    required
-                                    autocomplete="new-password">
+                                    required>
                                 @error('password_confirmation') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
                         </div>

@@ -7,155 +7,201 @@
         @include('partials.sidebar')
 
         <main class="main-content">
-            <!-- Upload Dropzone -->
-            <section class="sr-card sr-drop">
-                <input
-                    id="fileInput"
-                    name="attachments[]"
-                    type="file"
-                    accept=".jpg,.jpeg,.png,.pdf"
-                    multiple
-                    hidden>
-                <div id="dropzone" class="sr-dropzone" role="button" tabindex="0" aria-label="Click to upload">
-                    <i class="fa-solid fa-upload"></i>
-                    <div class="sr-drop-title">Click to Upload</div>
-                    <div class="sr-drop-sub">(JPEG, PDF, and PNG, up to 5MB)</div>
-                    <div class="sr-drop-hint">
-                        Please rename your file:<br>
-                        <code>TitleOfActivity_DocumentType_Lastname</code><br>
-                        <small>LeadershipTraining2024_CertificateOfParticipation_DelaCruz</small>
-                    </div>
-                </div>
-                <ul id="fileList" class="sr-filelist"></ul>
-            </section>
-
-            <!-- Activity + SLEA Classification -->
             <form
                 id="submitForm"
-                class="sr-card sr-form"
+                class="sr-form"
                 method="POST"
                 action="{{ route('student.submissions.store') }}"
                 enctype="multipart/form-data"
                 onsubmit="return false;">
                 @csrf
 
-                <h3>Activity</h3>
-                <div class="sr-grid">
-                    <div class="sr-field">
-                        <label for="title">Title of Activity</label>
-                        <input
-                            id="title"
-                            name="activity_title"
-                            type="text"
-                            placeholder="e.g., Leadership Training"
-                            required>
+                <!-- Step Header / Progress -->
+                <div class="sr-steps-header sr-card">
+                    <div class="sr-step-indicator-item active" data-step="1">
+                        <div class="sr-step-number">1</div>
+                        <div class="sr-step-label">SLEA Classification</div>
                     </div>
-                    <div class="sr-field">
-                        <label for="type">Type of Activity</label>
-                        <input
-                            id="type"
-                            name="activity_type"
-                            type="text"
-                            placeholder="e.g., Seminar / Workshop">
+                    <div class="sr-step-indicator-item" data-step="2">
+                        <div class="sr-step-number">2</div>
+                        <div class="sr-step-label">Activity Details</div>
                     </div>
-                    <div class="sr-field">
-                        <label for="role">Role in Activity</label>
-                        <input
-                            id="role"
-                            name="role_in_activity"
-                            type="text"
-                            placeholder="e.g., Participant / Speaker">
-                    </div>
-                    <div class="sr-field">
-                        <label for="date">Date of Activity</label>
-                        <input
-                            id="date"
-                            name="date_of_activity"
-                            type="date">
-                    </div>
-                    <div class="sr-field">
-                        <label for="orgBody">Organizing Body</label>
-                        <input
-                            id="orgBody"
-                            name="organizing_body"
-                            type="text"
-                            placeholder="e.g., OSAS">
-                    </div>
-                    <div class="sr-field">
-                        <label for="note">Note (optional)</label>
-                        <input
-                            id="note"
-                            name="note"
-                            type="text"
-                            placeholder="Any additional info">
-                    </div>
-                    <div class="sr-field">
-                        <label for="term">Term</label>
-                        <input
-                            id="term"
-                            name="term"
-                            type="text"
-                            placeholder="AY 2024–2025">
-                    </div>
-                    <div class="sr-field">
-                        <label for="issuedBy">Issued by</label>
-                        <input
-                            id="issuedBy"
-                            name="issued_by"
-                            type="text"
-                            placeholder="e.g., OSAS">
+                    <div class="sr-step-indicator-item" data-step="3">
+                        <div class="sr-step-number">3</div>
+                        <div class="sr-step-label">Upload & Submit</div>
                     </div>
                 </div>
 
-                <h3 style="margin-top:18px;">SLEA Classification</h3>
-                <div class="sr-grid">
-                    <div class="sr-field">
-                        <label for="docType">Document Type</label>
-                        <select id="docType" name="document_type">
-                            <option value="">Select document type</option>
-                            <option value="certificate">Certificate</option>
-                            <option value="appointment">Appointment</option>
-                            <option value="moa">Memorandum of Agreement</option>
-                            <option value="training">Training / Seminar</option>
-                            <option value="other">Other</option>
-                        </select>
+                <!-- STEP 1: SLEA CLASSIFICATION FIRST -->
+                <section class="sr-card sr-step sr-step-active" data-step="1">
+                    <h3>SLEA Classification</h3>
+                    <div class="sr-grid">
+                        <div class="sr-field">
+                            <label for="docType">Document Type</label>
+                            <select id="docType" name="document_type">
+                                <option value="">Select document type</option>
+                                <option value="certificate">Certificate</option>
+                                <option value="appointment">Appointment</option>
+                                <option value="moa">Memorandum of Agreement</option>
+                                <option value="training">Training / Seminar</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        {{-- Rubric Category --}}
+                        <div class="sr-field">
+                            <label for="sleacat">SLEA Category <span style="color: red;">*</span></label>
+                            <select id="sleacat" name="rubric_category_id" required>
+                                <option value="">Select category</option>
+                                @foreach($categories as $cat)
+                                <option value="{{ $cat->id }}">
+                                    {{ $cat->title }}
+                                </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        {{-- Rubric Section --}}
+                        <div class="sr-field">
+                            <label for="sectionSelect">Section</label>
+                            <select id="sectionSelect" name="rubric_section_id" disabled>
+                                <option value="">Select section</option>
+                            </select>
+                        </div>
+
+                        {{-- Rubric Subsection --}}
+                        <div class="sr-field">
+                            <label for="subSection">Subsection</label>
+                            <select id="subSection" name="rubric_subsection_id" disabled>
+                                <option value="">Select subsection</option>
+                            </select>
+                        </div>
                     </div>
 
-                    {{-- Rubric Category --}}
-                    <div class="sr-field">
-                        <label for="sleacat">SLEA Category <span style="color: red;">*</span></label>
-                        <select id="sleacat" name="rubric_category_id" required>
-                            <option value="">Select category</option>
-                            @foreach($categories as $cat)
-                            <option value="{{ $cat->id }}">
-                                {{ $cat->title }}
-                            </option>
-                            @endforeach
-                        </select>
+                    <div class="sr-actions sr-actions-steps">
+                        <button type="button" class="sr-btn sr-btn-primary" id="btnStep1Next">
+                            Next: Activity Details
+                        </button>
+                    </div>
+                </section>
+
+                <!-- STEP 2: ACTIVITY DETAILS SECOND -->
+                <section class="sr-card sr-step" data-step="2">
+                    <h3>Activity Details</h3>
+                    <div class="sr-grid">
+                        <div class="sr-field">
+                            <label for="title">Title of Activity <span style="color:red">*</span></label>
+                            <input
+                                id="title"
+                                name="activity_title"
+                                type="text"
+                                placeholder="e.g., Leadership Training"
+                                required>
+                        </div>
+                        <div class="sr-field">
+                            <label for="type">Type of Activity</label>
+                            <input
+                                id="type"
+                                name="activity_type"
+                                type="text"
+                                placeholder="e.g., Seminar / Workshop">
+                        </div>
+                        <div class="sr-field">
+                            <label for="role">Role in Activity</label>
+                            <input
+                                id="role"
+                                name="role_in_activity"
+                                type="text"
+                                placeholder="e.g., Participant / Speaker">
+                        </div>
+                        <div class="sr-field">
+                            <label for="date">Date of Activity</label>
+                            <input
+                                id="date"
+                                name="date_of_activity"
+                                type="date">
+                        </div>
+                        <div class="sr-field">
+                            <label for="orgBody">Organizing Body</label>
+                            <input
+                                id="orgBody"
+                                name="organizing_body"
+                                type="text"
+                                placeholder="e.g., OSAS">
+                        </div>
+                        <div class="sr-field">
+                            <label for="note">Note (optional)</label>
+                            <input
+                                id="note"
+                                name="note"
+                                type="text"
+                                placeholder="Any additional info">
+                        </div>
+                        <div class="sr-field">
+                            <label for="term">Term</label>
+                            <input
+                                id="term"
+                                name="term"
+                                type="text"
+                                placeholder="AY 2024–2025">
+                        </div>
+                        <div class="sr-field">
+                            <label for="issuedBy">Issued by</label>
+                            <input
+                                id="issuedBy"
+                                name="issued_by"
+                                type="text"
+                                placeholder="e.g., OSAS">
+                        </div>
                     </div>
 
-                    {{-- Rubric Section --}}
-                    <div class="sr-field">
-                        <label for="sectionSelect">Section</label>
-                        <select id="sectionSelect" name="rubric_section_id" disabled>
-                            <option value="">Select section</option>
-                        </select>
+                    <div class="sr-actions sr-actions-steps">
+                        <button type="button" class="sr-btn sr-btn-ghost" id="btnStep2Prev">
+                            Back to SLEA Classification
+                        </button>
+                        <button type="button" class="sr-btn sr-btn-primary" id="btnStep2Next">
+                            Next: Upload & Submit
+                        </button>
                     </div>
+                </section>
 
-                    {{-- Rubric Subsection --}}
-                    <div class="sr-field">
-                        <label for="subSection">Subsection</label>
-                        <select id="subSection" name="rubric_subsection_id" disabled>
-                            <option value="">Select subsection</option>
-                        </select>
+                <!-- STEP 3: UPLOAD + SUBMISSION LAST -->
+                <section class="sr-card sr-step" data-step="3">
+                    <h3>Upload Documents & Submit</h3>
+
+                    <!-- Upload Dropzone (last step) -->
+                    <section class="sr-card sr-drop sr-drop-inner">
+                        <input
+                            id="fileInput"
+                            name="attachments[]"
+                            type="file"
+                            accept=".jpg,.jpeg,.png,.pdf"
+                            multiple
+                            hidden>
+                        <div id="dropzone" class="sr-dropzone" role="button" tabindex="0" aria-label="Click to upload">
+                            <i class="fa-solid fa-upload"></i>
+                            <div class="sr-drop-title">Upload your supporting documents here</div>
+                            <div class="sr-drop-sub">
+                                JPEG, PNG, or PDF • Maximum size: 5MB each
+                            </div>
+                            <div class="sr-drop-hint">
+                                <strong>Rename your file using this format:</strong><br>
+                                <code>TitleOfActivity_DocumentType_Lastname</code><br>
+                                <small>Example: <strong>LeadershipTraining2024_CertificateOfParticipation_DelaCruz</strong></small>
+                            </div>
+                        </div>
+                        <ul id="fileList" class="sr-filelist"></ul>
+                    </section>
+
+                    <div class="sr-actions">
+                        <button type="button" class="sr-btn sr-btn-ghost" id="btnStep3Prev">
+                            Back to Activity Details
+                        </button>
+                        <button type="button" class="sr-btn sr-btn-primary" id="btnProceed">
+                            Review & Proceed
+                        </button>
                     </div>
-                </div>
-
-                <div class="sr-actions">
-                    <button type="button" class="sr-btn sr-btn-primary" id="btnProceed">Proceed</button>
-                    <button type="button" class="sr-btn sr-btn-ghost" id="btnAnother">Submit Another</button>
-                    <button type="button" class="sr-btn sr-btn-ghost" id="btnCancel">Cancel</button>
-                </div>
+                </section>
             </form>
 
             <!-- Draft Modal -->
@@ -218,7 +264,6 @@
         min-width: 0;
     }
 
-    /* === Scoped ONLY to Submit Record page === */
     .submit-record-page .sr-card {
         background: #fff;
         border: 1px solid #e5e7eb;
@@ -226,7 +271,6 @@
         padding: 18px;
         box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
         overflow: visible;
-        /* prevent dropdowns from being cut off */
     }
 
     body.dark-mode .submit-record-page .sr-card {
@@ -235,45 +279,144 @@
         color: #f1f1f1;
     }
 
-    .submit-record-page .sr-drop {
+    /* Steps header */
+    .submit-record-page .sr-steps-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .submit-record-page .sr-step-indicator-item {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 999px;
+        border: 1px solid #d1d5db;
+        background: #f9fafb;
+        font-size: 13px;
+    }
+
+    .submit-record-page .sr-step-number {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        background: #e5e7eb;
+        color: #374151;
+    }
+
+    .submit-record-page .sr-step-label {
+        font-weight: 600;
+        color: #374151;
+    }
+
+    .submit-record-page .sr-step-indicator-item.active .sr-step-number {
+        background: #7b0000;
+        color: #fff;
+    }
+
+    .submit-record-page .sr-step-indicator-item.completed {
+        border-color: #7b0000;
+    }
+
+    .submit-record-page .sr-step-indicator-item.completed .sr-step-number {
+        background: #16a34a;
+        color: #fff;
+    }
+
+    .submit-record-page .sr-step-indicator-item.completed .sr-step-label {
+        color: #16a34a;
+    }
+
+    /* Steps */
+    .submit-record-page .sr-step {
+        display: none;
+        margin-bottom: 16px;
+    }
+
+    .submit-record-page .sr-step-active {
+        display: block;
+    }
+
+    .submit-record-page .sr-drop-inner {
         padding: 0;
         margin-bottom: 16px;
+        box-shadow: none;
+        border: none;
     }
 
     .submit-record-page .sr-dropzone {
         padding: 28px 16px;
-        border: 2px dashed #c7c7c7;
+        border: 2px dashed #7b0000;
         border-radius: 14px;
         text-align: center;
-        color: #666;
         cursor: pointer;
+        background: #fff7f7;
     }
 
     .submit-record-page .sr-dropzone i {
-        font-size: 20px;
+        font-size: 24px;
+        margin-bottom: 6px;
     }
 
     .submit-record-page .sr-drop-title {
         margin-top: 6px;
-        font-weight: 700;
-        color: #333;
+        font-weight: 800;
+        color: #111827;
+        font-size: 16px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
     }
 
     .submit-record-page .sr-drop-sub {
-        font-size: 12px;
-        color: #888;
-        margin-top: 2px;
+        font-size: 14px;
+        color: #1f2933;
+        margin-top: 6px;
+        font-weight: 600;
     }
 
     .submit-record-page .sr-drop-hint {
-        margin-top: 10px;
+        margin-top: 12px;
+        font-size: 13px;
+        color: #111827;
+        line-height: 1.5;
+    }
+
+    .submit-record-page .sr-drop-hint code {
+        display: inline-block;
+        padding: 3px 6px;
+        border-radius: 6px;
+        background: #111827;
+        color: #f9fafb;
         font-size: 12px;
-        color: #777;
+        margin: 4px 0;
     }
 
     .submit-record-page .sr-dropzone.sr-drag {
-        background: #f8fafc;
-        border-color: #7b0000;
+        background: #fef2f2;
+        border-color: #b91c1c;
+    }
+
+    body.dark-mode .submit-record-page .sr-dropzone {
+        background: #3b1b1b;
+        border-color: #fca5a5;
+    }
+
+    body.dark-mode .submit-record-page .sr-drop-title,
+    body.dark-mode .submit-record-page .sr-drop-sub,
+    body.dark-mode .submit-record-page .sr-drop-hint {
+        color: #f9fafb;
+    }
+
+    body.dark-mode .submit-record-page .sr-drop-hint code {
+        background: #f9fafb;
+        color: #111827;
     }
 
     .submit-record-page .sr-filelist {
@@ -337,7 +480,6 @@
 
     .submit-record-page .sr-field select option {
         white-space: normal;
-        /* prevent long labels from being cut visually */
     }
 
     body.dark-mode .submit-record-page .sr-field input,
@@ -353,6 +495,10 @@
         justify-content: flex-start;
         margin-top: 18px;
         flex-wrap: wrap;
+    }
+
+    .submit-record-page .sr-actions-steps {
+        justify-content: flex-end;
     }
 
     .submit-record-page .sr-btn {
@@ -543,6 +689,10 @@
         .submit-record-page .sr-card {
             padding: 14px;
         }
+
+        .submit-record-page .sr-steps-header {
+            flex-direction: column;
+        }
     }
 
     @media (max-width: 576px) {
@@ -557,6 +707,7 @@
         }
     }
 </style>
+
 <script>
     (() => {
         // ======== RUBRIC DROPDOWNS (Category → Section → Subsection) ========
@@ -666,6 +817,54 @@
             });
         }
 
+        // ======== STEP WIZARD LOGIC ========
+        const steps = Array.from(document.querySelectorAll('.sr-step'));
+        const stepIndicators = Array.from(document.querySelectorAll('.sr-step-indicator-item'));
+        let currentStep = 1;
+
+        const showStep = (step) => {
+            currentStep = step;
+            steps.forEach(s => {
+                s.classList.toggle('sr-step-active', Number(s.dataset.step) === step);
+            });
+            stepIndicators.forEach(ind => {
+                const s = Number(ind.dataset.step);
+                ind.classList.toggle('active', s === step);
+                ind.classList.toggle('completed', s < step);
+            });
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        };
+
+        const btnStep1Next = document.getElementById('btnStep1Next');
+        const btnStep2Prev = document.getElementById('btnStep2Prev');
+        const btnStep2Next = document.getElementById('btnStep2Next');
+        const btnStep3Prev = document.getElementById('btnStep3Prev');
+
+        btnStep1Next?.addEventListener('click', () => {
+            const category = sleaCatSelect.value;
+            if (!category) {
+                alert('Please select a SLEA category before continuing.');
+                return;
+            }
+            showStep(2);
+        });
+
+        btnStep2Prev?.addEventListener('click', () => showStep(1));
+
+        btnStep2Next?.addEventListener('click', () => {
+            const title = document.getElementById('title').value.trim();
+            if (!title) {
+                alert('Please enter the title of activity before continuing.');
+                return;
+            }
+            showStep(3);
+        });
+
+        btnStep3Prev?.addEventListener('click', () => showStep(2));
+
         // ======== FILE + MODALS & SUBMIT LOGIC ========
         let files = [];
         const maxSize = 5 * 1024 * 1024;
@@ -676,8 +875,6 @@
         const fileList = document.getElementById('fileList');
 
         const btnProceed = document.getElementById('btnProceed');
-        const btnAnother = document.getElementById('btnAnother');
-        const btnCancel = document.getElementById('btnCancel');
 
         const modalDraft = document.getElementById('modalDraft');
         const modalConfirm = document.getElementById('modalConfirm');
@@ -774,6 +971,12 @@
         });
 
         btnProceed.addEventListener('click', () => {
+            // Ensure we are on last step
+            if (currentStep !== 3) {
+                showStep(3);
+                return;
+            }
+
             // Validate that at least one file is added
             if (!files.length) {
                 alert('Please add at least one document before proceeding.');
@@ -784,10 +987,12 @@
             const category = document.getElementById('sleacat').value;
             if (!title) {
                 alert('Please enter the title of activity.');
+                showStep(2);
                 return;
             }
             if (!category) {
                 alert('Please select a SLEA category.');
+                showStep(1);
                 return;
             }
             renderDraftList();
@@ -854,7 +1059,6 @@
                         }
                         console.error('Submit error (status ' + res.status + '):', payload);
 
-                        // If it's a validation error, show first message
                         if (payload && payload.errors) {
                             const firstField = Object.keys(payload.errors)[0];
                             const firstMsg = payload.errors[firstField][0];
@@ -873,9 +1077,16 @@
 
                     setTimeout(() => {
                         closeModal(modalSuccess);
+                        // Optional: reset after success
+                        const form = document.getElementById('submitForm');
                         form.reset();
                         files = [];
                         renderQuickList();
+                        clearSelect(sleaSectionSelect, 'Select section');
+                        clearSelect(sleaSubSelect, 'Select subsection');
+                        sleaSectionSelect.disabled = true;
+                        sleaSubSelect.disabled = true;
+                        showStep(1);
                         window.location.href = '{{ route("student.submit") }}';
                     }, 1100);
                 })
@@ -890,14 +1101,8 @@
             if (closer) closeModal(document.getElementById(closer.getAttribute('data-close')));
         });
 
-        const resetForm = () => {
-            document.getElementById('submitForm').reset();
-            files = [];
-            renderQuickList();
-        };
-
-        btnAnother.addEventListener('click', resetForm);
-        btnCancel.addEventListener('click', resetForm);
+        // Initialize step 1
+        showStep(1);
     })();
 </script>
 

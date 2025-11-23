@@ -1,6 +1,7 @@
 @auth
 <div class="dropdown">
-    <button class="btn btn-outline-light dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+    <button class="btn btn-outline-light dropdown-toggle" type="button" id="userDropdown"
+        data-bs-toggle="dropdown" aria-expanded="false">
         <i class="fas fa-user me-1"></i>
         {{ auth()->user()->name }}
     </button>
@@ -22,6 +23,11 @@
         </li>
     </ul>
 </div>
+
+<!-- Hidden Laravel logout form (canonical) -->
+<form id="logout-form" action="{{ route('logout') }}" method="POST" class="d-none">
+    @csrf
+</form>
 
 <!-- Logout Confirmation Modal -->
 <div class="modal fade" id="logoutModal" tabindex="-1" aria-labelledby="logoutModalLabel" aria-hidden="true">
@@ -55,8 +61,12 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const logoutBtn = document.getElementById('logout-btn');
-        const logoutModal = new bootstrap.Modal(document.getElementById('logoutModal'));
+        const logoutModalEl = document.getElementById('logoutModal');
         const confirmLogoutBtn = document.getElementById('confirm-logout');
+        const logoutForm = document.getElementById('logout-form');
+
+        if (!logoutModalEl) return;
+        const logoutModal = new bootstrap.Modal(logoutModalEl);
 
         if (logoutBtn) {
             logoutBtn.addEventListener('click', function(e) {
@@ -67,42 +77,21 @@
 
         if (confirmLogoutBtn) {
             confirmLogoutBtn.addEventListener('click', function() {
-                performLogout();
+                if (!logoutForm) {
+                    console.error('logout-form not found');
+                    window.location.href = '{{ route('
+                    login.show ') }}';
+                    return;
+                }
+
+                // Optional loading state
+                confirmLogoutBtn.disabled = true;
+                confirmLogoutBtn.innerHTML =
+                    '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Logging out...';
+
+                logoutForm.submit(); // 👈 canonical POST /logout with CSRF
             });
-        }
-
-        function performLogout() {
-            // Show loading state
-            confirmLogoutBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Logging out...';
-            confirmLogoutBtn.disabled = true;
-
-            // Send logout request
-            fetch('/ajax-logout', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Redirect to login page
-                        window.location.href = data.redirect_url;
-                    } else {
-                        // Fallback redirect
-                        window.location.href = '/';
-                    }
-                })
-                .catch(error => {
-                    console.error('Logout failed:', error);
-                    // Fallback redirect
-                    window.location.href = '/';
-                });
         }
     });
 </script>
 @endauth
-
-
