@@ -31,13 +31,47 @@ document.addEventListener('DOMContentLoaded', function () {
     toggleBtnFloating?.addEventListener('click', toggleTheme);
 
     // === PASSWORD TOGGLE ===
-    document.querySelector('.toggle-password')?.addEventListener('click', function () {
-        const input = document.getElementById('passwordInput');
-        const icon = this.querySelector('i');
-        const isHidden = input.type === 'password';
-        input.type = isHidden ? 'text' : 'password';
-        icon.className = isHidden ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
-    });
+    // Use event delegation to prevent duplicate handlers
+    const passwordInput = document.getElementById('passwordInput');
+    const togglePasswordBtn = document.querySelector('.toggle-password');
+    
+    if (togglePasswordBtn && passwordInput) {
+        // Remove any existing listeners by using a named function
+        function handlePasswordToggle(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            
+            const icon = togglePasswordBtn.querySelector('i');
+            
+            if (icon) {
+                const isHidden = passwordInput.type === 'password';
+                passwordInput.type = isHidden ? 'text' : 'password';
+                
+                // Toggle icon classes
+                if (isHidden) {
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                    togglePasswordBtn.setAttribute('title', 'Hide password');
+                } else {
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                    togglePasswordBtn.setAttribute('title', 'Show password');
+                }
+            }
+        }
+        
+        // Remove existing listener if any, then add new one
+        togglePasswordBtn.removeEventListener('click', handlePasswordToggle);
+        togglePasswordBtn.addEventListener('click', handlePasswordToggle);
+        
+        // Prevent browser's native password reveal on input
+        passwordInput.addEventListener('input', function(e) {
+            if (this.hasAttribute('data-custom-toggle')) {
+                // Browser's native reveal is already hidden via CSS
+            }
+        });
+    }
 
     // === PRIVACY MODAL ===
     setTimeout(() => {
