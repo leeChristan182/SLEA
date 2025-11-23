@@ -1,7 +1,7 @@
-{{-- resources/views/admin/manage_accounts.blade.php --}}
+{{-- resources/views/admin/manage.blade.php --}}
 @extends('layouts.app')
 
-@section('title', 'Manage Assessor Accounts')
+@section('title', 'Manage User Accounts')
 
 @section('content')
 <div class="container">
@@ -9,133 +9,195 @@
     <main class="main-content">
         <div class="page-with-back-button">
             <div class="page-content">
-                <!-- Back Button -->
+
+                {{-- Back Button --}}
                 <div class="rubric-header-nav mb-3">
                     <a href="{{ route('admin.profile') }}" class="btn btn-back">
                         <i class="fas fa-arrow-left"></i> Back to Profile
                     </a>
                 </div>
 
-                <h2 class="manage-title">Manage Assessor Accounts</h2>
+                <h2 class="manage-title mb-3">Manage User Accounts</h2>
 
                 {{-- Flash Messages --}}
-                @if(session('success'))
-                <div class="alert alert-success">{{ session('success') }}</div>
+                @if(session('status'))
+                <div class="alert alert-success">{{ session('status') }}</div>
                 @endif
-                @if(session('error'))
-                <div class="alert alert-danger">{{ session('error') }}</div>
-                @endif
-                @if ($errors->any())
+                @if($errors->any())
                 <div class="alert alert-danger">
                     <ul class="m-0 ps-3">
-                        @foreach ($errors->all() as $error)
+                        @foreach($errors->all() as $error)
                         <li>{{ $error }}</li>
                         @endforeach
                     </ul>
                 </div>
                 @endif
 
-                {{-- Controls (filter/search) --}}
-                <form class="controls d-flex justify-content-between align-items-center mb-3" method="GET" action="{{ route('admin.manage.assessors') }}">
-                    <div class="d-flex gap-2 align-items-center">
-                        <label class="me-2">
-                            <span class="small text-muted d-block">Filter</span>
-                            <select name="filter" class="form-select">
-                                <option value="">None</option>
-                                <option value="new" @selected(request('filter')==='new' )>New (Last 7 days)</option>
-                            </select>
-                        </label>
+                {{-- Filters / Search --}}
+                <form class="controls d-flex flex-wrap justify-content-between align-items-end mb-3"
+                    method="GET"
+                    action="{{ route('admin.manage-account') }}">
 
-                        <label class="me-2">
-                            <span class="small text-muted d-block">Sort by</span>
-                            <select name="sort" class="form-select">
-                                <option value="">None</option>
-                                <option value="name" @selected(request('sort')==='name' )>Name</option>
-                                <option value="date" @selected(request('sort')==='date' )>Date Created</option>
+                    <div class="d-flex flex-wrap gap-2 align-items-end">
+                        {{-- Role filter --}}
+                        <div>
+                            <label class="small text-muted d-block mb-1">Role</label>
+                            <select name="role" class="form-select">
+                                <option value="">All</option>
+                                <option value="{{ \App\Models\User::ROLE_ADMIN }}"
+                                    @selected(request('role')===\App\Models\User::ROLE_ADMIN)>
+                                    Admin
+                                </option>
+                                <option value="{{ \App\Models\User::ROLE_ASSESSOR }}"
+                                    @selected(request('role')===\App\Models\User::ROLE_ASSESSOR)>
+                                    Assessor
+                                </option>
+                                <option value="{{ \App\Models\User::ROLE_STUDENT }}"
+                                    @selected(request('role')===\App\Models\User::ROLE_STUDENT)>
+                                    Student
+                                </option>
                             </select>
-                        </label>
+                        </div>
+
+                        {{-- Status filter --}}
+                        <div>
+                            <label class="small text-muted d-block mb-1">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="">All</option>
+                                <option value="{{ \App\Models\User::STATUS_PENDING }}"
+                                    @selected(request('status')===\App\Models\User::STATUS_PENDING)>
+                                    Pending
+                                </option>
+                                <option value="{{ \App\Models\User::STATUS_APPROVED }}"
+                                    @selected(request('status')===\App\Models\User::STATUS_APPROVED)>
+                                    Approved
+                                </option>
+                                <option value="{{ \App\Models\User::STATUS_DISABLED }}"
+                                    @selected(request('status')===\App\Models\User::STATUS_DISABLED)>
+                                    Disabled
+                                </option>
+                                <option value="{{ \App\Models\User::STATUS_REJECTED }}"
+                                    @selected(request('status')===\App\Models\User::STATUS_REJECTED)>
+                                    Rejected
+                                </option>
+                            </select>
+                        </div>
                     </div>
 
-                    <div class="d-flex gap-2 align-items-end">
+                    <div class="d-flex flex-wrap gap-2 align-items-end">
+                        {{-- Search --}}
                         <div>
-                            <input type="text" name="q" class="form-control" placeholder="Search by email or name..." value="{{ request('q') }}">
+                            <label class="small text-muted d-block mb-1">Search</label>
+                            <input type="text"
+                                name="q"
+                                class="form-control"
+                                placeholder="Search by name or email…"
+                                value="{{ request('q') }}">
                         </div>
-                        <div>
-                            <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i></button>
+
+                        <div class="mb-1">
+                            <button type="submit" class="btn btn-primary mt-4 mt-md-0">
+                                <i class="fas fa-search me-1"></i> Filter
+                            </button>
                         </div>
-                        <div>
-                            <a href="{{ route('admin.assessors.create') }}" class="btn btn-success ms-2">
-                                <i class="fas fa-user-plus me-1"></i> Add Assessor
+
+                        <div class="mb-1">
+                            <a href="{{ route('admin.create_user') }}"
+                                class="btn btn-success mt-4 mt-md-0">
+                                <i class="fas fa-user-plus me-1"></i> Add Admin / Assessor
                             </a>
                         </div>
                     </div>
                 </form>
 
-                {{-- Assessor Accounts Table --}}
+                {{-- Users Table --}}
                 <div class="table-responsive">
                     <table class="table table-hover align-middle">
                         <thead class="table-light">
                             <tr>
                                 <th>Full Name</th>
-                                <th>Email Address</th>
-                                <th>Position</th>
-                                <th>Created By (Admin)</th>
-                                <th>Date Created</th>
-                                <th class="text-center">Action</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Created At</th>
+                                <th class="text-center">Actions</th>
                             </tr>
                         </thead>
-
                         <tbody>
-                            @forelse ($assessors as $assessor)
-                            <tr id="row-{{ \Illuminate\Support\Str::slug($assessor->email_address) }}">
-                                <td>{{ $assessor->first_name }} {{ $assessor->last_name }}</td>
-                                <td>{{ $assessor->email_address }}</td>
-                                <td>{{ $assessor->position }}</td>
-                                <td>{{ optional($assessor->admin)->email_address ?? 'N/A' }}</td>
-                                <td>{{ \Carbon\Carbon::parse($assessor->dateacc_created)->format('M d, Y h:i A') }}</td>
+                            @forelse($users as $user)
+                            <tr>
+                                <td>{{ $user->full_name }}</td>
+                                <td>{{ $user->email }}</td>
+                                <td>{{ ucfirst($user->role) }}</td>
+                                <td>
+                                    @php
+                                    $badgeClass = match ($user->status) {
+                                    \App\Models\User::STATUS_APPROVED => 'bg-success',
+                                    \App\Models\User::STATUS_PENDING => 'bg-warning text-dark',
+                                    \App\Models\User::STATUS_DISABLED => 'bg-secondary',
+                                    \App\Models\User::STATUS_REJECTED => 'bg-danger',
+                                    default => 'bg-light text-dark',
+                                    };
+                                    @endphp
+                                    <span class="badge {{ $badgeClass }}">
+                                        {{ ucfirst($user->status) }}
+                                    </span>
+                                </td>
+                                <td>{{ $user->created_at?->format('M d, Y h:i A') }}</td>
                                 <td class="text-center">
-                                    <div class="btn-group" role="group" aria-label="actions">
-                                        <button
-                                            type="button"
+                                    {{-- Toggle (approved <-> disabled) --}}
+                                    <form action="{{ route('admin.manage.toggle', $user) }}"
+                                        method="POST"
+                                        class="d-inline"
+                                        onsubmit="return confirm('Toggle status for {{ $user->full_name }}?');">
+                                        @csrf
+                                        @method('PATCH')
+                                        <button type="submit"
                                             class="btn btn-sm btn-warning"
-                                            title="Disable / Enable"
-                                            onclick="confirmToggleAssessor('{{ addslashes($assessor->email_address) }}', '{{ addslashes(optional($assessor->admin)->email_address ?? '') }}')">
+                                            title="Enable / Disable">
                                             <i class="fas fa-user-slash"></i>
                                         </button>
+                                    </form>
 
-                                        <button
-                                            type="button"
+                                    {{-- Delete --}}
+                                    <form action="{{ route('admin.manage.destroy', $user) }}"
+                                        method="POST"
+                                        class="d-inline ms-1"
+                                        onsubmit="return confirm('Delete {{ $user->full_name }}? This cannot be undone.');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit"
                                             class="btn btn-sm btn-danger"
-                                            title="Delete"
-                                            onclick="confirmDeleteAssessor('{{ addslashes($assessor->email_address) }}', '{{ addslashes($assessor->first_name . ' ' . $assessor->last_name) }}')">
+                                            title="Delete user">
                                             <i class="fas fa-trash"></i>
                                         </button>
-                                    </div>
+                                    </form>
                                 </td>
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="6" class="text-center">No assessor accounts found.</td>
+                                <td colspan="6" class="text-center text-muted">
+                                    No user accounts found.
+                                </td>
                             </tr>
                             @endforelse
                         </tbody>
                     </table>
                 </div>
 
-                {{-- Pagination + showing info --}}
+                {{-- Pagination / Info --}}
                 <div class="d-flex justify-content-between align-items-center mt-2">
                     <div class="text-muted small">
                         Showing
-                        @if($assessors->total() > 0)
-                        {{ $assessors->firstItem() }} - {{ $assessors->lastItem() }}
+                        @if($users->total() > 0)
+                        {{ $users->firstItem() }}–{{ $users->lastItem() }}
                         @else
                         0
                         @endif
-                        of {{ $assessors->total() }} entries
+                        of {{ $users->total() }} entries
                     </div>
-
                     <div>
-                        {{ $assessors->appends(request()->query())->links() }}
+                        {{ $users->appends(request()->query())->links() }}
                     </div>
                 </div>
 
@@ -143,171 +205,4 @@
         </div>
     </main>
 </div>
-
-{{-- Toggle Assessor Modal --}}
-<div id="toggleModal" class="modal" style="display:none;">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3 id="toggleModalTitle">Toggle Assessor</h3>
-            <button class="close" onclick="closeToggleModal()">&times;</button>
-        </div>
-        <div class="modal-body">
-            <p id="toggleModalMessage">Are you sure you want to toggle this assessor's status?</p>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeToggleModal()">Cancel</button>
-            <button id="toggleConfirmBtn" class="btn btn-warning" onclick="submitToggleForm()">Confirm</button>
-
-            {{-- Hidden form used for AJAX submit (has CSRF token) --}}
-            <form id="toggleForm" method="POST" style="display:none;">
-                @csrf
-                @method('PATCH')
-            </form>
-        </div>
-    </div>
-</div>
-
-{{-- Delete Assessor Modal --}}
-<div id="deleteModal" class="modal" style="display:none;">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3 id="deleteModalTitle">Delete Assessor</h3>
-            <button class="close" onclick="closeDeleteModal()">&times;</button>
-        </div>
-        <div class="modal-body">
-            <p id="deleteModalMessage">Are you sure you want to delete this assessor? This action cannot be undone.</p>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
-            <button class="btn btn-danger" onclick="submitDeleteForm()">Delete</button>
-
-            <form id="deleteForm" method="POST" style="display:none;">
-                @csrf
-                @method('DELETE')
-            </form>
-        </div>
-    </div>
-</div>
-
-{{-- Simple success toast/modal (non-blocking) --}}
-<div id="successToast" style="display:none; position: fixed; right: 20px; bottom: 20px; z-index: 9999;">
-    <div class="toast bg-success text-white p-3 rounded">
-        <div id="successToastMessage">Action completed successfully</div>
-    </div>
-</div>
-
-@endsection
-
-@section('scripts')
-<script>
-    /* Utility to safely build URL segments for emails — encodeURIComponent will be used. */
-
-    /* Toggle Assessor functions */
-    function confirmToggleAssessor(email, adminEmail) {
-        const modal = document.getElementById('toggleModal');
-        const title = document.getElementById('toggleModalTitle');
-        const message = document.getElementById('toggleModalMessage');
-
-        title.textContent = 'Toggle Assessor Status';
-        message.textContent = `Are you sure you want to toggle the status of "${email}" (created by ${adminEmail || 'N/A'})?`;
-
-        // Set the form action; route pattern assumed: /admin/assessors/{email}/toggle
-        const form = document.getElementById('toggleForm');
-        form.action = '/admin/assessors/' + encodeURIComponent(email) + '/toggle';
-
-        modal.style.display = 'block';
-    }
-
-    function closeToggleModal() {
-        document.getElementById('toggleModal').style.display = 'none';
-    }
-
-    function submitToggleForm() {
-        const form = document.getElementById('toggleForm');
-        const formData = new FormData(form);
-
-        fetch(form.action, {
-                method: 'POST', // method spoofed via _method PATCH in the form
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-            })
-            .then(async (res) => {
-                const data = await res.json().catch(() => ({}));
-                closeToggleModal();
-                showSuccess(data.message || 'Status updated');
-                setTimeout(() => location.reload(), 1000);
-            })
-            .catch(err => {
-                console.error(err);
-                closeToggleModal();
-                showSuccess('Error updating status. Check console.');
-            });
-    }
-
-    /* Delete functions */
-    function confirmDeleteAssessor(email, fullName) {
-        const modal = document.getElementById('deleteModal');
-        const message = document.getElementById('deleteModalMessage');
-
-        message.textContent = `Are you sure you want to permanently delete "${fullName}" (${email})? This action cannot be undone.`;
-
-        const form = document.getElementById('deleteForm');
-        form.action = '/admin/assessors/' + encodeURIComponent(email);
-
-        modal.style.display = 'block';
-    }
-
-    function closeDeleteModal() {
-        document.getElementById('deleteModal').style.display = 'none';
-    }
-
-    function submitDeleteForm() {
-        const form = document.getElementById('deleteForm');
-        const formData = new FormData(form);
-
-        fetch(form.action, {
-                method: 'POST', // method spoofed via _method DELETE
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-            })
-            .then(async res => {
-                const data = await res.json().catch(() => ({}));
-                closeDeleteModal();
-                showSuccess(data.message || 'Assessor deleted');
-                setTimeout(() => location.reload(), 1000);
-            })
-            .catch(err => {
-                console.error(err);
-                closeDeleteModal();
-                showSuccess('Error deleting assessor. Check console.');
-            });
-    }
-
-    /* Small success helper */
-    function showSuccess(message) {
-        const toast = document.getElementById('successToast');
-        const msg = document.getElementById('successToastMessage');
-        msg.textContent = message;
-        toast.style.display = 'block';
-        setTimeout(() => toast.style.display = 'none', 2500);
-    }
-
-    /* Close modals with Escape and click outside */
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            closeToggleModal();
-            closeDeleteModal();
-        }
-    });
-    window.addEventListener('click', function(e) {
-        const toggleModal = document.getElementById('toggleModal');
-        const deleteModal = document.getElementById('deleteModal');
-        if (e.target === toggleModal) closeToggleModal();
-        if (e.target === deleteModal) closeDeleteModal();
-    });
-</script>
 @endsection

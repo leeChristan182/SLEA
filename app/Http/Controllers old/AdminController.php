@@ -342,7 +342,7 @@ class AdminController extends Controller
         $assessors = $q->paginate(10);
 
         // ✅ Pass to Blade
-        return view('admin.manage-account', compact('assessors'));
+        return view('admin.manage-account', compact('users'));
     }
 
     /**

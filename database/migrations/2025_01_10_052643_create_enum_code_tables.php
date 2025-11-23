@@ -99,11 +99,8 @@ return new class extends Migration {
             $t->string('key', 32)->primary();
         });
         DB::table('student_leadership_statuses')->insert(array_map(fn($k) => ['key' => $k], [
-            'pending',
-            'approved',
-            'rejected',
-            'flagged'
-
+            'Active',
+            'Inactive',
         ]));
 
         Schema::create('review_score_sources', function (Blueprint $t) {

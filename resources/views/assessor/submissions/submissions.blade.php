@@ -1,36 +1,41 @@
 @extends('layouts.app')
 
-@section('title', 'Pending Submissions - Assessor Dashboard')
+@section('title', 'All Submissions - Assessor Dashboard')
 
 @section('content')
 <div class="container">
-    @include('partials.assessor-sidebar')
+
+    {{-- Sidebar --}}
+    @include('partials.sidebar')
 
     <main class="main-content">
+
+        {{-- Page Header --}}
         <div class="page-header">
-            <h1>Pending Submissions</h1>
+            <h1>All Submissions</h1>
         </div>
 
-        <!-- Filter and Search Controls -->
+        {{-- Filters + Search --}}
         <div class="controls-section">
             <div class="filter-controls">
                 <div class="filter-group">
-                    <label for="filterSelect">Filter</label>
-                    <select id="filterSelect" class="form-select">
-                        <option value="">None</option>
-                        <option value="recent">Recent</option>
-                        <option value="overdue">Overdue</option>
-                        <option value="priority">Priority</option>
+                    <label for="statusFilterSelect">Filter by Status</label>
+                    <select id="statusFilterSelect" class="form-select">
+                        <option value="">All</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
                     </select>
                 </div>
 
                 <div class="filter-group">
-                    <label for="sortSelect">Sort by</label>
-                    <select id="sortSelect" class="form-select">
-                        <option value="">None</option>
-                        <option value="date">Date Submitted</option>
-                        <option value="name">Student Name</option>
-                        <option value="title">Document Title</option>
+                    <label for="sectionFilterSelect">Filter by SLEA Section</label>
+                    <select id="sectionFilterSelect" class="form-select">
+                        <option value="">All</option>
+                        <option value="Leadership Excellence">Leadership Excellence</option>
+                        <option value="Academic Excellence">Academic Excellence</option>
+                        <option value="Awards Recognition">Awards Recognition</option>
+                        <option value="Community Involvement">Community Involvement</option>
+                        <option value="Good Conduct">Good Conduct</option>
                     </select>
                 </div>
             </div>
@@ -43,189 +48,292 @@
             </div>
         </div>
 
-        <!-- Submissions Table -->
+        {{-- Table: Students With Approved/Rejected Submissions --}}
         <div class="submissions-table-container">
             <table class="table submissions-table">
                 <thead>
                     <tr>
                         <th>Student ID</th>
                         <th>Student Name</th>
-                        <th>Document Title</th>
-                        <th>Date Submitted</th>
+                        <th>Email</th>
+                        <th>Program</th>
+                        <th>College</th>
+                        <th>Total Submissions</th>
+                        <th>Date Reviewed</th>
                         <th>Action</th>
                     </tr>
                 </thead>
+
                 <tbody>
-                    @forelse($pendingSubmissions as $submission)
+                    @forelse($students as $student)
                     <tr>
-                        <td>{{ $submission->student->student_id }}</td>
-                        <td>{{ $submission->student->name }}</td>
-                        <td>{{ $submission->document_title }}</td>
-                        <td>{{ $submission->submitted_at->format('Y-m-d') }}</td>
+                        <td>{{ $student->student_id }}</td>
+                        <td>{{ $student->user->full_name }}</td>
+                        <td>{{ $student->user->email }}</td>
+                        <td>{{ $student->program }}</td>
+                        <td>{{ $student->college }}</td>
+                        <td>{{ $student->submissions->count() }}</td>
+                        <td>{{ $student->latest_reviewed_at ? \Carbon\Carbon::parse($student->latest_reviewed_at)->format('Y-m-d') : 'N/A' }}</td>
                         <td>
-                            <button class="btn btn-view" onclick="openSubmissionModal({{ $submission->id }})" title="View Submission">
+                            <button
+                                class="btn btn-view"
+                                onclick="openStudentSubmissionsModal({{ $student->id }})"
+                                title="View Submissions">
                                 <i class="fas fa-eye"></i>
                             </button>
                         </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="5" class="text-center">No pending submissions found.</td>
+                        <td colspan="8" class="text-center">No students with approved or rejected submissions found.</td>
                     </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
 
+        {{-- Pagination --}}
         <div class="pagination-container">
             <div class="pagination-info">
-                Showing <span id="showingStart">1</span>-<span id="showingEnd">5</span> of <span id="totalEntries">8</span> submissions
+                Showing
+                <span id="showingStart">1</span> -
+                <span id="showingEnd">5</span>
+                of
+                <span id="totalEntries">{{ $students->count() }}</span>
+                students
             </div>
+
             <div class="pagination-controls">
                 <button class="pagination-btn" id="prevBtn" disabled>
                     <i class="fas fa-chevron-left"></i> Previous
                 </button>
-                <span class="pagination-pages" id="paginationPages">
-                    <!-- Dynamic pages will be generated here -->
-                </span>
+
+                <span class="pagination-pages" id="paginationPages"></span>
+
                 <button class="pagination-btn" id="nextBtn">
                     Next <i class="fas fa-chevron-right"></i>
                 </button>
             </div>
         </div>
+
     </main>
 </div>
 
-<!-- Review Submission Modal -->
-<div class="modal fade" id="submissionModal" tabindex="-1" aria-labelledby="submissionModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
+{{-- ===========================
+    MODAL: STUDENT SUBMISSION LIST
+=========================== --}}
+<div class="modal fade" id="studentSubmissionsModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-xxl modal-dialog-scrollable">
+
         <div class="modal-content">
+
+            {{-- Header --}}
             <div class="modal-header">
-                <h5 class="modal-title" id="submissionModalLabel">Review Submission</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title">
+                    All Submissions for <span id="modalStudentNameTitle"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
+
+            {{-- Body --}}
             <div class="modal-body">
-                <div class="submission-content">
-                    <!-- Student Details Panel -->
-                    <div class="info-card">
-                        <div class="card-header">
-                            <h6 class="card-title">Student Details</h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="detail-row">
-                                <span class="label">Student ID:</span>
-                                <span class="value" id="modalStudentId">-</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="label">Student Name:</span>
-                                <span class="value" id="modalStudentName">-</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="label">Document Title:</span>
-                                <span class="value" id="modalDocumentTitle">-</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="label">Date Submitted:</span>
-                                <span class="value" id="modalDateSubmitted">-</span>
-                            </div>
-                        </div>
+
+                {{-- Student Info --}}
+                <div class="student-details-card info-card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title">Student Information</h6>
                     </div>
 
-                    <!-- Document Information Card -->
-                    <div class="info-card">
-                        <div class="card-header">
-                            <h6 class="card-title">Document Information</h6>
+                    <div class="card-body">
+                        <div class="detail-row">
+                            <span class="label">Student ID:</span>
+                            <span class="value" id="modalStudentIdDetail"></span>
                         </div>
-                        <div class="card-body">
-                            <div class="detail-row">
-                                <span class="label">SLEA Section:</span>
-                                <span class="value" id="modalSleaSection">-</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="label">Subsection:</span>
-                                <span class="value" id="modalSubsection">-</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="label">Role in Activity:</span>
-                                <span class="value" id="modalRole">-</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="label">Activity Date:</span>
-                                <span class="value" id="modalActivityDate">-</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="label">Organizing Body:</span>
-                                <span class="value" id="modalOrganizingBody">-</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="label">Description:</span>
-                                <span class="value" id="modalDescription">-</span>
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- Uploaded Document Preview -->
-                    <div class="info-card">
-                        <div class="card-header">
-                            <h6 class="card-title">Uploaded Document</h6>
+                        <div class="detail-row">
+                            <span class="label">Name:</span>
+                            <span class="value" id="modalStudentNameDetail"></span>
                         </div>
-                        <div class="card-body">
-                            <div id="documentPreview" class="document-preview">
-                                <!-- Document preview/download buttons will be loaded here -->
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- System Auto-Generated Score -->
-                    <div class="info-card">
-                        <div class="card-header">
-                            <h6 class="card-title">System Auto-Generated Score</h6>
+                        <div class="detail-row">
+                            <span class="label">Program:</span>
+                            <span class="value" id="modalStudentProgramDetail"></span>
                         </div>
-                        <div class="card-body">
-                            <div class="score-display">
-                                <div class="score-main">
-                                    <span class="score-label">Auto Score:</span>
-                                    <span class="score-value" id="modalAutoScore">-</span>
-                                </div>
-                                <div class="score-note">
-                                    <small>This score is calculated automatically based on submission criteria.</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- Assessor Remarks -->
-                    <div class="info-card">
-                        <div class="card-header">
-                            <h6 class="card-title">Assessor Remarks (Optional)</h6>
-                        </div>
-                        <div class="card-body">
-                            <textarea id="assessorRemarks" class="form-control remarks-textarea" rows="4" placeholder="Enter your remarks and feedback..."></textarea>
-                            <small class="remarks-note">Note: Remarks are required for Reject, Return, and Flag actions.</small>
+                        <div class="detail-row">
+                            <span class="label">College:</span>
+                            <span class="value" id="modalStudentCollegeDetail"></span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Action Buttons -->
-                <div class="action-buttons-container">
-                    <button type="button" class="btn btn-approve" onclick="handleSubmission('approve')" title="✅ Approve">
-                        <i class="fas fa-check"></i>
-                    </button>
-                    <button type="button" class="btn btn-reject" onclick="handleSubmission('reject')" title="❌ Reject">
-                        <i class="fas fa-times"></i>
-                    </button>
-                    <button type="button" class="btn btn-return" onclick="handleSubmission('return')" title="↩ Return to Student">
-                        <i class="fas fa-undo"></i>
-                    </button>
-                    <button type="button" class="btn btn-flag" onclick="handleSubmission('flag')" title="🚩 Flag for Admin">
-                        <i class="fas fa-flag"></i>
-                    </button>
+                {{-- Categorized Tables --}}
+                <div id="categorizedSubmissionsContainer">
+                    <h6 class="card-title mb-3">Submissions History</h6>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
+{{-- ===========================
+    MODAL: INDIVIDUAL SUBMISSION REVIEW
+=========================== --}}
+<div class="modal fade" id="individualSubmissionModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-xxl modal-dialog-scrollable">
+
+        <div class="modal-content">
+
+            {{-- Header --}}
+            <div class="modal-header">
+                <h5 class="modal-title">Review Submission</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            {{-- Body --}}
+            <div class="modal-body">
+
+                <div class="submission-content">
+
+                    {{-- Student Details --}}
+                    <div class="info-card">
+                        <div class="card-header">
+                            <h6 class="card-title">Student Details</h6>
+                        </div>
+
+                        <div class="card-body">
+                            <div class="detail-row">
+                                <span class="label">Student ID:</span>
+                                <span class="value" id="modalIndividualStudentId"></span>
+                            </div>
+
+                            <div class="detail-row">
+                                <span class="label">Student Name:</span>
+                                <span class="value" id="modalIndividualStudentName"></span>
+                            </div>
+
+                            <div class="detail-row">
+                                <span class="label">Document Title:</span>
+                                <span class="value" id="modalIndividualDocumentTitle"></span>
+                            </div>
+
+                            <div class="detail-row">
+                                <span class="label">Date Submitted:</span>
+                                <span class="value" id="modalIndividualDateSubmitted"></span>
+                            </div>
+
+                            <div class="detail-row">
+                                <span class="label">Current Status:</span>
+                                <span class="value" id="modalIndividualStatus"></span>
+                            </div>
+
+                            <div class="detail-row">
+                                <span class="label">Assigned Assessor:</span>
+                                <span class="value" id="modalIndividualAssessorName"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Document Information --}}
+                    <div class="info-card">
+                        <div class="card-header">
+                            <h6 class="card-title">Document Information</h6>
+                        </div>
+
+                        <div class="card-body">
+                            <div class="detail-row">
+                                <span class="label">SLEA Section:</span>
+                                <span class="value" id="modalIndividualSleaSection"></span>
+                            </div>
+
+                            <div class="detail-row">
+                                <span class="label">Subsection:</span>
+                                <span class="value" id="modalIndividualSubsection"></span>
+                            </div>
+
+                            <div class="detail-row">
+                                <span class="label">Role in Activity:</span>
+                                <span class="value" id="modalIndividualRole"></span>
+                            </div>
+
+                            <div class="detail-row">
+                                <span class="label">Activity Date:</span>
+                                <span class="value" id="modalIndividualActivityDate"></span>
+                            </div>
+
+                            <div class="detail-row">
+                                <span class="label">Organizing Body:</span>
+                                <span class="value" id="modalIndividualOrganizingBody"></span>
+                            </div>
+
+                            <div class="detail-row">
+                                <span class="label">Description:</span>
+                                <span class="value" id="modalIndividualDescription"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Uploaded Documents --}}
+                    <div class="info-card">
+                        <div class="card-header">
+                            <h6 class="card-title">Uploaded Document</h6>
+                        </div>
+                        <div class="card-body">
+                            <div id="individualDocumentPreview" class="document-preview"></div>
+                        </div>
+                    </div>
+
+                    {{-- Auto Score --}}
+                    <div class="info-card">
+                        <div class="card-header">
+                            <h6 class="card-title">System Auto-Generated Score</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="score-display">
+                                <span id="modalIndividualAutoScore" class="score-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Remarks --}}
+                    <div class="info-card">
+                        <div class="card-header">
+                            <h6 class="card-title">Assessor Remarks</h6>
+                        </div>
+
+                        <div class="card-body">
+                            <textarea
+                                id="individualAssessorRemarks"
+                                class="form-control remarks-textarea"
+                                rows="4"
+                                placeholder="Remarks..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Action Buttons --}}
+                <div class="action-buttons-container">
+                    <button type="button" class="btn btn-approve" onclick="handleSubmission('approve')">
+                        <i class="fas fa-check"></i>
+                    </button>
+
+                    <button type="button" class="btn btn-reject" onclick="handleSubmission('reject')">
+                        <i class="fas fa-times"></i>
+                    </button>
+
+                    <button type="button" class="btn btn-return" onclick="handleSubmission('return')">
+                        <i class="fas fa-undo"></i>
+                    </button>
+
+                    <button type="button" class="btn btn-flag" onclick="handleSubmission('flag')">
+                        <i class="fas fa-flag"></i>
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
 <style>
     .page-header {
         margin-bottom: 1.5rem;
@@ -736,50 +844,30 @@
     }
 
     /* Modal Styles - Override Main CSS */
-    #submissionModal {
-        display: none !important;
-        position: fixed !important;
-        z-index: 9999 !important;
-        left: 0 !important;
-        top: 0 !important;
-        width: 100% !important;
-        height: 100% !important;
-        background-color: rgba(0, 0, 0, 0.5) !important;
-        backdrop-filter: blur(5px);
-    }
 
-    #submissionModal.show {
-        display: block !important;
-    }
+    /* Clean modal sizing – let Bootstrap handle centering */
+    /* Make "All Submissions" modal wide and centered */
 
-    #submissionModal .modal-dialog {
-        max-width: 60vw !important;
-        width: 60vw !important;
-        margin: 1.75rem auto !important;
-        display: flex !important;
-        align-items: center !important;
-        min-height: calc(100% - 3.5rem) !important;
-        position: relative !important;
-    }
 
-    #submissionModal .modal-content {
-        background-color: #fff !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        border-radius: 15px !important;
-        width: 100% !important;
-        max-width: none !important;
-        max-height: 70vh !important;
+    #studentSubmissionsModal .modal-content {
+        height: 85vh !important;
+        max-height: 85vh !important;
         overflow-y: auto !important;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
-        display: flex !important;
-        flex-direction: column !important;
-        animation: modalSlideIn 0.3s ease-out !important;
+        /* scroll inside modal, not whole page */
     }
 
-    body.dark-mode #submissionModal .modal-content {
-        background-color: #2a2a2a !important;
-        color: #f0f0f0 !important;
+
+    /* Individual submission modal a bit narrower */
+    #individualSubmissionModal .modal-dialog {
+        width: 80vw !important;
+        max-width: 1100px !important;
+        margin: 1.5rem auto !important;
+    }
+
+    #individualSubmissionModal .modal-content {
+        height: 80vh !important;
+        max-height: 80vh !important;
+        overflow-y: auto !important;
     }
 
     @keyframes modalSlideIn {
@@ -793,6 +881,7 @@
             transform: translateY(0);
         }
     }
+
 
     .modal-header {
         background-color: #f8f9fa;
@@ -896,16 +985,28 @@
         border-color: #ffc107;
     }
 
-    .status-approve {
+    .status-approved {
         background-color: #d4edda;
         color: #155724;
         border-color: #28a745;
     }
 
-    .status-reject {
+    .status-rejected {
         background-color: #f8d7da;
         color: #721c24;
         border-color: #dc3545;
+    }
+
+    .status-returned {
+        background-color: #cce5ff;
+        color: #004085;
+        border-color: #007bff;
+    }
+
+    .status-flagged {
+        background-color: #fce5d4;
+        color: #8b4a04;
+        border-color: #ff8c00;
     }
 
     /* Dark mode status badges */
@@ -915,16 +1016,28 @@
         border-color: #f6e05e;
     }
 
-    body.dark-mode .status-approve {
+    body.dark-mode .status-approved {
         background-color: #1e4d2b;
         color: #68d391;
         border-color: #68d391;
     }
 
-    body.dark-mode .status-reject {
+    body.dark-mode .status-rejected {
         background-color: #742a2a;
         color: #feb2b2;
         border-color: #feb2b2;
+    }
+
+    body.dark-mode .status-returned {
+        background-color: #1d3a5e;
+        color: #6cb6ff;
+        border-color: #6cb6ff;
+    }
+
+    body.dark-mode .status-flagged {
+        background-color: #7a431c;
+        color: #ffc107;
+        border-color: #ffc107;
     }
 
     .remarks-textarea {
@@ -1181,12 +1294,12 @@
         color: #f0f0f0;
     }
 
-    body.dark-mode #submissionModal .modal-body {
+    body.dark-mode #individualSubmissionModal .modal-body {
         background-color: #2a2a2a !important;
         color: #f0f0f0 !important;
     }
 
-    body.dark-mode #submissionModal .submission-content {
+    body.dark-mode #individualSubmissionModal .submission-content {
         background-color: #2a2a2a !important;
         color: #f0f0f0 !important;
     }
@@ -1255,7 +1368,7 @@
         border-top-color: #555 !important;
     }
 
-    #submissionModal .btn-close {
+    #individualSubmissionModal .btn-close {
         background: #dc3545 !important;
         color: white !important;
         border-radius: 4px !important;
@@ -1271,7 +1384,7 @@
         background-image: none !important;
     }
 
-    #submissionModal .btn-close::before {
+    #individualSubmissionModal .btn-close::before {
         content: "×" !important;
         font-size: 18px !important;
         font-weight: bold !important;
@@ -1279,26 +1392,26 @@
         line-height: 1 !important;
     }
 
-    #submissionModal .btn-close:hover {
+    #individualSubmissionModal .btn-close:hover {
         background: #c82333 !important;
         color: white !important;
         transform: translateY(-1px) !important;
         opacity: 1 !important;
     }
 
-    #submissionModal .btn-close:focus {
+    #individualSubmissionModal .btn-close:focus {
         background: #dc3545 !important;
         color: white !important;
         box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
     }
 
-    body.dark-mode #submissionModal .btn-close {
+    body.dark-mode #individualSubmissionModal .btn-close {
         background: #dc3545 !important;
         color: white !important;
         opacity: 1 !important;
     }
 
-    body.dark-mode #submissionModal .btn-close:hover {
+    body.dark-mode #individualSubmissionModal .btn-close:hover {
         background: #c82333 !important;
         color: white !important;
         opacity: 1 !important;
@@ -1319,6 +1432,133 @@
 
     body.dark-mode .btn-flag:hover {
         background-color: #8b0000 !important;
+    }
+
+    .slea-category-section .category-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #8B0000;
+        display: block;
+    }
+
+    body.dark-mode .slea-category-section .category-title {
+        color: #F9BD3D;
+        border-bottom-color: #F9BD3D;
+    }
+
+    .category-table {
+        border: 1px solid #c2c2c2;
+        /* Darker, subtle border */
+        border-collapse: separate;
+        /* Use separate to allow border-spacing */
+        border-spacing: 0;
+        /* Remove space between borders */
+        width: 100%;
+        margin-bottom: 1.5rem;
+        /* Increase margin for better separation */
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        /* More pronounced shadow */
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .category-table thead th {
+        background-color: #8B0000;
+        /* Dark red background for header */
+        color: white;
+        /* White text for header */
+        font-weight: 600;
+        padding: 0.75rem 1rem;
+        text-align: left;
+        border: 1px solid white;
+        /* White borders between header cells */
+    }
+
+    .category-table thead th:first-child {
+        border-left: none;
+        /* No left border for the first header cell */
+    }
+
+    .category-table thead th:last-child {
+        border-right: none;
+        /* No right border for the last header cell */
+    }
+
+    .category-table tbody td {
+        padding: 0.75rem 1rem;
+        border: 1px solid #e9ecef;
+        /* Light gray borders for body cells */
+        color: #333;
+        background-color: white;
+    }
+
+    .category-table tbody tr:last-child td {
+        border-bottom: none;
+        /* No bottom border for the last row */
+    }
+
+    body.dark-mode .category-table thead th {
+        background-color: #8B0000 !important;
+        color: white !important;
+        border: 1px solid #555 !important;
+        /* Darker borders for dark mode header */
+    }
+
+    body.dark-mode .category-table tbody td {
+        background-color: #363636 !important;
+        color: #f0f0f0 !important;
+        border: 1px solid #555 !important;
+        /* Darker borders for dark mode body cells */
+    }
+
+    .category-total-row td {
+        font-weight: 700;
+        background-color: #f2f2f2 !important;
+        border-top: 2px solid #8B0000 !important;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+
+    body.dark-mode .category-total-row td {
+        background-color: #404040 !important;
+        border-top: 2px solid #F9BD3D !important;
+    }
+
+    /* Overall Total Score Section */
+    .overall-total-section {
+        margin-top: 2rem;
+    }
+
+    .overall-total-table {
+        border: 2px solid #8B0000;
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 0;
+        box-shadow: 0 8px 16px rgba(139, 0, 0, 0.3);
+    }
+
+    .overall-total-table .overall-total-row td {
+        background-color: #8B0000;
+        color: white;
+        font-size: 1.3rem;
+        font-weight: 700;
+        padding: 1.5rem;
+        text-align: center;
+        border: none;
+    }
+
+    body.dark-mode .overall-total-table {
+        border-color: #F9BD3D;
+        box-shadow: 0 8px 16px rgba(249, 189, 61, 0.3);
+    }
+
+    body.dark-mode .overall-total-table .overall-total-row td {
+        background-color: #F9BD3D;
+        color: #333;
     }
 
     @media (max-width: 768px) {
@@ -1358,464 +1598,10 @@
         }
     }
 </style>
-
-<script>
-    let currentSubmissionId = null;
-
-    async function openSubmissionModal(submissionId) {
-        try {
-            // Show loading state
-            showModalLoading();
-
-            // Fetch submission details from API
-            const response = await fetch(`/assessor/submissions/${submissionId}/details`);
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to fetch submission details');
-            }
-
-            const submission = data.submission;
-
-            // Populate student details
-            document.getElementById('modalStudentId').textContent = submission.student.id;
-            document.getElementById('modalStudentName').textContent = submission.student.name;
-            document.getElementById('modalDocumentTitle').textContent = submission.document_title;
-            document.getElementById('modalDateSubmitted').textContent = new Date(submission.submitted_at).toLocaleDateString();
-
-            // Populate document information
-            document.getElementById('modalSleaSection').textContent = submission.slea_section || '-';
-            document.getElementById('modalSubsection').textContent = submission.subsection || '-';
-            document.getElementById('modalRole').textContent = submission.role_in_activity || '-';
-            document.getElementById('modalActivityDate').textContent = submission.activity_date || '-';
-            document.getElementById('modalOrganizingBody').textContent = submission.organizing_body || '-';
-
-            // Show description if available
-            const descriptionElement = document.getElementById('modalDescription');
-            if (descriptionElement) {
-                descriptionElement.textContent = submission.description || '-';
-            }
-
-            // Display auto-generated score
-            document.getElementById('modalAutoScore').textContent = submission.auto_generated_score ?
-                `${submission.auto_generated_score}/100` : 'Not calculated';
-
-            // Populate document preview
-            populateDocumentPreview(submission.documents);
-
-            // Clear previous remarks
-            document.getElementById('assessorRemarks').value = '';
-
-            // Store current submission ID for action handling
-            currentSubmissionId = submissionId;
-
-            // Show modal
-            const modal = new bootstrap.Modal(document.getElementById('submissionModal'));
-            modal.show();
-
-        } catch (error) {
-            console.error('Error fetching submission details:', error);
-            showErrorModal('Failed to load submission details: ' + error.message);
-        }
-    }
-
-    function showModalLoading() {
-        // Show loading state in modal
-        document.getElementById('modalStudentId').textContent = 'Loading...';
-        document.getElementById('modalStudentName').textContent = 'Loading...';
-        document.getElementById('modalDocumentTitle').textContent = 'Loading...';
-        document.getElementById('modalDateSubmitted').textContent = 'Loading...';
-        document.getElementById('modalAutoScore').textContent = 'Loading...';
-    }
-
-    function populateDocumentPreview(documents) {
-        const previewContainer = document.getElementById('documentPreview');
-        previewContainer.innerHTML = '';
-
-        if (!documents || documents.length === 0) {
-            previewContainer.innerHTML = '<p class="text-muted">No documents uploaded.</p>';
-            return;
-        }
-
-        documents.forEach(doc => {
-            const documentItem = document.createElement('div');
-            documentItem.className = 'document-item';
-
-            const iconClass = doc.is_pdf ? 'pdf' : doc.is_image ? 'image' : 'other';
-            const iconSymbol = doc.is_pdf ? '📄' : doc.is_image ? '🖼️' : '📎';
-
-            documentItem.innerHTML = `
-            <div class="document-info">
-                <div class="document-icon ${iconClass}">
-                    ${iconSymbol}
-                </div>
-                <div class="document-details">
-                    <h6>${doc.original_filename}</h6>
-                    <small>${doc.file_type.toUpperCase()} • ${doc.file_size}</small>
-                </div>
-            </div>
-            <div class="document-actions">
-                ${doc.is_image ? `<button class="btn-preview" onclick="previewDocument(${doc.id})">Preview</button>` : ''}
-                <button class="btn-download" onclick="downloadDocument(${doc.id})">Download</button>
-            </div>
-        `;
-
-            previewContainer.appendChild(documentItem);
-        });
-    }
-
-    async function handleSubmission(action) {
-        if (!currentSubmissionId) {
-            showErrorModal('No submission selected');
-            return;
-        }
-
-        const remarks = document.getElementById('assessorRemarks').value.trim();
-
-        // Validate remarks for reject, return, and flag actions
-        if ((action === 'reject' || action === 'return' || action === 'flag') && !remarks) {
-            showValidationError('Please provide remarks before performing this action.');
-            return;
-        }
-
-        try {
-            // Show loading state
-            const actionButton = event.target.closest('.btn');
-            const originalText = actionButton.innerHTML;
-            actionButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-            actionButton.disabled = true;
-
-            // Send action to backend
-            const response = await fetch(`/assessor/submissions/${currentSubmissionId}/action`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                },
-                body: JSON.stringify({
-                    action: action,
-                    remarks: remarks
-                })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to process action');
-            }
-
-            // Close the submission modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('submissionModal'));
-            modal.hide();
-
-            // Show success message
-            showSuccessMessage(action);
-
-            // Remove the row from the table or refresh the page
-            removeSubmissionFromTable(currentSubmissionId);
-
-        } catch (error) {
-            console.error('Error processing submission action:', error);
-            showErrorModal('Failed to process action: ' + error.message);
-
-            // Restore button state
-            const actionButton = event.target.closest('.btn');
-            actionButton.innerHTML = originalText;
-            actionButton.disabled = false;
-        }
-    }
-
-    function downloadDocument(documentId) {
-        window.open(`/assessor/documents/${documentId}/download`, '_blank');
-    }
-
-    function previewDocument(documentId) {
-        // For now, just download the document
-        // In a real implementation, you might want to show a preview modal
-        downloadDocument(documentId);
-    }
-
-    function removeSubmissionFromTable(submissionId) {
-        // Find and remove the row from the table
-        const tableRows = document.querySelectorAll('.submissions-table tbody tr');
-        tableRows.forEach(row => {
-            const viewButton = row.querySelector('.btn-view');
-            if (viewButton && viewButton.onclick.toString().includes(submissionId)) {
-                row.remove();
-            }
-        });
-
-        // Update pagination info
-        updatePaginationInfo();
-    }
-
-    function showErrorModal(message) {
-        const errorModal = document.createElement('div');
-        errorModal.className = 'modal fade';
-        errorModal.id = 'errorModal';
-        errorModal.innerHTML = `
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content validation-modal-content">
-                <div class="modal-body text-center p-4">
-                    <div class="validation-icon mb-3">
-                        <i class="fas fa-exclamation-triangle" style="color: #dc3545; font-size: 3rem;"></i>
-                    </div>
-                    <h5 class="validation-title mb-3">Error</h5>
-                    <p class="validation-message mb-4">${message}</p>
-                    <button type="button" class="btn btn-warning" data-bs-dismiss="modal">
-                        OK
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-
-        document.body.appendChild(errorModal);
-        const modal = new bootstrap.Modal(errorModal);
-        modal.show();
-
-        errorModal.addEventListener('hidden.bs.modal', function() {
-            document.body.removeChild(errorModal);
-        });
-    }
-
-    function showValidationError(message) {
-        // Create validation error modal
-        const errorModal = document.createElement('div');
-        errorModal.className = 'modal fade';
-        errorModal.id = 'validationModal';
-        errorModal.innerHTML = `
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content validation-modal-content">
-                <div class="modal-body text-center p-4">
-                    <div class="validation-icon mb-3">
-                        <i class="fas fa-exclamation-triangle" style="color: #dc3545; font-size: 3rem;"></i>
-                    </div>
-                    <h5 class="validation-title mb-3">Validation Required</h5>
-                    <p class="validation-message mb-4">${message}</p>
-                    <button type="button" class="btn btn-warning" data-bs-dismiss="modal">
-                        OK
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-
-        // Add to body
-        document.body.appendChild(errorModal);
-
-        // Show modal
-        const modal = new bootstrap.Modal(errorModal);
-        modal.show();
-
-        // Remove modal from DOM when hidden
-        errorModal.addEventListener('hidden.bs.modal', function() {
-            document.body.removeChild(errorModal);
-        });
-    }
-
-    function showSuccessMessage(action) {
-        let message = '';
-        let icon = '';
-        let color = '';
-
-        switch (action) {
-            case 'approve':
-                message = 'Submission has been successfully approved!';
-                icon = 'fas fa-check-circle';
-                color = '#28a745';
-                break;
-            case 'reject':
-                message = 'Submission has been successfully rejected.';
-                icon = 'fas fa-times-circle';
-                color = '#8B0000';
-                break;
-            case 'return':
-                message = 'Submission has been returned to the student for revision.';
-                icon = 'fas fa-undo';
-                color = '#FFD700';
-                break;
-            case 'flag':
-                message = 'Submission has been flagged for further review.';
-                icon = 'fas fa-flag';
-                color = '#dc3545';
-                break;
-            default:
-                message = 'Action completed successfully!';
-                icon = 'fas fa-info-circle';
-                color = '#007bff';
-        }
-
-        // Create success modal
-        const successModal = document.createElement('div');
-        successModal.className = 'modal fade';
-        successModal.id = 'successModal';
-        successModal.innerHTML = `
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content success-modal-content">
-                <div class="modal-body text-center p-4">
-                    <div class="success-icon mb-3">
-                        <i class="${icon}" style="color: ${color}; font-size: 3rem;"></i>
-                    </div>
-                    <h5 class="success-title mb-3">Success!</h5>
-                    <p class="success-message mb-4">${message}</p>
-                    <button type="button" class="btn btn-success" data-bs-dismiss="modal">
-                        OK
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-
-        // Add to body
-        document.body.appendChild(successModal);
-
-        // Show modal
-        const modal = new bootstrap.Modal(successModal);
-        modal.show();
-
-        // Remove modal from DOM when hidden
-        successModal.addEventListener('hidden.bs.modal', function() {
-            document.body.removeChild(successModal);
-        });
-    }
-
-    // Search functionality
-    document.getElementById('searchInput').addEventListener('input', function(e) {
-        const searchTerm = e.target.value.toLowerCase();
-        const tableRows = document.querySelectorAll('.submissions-table tbody tr');
-
-        tableRows.forEach(row => {
-            const text = row.textContent.toLowerCase();
-            if (text.includes(searchTerm)) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-    });
-
-    // Filter functionality
-    document.getElementById('filterSelect').addEventListener('change', function(e) {
-        // Implement filter logic here
-        console.log('Filter changed:', e.target.value);
-    });
-
-    // Sort functionality
-    document.getElementById('sortSelect').addEventListener('change', function(e) {
-        // Implement sort logic here
-        console.log('Sort changed:', e.target.value);
-    });
-
-    // Dynamic Pagination
-    let currentPage = 1;
-    const entriesPerPage = 5;
-    let totalEntries = 0;
-    let totalPages = 0;
-
-    // Initialize pagination
-    function initializePagination() {
-        // Count total entries (rows in table)
-        const tableRows = document.querySelectorAll('.submissions-table tbody tr');
-        totalEntries = tableRows.length;
-        totalPages = Math.ceil(totalEntries / entriesPerPage);
-
-        // Update pagination info
-        updatePaginationInfo();
-
-        // Generate page buttons
-        generatePageButtons();
-
-        // Show/hide entries based on current page
-        showPageEntries();
-    }
-
-    // Update pagination info
-    function updatePaginationInfo() {
-        const start = (currentPage - 1) * entriesPerPage + 1;
-        const end = Math.min(currentPage * entriesPerPage, totalEntries);
-
-        document.getElementById('showingStart').textContent = start;
-        document.getElementById('showingEnd').textContent = end;
-        document.getElementById('totalEntries').textContent = totalEntries;
-    }
-
-    // Generate page buttons
-    function generatePageButtons() {
-        const paginationPages = document.getElementById('paginationPages');
-        paginationPages.innerHTML = '';
-
-        // Show max 5 page buttons
-        let startPage = Math.max(1, currentPage - 2);
-        let endPage = Math.min(totalPages, startPage + 4);
-
-        // Adjust start page if we're near the end
-        if (endPage - startPage < 4) {
-            startPage = Math.max(1, endPage - 4);
-        }
-
-        for (let i = startPage; i <= endPage; i++) {
-            const pageBtn = document.createElement('button');
-            pageBtn.className = 'pagination-page';
-            if (i === currentPage) {
-                pageBtn.classList.add('active');
-            }
-            pageBtn.textContent = i;
-            pageBtn.onclick = () => goToPage(i);
-            paginationPages.appendChild(pageBtn);
-        }
-    }
-
-    // Go to specific page
-    function goToPage(page) {
-        currentPage = page;
-        showPageEntries();
-        updatePaginationInfo();
-        generatePageButtons();
-        updateNavigationButtons();
-    }
-
-    // Show entries for current page
-    function showPageEntries() {
-        const tableRows = document.querySelectorAll('.submissions-table tbody tr');
-        const start = (currentPage - 1) * entriesPerPage;
-        const end = start + entriesPerPage;
-
-        tableRows.forEach((row, index) => {
-            if (index >= start && index < end) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-            }
-        });
-    }
-
-    // Update navigation buttons
-    function updateNavigationButtons() {
-        const prevBtn = document.getElementById('prevBtn');
-        const nextBtn = document.getElementById('nextBtn');
-
-        prevBtn.disabled = currentPage === 1;
-        nextBtn.disabled = currentPage === totalPages;
-    }
-
-    // Previous page
-    document.getElementById('prevBtn').addEventListener('click', function() {
-        if (currentPage > 1) {
-            goToPage(currentPage - 1);
-        }
-    });
-
-    // Next page
-    document.getElementById('nextBtn').addEventListener('click', function() {
-        if (currentPage < totalPages) {
-            goToPage(currentPage + 1);
-        }
-    });
-
-    // Initialize pagination when page loads
-    document.addEventListener('DOMContentLoaded', function() {
-        initializePagination();
-    });
-</script>
 @endsection
+
+
+
+@push('scripts')
+<script src="{{ asset('js/assessor_submission.js') }}"></script>
+@endpush

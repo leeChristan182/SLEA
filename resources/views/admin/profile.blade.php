@@ -21,6 +21,9 @@ $redir = auth()->user()->role === 'assessor'
 $admin = isset($admin) ? $admin : (isset($user) ? $user : auth()->user());
 @endphp
 
+{{-- Used by profile.js to auto-detect admin context --}}
+<input type="hidden" name="admin_id" value="{{ $admin->id }}">
+
 <div class="container">
     @include('partials.sidebar')
 
@@ -32,10 +35,18 @@ $admin = isset($admin) ? $admin : (isset($user) ? $user : auth()->user());
                     src="{{ $admin->profile_picture_path ? asset('storage/'.$admin->profile_picture_path) : asset('images/avatars/default-avatar.png') }}"
                     alt="Profile Picture"
                     id="profilePicture">
-
-                <form id="avatarForm" method="POST" action="{{ route('admin.profile.avatar') }}" enctype="multipart/form-data">
+                <form id="avatarForm"
+                    method="POST"
+                    action="{{ route('admin.profile.avatar') }}"
+                    enctype="multipart/form-data">
                     @csrf
-                    <input type="file" id="avatarUpload" name="avatar" accept="image/*" style="display:none;">
+                    <input
+                        type="file"
+                        id="avatarUpload"
+                        name="avatar"
+                        accept="image/*"
+                        style="display:none;"
+                        data-action="{{ route('admin.profile.avatar') }}">
                 </form>
 
                 <button type="button" class="upload-photo-btn" id="uploadPhotoBtn" title="Change Profile Picture">
@@ -49,7 +60,7 @@ $admin = isset($admin) ? $admin : (isset($user) ? $user : auth()->user());
             </p>
         </div>
 
-        {{-- FLASH MESSAGES --}}
+        {{-- FLASH MESSAGES (still shown for non-AJAX flows) --}}
         @if(session('status'))
         <div class="alert alert-success text-center mt-3">{{ session('status') }}</div>
         @endif
@@ -185,11 +196,21 @@ $admin = isset($admin) ? $admin : (isset($user) ? $user : auth()->user());
                             <div class="password-requirements">
                                 <p class="requirements-title">Password Requirements:</p>
                                 <ul class="requirements-list" id="passwordChecklist">
-                                    <li id="length" class="requirement-item invalid"><i class="fas fa-circle"></i> Minimum of 8 characters</li>
-                                    <li id="uppercase" class="requirement-item invalid"><i class="fas fa-circle"></i> An uppercase character</li>
-                                    <li id="lowercase" class="requirement-item invalid"><i class="fas fa-circle"></i> A lowercase character</li>
-                                    <li id="number" class="requirement-item invalid"><i class="fas fa-circle"></i> A number</li>
-                                    <li id="special" class="requirement-item invalid"><i class="fas fa-circle"></i> A special character</li>
+                                    <li id="length" class="requirement-item invalid">
+                                        <i class="fas fa-circle circle-icon"></i> Minimum of 8 characters
+                                    </li>
+                                    <li id="uppercase" class="requirement-item invalid">
+                                        <i class="fas fa-circle circle-icon"></i> An uppercase character
+                                    </li>
+                                    <li id="lowercase" class="requirement-item invalid">
+                                        <i class="fas fa-circle circle-icon"></i> A lowercase character
+                                    </li>
+                                    <li id="number" class="requirement-item invalid">
+                                        <i class="fas fa-circle circle-icon"></i> A number
+                                    </li>
+                                    <li id="special" class="requirement-item invalid">
+                                        <i class="fas fa-circle circle-icon"></i> A special character
+                                    </li>
                                 </ul>
                             </div>
 
@@ -248,6 +269,6 @@ $admin = isset($admin) ? $admin : (isset($user) ? $user : auth()->user());
 
 @push('scripts')
 <script src="https://kit.fontawesome.com/a2e0ad2a6a.js" crossorigin="anonymous"></script>
-{{-- Use the unified script (replace admin_profile.js) --}}
-<script src="{{ asset('js/user_profile.js') }}"></script>
+{{-- Unified profile script (admin + assessor) --}}
+<script src="{{ asset('js/profile.js') }}"></script>
 @endpush

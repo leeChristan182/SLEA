@@ -7,21 +7,36 @@ use Illuminate\Database\Eloquent\Model;
 
 class RubricSubsection extends Model
 {
+    use HasFactory;
+
     protected $table = 'rubric_subsections';
-    protected $primaryKey = 'sub_items';
+    protected $primaryKey = 'sub_section_id';   // ✅ matches seeder
     public $incrementing = true;
 
     protected $fillable = [
         'section_id',
+        'key',
         'sub_section',
         'evidence_needed',
         'max_points',
+        'cap_points',
+        'scoring_method',
+        'unit',
+        'score_params',
         'notes',
         'order_no',
     ];
-
-    public function leadershipPositions()
+    protected $casts = [
+        'score_params' => 'array',
+    ];
+    public function section()
     {
-        return $this->hasMany(RubricSubsectionLeadership::class, 'sub_section_id', 'sub_items');
+        return $this->belongsTo(RubricSection::class, 'section_id', 'section_id');
+    }
+
+    public function options()
+    {
+        return $this->hasMany(RubricOption::class, 'sub_section_id', 'sub_section_id')
+            ->orderBy('order_no');
     }
 }

@@ -4,29 +4,36 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class RoleMiddleware
 {
+    /**
+     * Usage: ->middleware('role:admin')
+     *        ->middleware('role:assessor,admin')
+     *        ->middleware('role:student')
+     */
     public function handle(Request $request, Closure $next, ...$roles)
     {
-        $user = $request->user();
+        $user = Auth::user();
+
+        // Not logged in at all → let 'auth' / Authenticate redirect to login
         if (!$user) {
-            abort(401);
+            return redirect()->route('login');
         }
 
-        // allow "role:admin,assessor" or "role:admin|assessor"
-        $needles = [];
-        foreach ($roles as $arg) {
-            foreach (preg_split('/[|,]/', (string)$arg) as $r) {
-                $r = trim($r);
-                if ($r !== '') $needles[] = $r;
-            }
-        }
-
-        if (empty($needles) || in_array($user->role, $needles, true)) {
+        // Allowed role → proceed
+        if (in_array($user->role, $roles, true)) {
             return $next($request);
         }
 
-        abort(403);
+        // Wrong role → ALWAYS go to their own landing page, never back to login
+        $route = match ($user->role) {
+            'admin'    => 'admin.profile',
+            'assessor' => 'assessor.profile',
+            default    => 'student.profile',
+        };
+
+        return redirect()->route($route);
     }
 }

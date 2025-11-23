@@ -12,8 +12,7 @@ class RubricSectionController extends Controller
     public function index()
     {
         $categories = RubricCategory::with([
-            'sections.subsections',      // Academic, Awards, Community, Conduct
-            'sections.leadershipPositions' // Leadership
+            'sections.subsections.options',  // includes options for all subsections
         ])->orderBy('order_no')->get();
 
         return view('admin.rubrics.index', compact('categories'));

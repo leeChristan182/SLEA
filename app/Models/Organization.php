@@ -9,10 +9,20 @@ class Organization extends Model
 {
     use HasFactory;
 
+    // Seeders also set slug/domain/scope_level/is_active/parent_id
     protected $fillable = [
         'name',
+        'slug',
         'cluster_id',
+        'parent_id',
+        'domain',
+        'scope_level',
         'description',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
     ];
 
     public function cluster()
@@ -20,15 +30,17 @@ class Organization extends Model
         return $this->belongsTo(Cluster::class);
     }
 
-    /**
-     * Computed accessor for combined name (not stored in DB)
-     */
-    public function getCombinedNameAttribute()
+    public function positions()
     {
-        return ($this->cluster?->name ? $this->cluster->name . ' - ' : '') . $this->name;
+        // Pivot table: organization_position (with `alias`)
+        return $this->belongsToMany(Position::class, 'organization_position')
+            ->withPivot('alias')
+            ->withTimestamps();
     }
-    public function leadershipTypes()
+
+    public function getCombinedNameAttribute(): string
     {
-        return $this->hasMany(LeadershipType::class);
+        $prefix = $this->cluster?->name ? $this->cluster->name . ' - ' : '';
+        return $prefix . $this->name;
     }
 }

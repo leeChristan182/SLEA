@@ -1,6 +1,10 @@
-/* admin_profile.js
-   Scoped to Admin Profile page (T-layout).
+/* profile.js
+   Shared logic for Admin & Assessor Profile pages (T-layout).
    Requires bootstrap 5 for modal/toast markup (optional fallback used).
+
+   Auto-detects context:
+   - Admin page    => input[name="admin_id"]
+   - Assessor page => input[name="assessor_id"]
 */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -9,11 +13,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
+  // NEW: detect current user id for per-user avatar cache
+  const userIdInput = document.querySelector('input[name="admin_id"], input[name="assessor_id"], input[name="student_id"]');
+  const currentUserId = userIdInput ? userIdInput.value : null;
+  const avatarStorageKey = currentUserId ? `profileImage_${currentUserId}` : null;
+
+  // Detect context (admin or assessor) based on hidden/readonly id input
+  const isAdmin = !!document.querySelector('input[name="admin_id"]');
+  const isAssessor = !!document.querySelector('input[name="assessor_id"]');
+
+  const rolePrefix = isAssessor ? 'assessor' : 'admin'; // default to admin if unsure
+  const primaryIdFieldName = isAdmin ? 'admin_id' : (isAssessor ? 'assessor_id' : null);
+
   /* ---------- Utilities: toasts & modal helpers ---------- */
   function showToast(message, isError = false, timeout = 3500) {
     // simple floating toast (bootstrap optional)
     const toast = document.createElement('div');
-    toast.className = `admin-toast ${isError ? 'admin-toast-error' : 'admin-toast-success'}`;
+    toast.className = `${rolePrefix}-toast ${isError ? `${rolePrefix}-toast-error` : `${rolePrefix}-toast-success`}`;
     toast.style.cssText = 'position:fixed;top:1rem;right:1rem;z-index:99999;padding:.6rem 1rem;border-radius:.4rem;box-shadow:0 6px 18px rgba(0,0,0,.12);font-weight:600;';
     toast.style.background = isError ? '#dc3545' : '#198754';
     toast.style.color = 'white';
@@ -26,21 +42,20 @@ document.addEventListener('DOMContentLoaded', () => {
   function confirmModal(htmlBody) {
     // returns a promise that resolves true/false based on user confirm/cancel
     return new Promise(resolve => {
-      // create a modal node
       const wrapper = document.createElement('div');
       wrapper.innerHTML = `
-      <div class="admin-confirm-modal-backdrop" style="position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;">
-        <div class="admin-confirm-modal" style="background:#fff;border-radius:8px;max-width:420px;width:92%;padding:1rem;box-shadow:0 8px 30px rgba(0,0,0,.2);">
-          <div class="admin-confirm-body">${htmlBody}</div>
+      <div class="${rolePrefix}-confirm-modal-backdrop" style="position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;">
+        <div class="${rolePrefix}-confirm-modal" style="background:#fff;border-radius:8px;max-width:420px;width:92%;padding:1rem;box-shadow:0 8px 30px rgba(0,0,0,.2);">
+          <div class="${rolePrefix}-confirm-body">${htmlBody}</div>
           <div style="display:flex;gap:.6rem;justify-content:center;margin-top:.8rem;">
-            <button class="admin-confirm-cancel" style="padding:.5rem .9rem;border-radius:6px;border:1px solid #dcdcdc;background:#fff;">Cancel</button>
-            <button class="admin-confirm-ok" style="padding:.5rem .9rem;border-radius:6px;border:0;background:#0d6efd;color:#fff;">Confirm</button>
+            <button class="${rolePrefix}-confirm-cancel" style="padding:.5rem .9rem;border-radius:6px;border:1px solid #dcdcdc;background:#fff;">Cancel</button>
+            <button class="${rolePrefix}-confirm-ok" style="padding:.5rem .9rem;border-radius:6px;border:0;background:#0d6efd;color:#fff;">Confirm</button>
           </div>
         </div>
       </div>`;
       document.body.appendChild(wrapper);
-      const cancelBtn = wrapper.querySelector('.admin-confirm-cancel');
-      const okBtn = wrapper.querySelector('.admin-confirm-ok');
+      const cancelBtn = wrapper.querySelector(`.${rolePrefix}-confirm-cancel`);
+      const okBtn = wrapper.querySelector(`.${rolePrefix}-confirm-ok`);
 
       function cleanup(val) {
         wrapper.remove();
@@ -65,19 +80,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const avatarInput = document.getElementById('avatarUpload');
   const profilePicture = document.getElementById('profilePicture');
-  /* ---------- Avatar upload button trigger ---------- */
   const uploadPhotoBtn = document.getElementById('uploadPhotoBtn');
 
+  /* ---------- Avatar upload button trigger ---------- */
   if (uploadPhotoBtn && avatarInput) {
     uploadPhotoBtn.addEventListener('click', (e) => {
       e.preventDefault();
       console.log("🟢 Upload Photo button clicked");
-      avatarInput.click(); // ✅ opens file dialog
+      avatarInput.click(); // opens file dialog
     });
   }
 
   /* ---------- Profile edit toggles ---------- */
-  // hide edit mode if not present
   if (editMode) editMode.style.display = 'none';
   if (saveButtonsContainer) saveButtonsContainer.style.display = 'none';
 
@@ -87,17 +101,17 @@ document.addEventListener('DOMContentLoaded', () => {
     editMode.style.display = 'block';
     if (editPersonalBtn) editPersonalBtn.style.display = 'none';
     if (saveButtonsContainer) saveButtonsContainer.style.display = 'flex';
-    // Make inputs editable except readonly ones (admin id, email)
+
+    // Make inputs editable except readonly ones (admin_id / assessor_id / explicitly locked)
     updateForm.querySelectorAll('input').forEach(i => {
-      if (i.hasAttribute('data-noreadonly') || i.getAttribute('name') === 'admin_id' || i.readOnly) return;
-      i.readOnly = false;
+      if (i.hasAttribute('data-noreadonly')) return;
+      if (primaryIdFieldName && i.getAttribute('name') === primaryIdFieldName) return;
+      if (i.readOnly) i.readOnly = false;
     });
   }
 
   function cancelEditing() {
     if (!editMode || !displayMode || !updateForm) return;
-    // revert visible values by reloading or re-fetch original values (simpler: reload)
-    // here we restore by reloading to keep server state in sync
     window.location.reload();
   }
 
@@ -110,7 +124,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* ---------- Profile update (AJAX) ---------- */
   if (updateForm) {
-    // ensure method override is set if your form action expects PUT; we add _method if not present
     updateForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const action = updateForm.action || updateForm.getAttribute('data-action') || null;
@@ -121,12 +134,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const fd = new FormData(updateForm);
-      // if server expects PUT / _method field:
       if (!fd.has('_method')) fd.append('_method', 'PUT');
 
       try {
         const res = await fetch(action, {
-          method: 'POST', // using method override
+          method: 'POST',
           headers: {
             'X-CSRF-TOKEN': csrfToken,
             'X-Requested-With': 'XMLHttpRequest'
@@ -136,10 +148,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await res.json();
         if (res.ok && data.success) {
           showToast(data.message || 'Profile updated');
-          // reflect changes visually: reload to be safe
           setTimeout(() => window.location.reload(), 900);
         } else {
-          // show errors (if provided)
           const msg = data.message || (data.errors ? Object.values(data.errors).flat().join(', ') : 'Update failed');
           showToast(msg, true);
         }
@@ -149,16 +159,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // If user clicks Save button in the edit form, keep UX consistent
     const saveBtn = updateForm.querySelector('button[type="submit"], .btn-save');
     if (saveBtn) saveBtn.addEventListener('click', (ev) => {
-      // if button is not type submit, trigger submit
-      if (saveBtn.getAttribute('type') !== 'submit') updateForm.dispatchEvent(new Event('submit', {cancelable:true}));
+      if (saveBtn.getAttribute('type') !== 'submit') {
+        updateForm.dispatchEvent(new Event('submit', { cancelable: true }));
+      }
     });
   }
 
   /* ---------- Password edit toggles ---------- */
   if (passwordEditMode) passwordEditMode.style.display = 'none';
+
   if (editPasswordBtn) {
     editPasswordBtn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -173,16 +184,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (passwordEditMode) passwordEditMode.style.display = 'none';
     if (editPasswordBtn) editPasswordBtn.style.display = 'flex';
     if (passwordForm) passwordForm.reset();
-    // reset checklist styling
     ['length','uppercase','lowercase','number','special'].forEach(k => {
       const el = document.getElementById(k);
-      if (el) el.classList.remove('valid'), el.classList.add('invalid');
+      if (el) {
+        el.classList.remove('valid');
+        el.classList.add('invalid');
+      }
     });
   }
-  // attach a global function so inline calls from blade still work:
+
+  // expose global cancel for inline Blade
   window.cancelPasswordEdit = cancelPasswordEdit;
+
   document.getElementById('cancelPersonalBtn')?.addEventListener('click', cancelEditing);
-document.getElementById('cancelPasswordBtn')?.addEventListener('click', cancelPasswordEdit);
+  document.getElementById('cancelPasswordBtn')?.addEventListener('click', cancelPasswordEdit);
 
   /* ---------- Password validation checklist ---------- */
   function setChecklistState(key, ok) {
@@ -191,28 +206,30 @@ document.getElementById('cancelPasswordBtn')?.addEventListener('click', cancelPa
     el.classList.toggle('valid', ok);
     el.classList.toggle('invalid', !ok);
 
-    // show check icon when valid, circle when not (support both markup styles)
-    // if the element contains <i> icons, toggle classes
     const checkIcon = el.querySelector('.check-icon');
     const circleIcon = el.querySelector('.circle-icon');
     if (checkIcon && circleIcon) {
       checkIcon.classList.toggle('d-none', !ok);
       circleIcon.classList.toggle('d-none', ok);
     } else {
-      // fallback: prepend/replace inline Unicode icons
+      const checkClass = `${rolePrefix}-check-mark`;
+      const circleClass = `${rolePrefix}-circle-mark`;
+
       if (ok) {
-        if (!el.querySelector('.admin-check-mark')) {
-          el.insertAdjacentHTML('afterbegin', '<span class="admin-check-mark" style="display:inline-block;width:18px;margin-right:.45rem;color:#28a745;">✓</span>');
+        if (!el.querySelector(`.${checkClass}`)) {
+          el.insertAdjacentHTML('afterbegin',
+            `<span class="${checkClass}" style="display:inline-block;width:18px;margin-right:.45rem;color:#28a745;">✓</span>`
+          );
         }
-        // remove any circle if present
-        const circ = el.querySelector('.admin-circle-mark');
+        const circ = el.querySelector(`.${circleClass}`);
         if (circ) circ.remove();
       } else {
-        // remove check if present, ensure circle exists
-        const chk = el.querySelector('.admin-check-mark');
+        const chk = el.querySelector(`.${checkClass}`);
         if (chk) chk.remove();
-        if (!el.querySelector('.admin-circle-mark')) {
-          el.insertAdjacentHTML('afterbegin', '<span class="admin-circle-mark" style="display:inline-block;width:18px;margin-right:.45rem;color:#9aa0a6;">○</span>');
+        if (!el.querySelector(`.${circleClass}`)) {
+          el.insertAdjacentHTML('afterbegin',
+            `<span class="${circleClass}" style="display:inline-block;width:18px;margin-right:.45rem;color:#9aa0a6;">○</span>`
+          );
         }
       }
     }
@@ -230,7 +247,6 @@ document.getElementById('cancelPasswordBtn')?.addEventListener('click', cancelPa
     Object.entries(rules).forEach(([k, v]) => setChecklistState(k, v));
   };
 
-  // toggle show/hide password (exposed too)
   window.togglePassword = function () {
     ['currentPassword', 'newPassword', 'confirmPassword'].forEach(id => {
       const el = document.getElementById(id);
@@ -243,7 +259,6 @@ document.getElementById('cancelPasswordBtn')?.addEventListener('click', cancelPa
   if (passwordForm) {
     passwordForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      // ensure action present
       const action = passwordForm.action || passwordForm.getAttribute('data-action') || null;
       if (!action) {
         console.warn('Password update: form action not set. Aborting AJAX update.');
@@ -258,9 +273,9 @@ document.getElementById('cancelPasswordBtn')?.addEventListener('click', cancelPa
         return;
       }
 
-      // Basic client-side check that rules pass
       const passed = ['length','uppercase','lowercase','number','special'].every(k => {
-        const el = document.getElementById(k); return el && el.classList.contains('valid');
+        const el = document.getElementById(k);
+        return el && el.classList.contains('valid');
       });
       if (!passed) {
         showToast('Password does not meet requirements', true);
@@ -294,10 +309,11 @@ document.getElementById('cancelPasswordBtn')?.addEventListener('click', cancelPa
       }
     });
 
-    // in case button is not submit type
     const passwordBtn = passwordForm.querySelector('button[type="submit"], .btn-save');
     if (passwordBtn) passwordBtn.addEventListener('click', (ev) => {
-      if (passwordBtn.getAttribute('type') !== 'submit') passwordForm.dispatchEvent(new Event('submit', {cancelable:true}));
+      if (passwordBtn.getAttribute('type') !== 'submit') {
+        passwordForm.dispatchEvent(new Event('submit', { cancelable: true }));
+      }
     });
   }
 
@@ -307,25 +323,29 @@ document.getElementById('cancelPasswordBtn')?.addEventListener('click', cancelPa
     if (!file.type.startsWith('image/')) {
       showToast('Please pick an image file', true); return;
     }
+    // match PHP 5MB limit (5120 KB)
     if (file.size > 5 * 1024 * 1024) {
       showToast('Image must be under 5MB', true); return;
     }
 
-    // preview data URL
     const reader = new FileReader();
     reader.onload = async (ev) => {
       const previewSrc = ev.target.result;
-      // show confirm modal with preview
-      const html = `<div style="text-align:center;"><img src="${previewSrc}" style="width:120px;height:120px;border-radius:999px;object-fit:cover;display:block;margin:0 auto 0.6rem;"><div>Save this as your new profile picture?</div></div>`;
+      const html = `
+        <div style="text-align:center;">
+          <img src="${previewSrc}" style="width:120px;height:120px;border-radius:999px;object-fit:cover;display:block;margin:0 auto 0.6rem;">
+          <div>Save this as your new profile picture?</div>
+        </div>`;
       const ok = await confirmModal(html);
       if (!ok) return;
 
-      // form action = avatar upload action
-      // find a form with id avatarForm or fallback to data-action on input
       const avatarFormEl = document.getElementById('avatarForm');
-      let action = (avatarFormEl && avatarFormEl.action) ? avatarFormEl.action : (document.getElementById('avatarUpload')?.getAttribute('data-action') || (document.getElementById('avatarUpload')?.form?.action || null));
+      let action =
+        (avatarFormEl && avatarFormEl.action)
+        || document.getElementById('avatarUpload')?.getAttribute('data-action')
+        || (document.getElementById('avatarUpload')?.form?.action || null);
+
       if (!action) {
-        // fallback guess: use current location + 'admin/profile/avatar' - but warn
         console.warn('Avatar upload: no action found on form/input. Aborting upload.');
         showToast('Avatar upload failed: missing endpoint', true);
         return;
@@ -333,30 +353,47 @@ document.getElementById('cancelPasswordBtn')?.addEventListener('click', cancelPa
 
       const uploadFD = new FormData();
       uploadFD.append('avatar', file);
-      // server might expect _token; but we'll send header + form includes token if present.
+
       try {
         const res = await fetch(action, {
           method: 'POST',
           headers: {
             'X-CSRF-TOKEN': csrfToken,
-            'X-Requested-With': 'XMLHttpRequest'
+            'X-Requested-With': 'XMLHttpRequest',
           },
           body: uploadFD
         });
-        const data = await res.json();
+
+        // Read response as text first, then try to parse as JSON
+        const raw = await res.text();
+        let data;
+        try {
+          data = raw ? JSON.parse(raw) : {};
+        } catch (e) {
+          console.error('Avatar upload non-JSON response', { status: res.status, raw });
+          showToast('Avatar upload failed (non-JSON response)', true);
+          return;
+        }
+
         if (res.ok && data.success) {
-          // update preview and sidebar
           if (profilePicture && data.avatar_url) {
             profilePicture.src = data.avatar_url;
-            localStorage.setItem('profileImage', data.avatar_url);
+            if (avatarStorageKey) {
+              try {
+                localStorage.setItem(avatarStorageKey, data.avatar_url);
+              } catch (e) { /* ignore */ }
+            }
           }
           showToast(data.message || 'Avatar updated');
         } else {
-          const msg = data.message || 'Upload failed';
+          const msg =
+            data.message
+            || (data.errors ? Object.values(data.errors).flat().join(', ') : 'Upload failed');
           showToast(msg, true);
+          console.error('Avatar upload error response', { status: res.status, data });
         }
       } catch (err) {
-        console.error('Avatar upload error', err);
+        console.error('Avatar upload network/error', err);
         showToast('Avatar upload error', true);
       }
     };
@@ -369,26 +406,25 @@ document.getElementById('cancelPasswordBtn')?.addEventListener('click', cancelPa
       if (!file) return;
       handleAvatarFile(file);
     });
-    // expose previewAvatar for inline onChange fallback
     window.previewAvatar = (ev) => {
       const file = ev.target.files[0];
       handleAvatarFile(file);
     };
   }
 
-  /* ---------- Load stored avatar (client side fallback) ---------- */
+  /* ---------- Load stored avatar (client side fallback, per user) ---------- */
   try {
-    const saved = localStorage.getItem('profileImage');
-    if (saved && profilePicture) profilePicture.src = saved;
+    if (avatarStorageKey) {
+      const saved = localStorage.getItem(avatarStorageKey);
+      if (saved && profilePicture) profilePicture.src = saved;
+    }
   } catch (err) { /* ignore */ }
 
-
-  /* ---------- keyboard accessibility: allow Enter on edit buttons ---------- */
+  /* ---------- keyboard accessibility: allow Enter/Space on edit buttons ---------- */
   [editPersonalBtn, editPasswordBtn].forEach(btn => {
     if (!btn) return;
     btn.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); btn.click(); }
     });
   });
-
 }); // DOMContentLoaded
