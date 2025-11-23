@@ -284,7 +284,7 @@ class SessionTimeout {
 
     async performLogout() {
         try {
-            const response = await fetch('/ajax-logout', {
+            const response = await fetch('POST /logout', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

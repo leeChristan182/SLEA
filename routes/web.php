@@ -23,7 +23,7 @@ use App\Http\Controllers\AssessorStudentSubmissionController;
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['guest', SecurityHeaders::class])->group(function () {
+Route::middleware(['guest'])->group(function () {
     Route::get('/', [AuthController::class, 'showLogin'])->name('login.show');
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'authenticate'])->name('login.auth')
@@ -54,9 +54,8 @@ Route::middleware(['guest', SecurityHeaders::class])->group(function () {
 
 // logout still just needs auth
 Route::post('/logout', [AuthController::class, 'logout'])
-    ->middleware(['auth', SecurityHeaders::class])
+    ->middleware('auth')
     ->name('logout');
-Route::get('/logout', [AuthController::class, 'logout']);
 /*
 |--------------------------------------------------------------------------
 | STUDENT ROUTES

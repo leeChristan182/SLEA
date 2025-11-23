@@ -3,10 +3,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 $user = Auth::user();
-$role = $user->role ?? null; // 'admin', 'assessor', 'student' or null for guests
+$role = $user->role ?? null; // 'admin', 'assessor', 'student' or null
 
-// Default route name based on role
-$routeName = null;
+// Default landing route based on role
 switch ($role) {
 case 'admin':
 $routeName = 'admin.profile';
@@ -18,12 +17,11 @@ case 'student':
 $routeName = 'student.profile';
 break;
 default:
-// guest or unknown role → send to login
 $routeName = 'login.show';
 break;
 }
 
-$link = Route::has($routeName) ? route($routeName) : '#';
+$link = Route::has($routeName) ? route($routeName) : route('login.show');
 @endphp
 
 <div class="header-container">
@@ -45,7 +43,7 @@ $link = Route::has($routeName) ? route($routeName) : '#';
         </div>
 
         <div class="header-right d-flex align-items-center gap-3">
-            <div class="text-end">
+            <div class="text-end d-none d-sm-block">
                 <small>Having Trouble?</small><br>
                 <a href="#">Send us a message</a>
             </div>
@@ -55,13 +53,13 @@ $link = Route::has($routeName) ? route($routeName) : '#';
                 <i class="fas fa-moon"></i>
             </button>
 
-            <!-- Logout Button (only when logged in) -->
             @if ($user)
+            {{-- ✅ Single, canonical logout form using POST /logout --}}
             <form id="logoutForm" action="{{ route('logout') }}" method="POST" style="margin:0;">
                 @csrf
                 <button type="submit" class="logout-btn" title="Logout">
                     <i class="fas fa-sign-out-alt"></i>
-                    <span>Logout</span>
+                    <span class="d-none d-md-inline">Logout</span>
                 </button>
             </form>
             @endif
@@ -69,29 +67,32 @@ $link = Route::has($routeName) ? route($routeName) : '#';
     </div>
 </div>
 
-{{-- SweetAlert2 (for logout confirmation) --}}
+{{-- SweetAlert2 for logout confirmation --}}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const logoutForm = document.getElementById('logoutForm');
-        if (logoutForm) {
-            logoutForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                Swal.fire({
-                    title: 'Confirm Logout',
-                    text: 'Are you sure you want to logout?',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#a00',
-                    cancelButtonColor: '#555',
-                    confirmButtonText: 'Yes, logout',
-                    cancelButtonText: 'Cancel'
-                }).then((result) => {
-                    if (result.isConfirmed) logoutForm.submit();
-                });
+        if (!logoutForm) return;
+
+        logoutForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            Swal.fire({
+                title: 'Confirm Logout',
+                text: 'Are you sure you want to logout?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#a00',
+                cancelButtonColor: '#555',
+                confirmButtonText: 'Yes, logout',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    logoutForm.submit(); // 👈 actual POST /logout happens here
+                }
             });
-        }
+        });
     });
 </script>
 
@@ -103,9 +104,9 @@ $link = Route::has($routeName) ? route($routeName) : '#';
         border: 2px solid #a00;
         border-radius: 8px;
         padding: 6px 12px;
-        background: white;
+        background: #fff;
         color: #333;
-        font-size: 1rem;
+        font-size: 0.95rem;
         cursor: pointer;
         transition: all 0.2s ease;
     }
@@ -127,7 +128,7 @@ $link = Route::has($routeName) ? route($routeName) : '#';
     }
 
     .swal2-popup {
-        font-family: 'Poppins', sans-serif;
+        font-family: inherit;
     }
 
     .swal2-confirm {

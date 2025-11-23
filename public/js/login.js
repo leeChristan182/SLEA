@@ -1,37 +1,10 @@
-// public/js/login.js
-
 document.addEventListener('DOMContentLoaded', function () {
-    // === ANTI-AUTOFILL: CLEAR EMAIL & PASSWORD ===
-    const emailField = document.getElementById('email');
-    const passwordField = document.getElementById('passwordInput');
-
-    function wipeCredentials() {
-        if (emailField) {
-            emailField.value = '';
-            emailField.setAttribute('autocomplete', 'off');
-            emailField.setAttribute('autocapitalize', 'none');
-            emailField.setAttribute('autocorrect', 'off');
-        }
-
-        if (passwordField) {
-            passwordField.value = '';
-            // For logins this can be 'off'; 'new-password' is helpful on register
-            passwordField.setAttribute('autocomplete', 'off');
-        }
-    }
-
-    // Run immediately
-    wipeCredentials();
-    // Run again shortly after load in case the browser fills *after* DOMContentLoaded
-    setTimeout(wipeCredentials, 300);
-    setTimeout(wipeCredentials, 1000);
-
     // === DARK MODE ===
     const body = document.body;
     const toggleBtn = document.getElementById('darkModeToggle');
     const toggleBtnFloating = document.getElementById('darkModeToggleFloating');
 
-    // Initial theme from localStorage
+    // Initial load
     if (localStorage.getItem('theme') === 'dark') {
         body.classList.add('dark-mode');
         toggleBtn?.querySelector('i')?.classList.replace('fa-moon', 'fa-sun');
@@ -45,7 +18,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const icon = toggleBtn?.querySelector('i');
         const iconFloating = toggleBtnFloating?.querySelector('i');
-
         if (mode === 'dark') {
             icon?.classList.replace('fa-moon', 'fa-sun');
             iconFloating?.classList.replace('fa-moon', 'fa-sun');
@@ -110,6 +82,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 keyboard: false
             });
             privacyModal.show();
+        } else {
+            console.error('Privacy modal not found or Bootstrap not loaded');
         }
     }, 100);
 });

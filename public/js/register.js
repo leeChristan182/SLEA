@@ -31,55 +31,46 @@
     const ageInput          = document.querySelector('input[name="age"]');
 
     const collegeSelect     = document.querySelector('select[name="college_id"], select[name="college_name"]');
-    const programSelect     = document.querySelector('select[name="program_id"]');
-    const majorSelect       = document.querySelector('select[name="major_id"]');
+    const programSelect     = document.querySelector('select[name="program_id"], select[name="program"]');
+    const majorSelect       = document.querySelector('select[name="major_id"], select[name="major_name"]');
 
+    // Leadership (council/CCO)
     const leadershipTypeSelect = document.getElementById('leadership_type_id');
-    const clusterWrap          = document.getElementById('cluster_wrap');
-    const orgWrap              = document.getElementById('org_wrap');
     const clusterSelect        = document.getElementById('cluster_id');
     const organizationSelect   = document.getElementById('organization_id');
     const positionSelect       = document.getElementById('position_id');
-    const orgOptHint           = document.getElementById('org_optional_hint');
-    const clusterStar          = document.getElementById('cluster_required_star');
-    const orgStar              = document.getElementById('org_required_star');
 
-    // -------- Utilities --------
-    function resetDropdown(el, placeholder = 'Select an option') {
+    // Wrappers / indicators (Step 3)
+    const clusterWrap  = document.getElementById('cluster_wrap');
+    const orgWrap      = document.getElementById('org_wrap');
+    const clusterStar  = document.getElementById('cluster_required_star');
+    const orgStar      = document.getElementById('org_required_star');
+    const orgOptHint   = document.getElementById('org_optional_hint');
+
+    const councilFlagInput = document.querySelector('input[name="is_council"]');
+    const isCouncilMode = !!(councilFlagInput && String(councilFlagInput.value) === '1');
+
+    expectedGradInput && (expectedGradInput.readOnly = true);
+    ageInput && (ageInput.readOnly = true);
+
+    // -------- Helpers --------
+    function resetDropdown(el, placeholder = 'Select') {
       if (!el) return;
-      el.innerHTML = '';
-      const opt = document.createElement('option');
-      opt.value = '';
-      opt.textContent = placeholder;
-      el.appendChild(opt);
+      el.innerHTML = `<option value="">${placeholder}</option>`;
+      el.disabled = false;
     }
 
-    function setOptionsFromPairs(el, pairs, selected) {
+    function setOptions(el, rows, selected) {
       if (!el) return;
-      if (!pairs) return;
-      // pairs might be object map or array of {id, name}
-      if (Array.isArray(pairs)) {
-        pairs.forEach(row => {
-          if (!row) return;
-          const id = row.id ?? row.value ?? row.key ?? row[0];
-          const label = row.name ?? row.label ?? row[1] ?? row.text ?? String(id);
-          if (id == null) return;
-          const opt = document.createElement('option');
-          opt.value = String(id);
-          opt.textContent = label;
-          el.appendChild(opt);
-        });
-      } else {
-        Object.entries(pairs).forEach(([id, label]) => {
-          const opt = document.createElement('option');
-          opt.value = String(id);
-          opt.textContent = String(label);
-          el.appendChild(opt);
-        });
-      }
+      (rows || []).forEach(r => {
+        const id = String(r.id);
+        const label = r.name ?? r.program_name ?? r.major_name ?? id;
+        el.insertAdjacentHTML('beforeend', `<option value="${id}">${label}</option>`);
+      });
       if (selected) el.value = String(selected);
     }
 
+    // convenience wrapper: expects [{id, name}]
     function setOptionsFromArray(el, rows, selected) {
       if (!el) return;
       rows = rows || [];
@@ -94,126 +85,144 @@
     async function safeFetchJson(url, { retries = 2, signal } = {}) {
       for (let i = 0; i <= retries; i++) {
         try {
-          const r = await fetch(url, {
-            method: 'GET',
-            headers: {
-              'X-Requested-With': 'XMLHttpRequest',
-              'Accept': 'application/json'
-            },
-            signal
-          });
+          const r = await fetch(url, { headers: { 'Accept': 'application/json' }, signal });
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          const data = await r.json();
-          return data;
-        } catch (err) {
-          if (i === retries) {
-            console.error('Failed to fetch', url, err);
-            return null;
-          }
+          return await r.json();
+        } catch (e) {
+          if (i === retries) return null;
+          await new Promise(res => setTimeout(res, 150 * (i + 1)));
         }
       }
+      return null;
     }
 
-    // -------- Age auto-calc --------
-    function computeAgeFromBirthdate(birthValue) {
-      if (!birthValue) return '';
-      const birthDate = new Date(birthValue);
-      if (Number.isNaN(birthDate.getTime())) return '';
-      const today = new Date();
-
-      let age = today.getFullYear() - birthDate.getFullYear();
-      const m = today.getMonth() - birthDate.getMonth();
-      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
-      }
-      return age >= 0 ? String(age) : '';
-    }
-
-    birthDateInput?.addEventListener('change', () => {
-      ageInput.value = computeAgeFromBirthdate(birthDateInput.value);
-    });
-
-    // If old value exists (from validation) and age is empty, compute once
-    if (birthDateInput?.value && !ageInput?.value) {
-      ageInput.value = computeAgeFromBirthdate(birthDateInput.value);
-    }
-
-    // -------- Expected Grad auto-calc --------
-    function computeExpectedGrad(yearLevel, studentIdVal) {
-      // Basic heuristic: parse first 4 digits of student ID as admission year
-      if (!yearLevel || !studentIdVal) return '';
-      const match = String(studentIdVal).match(/^(\d{4})/);
-      if (!match) return '';
-      const admitYear = parseInt(match[1], 10);
-      if (Number.isNaN(admitYear)) return '';
-
-      const yLvl = parseInt(yearLevel, 10);
-      if (Number.isNaN(yLvl) || yLvl < 1) return '';
-      // Assume a 4 or 5-year program but we can't reliably know which.
-      // We'll approximate expected grad as: admission + (5 - currentYearLevel).
-      // e.g. admitted 2023, now 2nd year → 2023 + (5 - 2) = 2026
-      const yearsNeeded = 5 - yLvl;
-      const gradYear = admitYear + (yearsNeeded > 0 ? yearsNeeded : 4);
-      return `${gradYear}`;
-    }
-
+    // -------- Auto Age / Expected Grad --------
     function updateExpectedGrad() {
-      if (!yearLevelSelect || !studentIdInput || !expectedGradInput) return;
-      const val = computeExpectedGrad(yearLevelSelect.value, studentIdInput.value);
-      expectedGradInput.value = val;
+      if (!expectedGradInput || !studentIdInput || !yearLevelSelect) return;
+      const m = (studentIdInput.value.trim()).match(/^(\d{4})/);
+      const entryYear = m ? parseInt(m[1], 10) : null;
+      if (!entryYear) { expectedGradInput.value = ''; return; }
+      const totalYears = 4;
+      expectedGradInput.value = entryYear + totalYears;
+
+      const currentYear = new Date().getFullYear();
+      const inferred = Math.min(currentYear - entryYear + 1, totalYears).toString();
+      [...yearLevelSelect.options].forEach(o => { if (o.value === inferred) o.selected = true; });
     }
 
-    yearLevelSelect?.addEventListener('change', updateExpectedGrad);
+    function updateAge() {
+      if (!ageInput || !birthDateInput?.value) { if (ageInput) ageInput.value = ''; return; }
+      const b = new Date(birthDateInput.value); if (isNaN(b)) { ageInput.value = ''; return; }
+      const t = new Date();
+      let age = t.getFullYear() - b.getFullYear();
+      if (t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) age--;
+      ageInput.value = age;
+    }
+
     studentIdInput?.addEventListener('input', updateExpectedGrad);
+    yearLevelSelect?.addEventListener('change', updateExpectedGrad);
+    birthDateInput?.addEventListener('change', updateAge);
 
-    // Initial if old values exist
-    if (yearLevelSelect?.value && studentIdInput?.value && expectedGradInput && !expectedGradInput.value) {
-      expectedGradInput.value = computeExpectedGrad(yearLevelSelect.value, studentIdInput.value);
+    // -------- Academics (cache-first map) --------
+    const isIdMode = !!document.querySelector('select[name="college_id"]');
+    const oldProgramId = programSelect?.dataset.old || '';
+    const oldMajorId   = majorSelect?.dataset.old || '';
+
+    let programsByCollege = {}; // { collegeId: [{id,name}] }
+    let majorsByProgram   = {}; // { programId: [{id,name}] }
+    let mapLoaded = false;
+
+    if (URLS.academicsMap) {
+      const map = await safeFetchJson(`${URLS.academicsMap}?_=${Date.now()}`);
+      if (map?.programsByCollege && map?.majorsByProgram) {
+        programsByCollege = map.programsByCollege || {};
+        majorsByProgram   = map.majorsByProgram || {};
+        mapLoaded = true;
+      }
     }
 
-    // -------- Academic (Programs/Majors) --------
-    const oldCollegeId = collegeSelect?.dataset.old || collegeSelect?.value || '';
-    const oldProgramId = programSelect?.dataset.old || programSelect?.value || '';
-    const oldMajorId   = majorSelect?.dataset.old   || majorSelect?.value   || '';
+    // Abort-guards for noisy users
+    let progCtrl, majCtrl, progSeq = 0, majSeq = 0;
 
-    async function loadPrograms(collegeId, selectedProgram) {
+    async function loadPrograms(collegeId, selectId = '') {
+      const seq = ++progSeq;
+      resetDropdown(programSelect, 'Loading programs...');
+      resetDropdown(majorSelect, 'Select Major');
+
+      // cache-first when possible
+      if (isIdMode && mapLoaded) {
+        const rows = programsByCollege[collegeId] || [];
+        resetDropdown(programSelect, 'Select Program');
+        setOptions(programSelect, rows, selectId);
+        return;
+      }
+
+      if (!URLS.programs || !collegeId) {
+        resetDropdown(programSelect, 'Select Program');
+        return;
+      }
+
+      progCtrl?.abort();
+      progCtrl = new AbortController();
+      const rows = await safeFetchJson(`${URLS.programs}?college_id=${encodeURIComponent(collegeId)}&_=${Date.now()}`, { signal: progCtrl.signal });
+      if (seq !== progSeq) return; // stale response
       resetDropdown(programSelect, 'Select Program');
-      resetDropdown(majorSelect, 'Select Major');
-
-      if (!collegeId || !URLS.programs) return;
-
-      const data = await safeFetchJson(
-        `${URLS.programs}?college_id=${encodeURIComponent(collegeId)}&_=${Date.now()}`
-      );
-      setOptionsFromPairs(programSelect, data, selectedProgram || '');
+      setOptions(programSelect, (rows || []).map(x => ({ id: x.id, name: x.name || x.program_name })), selectId);
     }
 
-    async function loadMajors(programId, selectedMajor) {
-      resetDropdown(majorSelect, 'Select Major');
-      if (!programId || !URLS.majors) return;
+    async function loadMajors(programId, selectId = '') {
+      const seq = ++majSeq;
+      resetDropdown(majorSelect, 'Loading majors...');
 
-      const data = await safeFetchJson(
-        `${URLS.majors}?program_id=${encodeURIComponent(programId)}&_=${Date.now()}`
-      );
-      setOptionsFromPairs(majorSelect, data, selectedMajor || '');
+      // cache-first when possible
+      if (isIdMode && mapLoaded) {
+        const rows = majorsByProgram[programId] || [];
+        resetDropdown(majorSelect, 'Select Major');
+        setOptions(majorSelect, rows, selectId);
+        return;
+      }
+
+      if (!URLS.majors || !programId) {
+        resetDropdown(majorSelect, 'Select Major');
+        return;
+      }
+
+      majCtrl?.abort();
+      majCtrl = new AbortController();
+      const rows = await safeFetchJson(`${URLS.majors}?program_id=${encodeURIComponent(programId)}&_=${Date.now()}`, { signal: majCtrl.signal });
+      if (seq !== majSeq) return; // stale response
+      resetDropdown(majorSelect, 'Select Major');
+      setOptions(majorSelect, (rows || []).map(x => ({ id: x.id, name: x.name || x.major_name })), selectId);
     }
 
     collegeSelect?.addEventListener('change', () => {
       const cid = collegeSelect.value;
-      loadPrograms(cid, '');
+      if (mapLoaded && isIdMode) {
+        resetDropdown(programSelect, 'Select Program');
+        setOptions(programSelect, programsByCollege[cid] || [], '');
+        resetDropdown(majorSelect, 'Select Major');
+      } else {
+        loadPrograms(cid, '');
+      }
     });
 
     programSelect?.addEventListener('change', () => {
       const pid = programSelect.value;
-      loadMajors(pid, '');
+      if (mapLoaded && isIdMode) {
+        resetDropdown(majorSelect, 'Select Major');
+        setOptions(majorSelect, majorsByProgram[pid] || [], '');
+      } else {
+        loadMajors(pid, '');
+      }
     });
 
-    // If we had old selections (validation fail), restore them
-    if (oldCollegeId && collegeSelect) {
-      collegeSelect.value = oldCollegeId;
-      if (oldProgramId) {
-        await loadPrograms(oldCollegeId, oldProgramId || '');
-        if (oldMajorId) await loadMajors(oldProgramId, oldMajorId || '');
+    // Initial boot for Academics
+    if (collegeSelect?.value) {
+      if (mapLoaded && isIdMode) {
+        resetDropdown(programSelect, 'Select Program');
+        setOptions(programSelect, programsByCollege[collegeSelect.value] || [], oldProgramId || '');
+        resetDropdown(majorSelect, 'Select Major');
+        setOptions(majorSelect, majorsByProgram[oldProgramId] || [], oldMajorId || '');
       } else {
         await loadPrograms(collegeSelect.value, oldProgramId || '');
         if (oldProgramId) await loadMajors(oldProgramId, oldMajorId || '');
@@ -221,6 +230,7 @@
     }
 
     // -------- Leadership (Council vs CCO) --------
+        // -------- Leadership (Council vs CCO) --------
     const URL_COUNCIL_POS = URLS.councilPositions || '';
 
     const oldLeadershipType = leadershipTypeSelect?.dataset.old || leadershipTypeSelect?.value || '';
@@ -250,6 +260,17 @@
       }
     }
 
+    function setOptionsFromArray(el, rows, selected) {
+      if (!el) return;
+      rows = rows || [];
+      rows.forEach(r => {
+        const id = String(r.id);
+        const label = r.name ?? id;
+        el.insertAdjacentHTML('beforeend', `<option value="${id}">${label}</option>`);
+      });
+      if (selected) el.value = String(selected);
+    }
+
     function isCCOSelected() {
       const opt = leadershipTypeSelect?.selectedOptions?.[0];
       if (!opt) return false;
@@ -257,114 +278,79 @@
       return key === 'cco' || /council of clubs and organizations/i.test(opt.textContent || '');
     }
 
-    /**
-     * Non-CCO leadership types (USG, OSC, LC, LGU, LCM, etc.)
-     * Fetch positions filtered by leadership_type_id
-     */
-    async function loadCouncilPositionsForType(typeId, selectedPos = '') {
+    // Council types (USG/OSC/LC/LGU/LCM) → positions union
+    async function loadCouncilPositions(selectedPos = '') {
       resetDropdown(positionSelect, 'Loading positions...');
-
-      if (!URL_COUNCIL_POS || !typeId) {
+      if (!URL_COUNCIL_POS) {
         resetDropdown(positionSelect, 'Select Position');
         return;
       }
-
-      const rows = await safeFetchJson(
-        `${URL_COUNCIL_POS}?leadership_type_id=${encodeURIComponent(typeId)}&_=${Date.now()}`
-      );
-
+      const rows = await safeFetchJson(`${URL_COUNCIL_POS}?_=${Date.now()}`);
       resetDropdown(positionSelect, 'Select Position');
       if (!rows) return;
+      setOptionsFromArray(positionSelect, rows, selectedPos);
+    }
 
+    // CCO club/org positions via generic positions endpoint
+    async function loadOrgPositions(orgId, selectedPos = '') {
+      resetDropdown(positionSelect, 'Loading positions...');
+      if (!URLS.positions || !orgId) {
+        resetDropdown(positionSelect, 'Select Position');
+        return;
+      }
+      const rows = await safeFetchJson(
+        `${URLS.positions}?organization_id=${encodeURIComponent(orgId)}&_=${Date.now()}`
+      );
+      resetDropdown(positionSelect, 'Select Position');
+      if (!rows) return;
       const list = Array.isArray(rows) ? rows : rows;
       setOptionsFromArray(positionSelect, list, selectedPos);
     }
 
-    /**
-     * Load clusters for CCO
-     */
-    async function loadClustersForCCO() {
+    async function loadClusters() {
       resetDropdown(clusterSelect, 'Loading clusters...');
       const pairs = await safeFetchJson(`${URLS.clusters}?_=${Date.now()}`);
       resetDropdown(clusterSelect, 'Select Cluster');
       if (!pairs) return;
-
       const rows = Array.isArray(pairs)
         ? pairs
         : Object.entries(pairs || {}).map(([id, name]) => ({ id, name }));
-
       setOptionsFromArray(clusterSelect, rows, oldCluster || '');
-
-      // If we had an old cluster (validation error), trigger follow-up load
       if (oldCluster) {
         clusterSelect.dispatchEvent(new Event('change'));
       }
     }
 
-    /**
-     * Load organizations for a given cluster (CCO)
-     */
-    async function loadOrganizationsForCluster(clusterId) {
+    async function loadOrganizations(clusterId) {
       resetDropdown(organizationSelect, 'Loading organizations...');
       resetDropdown(positionSelect, 'Select Position');
-
       if (!clusterId) {
         resetDropdown(organizationSelect, 'Select Organization');
         return;
       }
-
       const pairs = await safeFetchJson(
         `${URLS.organizations}?cluster_id=${encodeURIComponent(clusterId)}&_=${Date.now()}`
       );
-
       resetDropdown(organizationSelect, 'Select Organization');
       if (!pairs) return;
-
       const rows = Array.isArray(pairs)
         ? pairs
         : Object.entries(pairs || {}).map(([id, name]) => ({ id, name }));
-
       setOptionsFromArray(organizationSelect, rows, oldOrg || '');
-
       if (oldOrg) {
         organizationSelect.dispatchEvent(new Event('change'));
       }
     }
 
-    /**
-     * Load positions for a specific CCO organization
-     */
-    async function loadPositionsForCcoOrg(orgId, selectedPos = '') {
-      resetDropdown(positionSelect, 'Loading positions...');
-
-      if (!URLS.positions || !orgId) {
-        resetDropdown(positionSelect, 'Select Position');
-        return;
-      }
-
-      const rows = await safeFetchJson(
-        `${URLS.positions}?organization_id=${encodeURIComponent(orgId)}&_=${Date.now()}`
-      );
-
-      resetDropdown(positionSelect, 'Select Position');
-      if (!rows) return;
-
-      const list = Array.isArray(rows) ? rows : rows;
-      setOptionsFromArray(positionSelect, list, selectedPos);
-    }
-
-    // --- Event handlers ---
-
+    // Change handlers
     leadershipTypeSelect?.addEventListener('change', () => {
       const typeId = leadershipTypeSelect.value;
 
-      // Reset dropdowns whenever type changes
       resetDropdown(clusterSelect, 'Select Cluster');
       resetDropdown(organizationSelect, 'Select Organization');
       resetDropdown(positionSelect, 'Select Position');
 
       if (!typeId) {
-        // No leadership type selected → hide cluster/org, nothing required
         setVisible(clusterWrap, false);
         setVisible(orgWrap, false);
         setRequired(clusterSelect, false, clusterStar);
@@ -374,16 +360,76 @@
       }
 
       if (isCCOSelected()) {
-        // CCO → need Cluster + Org; positions depend on Org
+        // CCO → show cluster & org, both required; positions depend on org
         setVisible(clusterWrap, true);
         setVisible(orgWrap, true);
         setRequired(clusterSelect, true, clusterStar);
         setRequired(organizationSelect, true, orgStar);
         if (orgOptHint) orgOptHint.style.display = '';
 
-        loadClustersForCCO();
+        loadClusters();
       } else {
-        // Council types (non-CCO) → only Leadership Type + Position
+        // Non-CCO (USG/OSC/LC/LGU/LCM) → only leadership_type + position
+        setVisible(clusterWrap, false);
+        setVisible(orgWrap, false);
+        setRequired(clusterSelect, false, clusterStar);
+        setRequired(organizationSelect, false, orgStar);
+        if (orgOptHint) orgOptHint.style.display = 'none';
+
+        loadCouncilPositions(oldPosition || '');
+      }
+    });
+
+    clusterSelect?.addEventListener('change', () => {
+      const clusterId = clusterSelect.value;
+      loadOrganizations(clusterId);
+    });
+
+    organizationSelect?.addEventListener('change', () => {
+      const orgId = organizationSelect.value;
+      if (!orgId) {
+        resetDropdown(positionSelect, 'Select Position');
+        return;
+      }
+      if (isCCOSelected()) {
+        loadOrgPositions(orgId, oldPosition || '');
+      }
+    });
+
+    // Restore old state on load (for validation errors)
+    if (oldLeadershipType) {
+      leadershipTypeSelect.value = oldLeadershipType;
+      leadershipTypeSelect.dispatchEvent(new Event('change'));
+    }
+
+    // Change handlers
+    leadershipTypeSelect?.addEventListener('change', () => {
+      const typeId = leadershipTypeSelect.value;
+
+      resetDropdown(clusterSelect, 'Select Cluster');
+      resetDropdown(organizationSelect, 'Select Organization');
+      resetDropdown(positionSelect, 'Select Position');
+
+      if (!typeId) {
+        setVisible(clusterWrap, false);
+        setVisible(orgWrap, false);
+        setRequired(clusterSelect, false, clusterStar);
+        setRequired(organizationSelect, false, orgStar);
+        if (orgOptHint) orgOptHint.style.display = 'none';
+        return;
+      }
+
+      if (isCCOSelected()) {
+        // CCO → cluster + org required, positions depend on org
+        setVisible(clusterWrap, true);
+        setVisible(orgWrap, true);
+        setRequired(clusterSelect, true, clusterStar);
+        setRequired(organizationSelect, true, orgStar);
+        if (orgOptHint) orgOptHint.style.display = '';
+
+        loadClustersForCCO(typeId);
+      } else {
+        // Council types: only leadership_type + position
         setVisible(clusterWrap, false);
         setVisible(orgWrap, false);
         setRequired(clusterSelect, false, clusterStar);
@@ -400,7 +446,8 @@
     });
 
     organizationSelect?.addEventListener('change', () => {
-      const orgId = organizationSelect.value;
+      const orgId  = organizationSelect.value;
+      const typeId = leadershipTypeSelect.value;
 
       if (!orgId) {
         resetDropdown(positionSelect, 'Select Position');
@@ -408,68 +455,49 @@
       }
 
       if (isCCOSelected()) {
-        loadPositionsForCcoOrg(orgId, oldPosition || '');
+        loadPositionsForCcoOrg(typeId, orgId, oldPosition || '');
       }
     });
 
-    // Restore previous selection (e.g., after validation error)
+    // Restore old state on load (for validation errors)
     if (oldLeadershipType) {
       leadershipTypeSelect.value = oldLeadershipType;
       leadershipTypeSelect.dispatchEvent(new Event('change'));
     }
 
     // -------- Multi-step --------
+    pageNumbers.forEach((p, i) =>
+      p.addEventListener('click', () => { if (!validateStep()) return; currentStep = i; showStep(i); })
+    );
+
     function showStep(n) {
-      if (!formSteps.length) return;
-      formSteps.forEach((step, idx) => {
-        step.style.display = idx === n ? 'block' : 'none';
-        pageNumbers[idx]?.classList.toggle('active', idx === n);
+      formSteps.forEach((s, i) => s.classList.toggle('active', i === n));
+      pageNumbers.forEach((p, i) => {
+        p.classList.remove('active', 'completed');
+        if (i < n) p.classList.add('completed');
+        if (i === n) p.classList.add('active');
       });
-
       prevBtn.disabled = n === 0;
-      nextBtn.textContent = n === (formSteps.length - 1) ? 'Submit' : 'Next';
+      nextBtn.textContent = n === formSteps.length - 1 ? 'Submit' : 'Next';
     }
 
-    function validateStep(n) {
-      const current = formSteps[n];
-      if (!current) return true;
-      const requiredFields = Array.from(current.querySelectorAll('[required]'));
-      let valid = true;
-      requiredFields.forEach(field => {
-        if (!field.checkValidity()) {
-          field.classList.add('is-invalid');
-          valid = false;
-        } else {
-          field.classList.remove('is-invalid');
-        }
-      });
-      return valid;
-    }
-
-    window.nextPrev = function (direction) {
-      if (direction === 1 && !validateStep(currentStep)) {
-        return;
-      }
-      currentStep += direction;
-      if (currentStep >= formSteps.length) {
-        // Last step; submit
-        form?.submit();
-        return;
-      }
+    window.nextPrev = function (n) {
+      if (n === 1 && !validateStep()) return false;
+      currentStep += n;
+      if (currentStep >= formSteps.length) { form.submit(); return false; }
       showStep(currentStep);
     };
 
-    showStep(currentStep);
+    function validateStep() {
+      let ok = true;
+      formSteps[currentStep].querySelectorAll('input,select').forEach(i => {
+        if (!i.checkValidity()) { i.classList.add('is-invalid'); ok = false; }
+        else i.classList.remove('is-invalid');
+      });
+      return ok;
+    }
 
-    // Clear invalid on input
-    form?.addEventListener('input', e => {
-      const target = e.target;
-      if (target.matches('.is-invalid')) {
-        if (target.checkValidity()) {
-          target.classList.remove('is-invalid');
-        }
-      }
-    });
+    showStep(currentStep);
 
     // -------- Password live check --------
     const passwordInput = document.getElementById('password');
@@ -487,11 +515,10 @@
         const good = checks[k].test(passwordInput.value);
         el.classList.toggle('text-success', good);
         el.classList.toggle('text-danger', !good);
-
-        const icon = el.querySelector('i');
-        if (icon) {
-          icon.classList.toggle('fa-circle-check', good);
-          icon.classList.toggle('fa-circle-xmark', !good);
+        const ico = el.querySelector('i');
+        if (ico) {
+          ico.classList.toggle('fa-circle-check', good);
+          ico.classList.toggle('fa-circle-xmark', !good);
         }
       });
     });
