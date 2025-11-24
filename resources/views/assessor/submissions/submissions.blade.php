@@ -408,19 +408,19 @@
 
                     {{-- Action Buttons --}}
                     <div class="action-buttons-container">
-                        <button type="button" class="btn btn-approve" onclick="handleSubmission('approve')">
+                        <button type="button" class="btn btn-approve" onclick="handleSubmission('approve', this)">
                             <i class="fas fa-check"></i>
                         </button>
 
-                        <button type="button" class="btn btn-reject" onclick="handleSubmission('reject')">
+                        <button type="button" class="btn btn-reject" onclick="handleSubmission('reject', this)">
                             <i class="fas fa-times"></i>
                         </button>
 
-                        <button type="button" class="btn btn-return" onclick="handleSubmission('return')">
+                        <button type="button" class="btn btn-return" onclick="handleSubmission('return', this)">
                             <i class="fas fa-undo"></i>
                         </button>
 
-                        <button type="button" class="btn btn-flag" onclick="handleSubmission('flag')">
+                        <button type="button" class="btn btn-flag" onclick="handleSubmission('flag', this)">
                             <i class="fas fa-flag"></i>
                         </button>
                     </div>

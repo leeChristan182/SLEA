@@ -431,7 +431,8 @@ overallTotalDiv.innerHTML = `
    HANDLE ACTIONS (APPROVE / REJECT / RETURN / FLAG)
 ----------------------------- */
 
-async function handleSubmission(action) {
+// Handle approve / reject / return / flag from the individual submission modal
+async function handleSubmission(action, buttonEl) {
     if (!currentSubmissionId) {
         showErrorModal('No submission selected.');
         return;
@@ -440,6 +441,7 @@ async function handleSubmission(action) {
     const remarksEl = document.getElementById('individualAssessorRemarks');
     const remarks = remarksEl ? remarksEl.value.trim() : '';
 
+    // Remarks required for negative actions
     if ((action === 'reject' || action === 'return' || action === 'flag') && !remarks) {
         showValidationError('Please provide remarks before performing this action.');
         return;
@@ -447,7 +449,7 @@ async function handleSubmission(action) {
 
     let score = null;
     if (action === 'approve') {
-        const input = prompt('Enter assessor score (0-100):');
+        const input = prompt('Enter assessor score (0–100):');
         if (input === null) return; // cancelled
 
         const parsed = parseFloat(input);
@@ -458,16 +460,10 @@ async function handleSubmission(action) {
         score = parsed;
     }
 
-    // Attempt to get the button that triggered this action (from global event)
-    let actionButton = null;
-    if (typeof event !== 'undefined' && event.target) {
-        const target = event.target;
-        if (target.closest) {
-            actionButton = target.closest('.btn');
-        }
-    }
-
+    // Use the button passed from onclick (no reliance on global event)
+    let actionButton = buttonEl || null;
     let originalHtml = '';
+
     if (actionButton) {
         originalHtml = actionButton.innerHTML;
         actionButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
@@ -479,42 +475,51 @@ async function handleSubmission(action) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                'X-CSRF-TOKEN':
+                    document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                'Accept': 'application/json',
             },
             body: JSON.stringify({
                 action: action,
                 remarks: remarks,
-                assessor_score: score
-            })
+                assessor_score: score,
+            }),
         });
 
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.error || 'Failed to process action');
+            throw new Error(data?.error || 'Failed to process action.');
         }
 
+        // Close modal
         const individualModalEl = document.getElementById('individualSubmissionModal');
         if (individualModalEl) {
-            const individualModal = bootstrap.Modal.getInstance(individualModalEl);
-            if (individualModal) individualModal.hide();
+            const modal = bootstrap.Modal.getInstance(individualModalEl);
+            if (modal) modal.hide();
         }
 
-        showSuccessMessage(action);
+        // Show success and refresh to update list/status
+        showSuccessModal(
+            'Action completed',
+            `Submission has been ${action === 'approve' ? 'approved' : action + 'ed'}.`
+        );
 
-        // Reload to reflect status updates in tables
+        // You can also do a more targeted DOM update here if you don't want a full reload
         window.location.reload();
-
     } catch (error) {
         console.error('Error processing submission action:', error);
-        showErrorModal('Failed to process action: ' + error.message);
-
+        showErrorModal(
+            'Failed to process submission action. Please check your connection and try again.'
+        );
+    } finally {
         if (actionButton) {
-            actionButton.innerHTML = originalHtml;
+            actionButton.innerHTML = originalHtml || actionButton.innerHTML;
             actionButton.disabled = false;
         }
     }
 }
+
 
 /* -----------------------------
    MODAL: ERROR / VALIDATION / SUCCESS

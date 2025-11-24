@@ -2,7 +2,7 @@
 
 @section('title', 'Pending Submissions - Assessor Dashboard')
 @section('head')
-<meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 @endsection
 
 @section('content')
@@ -40,7 +40,12 @@
 
             <div class="search-controls">
                 <div class="search-group">
-                    <input type="text" id="searchInput" class="form-control" placeholder="Search submissions...">
+                    <input
+                        type="text"
+                        id="searchInput"
+                        class="form-control"
+                        placeholder="Search submissions..."
+                    >
                     <i class="fas fa-search search-icon"></i>
                 </div>
             </div>
@@ -59,62 +64,84 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($pendingSubmissions as $submission)
-                    @php
-                    $studentId = optional($submission->user->studentAcademic)->student_number
-                    ?? $submission->user->student_id
-                    ?? $submission->user->id;
+                    @forelse ($pendingSubmissions as $submission)
+                        @php
+                            $studentId = optional($submission->user->studentAcademic)->student_number
+                                ?? $submission->user->student_id
+                                ?? $submission->user->id;
 
-                    $studentName = $submission->user->full_name
-                    ?? trim(($submission->user->first_name ?? '') . ' ' . ($submission->user->last_name ?? ''));
-                    @endphp
-                    <tr data-submission-id="{{ $submission->id }}">
-                        <td>{{ $studentId }}</td>
-                        <td>{{ $studentName }}</td>
-                        <td>{{ $submission->activity_title }}</td>
-                        <td>{{ optional($submission->submitted_at)->format('Y-m-d') }}</td>
-                        <td>
-                            <button class="btn btn-view" onclick="openSubmissionModal({{ $submission->id }})" title="View Submission">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </td>
-                    </tr>
+                            $studentName = $submission->user->full_name
+                                ?? trim(($submission->user->first_name ?? '') . ' ' . ($submission->user->last_name ?? ''));
+                        @endphp
+
+                        <tr data-submission-id="{{ $submission->id }}">
+                            <td>{{ $studentId }}</td>
+                            <td>{{ $studentName }}</td>
+                            <td>{{ $submission->activity_title }}</td>
+                            <td>{{ optional($submission->submitted_at)->format('Y-m-d') }}</td>
+                            <td>
+                                <button
+                                    class="btn btn-view"
+                                    onclick="openSubmissionModal({{ $submission->id }})"
+                                    title="View Submission"
+                                >
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
                     @empty
-                    <tr data-empty-row="true">
-                        <td colspan="5" class="text-center">No pending submissions found.</td>
-                    </tr>
+                        <tr data-empty-row="true">
+                            <td colspan="5" class="text-center">No pending submissions found.</td>
+                        </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination -->
         <div class="pagination-container" data-pagination-container>
             <div class="pagination-info">
-                <!-- Populated dynamically -->
+                <!-- Filled by admin_pagination.js -->
             </div>
 
             <div class="unified-pagination">
                 <button class="btn-nav" id="prevBtn" disabled>
                     <i class="fas fa-chevron-left"></i> Previous
                 </button>
+
                 <span class="pagination-pages" id="paginationPages"></span>
+
                 <button class="btn-nav" id="nextBtn" disabled>
                     Next <i class="fas fa-chevron-right"></i>
                 </button>
             </div>
         </div>
 
-
         <!-- Review Submission Modal -->
-        <div class="modal fade" id="submissionModal" tabindex="-1" aria-labelledby="submissionModalLabel" aria-hidden="true">
+        <div
+            class="modal fade"
+            id="submissionModal"
+            tabindex="-1"
+            aria-labelledby="submissionModalLabel"
+            aria-hidden="true"
+        >
             <div class="modal-dialog modal-xl">
                 <div class="modal-content">
+
                     <div class="modal-header">
                         <h5 class="modal-title" id="submissionModalLabel">Review Submission</h5>
-                        <button type="button" class="btn-close " data-bs-dismiss="modal" aria-label="Close"></button>
+                        <button
+                            type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Close"
+                        ></button>
                     </div>
+
                     <div class="modal-body">
                         <div class="submission-content">
-                            <!-- Student Details Panel -->
+
+                            <!-- Student Details Card -->
                             <div class="info-card">
                                 <div class="card-header">
                                     <h6 class="card-title">Student Details</h6>
@@ -172,7 +199,7 @@
                                 </div>
                             </div>
 
-                            <!-- Uploaded Documents (no inline preview) -->
+                            <!-- Uploaded Documents Card -->
                             <div class="info-card">
                                 <div class="card-header">
                                     <h6 class="card-title">Uploaded Documents</h6>
@@ -184,14 +211,14 @@
                                 </div>
                             </div>
 
-                            <!-- Rubric-based Scoring (cleaner layout) -->
+                            <!-- Rubric-based Score Card -->
                             <div class="info-card">
                                 <div class="card-header">
                                     <h6 class="card-title">Rubric-based Score</h6>
                                 </div>
                                 <div class="card-body">
                                     <div class="rubric-score-header">
-                                        <span class="score-label">Selected Score</span>
+                                        <span class="score-label">Selected Score:</span>
                                         <span class="score-pill" id="modalAutoScore">Not calculated</span>
                                     </div>
 
@@ -200,46 +227,119 @@
                                     </div>
 
                                     <small class="remarks-note">
-                                        Choose the descriptor that best matches the student's submission. The selected points will be recorded as the score.
+                                        Choose the descriptor that best matches the student's submission.
+                                        The selected points will be recorded as the score.
                                     </small>
                                 </div>
                             </div>
 
-                            <!-- Assessor Remarks -->
+                            <!-- Assessor Remarks Card -->
                             <div class="info-card">
                                 <div class="card-header">
                                     <h6 class="card-title">Assessor Remarks (Optional)</h6>
                                 </div>
                                 <div class="card-body">
-                                    <textarea id="assessorRemarks" class="form-control remarks-textarea" rows="4" placeholder="Enter your remarks and feedback..."></textarea>
-                                    <small class="remarks-note">Remarks are required for Reject, Return, and Flag actions.</small>
+                                    <textarea
+                                        id="assessorRemarks"
+                                        class="form-control remarks-textarea"
+                                        rows="4"
+                                        placeholder="Enter your remarks and feedback..."
+                                    ></textarea>
+                                    <small class="remarks-note">
+                                        Remarks are required for Reject, Return, and Flag actions.
+                                    </small>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Action Buttons -->
                         <div class="action-buttons-container">
-                            <button type="button" class="btn btn-approve" onclick="handleSubmission('approve')" title="✅ Approve">
+                            <button
+                                type="button"
+                                class="btn btn-approve"
+                                onclick="handleSubmission('approve')"
+                                title="Approve Submission"
+                            >
                                 <i class="fas fa-check"></i>
                             </button>
-                            <button type="button" class="btn btn-reject" onclick="handleSubmission('reject')" title="❌ Reject">
+                            <button
+                                type="button"
+                                class="btn btn-reject"
+                                onclick="handleSubmission('reject')"
+                                title="Reject Submission"
+                            >
                                 <i class="fas fa-times"></i>
                             </button>
-                            <button type="button" class="btn btn-return" onclick="handleSubmission('return')" title="↩ Return to Student">
+                            <button
+                                type="button"
+                                class="btn btn-return"
+                                onclick="handleSubmission('return')"
+                                title="Return to Student"
+                            >
                                 <i class="fas fa-undo"></i>
                             </button>
-                            <button type="button" class="btn btn-flag" onclick="handleSubmission('flag')" title="🚩 Flag for Admin">
+                            <button
+                                type="button"
+                                class="btn btn-flag"
+                                onclick="handleSubmission('flag')"
+                                title="Flag for Admin Review"
+                            >
                                 <i class="fas fa-flag"></i>
                             </button>
                         </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirmation Modal (for approve / reject / return / flag) -->
+        <div
+            class="modal fade"
+            id="confirmationModal"
+            tabindex="-1"
+            aria-hidden="true"
+        >
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content confirmation-modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="confirmationModalTitle">Confirm Action</h5>
+                        <button
+                            type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Close"
+                        ></button>
+                    </div>
+                    <div class="modal-body">
+                        <p id="confirmationModalBody">
+                            Are you sure you want to perform this action?
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button
+                            type="button"
+                            class="btn btn-outline-secondary"
+                            data-bs-dismiss="modal"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-primary"
+                            id="confirmActionBtn"
+                        >
+                            Yes, continue
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
 
-        {{-- Keep your stylesheet reference; most of the CSS you had can live in pending-submissions.css --}}
-        <link rel="stylesheet" href="{{ asset('css/pending-submissions.css') }}">
+    </main>
+</div>
 
-        <script src="{{ asset('js/admin_pagination.js') }}"></script>
-        <script src="{{ asset('js/pending-submission.js') }}"></script>
-        @endsection
+<link rel="stylesheet" href="{{ asset('css/pending-submissions.css') }}">
+<script src="{{ asset('js/admin_pagination.js') }}"></script>
+<script src="{{ asset('js/pending-submission.js') }}"></script>
+@endsection
