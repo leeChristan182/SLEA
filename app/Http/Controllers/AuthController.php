@@ -3,10 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\UserOtp;
+use App\Mail\OtpCodeMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
@@ -27,17 +31,68 @@ class AuthController extends Controller
             'password' => ['required'],
         ]);
 
-        if (Auth::attempt(['email' => $data['email'], 'password' => $data['password']])) {
-            $request->session()->regenerate();
+        $credentials = [
+            'email'    => $data['email'],
+            'password' => $data['password'],
+        ];
 
-            return match (Auth::user()->role) {
-                User::ROLE_ADMIN    => redirect()->route('admin.profile'),
-                User::ROLE_ASSESSOR => redirect()->route('assessor.profile'),
-                default             => redirect()->route('student.profile'),
-            };
+        // Check credentials without logging in yet
+        if (!Auth::validate($credentials)) {
+            return back()
+                ->withErrors(['email' => 'Invalid credentials.'])
+                ->withInput($request->only('email'));
         }
 
-        return back()->withErrors(['email' => 'Invalid credentials.']);
+        /** @var User $user */
+        $user = User::where('email', $data['email'])->firstOrFail();
+        $remember = $request->boolean('remember');
+
+        // Optional: if you have these helpers on User, keep them.
+        if (method_exists($user, 'isStudent') && method_exists($user, 'canLoginToSlea')) {
+            if ($user->isStudent() && !$user->canLoginToSlea()) {
+                return back()
+                    ->withErrors(['email' => $user->loginBlockReason()])
+                    ->withInput($request->only('email'));
+            }
+        }
+
+        // Store info for OTP step
+        session([
+            'otp_pending_user_id' => $user->id,
+            'otp_remember_me'     => $remember,
+            'otp_context'         => 'login',
+            'otp_display_email'   => $user->email,
+        ]);
+
+        // If user has a method that decides OTP requirement, honor it; else default to requiring OTP
+        $needsOtp = method_exists($user, 'needsLoginOtp')
+            ? $user->needsLoginOtp()
+            : true;
+
+        if ($needsOtp) {
+            $this->sendOtp($user, 'login');
+
+            // You’re using a modal-based OTP on the login page
+            return redirect()
+                ->route('login.show')
+                ->with('status', 'We sent a one-time password (OTP) to your email.')
+                ->with('show_otp_modal', true);
+        }
+
+        // No OTP required → login directly
+        Auth::login($user, $remember);
+        $request->session()->regenerate();
+
+        return $this->redirectAfterLogin($user);
+    }
+
+    protected function redirectAfterLogin(User $user)
+    {
+        return match ($user->role) {
+            User::ROLE_ADMIN    => redirect()->route('admin.profile'),
+            User::ROLE_ASSESSOR => redirect()->route('assessor.profile'),
+            default             => redirect()->route('student.profile'),
+        };
     }
 
     public function logout(Request $request)
@@ -79,7 +134,13 @@ class AuthController extends Controller
             'contact'       => ['required', 'string', 'max:20'],
 
             // Step 2
-            'student_id'    => ['required', 'string', 'max:30'],
+            'student_id'    => [
+                'required',
+                'string',
+                'max:30',
+                // NOTE: this targets the table/column you used before the merge
+                Rule::unique('student_academic', 'student_number'),
+            ],
             'college_id'    => ['required', 'integer', 'exists:colleges,id'],
             'program_id'    => ['required', 'integer', 'exists:programs,id'],
             'major_id'      => ['nullable', 'integer', 'exists:majors,id'],
@@ -98,7 +159,9 @@ class AuthController extends Controller
         ];
 
         $messages = [
-            'email_address.regex' => 'Please use a valid @usep.edu.ph email address.',
+            'email_address.regex'  => 'Please use a valid @usep.edu.ph email address.',
+            'email_address.unique' => 'This email address is already registered. Please use a different email or try logging in.',
+            'student_id.unique'    => 'This student ID is already registered. Please check your student ID or contact support if you believe this is an error.',
         ];
 
         $validated = $request->validate($rules, $messages);
@@ -106,7 +169,22 @@ class AuthController extends Controller
         // Cluster/org enforcement for CCO etc.
         $needsOrg = $this->leadershipRequiresOrg((int) $validated['leadership_type_id']);
 
-        if ($needsOrg) {
+        // Check if CCO is selected
+        $isCCO = DB::table('leadership_types')
+            ->where('id', (int) $validated['leadership_type_id'])
+            ->where('key', 'cco')
+            ->exists();
+
+        if ($isCCO) {
+            // CCO: cluster_id and organization_id should be "N/A" (stored as null)
+            $request->validate([
+                'cluster_id'      => ['required', 'in:N/A'],
+                'organization_id' => ['required', 'in:N/A'],
+            ]);
+            $validated['cluster_id']      = null;
+            $validated['organization_id'] = null;
+        } elseif ($needsOrg) {
+            // Other types that require org: normal validation
             $request->validate([
                 'cluster_id'      => ['required', 'integer', 'exists:clusters,id'],
                 'organization_id' => ['required', 'integer', 'exists:organizations,id'],
@@ -114,6 +192,7 @@ class AuthController extends Controller
             $validated['cluster_id']      = (int) $request->input('cluster_id');
             $validated['organization_id'] = (int) $request->input('organization_id');
         } else {
+            // Types that don't require org
             $validated['cluster_id']      = null;
             $validated['organization_id'] = null;
         }
@@ -141,7 +220,7 @@ class AuthController extends Controller
                 'status'               => User::STATUS_PENDING,
             ]);
 
-            // student_academic
+            // student_academic via relation
             $user->studentAcademic()->updateOrCreate([], [
                 'student_number'     => $validated['student_id'],
                 'college_id'         => $validated['college_id'],
@@ -176,6 +255,38 @@ class AuthController extends Controller
             return redirect()
                 ->route('login.show')
                 ->with('status', 'Registration received. Please wait for account approval.');
+        } catch (\Illuminate\Database\QueryException $e) {
+            DB::rollBack();
+            report($e);
+
+            $errorMessage = $e->getMessage();
+
+            // Unique constraint handling
+            if (
+                str_contains($errorMessage, 'UNIQUE constraint failed') ||
+                str_contains($errorMessage, 'Duplicate entry') ||
+                str_contains($errorMessage, 'unique constraint')
+            ) {
+
+                if (str_contains($errorMessage, 'email') || str_contains($errorMessage, 'users.email')) {
+                    return back()
+                        ->withErrors(['email_address' => 'This email address is already registered. Please use a different email or try logging in.'])
+                        ->withInput();
+                } elseif (str_contains($errorMessage, 'student_number') || str_contains($errorMessage, 'student_id')) {
+                    return back()
+                        ->withErrors(['student_id' => 'This student ID is already registered. Please check your student ID or contact support if you believe this is an error.'])
+                        ->withInput();
+                } else {
+                    return back()
+                        ->withErrors(['register' => 'This information is already registered. Please check your details or contact support.'])
+                        ->withInput();
+                }
+            }
+
+            // Generic DB error
+            return back()
+                ->withErrors(['register' => 'Could not complete registration. Please try again.'])
+                ->withInput();
         } catch (\Throwable $e) {
             DB::rollBack();
             report($e);
@@ -187,24 +298,269 @@ class AuthController extends Controller
     }
 
     /* =========================
-     |  OTP placeholders
+     |  OTP / VERIFICATION
      * ========================= */
+
+    /**
+     * Generate & send OTP for given user/context.
+     */
+    protected function sendOtp(User $user, string $context = 'login'): void
+    {
+        // Remove existing active OTPs for this user + context
+        UserOtp::where('user_id', $user->id)
+            ->whereNull('used_at')
+            ->where('context', $context)
+            ->delete();
+
+        $rawCode = (string) random_int(100000, 999999);
+
+        UserOtp::create([
+            'user_id'    => $user->id,
+            'code_hash'  => hash('sha256', $rawCode),
+            'context'    => $context,
+            'attempts'   => 0,
+            'expires_at' => now()->addMinutes(config('auth.otp.lifetime_minutes', 10)),
+        ]);
+
+        Mail::to($user->email)->send(
+            new OtpCodeMail($user, $rawCode, $context === 'login' ? 'login' : 'password reset')
+        );
+    }
+
+    /**
+     * Alias for GET /otp if your routes still point to otp.show
+     */
     public function showOtp()
     {
-        return view('auth.otp');
+        return $this->showOtpForm();
     }
-    public function verifyOtp()
+
+    /**
+     * Used by GET /otp to re-open the login page with OTP modal.
+     */
+    public function showOtpForm()
     {
-        return back();
+        if (!session()->has('otp_pending_user_id')) {
+            return redirect()->route('login.show');
+        }
+
+        return redirect()
+            ->route('login.show')
+            ->with('show_otp_modal', true);
     }
-    public function resendOtp()
+
+    public function verifyOtp(Request $request)
     {
-        return back();
+        $request->validate([
+            'otp' => ['required', 'digits:6'],
+        ]);
+
+        $userId  = session('otp_pending_user_id');
+        $context = session('otp_context', 'login');
+
+        if (!$userId) {
+            return redirect()->route('login.show');
+        }
+
+        /** @var User|null $user */
+        $user = User::find($userId);
+        if (!$user) {
+            return redirect()->route('login.show');
+        }
+
+        // If you use student eligibility checks, re-check them here
+        if (
+            $context === 'login' &&
+            method_exists($user, 'isStudent') &&
+            method_exists($user, 'canLoginToSlea') &&
+            $user->isStudent() &&
+            !$user->canLoginToSlea()
+        ) {
+
+            return redirect()
+                ->route('login.show')
+                ->withErrors(['email' => $user->loginBlockReason()])
+                ->with('show_otp_modal', false);
+        }
+
+        /** @var UserOtp|null $otpRecord */
+        $otpRecord = UserOtp::where('user_id', $user->id)
+            ->whereNull('used_at')
+            ->where('context', $context)
+            ->where('expires_at', '>', now())
+            ->latest('id')
+            ->first();
+
+        if (!$otpRecord) {
+            return redirect()
+                ->route('login.show')
+                ->withErrors(['otp' => 'Your OTP session has expired. Please request a new code.'])
+                ->with('show_otp_modal', true);
+        }
+
+        if ($otpRecord->attempts >= 5) {
+            return redirect()
+                ->route('login.show')
+                ->withErrors(['otp' => 'Too many incorrect attempts. Please request a new code.'])
+                ->with('show_otp_modal', true);
+        }
+
+        $otpRecord->attempts++;
+
+        if (!hash_equals($otpRecord->code_hash, hash('sha256', $request->otp))) {
+            $otpRecord->save();
+
+            return redirect()
+                ->route('login.show')
+                ->withErrors(['otp' => 'Incorrect OTP. Please try again.'])
+                ->with('show_otp_modal', true);
+        }
+
+        // Success
+        $otpRecord->used_at = now();
+        $otpRecord->save();
+
+        if ($context === 'login') {
+            if (Schema::hasColumn('users', 'otp_last_verified_at')) {
+                $user->otp_last_verified_at = now();
+                $user->save();
+            }
+
+            $remember = session('otp_remember_me', false);
+
+            session()->forget(['otp_pending_user_id', 'otp_remember_me', 'otp_context', 'otp_display_email']);
+
+            Auth::login($user, $remember);
+            $request->session()->regenerate();
+
+            return $this->redirectAfterLogin($user);
+        }
+
+        if ($context === 'password_reset') {
+            session(['password_reset_user_id' => $user->id]);
+            session()->forget(['otp_pending_user_id', 'otp_context']);
+
+            return redirect()
+                ->route('login.show')
+                ->with('status', 'OTP verified. You can now set a new password.')
+                ->with('show_reset_modal', true);
+        }
+
+        return redirect()->route('login.show');
+    }
+
+    public function resendOtp(Request $request)
+    {
+        $userId  = session('otp_pending_user_id');
+        $context = session('otp_context', 'login');
+
+        if (!$userId) {
+            return redirect()->route('login.show');
+        }
+
+        /** @var User|null $user */
+        $user = User::find($userId);
+        if (!$user) {
+            return redirect()->route('login.show');
+        }
+
+        $this->sendOtp($user, $context);
+
+        return redirect()
+            ->route('login.show')
+            ->with('status', 'A new OTP has been sent to your email.')
+            ->with('show_otp_modal', true);
     }
 
     /* =========================
-     |  AJAX DROPDOWNS
+     |  FORGOT PASSWORD (OTP-BASED)
      * ========================= */
+
+    public function showForgotPasswordForm()
+    {
+        // use the login page modal instead of a separate page
+        return redirect()
+            ->route('login.show')
+            ->with('show_forgot_modal', true);
+    }
+
+    public function sendForgotPasswordOtp(Request $request)
+    {
+        $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        /** @var User|null $user */
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return redirect()
+                ->route('login.show')
+                ->withErrors(['email' => 'We could not find that email address.'])
+                ->withInput()
+                ->with('show_forgot_modal', true);
+        }
+
+        session([
+            'otp_pending_user_id' => $user->id,
+            'otp_context'         => 'password_reset',
+            'otp_display_email'   => $user->email,
+        ]);
+
+        $this->sendOtp($user, 'password_reset');
+
+        return redirect()
+            ->route('login.show')
+            ->with('status', 'We sent a one-time password (OTP) to your email.')
+            ->with('show_otp_modal', true);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'password' => [
+                'required',
+                'string',
+                'confirmed',
+                Password::min(8)->mixedCase()->numbers()->symbols(),
+            ],
+        ]);
+
+        $userId = session('password_reset_user_id');
+
+        if (!$userId) {
+            return redirect()
+                ->route('login.show')
+                ->withErrors([
+                    'email' => 'Your password reset session has expired. Please request a new OTP.',
+                ])
+                ->with('show_forgot_modal', true);
+        }
+
+        /** @var User|null $user */
+        $user = User::find($userId);
+
+        if (!$user) {
+            return redirect()
+                ->route('login.show')
+                ->withErrors(['email' => 'User not found. Please request a new OTP.'])
+                ->with('show_forgot_modal', true);
+        }
+
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        session()->forget('password_reset_user_id');
+
+        return redirect()
+            ->route('login.show')
+            ->with('status', 'Your password has been updated. You can now log in.');
+    }
+
+    /* =========================
+     |  AJAX DROPDOWNS & HELPERS
+     * ========================= */
+
     public function getPrograms(Request $r)
     {
         $collegeId = (int) $r->query('college_id');
@@ -231,36 +587,21 @@ class AuthController extends Controller
         return response()->json($rows);
     }
 
-    private function councilOrgNames(): array
-    {
-        return [
-            'University Student Government (USG)',
-            'Obrero Student Council (OSC)',
-            'Local Council (LC)',
-            'Council of Clubs and Organizations (CCO)',
-            'Local Government Unit (LGU)',
-            'League of Class Mayors (LCM)',
-        ];
-    }
-
     public function getCouncilPositions(Request $request)
     {
-        if (
-            !Schema::hasTable('organizations')
-            || !Schema::hasTable('positions')
-            || !Schema::hasTable('organization_position')
-            || !Schema::hasTable('leadership_types')
-        ) {
+        if (!Schema::hasTable('positions') || !Schema::hasTable('leadership_types')) {
             return response()->json([]);
         }
 
         $typeId = (int) $request->query('leadership_type_id');
         $orgId  = (int) $request->query('organization_id');
 
-        if ($orgId) {
+        // If organization_id is provided (for CCO), load positions via organization_position
+        if ($orgId && Schema::hasTable('organization_position')) {
             $rows = DB::table('organization_position as op')
                 ->join('positions as p', 'p.id', '=', 'op.position_id')
                 ->where('op.organization_id', $orgId)
+                ->orderBy('p.rank_order')
                 ->orderBy('p.name')
                 ->select('p.id', 'p.name', 'op.alias')
                 ->get()
@@ -272,58 +613,35 @@ class AuthController extends Controller
             return response()->json($rows);
         }
 
+        // Load positions directly by leadership_type_id
         if ($typeId) {
-            $typeKey = DB::table('leadership_types')->where('id', $typeId)->value('key');
+            $rows = DB::table('positions')
+                ->where('leadership_type_id', $typeId)
+                ->orderBy('rank_order')
+                ->orderBy('name')
+                ->select('id', 'name')
+                ->get()
+                ->map(fn($r) => [
+                    'id'   => $r->id,
+                    'name' => $r->name,
+                ]);
 
-            $map = [
-                'usg' => 'University Student Government (USG)',
-                'osc' => 'Obrero Student Council (OSC)',
-                'lc'  => 'Local Council (LC)',
-                'lgu' => 'Local Government Unit (LGU)',
-                'lcm' => 'League of Class Mayors (LCM)',
-            ];
-
-            $orgName = $map[$typeKey] ?? null;
-
-            if ($orgName) {
-                $orgIdForType = DB::table('organizations')->where('name', $orgName)->value('id');
-
-                if ($orgIdForType) {
-                    $rows = DB::table('organization_position as op')
-                        ->join('positions as p', 'p.id', '=', 'op.position_id')
-                        ->where('op.organization_id', $orgIdForType)
-                        ->orderBy('p.name')
-                        ->select('p.id', 'p.name', 'op.alias')
-                        ->distinct()
-                        ->get()
-                        ->map(fn($r) => [
-                            'id'   => $r->id,
-                            'name' => $r->alias ?: $r->name,
-                        ]);
-
-                    return response()->json($rows);
-                }
-            }
+            return response()->json($rows);
         }
 
-        $orgIds = DB::table('organizations')
-            ->whereIn('name', $this->councilOrgNames())
-            ->pluck('id');
+        return response()->json([]);
+    }
 
-        if ($orgIds->isEmpty()) {
-            return response()->json([]);
-        }
-
-        $rows = DB::table('organization_position as op')
-            ->join('positions as p', 'p.id', '=', 'op.position_id')
-            ->whereIn('op.organization_id', $orgIds)
-            ->orderBy('p.name')
-            ->select('p.id', 'p.name')
-            ->distinct()
-            ->get()
-            ->map(fn($r) => ['id' => $r->id, 'name' => $r->name]);
-
-        return response()->json($rows);
+    protected function councilOrgNames(): array
+    {
+        return [
+            'University Student Government (USG)',
+            'Obrero Student Council (OSC)',
+            'Local Council (LC)',
+            'Council of Clubs and Organizations (CCO)',
+            'Local Government Unit (LGU)',
+            'League of Class Mayors (LCM)',
+        ];
     }
 
     public function getPositions(Request $r)
@@ -348,27 +666,54 @@ class AuthController extends Controller
 
         $q = DB::table('clusters')->orderBy('name');
 
+        // Only filter by leadership_type_id if that column actually exists
         if (Schema::hasColumn('clusters', 'leadership_type_id')) {
-            $typeId = (int) $request->query('leadership_type_id');
-            if ($typeId) {
-                $q->where('leadership_type_id', $typeId);
+            $leadershipTypeId = $request->input('leadership_type_id');
+            if ($leadershipTypeId) {
+                $q->where('leadership_type_id', $leadershipTypeId);
             }
         }
 
-        return response()->json($q->pluck('name', 'id'));
+        $clusters = $q->pluck('name', 'id'); // { id: "Cluster Name", ... }
+
+        return response()->json($clusters);
+    }
+
+    public function getCouncilOrgs(Request $request)
+    {
+        $leadershipTypeId = $request->input('leadership_type_id');
+
+        if (!Schema::hasTable('organizations')) {
+            return response()->json([]);
+        }
+
+        $orgs = DB::table('organizations')
+            ->when($leadershipTypeId, function ($q) use ($leadershipTypeId) {
+                $q->where('leadership_type_id', $leadershipTypeId);
+            })
+            ->orderBy('name')
+            ->pluck('name', 'id');
+
+        return response()->json($orgs);
     }
 
     public function getOrganizations(Request $request)
     {
-        $clusterId = (int) $request->query('cluster_id');
-        if (!Schema::hasTable('organizations')) return response()->json([]);
+        if (!Schema::hasTable('organizations')) {
+            return response()->json([]);
+        }
 
-        $pairs = DB::table('organizations')
-            ->when($clusterId, fn($q) => $q->where('cluster_id', $clusterId))
-            ->orderBy('name')
-            ->pluck('name', 'id');
+        $clusterId = $request->input('cluster_id');
 
-        return response()->json($pairs);
+        $q = DB::table('organizations')->orderBy('name');
+
+        if ($clusterId) {
+            $q->where('cluster_id', $clusterId);
+        }
+
+        $organizations = $q->pluck('name', 'id'); // { id: "Org Name", ... }
+
+        return response()->json($organizations);
     }
 
     public function getLeadershipTypes()
@@ -382,6 +727,35 @@ class AuthController extends Controller
 
         return response()->json($rows);
     }
+
+    public function getAcademicsMap()
+    {
+        if (!Schema::hasTable('programs') || !Schema::hasTable('majors')) {
+            return response()->json(['programsByCollege' => [], 'majorsByProgram' => []]);
+        }
+
+        $programs = DB::table('programs')->select('id', 'college_id', 'name')->orderBy('name')->get();
+        $majors   = DB::table('majors')->select('id', 'program_id', 'name')->orderBy('name')->get();
+
+        $pMap = [];
+        foreach ($programs as $p) {
+            $pMap[$p->college_id][] = ['id' => $p->id, 'name' => $p->name];
+        }
+
+        $mMap = [];
+        foreach ($majors as $m) {
+            $mMap[$m->program_id][] = ['id' => $m->id, 'name' => $m->name];
+        }
+
+        return response()->json([
+            'programsByCollege' => $pMap,
+            'majorsByProgram'   => $mMap,
+        ]);
+    }
+
+    /* =========================
+     |  PRIVATE HELPERS
+     * ========================= */
 
     private function getCollegesList()
     {
@@ -417,9 +791,20 @@ class AuthController extends Controller
     {
         if (!Schema::hasTable('leadership_types')) return collect();
 
+        // Order by the same sequence as defined in LeadershipTypeSeeder
         return DB::table('leadership_types')
             ->select('id', 'name', 'key', 'requires_org')
-            ->orderBy('name')
+            ->orderByRaw("CASE `key`
+                WHEN 'usg' THEN 1
+                WHEN 'osc' THEN 2
+                WHEN 'lc' THEN 3
+                WHEN 'cco' THEN 4
+                WHEN 'sco' THEN 5
+                WHEN 'lgu' THEN 6
+                WHEN 'lcm' THEN 7
+                WHEN 'eap' THEN 8
+                ELSE 99
+            END")
             ->get();
     }
 
@@ -442,30 +827,5 @@ class AuthController extends Controller
 
         $defaultDuration = 4;
         return $entryYear + $defaultDuration;
-    }
-
-    public function getAcademicsMap()
-    {
-        if (!Schema::hasTable('programs') || !Schema::hasTable('majors')) {
-            return response()->json(['programsByCollege' => [], 'majorsByProgram' => []]);
-        }
-
-        $programs = DB::table('programs')->select('id', 'college_id', 'name')->orderBy('name')->get();
-        $majors   = DB::table('majors')->select('id', 'program_id', 'name')->orderBy('name')->get();
-
-        $pMap = [];
-        foreach ($programs as $p) {
-            $pMap[$p->college_id][] = ['id' => $p->id, 'name' => $p->name];
-        }
-
-        $mMap = [];
-        foreach ($majors as $m) {
-            $mMap[$m->program_id][] = ['id' => $m->id, 'name' => $m->name];
-        }
-
-        return response()->json([
-            'programsByCollege' => $pMap,
-            'majorsByProgram'   => $mMap,
-        ]);
     }
 }

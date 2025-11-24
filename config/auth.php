@@ -97,6 +97,10 @@ return [
         ],
     ],
 
+    'otp' => [
+        'login_fresh_days' => 30,  // ask again after 30 days
+        'lifetime_minutes' => 10,  // OTP validity
+    ],
 
     /*
     |--------------------------------------------------------------------------

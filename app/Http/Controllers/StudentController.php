@@ -5,7 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\StudentAcademic;
 use App\Models\Submission;
-
+use App\Models\RubricCategory;
+use App\Models\SubmissionReview;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Support\Facades\Auth;
@@ -351,17 +352,129 @@ class StudentController extends Controller
     // GET /student/performance
     public function performance()
     {
-        // keep simple; you can replace with real aggregates later
-        $metrics = [
-            'submissions' => Schema::hasTable('submissions')
-                ? DB::table('submissions')->where('user_id', Auth::id())->count()
-                : 0,
-            'approved' => Schema::hasTable('submissions')
-                ? DB::table('submissions')->where('user_id', Auth::id())->where('status', 'approved')->count()
-                : 0,
+        $user = Auth::user();
+        abort_unless($user->isStudent(), 403);
+
+        $academic = $user->studentAcademic;
+
+        // 1) Load rubric categories in display order
+        $categories = RubricCategory::orderBy('order_no')->get();
+
+        // 2) Reviews for this student's APPROVED submissions
+        $reviews = SubmissionReview::query()
+            ->where('status', 'approved') // mirrored from submissions.status
+            ->whereHas('submission', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })
+            ->with(['submission.category'])
+            ->get();
+
+        // 3) Sum scores per category key
+        $scoresByCategoryKey = [];
+
+        foreach ($reviews as $review) {
+            $submission = $review->submission;
+            if (! $submission || ! $submission->category) {
+                continue;
+            }
+
+            $cat = $submission->category;
+            $key = $cat->key; // e.g. leadership, academic...
+
+            if (! isset($scoresByCategoryKey[$key])) {
+                $scoresByCategoryKey[$key] = 0.0;
+            }
+
+            $scoresByCategoryKey[$key] += (float) $review->score;
+        }
+
+        // 4) Build perfData
+        $roman = [1 => 'I', 2 => 'II', 3 => 'III', 4 => 'IV', 5 => 'V', 6 => 'VI'];
+        $perfCategories = [];
+        $totalEarned = 0.0;
+        $totalMax    = 0.0;
+        $index       = 1;
+
+        foreach ($categories as $cat) {
+            $key       = $cat->key;
+            $max       = (float) ($cat->max_points ?? 0);
+            $rawEarned = (float) ($scoresByCategoryKey[$key] ?? 0);
+
+            $earned = $max > 0 ? min($rawEarned, $max) : $rawEarned;
+
+            $labelPrefix = $roman[$index] ?? ($index . '.');
+            $label       = "{$labelPrefix}. {$cat->title}";
+
+            $perfCategories[] = [
+                'key'    => $key,
+                'label'  => $label,
+                'earned' => round($earned, 2),
+                'max'    => $max,
+            ];
+
+            $totalEarned += $earned;
+            $totalMax    += $max;
+            $index++;
+        }
+
+        $perfData = [
+            'totals' => [
+                'earned' => round($totalEarned, 2),
+                'max'    => round($totalMax, 2),
+            ],
+            'categories' => $perfCategories,
         ];
 
-        return view('student.performance', compact('metrics'));
+        return view('student.performance', [
+            'perfData' => $perfData,
+            'slea_application_status' => $academic?->slea_application_status,
+            'ready_for_rating'        => (bool) ($academic->ready_for_rating ?? false),
+            'can_mark_ready_for_slea' => $user->canMarkReadyForSlea(),
+        ]);
+    }
+
+    public function markReadyForSlea()
+    {
+        $user = Auth::user();
+        abort_unless($user->isStudent(), 403);
+
+        $academic = $user->studentAcademic;
+
+        if (! $academic) {
+            return back()->with('error', 'No academic record found. Please contact OSAS.');
+        }
+
+        if (! $academic->canMarkReadyForSlea()) {
+            return back()->with('error', 'You are not eligible to mark yourself ready for SLEA at this time.');
+        }
+
+        $academic->markReadyForSlea();
+
+        return back()->with('success', 'You are now marked as ready to be rated for the Student Leadership Excellence Award.');
+    }
+    public function cancelReadyForSlea()
+    {
+        $user = Auth::user();
+        abort_unless($user->isStudent(), 403);
+
+        $academic = $user->studentAcademic;
+
+        if (! $academic) {
+            return back()->with('error', 'No academic record found.');
+        }
+
+        // Only allow cancel if status is still "ready_for_assessor"
+        if ($academic->slea_application_status !== 'ready_for_assessor') {
+            return back()->with('error', 'You can no longer cancel. Your request is already being processed.');
+        }
+
+        // Reset flags
+        $academic->ready_for_rating        = false;
+        $academic->ready_for_rating_at     = null;
+        $academic->slea_application_status = null;
+        $academic->save();
+
+        return back()->with('success', 'Your SLEA rating request has been cancelled. You may continue submitting more requirements.');
     }
 
     // GET /student/criteria

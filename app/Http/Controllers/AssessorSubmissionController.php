@@ -196,13 +196,24 @@ class AssessorSubmissionController extends Controller
                     'assessor_id'   => $user->id,
                 ],
                 [
-                    'sub_section_id'    => $rubricSubsectionId,   // ✅ matches migration + model
+                    'rubric_category_id' => $submission->rubric_category_id, // NEW
+
+                    'sub_section_id'    => $rubricSubsectionId,
                     'rubric_option_id'  => $rubricOptionId,
-                    'comments'          => $remarks,
                     'score'             => $score,
+                    'score_source'      => 'auto', // or whatever you need
                     'reviewed_at'       => now(),
+
+                    // NEW: mirror workflow + remarks
+                    'status'  => $newStatus,
+                    'remarks' => $remarks,
+
+                    // Keep legacy fields in sync if you want
+                    'comments' => $remarks,
+                    'decision' => null, // or map later to qualified/unqualified if you use it there
                 ]
             );
+
 
 
             // 2) update submission workflow status

@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\OtpCodeMail;
 
 class AdminController extends Controller
 {
@@ -264,10 +267,19 @@ class AdminController extends Controller
             return back()->withErrors(['email' => 'Only pending student accounts can be approved.']);
         }
 
+        // Approve student
         $user->approve();
-        return back()->with('status', 'Student approved.');
-    }
 
+        // === SEND MAIL NOTIFICATION ===
+        try {
+            \Mail::to($user->email)->send(new \App\Mail\AccountApprovedMail($user));
+        } catch (\Throwable $e) {
+            // Optional: Log or ignore
+            \Log::error('Approval email failed: ' . $e->getMessage());
+        }
+
+        return back()->with('status', 'Student approved. Email notification sent.');
+    }
 
     // POST /admin/reject/{user}
     public function rejectUser(User $user)

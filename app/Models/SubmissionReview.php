@@ -14,6 +14,8 @@ class SubmissionReview extends Model
     protected $fillable = [
         'submission_id',
         'assessor_id',
+        'rubric_category_id',   // NEW
+
         'sub_section_id',
         'rubric_option_id',
         'quantity',
@@ -21,10 +23,16 @@ class SubmissionReview extends Model
         'computed_max',
         'score_source',
         'override_reason',
-        'decision',
-        'comments',
+
+        'status',               // NEW
+        'remarks',              // NEW
+
+        'decision',             // legacy
+        'comments',             // legacy
+
         'reviewed_at',
     ];
+
 
     protected $casts = [
         'score'        => 'decimal:2',

@@ -4,8 +4,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const toggleBtn = document.getElementById('darkModeToggle');
     const toggleBtnFloating = document.getElementById('darkModeToggleFloating');
 
-    // Initial load
-    if (localStorage.getItem('theme') === 'dark') {
+    const storedTheme = localStorage.getItem('theme');
+    if (storedTheme === 'dark') {
         body.classList.add('dark-mode');
         toggleBtn?.querySelector('i')?.classList.replace('fa-moon', 'fa-sun');
         toggleBtnFloating?.querySelector('i')?.classList.replace('fa-moon', 'fa-sun');
@@ -16,40 +16,138 @@ document.addEventListener('DOMContentLoaded', function () {
         const mode = body.classList.contains('dark-mode') ? 'dark' : 'light';
         localStorage.setItem('theme', mode);
 
-        const icon = toggleBtn?.querySelector('i');
-        const iconFloating = toggleBtnFloating?.querySelector('i');
+        const iconMain = toggleBtn?.querySelector('i');
+        const iconFloat = toggleBtnFloating?.querySelector('i');
+
         if (mode === 'dark') {
-            icon?.classList.replace('fa-moon', 'fa-sun');
-            iconFloating?.classList.replace('fa-moon', 'fa-sun');
+            iconMain?.classList.replace('fa-moon', 'fa-sun');
+            iconFloat?.classList.replace('fa-moon', 'fa-sun');
         } else {
-            icon?.classList.replace('fa-sun', 'fa-moon');
-            iconFloating?.classList.replace('fa-sun', 'fa-moon');
+            iconMain?.classList.replace('fa-sun', 'fa-moon');
+            iconFloat?.classList.replace('fa-sun', 'fa-moon');
         }
     }
 
     toggleBtn?.addEventListener('click', toggleTheme);
     toggleBtnFloating?.addEventListener('click', toggleTheme);
 
-    // === PASSWORD TOGGLE ===
-    document.querySelector('.toggle-password')?.addEventListener('click', function () {
-        const input = document.getElementById('passwordInput');
-        const icon = this.querySelector('i');
-        const isHidden = input.type === 'password';
-        input.type = isHidden ? 'text' : 'password';
-        icon.className = isHidden ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
-    });
+    // === LOGIN FORM WIRING (visible -> hidden) ===
+    const form          = document.getElementById('loginForm');
+    const emailDisplay  = document.getElementById('email_display');
+    const emailReal     = document.getElementById('email_real');
+    const passwordInput = document.getElementById('passwordInput');
+    const passwordReal  = document.getElementById('password_real');
 
-    // === PRIVACY MODAL ===
+    if (emailDisplay && emailReal) {
+        // Show old('email') if present, otherwise blank
+        emailDisplay.value = emailReal.value || '';
+    }
+
+    if (passwordInput && passwordReal) {
+        // Never pre-fill password on load
+        passwordInput.value = '';
+        passwordReal.value = '';
+    }
+
+    if (form && emailDisplay && emailReal && passwordInput && passwordReal) {
+        form.addEventListener('submit', () => {
+            emailReal.value    = emailDisplay.value.trim();
+            passwordReal.value = passwordInput.value;
+        });
+    }
+
+    // === PASSWORD TOGGLE (eye button) - ROBUST VERSION ===
+    const togglePasswordBtn = document.querySelector('.toggle-password');
+
+    if (togglePasswordBtn && passwordInput) {
+        function handlePasswordToggle(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+
+            const icon = togglePasswordBtn.querySelector('i');
+            const isHidden = passwordInput.type === 'password';
+
+            passwordInput.type = isHidden ? 'text' : 'password';
+
+            if (icon) {
+                if (isHidden) {
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                    togglePasswordBtn.setAttribute('title', 'Hide password');
+                } else {
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                    togglePasswordBtn.setAttribute('title', 'Show password');
+                }
+            }
+        }
+
+        // In case this script gets loaded twice, clear any previous binding of this handler
+        togglePasswordBtn.removeEventListener('click', handlePasswordToggle);
+        togglePasswordBtn.addEventListener('click', handlePasswordToggle);
+
+        // Hook for custom CSS to hide native reveal if you're using it
+        passwordInput.addEventListener('input', function () {
+            if (this.hasAttribute('data-custom-toggle')) {
+                // no-op: native reveal is handled via CSS; this is just a hook
+            }
+        });
+    }
+
+    // === PREVENT PANIC CLICKS + SPINNER ===
+    const submitBtn = form?.querySelector('button[type="submit"]');
+    if (form && submitBtn) {
+        let isSubmitting = false;
+
+        form.addEventListener('submit', function (e) {
+            if (isSubmitting) {
+                e.preventDefault();
+                return;
+            }
+
+            if (typeof form.checkValidity === 'function' && !form.checkValidity()) {
+                e.preventDefault();
+                form.reportValidity?.();
+                return;
+            }
+
+            isSubmitting = true;
+            submitBtn.disabled = true;
+
+            if (!submitBtn.dataset.originalHtml) {
+                submitBtn.dataset.originalHtml = submitBtn.innerHTML;
+            }
+
+            submitBtn.innerHTML = `
+                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                Logging in...
+            `;
+        });
+    }
+
+    // === PRIVACY MODAL (with localStorage ack) ===
     setTimeout(() => {
         const modalEl = document.getElementById('privacyModal');
-        if (modalEl && typeof bootstrap !== 'undefined') {
-            const privacyModal = new bootstrap.Modal(modalEl, {
-                backdrop: 'static',
-                keyboard: false
-            });
-            privacyModal.show();
-        } else {
-            console.error('Privacy modal not found or Bootstrap not loaded');
+        if (!modalEl || typeof bootstrap === 'undefined') return;
+
+        const STORAGE_KEY = 'slea_privacy_ack_v1';
+
+        if (localStorage.getItem(STORAGE_KEY) === '1') {
+            // already acknowledged → don't show again
+            return;
         }
+
+        const privacyModal = new bootstrap.Modal(modalEl, {
+            backdrop: 'static',
+            keyboard: false
+        });
+
+        // when user closes/continues, remember choice
+        modalEl.addEventListener('hidden.bs.modal', () => {
+            localStorage.setItem(STORAGE_KEY, '1');
+        }, { once: true });
+
+        privacyModal.show();
     }, 100);
 });
