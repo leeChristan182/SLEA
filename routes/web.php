@@ -31,7 +31,7 @@ Route::middleware(['guest'])->group(function () {
 
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register.show');
     Route::post('/register', [AuthController::class, 'register'])->name('register.store')
-        ->middleware('throttle:3,60');
+        ->middleware('throttle:10,10');
 
     Route::prefix('api')->name('ajax.')->group(function () {
         Route::get('/programs',      [AuthController::class, 'getPrograms'])->name('programs');

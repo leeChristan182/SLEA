@@ -4,14 +4,6 @@ use Illuminate\Support\Facades\Auth;
 /** Current user + role (single users table) */
 $user = Auth::user();
 $role = $user?->role; // 'admin' | 'assessor' | 'student'
-$fullName = $user
-? trim($user->first_name.' '.($user->middle_name ? $user->middle_name.' ' : '').$user->last_name)
-: null;
-
-/** Avatar path */
-$avatarPath = $user && $user->profile_picture_path
-? asset('storage/'.$user->profile_picture_path)
-: asset('images/default-avatar.png');
 @endphp
 
 <!-- Overlay for mobile only -->
@@ -29,21 +21,6 @@ $avatarPath = $user && $user->profile_picture_path
             <i class="fas fa-bars"></i>
         </div>
 
-        {{-- Avatar + Name (all roles) --}}
-        @if ($user)
-        <div class="sidebar-avatar-box">
-            <img
-                id="sidebarAvatar"
-                src="{{ $avatarPath }}"
-                alt="Avatar"
-                class="sidebar-avatar"
-                @if($user) data-user-id="{{ $user->id }}" @endif>
-            <p class="sidebar-name">{{ $fullName }}</p>
-            <p class="sidebar-role" style="margin:2px 0 0; font-size:12px; opacity:.8; text-transform:capitalize;">
-                {{ $role ?? 'guest' }}
-            </p>
-        </div>
-        @endif
     </div>
 
     <ul>
@@ -145,12 +122,6 @@ $avatarPath = $user && $user->profile_picture_path
             </a>
         </li>
 
-        <li class="{{ request()->routeIs('admin.submission-oversight') ? 'active' : '' }}">
-            <a href="{{ route('admin.submission-oversight') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
-                <i class="fas fa-file-alt"></i><span>Submission Oversight</span>
-            </a>
-        </li>
-
         <li class="{{ request()->routeIs('admin.final-review') ? 'active' : '' }}">
             <a href="{{ route('admin.final-review') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
                 <i class="fas fa-clipboard-check"></i><span>Final Review</span>
@@ -172,27 +143,8 @@ $avatarPath = $user && $user->profile_picture_path
     </ul>
 </aside>
 
-{{-- Avatar + mobile CSS --}}
+{{-- Mobile CSS --}}
 <style>
-    .sidebar-avatar-box {
-        text-align: center;
-        margin-top: 15px;
-    }
-
-    .sidebar-avatar {
-        width: 70px;
-        height: 70px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 2px solid #fff;
-    }
-
-    .sidebar-name {
-        font-size: 14px;
-        font-weight: 600;
-        margin-top: 6px;
-    }
-
     /* BURGER (mobile only) */
     .mobile-sidebar-toggle {
         position: fixed;
@@ -268,14 +220,5 @@ $avatarPath = $user && $user->profile_picture_path
             const title = item.querySelector('.submenu-title');
             title?.addEventListener('click', () => item.classList.toggle('open'));
         });
-
-        // Keep avatar in sync with profile edits (matches unified user_profile.js)
-        try {
-            const saved = localStorage.getItem('profileImage');
-            const sidebarAvatar = document.getElementById('sidebarAvatar');
-            if (saved && sidebarAvatar) sidebarAvatar.src = saved;
-        } catch (e) {
-            /* ignore */
-        }
     });
 </script>

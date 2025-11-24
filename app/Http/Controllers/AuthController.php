@@ -79,7 +79,12 @@ class AuthController extends Controller
             'contact'       => ['required', 'string', 'max:20'],
 
             // Step 2
-            'student_id'    => ['required', 'string', 'max:30'],
+            'student_id'    => [
+                'required',
+                'string',
+                'max:30',
+                Rule::unique('student_academic', 'student_number'),
+            ],
             'college_id'    => ['required', 'integer', 'exists:colleges,id'],
             'program_id'    => ['required', 'integer', 'exists:programs,id'],
             'major_id'      => ['nullable', 'integer', 'exists:majors,id'],
@@ -99,6 +104,8 @@ class AuthController extends Controller
 
         $messages = [
             'email_address.regex' => 'Please use a valid @usep.edu.ph email address.',
+            'email_address.unique' => 'This email address is already registered. Please use a different email or try logging in.',
+            'student_id.unique' => 'This student ID is already registered. Please check your student ID or contact support if you believe this is an error.',
         ];
 
         $validated = $request->validate($rules, $messages);
@@ -192,6 +199,39 @@ class AuthController extends Controller
             return redirect()
                 ->route('login.show')
                 ->with('status', 'Registration received. Please wait for account approval.');
+        } catch (\Illuminate\Database\QueryException $e) {
+            DB::rollBack();
+            report($e);
+
+            // Check for specific database constraint violations
+            $errorCode = $e->getCode();
+            $errorMessage = $e->getMessage();
+
+            // Check if it's a unique constraint violation
+            if (str_contains($errorMessage, 'UNIQUE constraint failed') || 
+                str_contains($errorMessage, 'Duplicate entry') ||
+                str_contains($errorMessage, 'unique constraint')) {
+                
+                // Check which field caused the violation
+                if (str_contains($errorMessage, 'email') || str_contains($errorMessage, 'users.email')) {
+                    return back()
+                        ->withErrors(['email_address' => 'This email address is already registered. Please use a different email or try logging in.'])
+                        ->withInput();
+                } elseif (str_contains($errorMessage, 'student_number') || str_contains($errorMessage, 'student_id')) {
+                    return back()
+                        ->withErrors(['student_id' => 'This student ID is already registered. Please check your student ID or contact support if you believe this is an error.'])
+                        ->withInput();
+                } else {
+                    return back()
+                        ->withErrors(['register' => 'This information is already registered. Please check your details or contact support.'])
+                        ->withInput();
+                }
+            }
+
+            // Generic database error
+            return back()
+                ->withErrors(['register' => 'Could not complete registration. Please try again.'])
+                ->withInput();
         } catch (\Throwable $e) {
             DB::rollBack();
             report($e);
@@ -341,12 +381,17 @@ class AuthController extends Controller
         $clusterId = (int) $request->query('cluster_id');
         if (!Schema::hasTable('organizations')) return response()->json([]);
 
-        $pairs = DB::table('organizations')
+        $rows = DB::table('organizations')
             ->when($clusterId, fn($q) => $q->where('cluster_id', $clusterId))
             ->orderBy('name')
-            ->pluck('name', 'id');
+            ->select('id', 'name')
+            ->get()
+            ->map(fn($r) => [
+                'id' => $r->id,
+                'name' => $r->name,
+            ]);
 
-        return response()->json($pairs);
+        return response()->json($rows);
     }
 
     public function getLeadershipTypes()
@@ -403,8 +448,10 @@ class AuthController extends Controller
                 WHEN 'osc' THEN 2 
                 WHEN 'lc' THEN 3 
                 WHEN 'cco' THEN 4 
-                WHEN 'lgu' THEN 5 
-                WHEN 'lcm' THEN 6 
+                WHEN 'sco' THEN 5 
+                WHEN 'lgu' THEN 6 
+                WHEN 'lcm' THEN 7 
+                WHEN 'eap' THEN 8 
                 ELSE 99 
             END")
             ->get();

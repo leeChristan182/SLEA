@@ -16,25 +16,6 @@ class PositionSeeder extends Seeder
         
         // Define positions by leadership type key
         $positionsByType = [
-            // SCO - Student Clubs and Organizations (if added to LeadershipTypeSeeder)
-            // Note: If SCO is needed, add it to LeadershipTypeSeeder first
-            /*
-            'sco' => [
-                ['name' => 'President', 'rank' => 1, 'exec' => true],
-                ['name' => 'Internal Vice President', 'rank' => 2, 'exec' => true],
-                ['name' => 'External Vice President', 'rank' => 3, 'exec' => true],
-                ['name' => 'Secretary', 'rank' => 4, 'exec' => false],
-                ['name' => 'Assistant Secretary', 'rank' => 5, 'exec' => false],
-                ['name' => 'Treasurer', 'rank' => 6, 'exec' => false],
-                ['name' => 'Auditor', 'rank' => 7, 'exec' => false],
-                ['name' => '1st Year Representative', 'rank' => 8, 'exec' => false],
-                ['name' => '2nd Year Representative', 'rank' => 9, 'exec' => false],
-                ['name' => '3rd Year Representative', 'rank' => 10, 'exec' => false],
-                ['name' => '4th Year Representative', 'rank' => 11, 'exec' => false],
-                ['name' => 'Committee Member', 'rank' => 12, 'exec' => false],
-            ],
-            */
-            
             // CCO - Council of Clubs and Organizations
             'cco' => [
                 ['name' => 'President', 'rank' => 1, 'exec' => true],
@@ -57,8 +38,6 @@ class PositionSeeder extends Seeder
             ],
             
             // SCO - Student Clubs and Organizations
-            // Note: If SCO is needed, add it to LeadershipTypeSeeder first, then uncomment below
-            /*
             'sco' => [
                 ['name' => 'President', 'rank' => 1, 'exec' => true],
                 ['name' => 'Internal Vice President', 'rank' => 2, 'exec' => true],
@@ -67,13 +46,13 @@ class PositionSeeder extends Seeder
                 ['name' => 'Assistant Secretary', 'rank' => 5, 'exec' => false],
                 ['name' => 'Treasurer', 'rank' => 6, 'exec' => false],
                 ['name' => 'Auditor', 'rank' => 7, 'exec' => false],
-                ['name' => '1st Year Representative', 'rank' => 8, 'exec' => false],
-                ['name' => '2nd Year Representative', 'rank' => 9, 'exec' => false],
-                ['name' => '3rd Year Representative', 'rank' => 10, 'exec' => false],
-                ['name' => '4th Year Representative', 'rank' => 11, 'exec' => false],
-                ['name' => 'Committee Member', 'rank' => 12, 'exec' => false],
+                ['name' => 'Public Information Officer (PIO)', 'rank' => 8, 'exec' => false],
+                ['name' => '1st Year Representative', 'rank' => 9, 'exec' => false],
+                ['name' => '2nd Year Representative', 'rank' => 10, 'exec' => false],
+                ['name' => '3rd Year Representative', 'rank' => 11, 'exec' => false],
+                ['name' => '4th Year Representative', 'rank' => 12, 'exec' => false],
+                ['name' => 'Committee Member', 'rank' => 13, 'exec' => false],
             ],
-            */
             
             // USG - University Student Government (Student Government)
             'usg' => [
@@ -126,6 +105,16 @@ class PositionSeeder extends Seeder
                 ['name' => 'SK Councilor', 'rank' => 4, 'exec' => false],
                 ['name' => 'Indigenous People / Youth Leader', 'rank' => 5, 'exec' => false],
             ],
+            
+            // EAP - Elective/Appointive Position (in organizations with approved/recognized Constitution and By-laws other than LGU)
+            'eap' => [
+                ['name' => 'President', 'rank' => 1, 'exec' => true],
+                ['name' => 'Vice President', 'rank' => 2, 'exec' => true],
+                ['name' => 'Indigenous People', 'rank' => 3, 'exec' => false],
+                ['name' => 'Youth Leader', 'rank' => 4, 'exec' => false],
+                ['name' => 'Secretary', 'rank' => 5, 'exec' => false],
+                ['name' => 'Treasurer', 'rank' => 6, 'exec' => false],
+            ],
         ];
 
         // Clear existing positions
@@ -158,39 +147,6 @@ class PositionSeeder extends Seeder
             }
         }
 
-        // Also add positions for Student Clubs and Organizations (SCO) - using CCO positions
-        // If SCO becomes a separate leadership type, uncomment and add it to LeadershipTypeSeeder
-        /*
-        if (isset($leadershipTypes['sco'])) {
-            $scoPositions = [
-                ['name' => 'President', 'rank' => 1, 'exec' => true],
-                ['name' => 'Internal Vice President', 'rank' => 2, 'exec' => true],
-                ['name' => 'External Vice President', 'rank' => 3, 'exec' => true],
-                ['name' => 'Secretary', 'rank' => 4, 'exec' => false],
-                ['name' => 'Assistant Secretary', 'rank' => 5, 'exec' => false],
-                ['name' => 'Treasurer', 'rank' => 6, 'exec' => false],
-                ['name' => 'Auditor', 'rank' => 7, 'exec' => false],
-                ['name' => '1st Year Representative', 'rank' => 8, 'exec' => false],
-                ['name' => '2nd Year Representative', 'rank' => 9, 'exec' => false],
-                ['name' => '3rd Year Representative', 'rank' => 10, 'exec' => false],
-                ['name' => '4th Year Representative', 'rank' => 11, 'exec' => false],
-                ['name' => 'Committee Member', 'rank' => 12, 'exec' => false],
-            ];
-            
-            foreach ($scoPositions as $pos) {
-                DB::table('positions')->insert([
-                    'leadership_type_id' => $leadershipTypes['sco'],
-                    'key' => Str::slug($pos['name'], '_'),
-                    'name' => $pos['name'],
-                    'rank_order' => $pos['rank'],
-                    'is_executive' => $pos['exec'],
-                    'is_elected' => true,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
-        }
-        */
 
         $this->command?->info('✅ Positions seeded by leadership type.');
     }

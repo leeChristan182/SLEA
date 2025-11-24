@@ -68,7 +68,8 @@
 
                     @if ($errors->any())
                 <div class="alert alert-danger" role="alert">
-                        <ul class="mb-0">
+                        <strong>Please fix the following errors:</strong>
+                        <ul class="mb-0 mt-2">
                             @foreach ($errors->all() as $error)
                             <li>{{ $error }}</li>
                             @endforeach
@@ -307,9 +308,10 @@
                     </div>
 
                     <!-- Step 3: Leadership Involvement -->
-                    <div class="form-step">
-                        <h5 class="mb-1">Leadership Information</h5>
+                    <div class="form-step form-step-scrollable">
+                        <h5 class="mb-1 step-title-fixed">Leadership Information</h5>
 
+                        <div class="step-3-scrollable-content">
                         <div class="row g-3">
                             {{-- Leadership Type (council list incl. LCM; CCO requires cluster/org) --}}
                             <div class="col-md-6">
@@ -335,7 +337,7 @@
                                 </select>
                                 @error('leadership_type_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                 <small class="text-muted d-block mt-1">
-                                    USG, OSC, LC, CCO, LGU, or LCM. For CCO (club/org), specify Cluster &amp; Organization.
+                                    USG, OSC, LC, CCO, SCO, LGU, LCM, or EAP. For SCO (Student Clubs and Organizations), Cluster &amp; Organization are required.
                                 </small>
                             </div>
                         </div>
@@ -383,7 +385,7 @@
                                     id="position_id"
                                     name="position_id"
                                     class="form-select @error('position_id') is-invalid @enderror"
-                                    required
+                                required
                                     data-old="{{ old('position_id') }}">
                                     <option value="">Select Position</option>
                                 </select>
@@ -444,6 +446,7 @@
                                 @error('issued_by') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
                         </div>
+                        </div> <!-- End step-3-scrollable-content -->
                     </div>
 
                     <!-- Step 4: Account Credentials -->
@@ -505,7 +508,7 @@
                                 {{ old('privacy_agree') ? 'checked' : '' }}
                                 required>
                             <label class="form-check-label" for="privacy_agree">
-                                I agree to the
+                                By continuing to browse this website, I agree to the University of Southeastern Philippines'
                                 <a href="https://www.usep.edu.ph/usep-data-privacy-statement/" target="_blank" rel="noopener">
                                     Data Privacy Policy
                                 </a>.
@@ -521,8 +524,9 @@
                             class="btn btn-secondary px-3 py-2"
                             id="prevBtn"
                             onclick="nextPrev(-1)"
-                            disabled>
-                            Back
+                            disabled
+                            style="display: none;">
+                            Previous
                     </button>
 
                         <div class="page-numbers d-flex gap-1" aria-label="form steps">

@@ -280,8 +280,17 @@
       return key === 'cco' || /council of clubs and organizations/i.test(opt.textContent || '');
     }
 
+    function isSCOSelected() {
+      const opt = leadershipTypeSelect?.selectedOptions?.[0];
+      if (!opt) return false;
+      const key = (opt.dataset.key || '').toLowerCase();
+      return key === 'sco' || /student clubs and organizations/i.test(opt.textContent || '');
+    }
+
     // Load positions by leadership_type_id
     async function loadPositionsByLeadershipType(typeId, selectedPos = '') {
+      if (!positionSelect) return;
+      
       resetDropdown(positionSelect, 'Select Leadership Type first');
       if (!typeId) {
         resetDropdown(positionSelect, 'Select Leadership Type first');
@@ -289,19 +298,25 @@
       }
       
       resetDropdown(positionSelect, 'Loading positions...');
-      if (!URL_COUNCIL_POS) {
+      
+      // Use councilPositions route if available, otherwise fallback to positions route
+      const positionsUrl = URL_COUNCIL_POS || URLS.positions || '';
+      if (!positionsUrl) {
         resetDropdown(positionSelect, 'Select Position');
         return;
       }
       
-      const rows = await safeFetchJson(
-        `${URL_COUNCIL_POS}?leadership_type_id=${encodeURIComponent(typeId)}&_=${Date.now()}`
-      );
+      // Build URL with leadership_type_id parameter
+      const url = `${positionsUrl}?leadership_type_id=${encodeURIComponent(typeId)}&_=${Date.now()}`;
+      
+      const rows = await safeFetchJson(url);
       resetDropdown(positionSelect, 'Select Position');
+      
       if (!rows || !Array.isArray(rows) || rows.length === 0) {
         resetDropdown(positionSelect, 'No positions available');
         return;
       }
+      
       setOptionsFromArray(positionSelect, rows, selectedPos);
     }
 
@@ -337,7 +352,10 @@
 
     async function loadOrganizations(clusterId) {
       resetDropdown(organizationSelect, 'Loading organizations...');
-      resetDropdown(positionSelect, 'Select Position');
+      // Only reset positions if NOT SCO (SCO positions are loaded by leadership type, not org)
+      if (!isSCOSelected()) {
+        resetDropdown(positionSelect, 'Select Position');
+      }
       if (!clusterId) {
         resetDropdown(organizationSelect, 'Select Organization');
         return;
@@ -356,45 +374,99 @@
       }
     }
 
-    // Handle CCO special case: Set Cluster and Organization to "N/A"
+    // Handle CCO special case: Hide Cluster and Organization (set to N/A in backend)
     function handleCCOSelection() {
-      // Set Cluster to N/A
+      // Hide Cluster and Organization fields completely
+      setVisible(clusterWrap, false);
+      setVisible(orgWrap, false);
+      setRequired(clusterSelect, false, clusterStar);
+      setRequired(organizationSelect, false, orgStar);
+      
+      // Set values to N/A for backend (fields are hidden but values are submitted)
       resetDropdown(clusterSelect, 'Select Cluster');
       clusterSelect.innerHTML = '<option value="N/A" selected>N/A</option>';
-      setDisabled(clusterSelect, true);
-      setRequired(clusterSelect, true, clusterStar);
-      
-      // Set Organization to N/A
       resetDropdown(organizationSelect, 'Select Organization');
       organizationSelect.innerHTML = '<option value="N/A" selected>N/A</option>';
-      setDisabled(organizationSelect, true);
-      setRequired(organizationSelect, true, orgStar);
       
-      // Show the fields
-      setVisible(clusterWrap, true);
-      setVisible(orgWrap, true);
+      // Ensure fields are not disabled so values are submitted
+      setDisabled(clusterSelect, false);
+      setDisabled(organizationSelect, false);
+      
+      // Disable scrolling for CCO (non-SCO layout - 5 fields)
+      toggleScrollableForm(false);
       
       // Load CCO positions
       const typeId = leadershipTypeSelect.value;
       loadPositionsByLeadershipType(typeId, oldPosition || '');
     }
 
-    // Handle non-CCO selection: Restore normal functionality
-    function handleNonCCOSelection() {
+    // Handle SCO selection: Show and enable Cluster and Organization
+    function handleSCOSelection() {
       // Re-enable Cluster and Organization
       setDisabled(clusterSelect, false);
       setDisabled(organizationSelect, false);
       
-      // Hide Cluster and Organization fields for non-CCO
+      // Show Cluster and Organization fields for SCO
+      setVisible(clusterWrap, true);
+      setVisible(orgWrap, true);
+      setRequired(clusterSelect, true, clusterStar);
+      setRequired(organizationSelect, true, orgStar);
+      if (orgOptHint) orgOptHint.style.display = 'none';
+      
+      // Enable scrolling for SCO (7 fields layout)
+      toggleScrollableForm(true);
+      
+      // Load clusters
+      loadClusters();
+      
+      // Load positions for the selected leadership type (SCO positions)
+      const typeId = leadershipTypeSelect.value;
+      loadPositionsByLeadershipType(typeId, oldPosition || '');
+    }
+
+    // Handle non-CCO, non-SCO selection: Hide Cluster and Organization
+    function handleNonCCOSelection() {
+      // Hide Cluster and Organization fields completely
       setVisible(clusterWrap, false);
       setVisible(orgWrap, false);
       setRequired(clusterSelect, false, clusterStar);
       setRequired(organizationSelect, false, orgStar);
       if (orgOptHint) orgOptHint.style.display = 'none';
       
+      // Clear values (fields won't be submitted for non-SCO, non-CCO)
+      resetDropdown(clusterSelect, 'Select Cluster');
+      resetDropdown(organizationSelect, 'Select Organization');
+      
+      // Re-enable fields (in case they were disabled)
+      setDisabled(clusterSelect, false);
+      setDisabled(organizationSelect, false);
+      
+      // Disable scrolling for non-SCO (5 fields layout - single viewport)
+      toggleScrollableForm(false);
+      
       // Load positions for the selected leadership type
       const typeId = leadershipTypeSelect.value;
       loadPositionsByLeadershipType(typeId, oldPosition || '');
+    }
+
+    // Toggle scrollable form container based on SCO selection
+    function toggleScrollableForm(enableScroll) {
+      const scrollableContent = document.querySelector('.step-3-scrollable-content');
+      const formStep = document.querySelector('.form-step-scrollable');
+      
+      if (!scrollableContent || !formStep) return;
+      
+      if (enableScroll) {
+        // SCO: Enable scrolling
+        scrollableContent.style.overflowY = 'auto';
+        scrollableContent.style.maxHeight = 'calc(100vh - 380px)';
+        formStep.classList.add('form-step-scrollable-active');
+      } else {
+        // Non-SCO: Disable scrolling (single viewport)
+        scrollableContent.style.overflowY = 'hidden';
+        scrollableContent.style.maxHeight = 'none';
+        formStep.classList.remove('form-step-scrollable-active');
+      }
     }
 
     // Single change handler for Leadership Type
@@ -414,14 +486,18 @@
         setDisabled(organizationSelect, false);
         if (orgOptHint) orgOptHint.style.display = 'none';
         resetDropdown(positionSelect, 'Select Leadership Type first');
+        toggleScrollableForm(false); // Default: no scrolling
         return;
       }
 
       if (isCCOSelected()) {
         // CCO special case: N/A for Cluster and Organization
         handleCCOSelection();
+      } else if (isSCOSelected()) {
+        // SCO: Show and enable Cluster and Organization (required)
+        handleSCOSelection();
       } else {
-        // Non-CCO: Load positions directly by leadership type
+        // Non-CCO, non-SCO: Hide Cluster and Organization, load positions by type
         handleNonCCOSelection();
       }
     });
@@ -429,15 +505,28 @@
     clusterSelect?.addEventListener('change', () => {
       const clusterId = clusterSelect.value;
       // Only load organizations if not CCO and cluster is selected
+      // For SCO, load organizations normally (positions are already loaded by leadership type)
       if (!isCCOSelected() && clusterId) {
         loadOrganizations(clusterId);
+      }
+      // For SCO, ensure positions remain loaded (they're loaded by leadership type, not org)
+      if (isSCOSelected() && leadershipTypeSelect.value) {
+        const typeId = leadershipTypeSelect.value;
+        loadPositionsByLeadershipType(typeId, oldPosition || '');
       }
     });
 
     organizationSelect?.addEventListener('change', () => {
       const orgId = organizationSelect.value;
-      // Only load positions via organization if not CCO and org is selected
-      if (!isCCOSelected() && orgId) {
+      // For SCO, positions are loaded by leadership type, not by organization
+      // Ensure positions remain loaded for SCO (they're loaded by leadership type, not org)
+      if (isSCOSelected() && leadershipTypeSelect.value) {
+        const typeId = leadershipTypeSelect.value;
+        loadPositionsByLeadershipType(typeId, oldPosition || '');
+        return; // Don't load positions by organization for SCO
+      }
+      // Only load positions via organization for other types (not CCO, not SCO)
+      if (!isCCOSelected() && !isSCOSelected() && orgId) {
         loadOrgPositions(orgId, oldPosition || '');
       }
     });
@@ -446,6 +535,9 @@
     if (oldLeadershipType) {
       leadershipTypeSelect.value = oldLeadershipType;
       leadershipTypeSelect.dispatchEvent(new Event('change'));
+    } else {
+      // Initialize: no scrolling by default (non-SCO layout)
+      toggleScrollableForm(false);
     }
 
     // -------- Multi-step --------
@@ -460,7 +552,15 @@
         if (i < n) p.classList.add('completed');
         if (i === n) p.classList.add('active');
       });
-      prevBtn.disabled = n === 0;
+      // Hide Previous button on first page (step 0), show on steps 1, 2, 3
+      if (prevBtn) {
+        if (n === 0) {
+          prevBtn.style.display = 'none';
+        } else {
+          prevBtn.style.display = '';
+          prevBtn.disabled = false;
+        }
+      }
       nextBtn.textContent = n === formSteps.length - 1 ? 'Submit' : 'Next';
     }
 
