@@ -1,27 +1,33 @@
 @php
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 
 $user = Auth::user();
-$role = null;
-$link = '#'; // fallback if not logged in
+$role = $user->role ?? null; // 'admin', 'assessor', 'student' or null
 
-if ($user instanceof \App\Models\AdminAccount) {
-$role = 'admin';
-} elseif ($user instanceof \App\Models\AssessorAccount) {
-$role = 'assessor';
-} elseif ($user instanceof \App\Models\StudentAccount) {
-$role = 'student';
+// Default landing route based on role
+switch ($role) {
+case 'admin':
+$routeName = 'admin.profile';
+break;
+case 'assessor':
+$routeName = 'assessor.profile';
+break;
+case 'student':
+$routeName = 'student.profile';
+break;
+default:
+$routeName = 'login.show';
+break;
 }
 
-if ($role && Route::has($role . '.profile')) {
-$link = route($role . '.profile');
-}
+$link = Route::has($routeName) ? route($routeName) : route('login.show');
 @endphp
 
 <div class="header-container">
     <div class="header d-flex justify-content-between align-items-center">
         <div class="d-flex align-items-center gap-3">
-            <!-- Logo + SLEA linked to profile -->
+            <!-- Logo + SLEA linked to role-based landing -->
             <a href="{{ $link }}" class="d-flex align-items-center gap-2 text-decoration-none">
                 <img src="{{ asset('images/osas-logo.png') }}" alt="OSAS Logo" height="60">
                 <span class="fs-3 fw-bolder logo-text">SLEA</span>
@@ -37,7 +43,7 @@ $link = route($role . '.profile');
         </div>
 
         <div class="header-right d-flex align-items-center gap-3">
-            <div class="text-end">
+            <div class="text-end d-none d-sm-block">
                 <small>Having Trouble?</small><br>
                 <a href="#">Send us a message</a>
             </div>
@@ -47,13 +53,13 @@ $link = route($role . '.profile');
                 <i class="fas fa-moon"></i>
             </button>
 
-            <!-- ✅ Logout Button -->
             @if ($user)
+            {{-- ✅ Single, canonical logout form using POST /logout --}}
             <form id="logoutForm" action="{{ route('logout') }}" method="POST" style="margin:0;">
                 @csrf
                 <button type="submit" class="logout-btn" title="Logout">
                     <i class="fas fa-sign-out-alt"></i>
-                    <span>Logout</span>
+                    <span class="d-none d-md-inline">Logout</span>
                 </button>
             </form>
             @endif
@@ -61,34 +67,36 @@ $link = route($role . '.profile');
     </div>
 </div>
 
-{{-- ===== SweetAlert2 (for logout confirmation) ===== --}}
+{{-- SweetAlert2 for logout confirmation --}}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const logoutForm = document.getElementById('logoutForm');
-        if (logoutForm) {
-            logoutForm.addEventListener('submit', function(e) {
-                e.preventDefault(); // stop immediate form submit
-                Swal.fire({
-                    title: 'Confirm Logout',
-                    text: 'Are you sure you want to logout?',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#a00', // SLEA maroon tone
-                    cancelButtonColor: '#555',
-                    confirmButtonText: 'Yes, logout',
-                    cancelButtonText: 'Cancel'
-                }).then((result) => {
-                    if (result.isConfirmed) logoutForm.submit();
-                });
+        if (!logoutForm) return;
+
+        logoutForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            Swal.fire({
+                title: 'Confirm Logout',
+                text: 'Are you sure you want to logout?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#a00',
+                cancelButtonColor: '#555',
+                confirmButtonText: 'Yes, logout',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    logoutForm.submit(); // 👈 actual POST /logout happens here
+                }
             });
-        }
+        });
     });
 </script>
 
 <style>
-    /* === Logout Button Styles === */
     .logout-btn {
         display: flex;
         align-items: center;
@@ -96,9 +104,9 @@ $link = route($role . '.profile');
         border: 2px solid #a00;
         border-radius: 8px;
         padding: 6px 12px;
-        background: white;
+        background: #fff;
         color: #333;
-        font-size: 1rem;
+        font-size: 0.95rem;
         cursor: pointer;
         transition: all 0.2s ease;
     }
@@ -109,24 +117,18 @@ $link = route($role . '.profile');
         border-color: #800;
     }
 
-    .logout-btn .dark-mode {
-        background: #706b6bff
-    }
-
     .logout-btn i {
         font-size: 1.1rem;
     }
 
-    /* === Header Layout Fix === */
     .header-right {
         display: flex;
         align-items: center;
         gap: 1rem;
     }
 
-    /* === Optional SweetAlert styling tweak (SLEA colors) === */
     .swal2-popup {
-        font-family: 'Poppins', sans-serif;
+        font-family: inherit;
     }
 
     .swal2-confirm {

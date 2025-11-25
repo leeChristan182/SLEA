@@ -16,7 +16,7 @@ class RubricCategorySeeder extends Seeder
             [
                 'key' => 'leadership',
                 'title' => 'Leadership Excellence',
-                'description' => 'Leadership roles in campus/community orgs, designations, and leadership trainings.',
+                'description' => 'Leadership experience through elected or appointed roles in campus and community organizations, including related competitions, conferences, seminars and workshops.',
                 'max_points' => 20,
                 'min_required_points' => 0,
                 'aggregation' => 'capped_sum',
@@ -28,7 +28,7 @@ class RubricCategorySeeder extends Seeder
             [
                 'key' => 'academic',
                 'title' => 'Academic Excellence',
-                'description' => 'Academic standing during the leadership period.',
+                'description' => 'Overall academic standing for the duration of the student’s leadership, showing the ability to balance academics with co-curricular and extra-curricular activities.',
                 'max_points' => 20,
                 'min_required_points' => 0,
                 'aggregation' => 'capped_sum',
@@ -40,7 +40,7 @@ class RubricCategorySeeder extends Seeder
             [
                 'key' => 'awards',
                 'title' => 'Awards/Recognition Received',
-                'description' => 'Co-/extracurricular distinctions with a selection process.',
+                'description' => 'Co-curricular and extra-curricular awards or recognitions received during the student’s stay in the university.',
                 'max_points' => 20,
                 'min_required_points' => 0,
                 'aggregation' => 'capped_sum',
@@ -52,7 +52,7 @@ class RubricCategorySeeder extends Seeder
             [
                 'key' => 'community',
                 'title' => 'Community Involvement',
-                'description' => 'Service/outreach/civic activities.',
+                'description' => 'Participation in community activities, civic involvement and public service at local, regional, national and international levels.',
                 'max_points' => 20,
                 'min_required_points' => 0,
                 'aggregation' => 'capped_sum',
@@ -64,7 +64,7 @@ class RubricCategorySeeder extends Seeder
             [
                 'key' => 'conduct',
                 'title' => 'Good Conduct',
-                'description' => 'Behavioral record; deductions up to 10.',
+                'description' => 'Behavioral record while enrolled, based on official OSAS spot reports and disciplinary concerns, expressed as point deductions.',
                 'max_points' => 10, // max deduction is 10
                 'min_required_points' => 0,
                 'aggregation' => 'capped_sum',

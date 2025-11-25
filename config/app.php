@@ -1,5 +1,9 @@
 <?php
 
+use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Facade;
+
+
 return [
 
     /*
@@ -13,7 +17,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => env('APP_NAME', 'OSAS SLEA'),
 
     /*
     |--------------------------------------------------------------------------
@@ -27,6 +31,7 @@ return [
     */
 
     'env' => env('APP_ENV', 'production'),
+
 
     /*
     |--------------------------------------------------------------------------
@@ -122,5 +127,34 @@ return [
         'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Autoloaded Service Providers
+    |--------------------------------------------------------------------------
+    */
+
+    'providers' => ServiceProvider::defaultProviders()->merge([
+        /*
+         * Package Service Providers...
+         */
+        Barryvdh\DomPDF\ServiceProvider::class,
+
+        /*
+         * Application Service Providers...
+         */
+        App\Providers\AppServiceProvider::class,
+
+    ])->toArray(),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Class Aliases
+    |--------------------------------------------------------------------------
+    */
+
+    'aliases' => Facade::defaultAliases()->merge([
+        'Pdf' => Barryvdh\DomPDF\Facade\Pdf::class,
+    ])->toArray(),
 
 ];

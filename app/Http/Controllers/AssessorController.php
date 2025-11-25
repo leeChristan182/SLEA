@@ -49,7 +49,11 @@ class AssessorController extends Controller
     {
         $request->validate([
             'current_password' => ['required'],
-            'password'         => ['required', 'confirmed', PasswordRule::min(8)],
+            'password'         => ['required', 'confirmed', PasswordRule::min(12)
+                ->mixedCase()
+                ->numbers()
+                ->symbols()
+                ->uncompromised()],
         ]);
 
         /** @var User $user */
@@ -82,191 +86,46 @@ class AssessorController extends Controller
     // POST /assessor/profile/picture
     public function updateAvatar(Request $request)
     {
-        $request->validate([
-            'avatar' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
-        ]);
+        try {
+            // match 5MB client limit: 5 * 1024 KB = 5120
+            $request->validate([
+                'avatar' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            if ($request->ajax() || $request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed.',
+                    'errors'  => $e->errors(),
+                ], 422);
+            }
+            throw $e;
+        }
 
         /** @var User $user */
         $user = Auth::user();
 
+        // Store new avatar
         $path = $request->file('avatar')->store('avatars', 'public');
 
+        // Delete old one if exists
         if ($user->profile_picture_path && Storage::disk('public')->exists($user->profile_picture_path)) {
             Storage::disk('public')->delete($user->profile_picture_path);
         }
 
         $user->update(['profile_picture_path' => $path]);
 
+        $avatarUrl = asset('storage/' . $path);
+
+        if ($request->ajax() || $request->expectsJson()) {
+            return response()->json([
+                'success'    => true,
+                'message'    => 'Profile picture updated.',
+                'avatar_url' => $avatarUrl,
+            ]);
+        }
+
+        // Fallback for non-AJAX
         return back()->with('status', 'Profile picture updated.');
-    }
-
-    /* =========================
-     | SUBMISSIONS & REVIEW
-     * ========================= */
-
-    // GET /assessor/pending-submissions
-    public function pendingSubmissions(Request $request)
-    {
-        // If you have models, prefer Eloquent; using DB for portability here.
-        if (! Schema::hasTable('submissions')) {
-            return view('assessor.submissions.index', ['submissions' => collect(), 'empty' => true]);
-        }
-
-        $query = DB::table('submissions as s')
-            ->select('s.id', 's.user_id', 's.title', 's.created_at', 's.status')
-            ->whereIn('s.status', ['pending', 'under_review'])
-            ->orderByDesc('s.created_at');
-
-        // Optional: show only those assigned to this assessor if you have an assignment table
-        if (Schema::hasTable('submission_reviews')) {
-            $query->leftJoin('submission_reviews as r', 'r.submission_id', '=', 's.id')
-                ->where(function ($q) {
-                    $q->whereNull('r.assessor_id')
-                        ->orWhere('r.assessor_id', Auth::id());
-                });
-        }
-
-        $submissions = $query->paginate(20)->withQueryString();
-
-        return view('assessor.submissions.index', compact('submissions'));
-    }
-
-    // GET /assessor/submissions
-    public function submissions()
-    {
-        if (! Schema::hasTable('submission_reviews')) {
-            // Fall back to all submissions if no reviews table yet
-            $subs = Schema::hasTable('submissions')
-                ? DB::table('submissions')->orderByDesc('created_at')->paginate(20)
-                : collect();
-            return view('assessor.submissions.mine', ['submissions' => $subs]);
-        }
-
-        $submissions = DB::table('submission_reviews as r')
-            ->join('submissions as s', 's.id', '=', 'r.submission_id')
-            ->select('s.id', 's.title', 's.status', 's.created_at', 'r.score', 'r.updated_at as reviewed_at')
-            ->where('r.assessor_id', Auth::id())
-            ->orderByDesc('r.updated_at')
-            ->paginate(20)
-            ->withQueryString();
-
-        return view('assessor.submissions.mine', compact('submissions'));
-    }
-
-    // GET /assessor/final-review
-    public function finalReview()
-    {
-        // Show a high-level list; actual finalization is admin
-        if (! Schema::hasTable('final_reviews')) {
-            return view('assessor.final-review.index', ['rows' => collect()]);
-        }
-
-        $rows = DB::table('final_reviews as f')
-            ->join('submissions as s', 's.id', '=', 'f.submission_id')
-            ->select('s.id', 's.title', 'f.status', 'f.total_score', 'f.updated_at')
-            ->orderByDesc('f.updated_at')
-            ->paginate(20)
-            ->withQueryString();
-
-        return view('assessor.final-review.index', compact('rows'));
-    }
-
-    // GET /assessor/submissions/{id}/details
-    public function getSubmissionDetails(int $id)
-    {
-        if (! Schema::hasTable('submissions')) {
-            abort(404);
-        }
-
-        $submission = DB::table('submissions as s')
-            ->leftJoin('users as u', 'u.id', '=', 's.user_id')
-            ->select('s.*', 'u.first_name', 'u.last_name', 'u.email')
-            ->where('s.id', $id)
-            ->first();
-
-        if (! $submission) {
-            abort(404);
-        }
-
-        $documents = Schema::hasTable('user_documents')
-            ? DB::table('user_documents')->where('user_id', $submission->user_id)->get()
-            : collect();
-
-        $academic = Schema::hasTable('student_academic')
-            ? DB::table('student_academic')->where('user_id', $submission->user_id)->first()
-            : null;
-
-        return response()->json([
-            'submission' => $submission,
-            'documents'  => $documents,
-            'academic'   => $academic,
-        ]);
-    }
-
-    // POST /assessor/submissions/{id}/action
-    public function handleSubmissionAction(Request $request, int $id)
-    {
-        $request->validate([
-            'action' => ['required', Rule::in(['approve', 'reject', 'resubmit', 'flagged', 'under_review'])],
-            'score'  => ['nullable', 'numeric', 'min:0'],
-            'notes'  => ['nullable', 'string', 'max:2000'],
-        ]);
-
-        if (! Schema::hasTable('submissions')) {
-            return back()->withErrors(['action' => 'Submissions table not found.']);
-        }
-
-        $submission = DB::table('submissions')->where('id', $id)->first();
-        if (! $submission) {
-            return back()->withErrors(['action' => 'Submission not found.']);
-        }
-
-        // Write a review row if table exists
-        if (Schema::hasTable('submission_reviews')) {
-            DB::table('submission_reviews')->updateOrInsert(
-                ['submission_id' => $id, 'assessor_id' => Auth::id()],
-                [
-                    'score'      => $request->input('score'),
-                    'notes'      => $request->input('notes'),
-                    'updated_at' => now(),
-                    'created_at' => DB::raw('COALESCE(created_at, CURRENT_TIMESTAMP)'),
-                ]
-            );
-        }
-
-        // Update submission status based on action (map to your code table values)
-        $statusMap = [
-            'approve'      => 'qualified',
-            'reject'       => 'unqualified',
-            'resubmit'     => 'resubmit',
-            'flagged'      => 'flagged',
-            'under_review' => 'under_review',
-        ];
-
-        DB::table('submissions')->where('id', $id)->update([
-            'status'     => $statusMap[$request->action] ?? 'under_review',
-            'updated_at' => now(),
-        ]);
-
-        return back()->with('status', 'Submission updated.');
-    }
-
-    // GET /assessor/documents/{id}/download
-    public function downloadDocument(int $id)
-    {
-        if (! Schema::hasTable('user_documents')) {
-            abort(404);
-        }
-
-        $doc = DB::table('user_documents')->where('id', $id)->first();
-        if (! $doc || ! $doc->path) {
-            abort(404);
-        }
-
-        if (! Storage::disk('public')->exists($doc->path)) {
-            abort(404);
-        }
-
-        return Storage::disk('public')->download($doc->path, basename($doc->path));
     }
 }

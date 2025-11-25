@@ -4,31 +4,57 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
         //
     }
 
-    /**
-     * Bootstrap any application services.
-     */
-    public function boot()
+    public function boot(): void
     {
+        /**
+         * SHARE ROLE + SLEA STATUS WITH ALL VIEWS
+         */
         View::composer('*', function ($view) {
+
             $user = auth()->user();
             $role = null;
+            $sleaApplicationStatus = null;
+            $sleaAwarded = false;
 
-            if ($user instanceof \App\Models\AdminAccount) $role = 'admin';
-            elseif ($user instanceof \App\Models\AssessorAccount) $role = 'assessor';
-            elseif ($user) $role = 'student';
+            /** Determine role */
+            if ($user) {
+                $role = $user->role;   // <-- FIXED
+            }
 
-            $view->with('currentRole', $role);
+            /** Only students have SLEA status */
+            if ($role === 'student' && $user->studentAcademic) {
+                $academic = $user->studentAcademic;
+                $sleaApplicationStatus = $academic->slea_application_status;
+                $sleaAwarded = ($sleaApplicationStatus === 'awarded');
+            }
+
+            /** Make available globally */
+            $view->with([
+                'currentRole'           => $role,
+                'sleaApplicationStatus' => $sleaApplicationStatus,
+                'sleaAwarded'           => $sleaAwarded,
+            ]);
         });
+
+        /**
+         * OVERRIDE EMAIL DURING DEVELOPMENT
+         */
+        if (app()->environment(['local', 'development'])) {
+            $override = env('MAIL_TO_OVERRIDE');
+            if ($override) {
+                Mail::alwaysTo($override);
+            }
+        }
     }
 }

@@ -9,14 +9,9 @@ class Cluster extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'name',
-        'description',
-    ];
+    // Seeder writes `key`, table has `name` (and maybe `description`)
+    protected $fillable = ['key', 'name', 'description'];
 
-    /**
-     * Get all organizations that belong to this cluster.
-     */
     public function organizations()
     {
         return $this->hasMany(Organization::class);

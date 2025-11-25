@@ -1,153 +1,202 @@
 <?php
 
-use Illuminate\Support\Facades\Auth; // ← fix casing
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\AuthController;
+use App\Http\Middleware\SecurityHeaders;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AssessorController;
-use App\Http\Controllers\RubricController;
 use App\Http\Controllers\SubmissionRecordController;
-use App\Http\Controllers\ApprovalAccountController;
 use App\Http\Controllers\OrganizationController;
-use App\Http\Controllers\RubricSectionController;
-use App\Http\Controllers\RubricSubsectionLeadershipController;
-
+use App\Http\Controllers\RubricController;
+use App\Http\Controllers\AssessorSubmissionController;
+use App\Http\Controllers\AssessorCompiledScoreController;
+use App\Http\Controllers\AssessorStudentSubmissionsController;
+use App\Http\Controllers\AssessorFinalReviewController;
+use App\Http\Controllers\FinalReviewController;
+use App\Http\Controllers\AssessorStudentSubmissionController;
+use App\Http\Controllers\SystemMonitoringAndLogController;
 /*
 |--------------------------------------------------------------------------
-| AUTH ROUTES
+| AUTH ROUTES (guest-only)
 |--------------------------------------------------------------------------
 */
 
-// Only allow guests to view login/register (redirect logged-in users by role)
-Route::group([
-    'middleware' => function ($request, $next) {
-        if (Auth::check()) {
-            return match (Auth::user()->role) {
-                'admin'    => redirect()->route('admin.profile'),
-                'assessor' => redirect()->route('assessor.profile'),
-                default    => redirect()->route('student.profile'),
-            };
-        }
-        return $next($request);
-    }
-], function () {
+Route::middleware(['guest'])->group(function () {
     Route::get('/', [AuthController::class, 'showLogin'])->name('login.show');
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'authenticate'])->name('login.auth');
+    Route::post('/login', [AuthController::class, 'authenticate'])->name('login.auth')
+        ->middleware('throttle:100,1');
 
-    // Registration (students only)
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register.show');
-    Route::post('/register', [AuthController::class, 'register'])->name('register.store');
+    Route::post('/register', [AuthController::class, 'register'])->name('register.store')
+        ->middleware('throttle:100,60');
 
-    // OTP (optional)
-    Route::get('/otp', [AuthController::class, 'showOtp'])->name('otp.show');
+    Route::prefix('api')->name('ajax.')->group(function () {
+        Route::get('/programs',      [AuthController::class, 'getPrograms'])->name('programs');
+        Route::get('/majors',        [AuthController::class, 'getMajors'])->name('majors');
+        Route::get('/clusters',      [AuthController::class, 'getClusters'])->name('clusters');
+        Route::get('/organizations', [AuthController::class, 'getOrganizations'])->name('organizations');
+        Route::get('/positions',     [AuthController::class, 'getPositions'])->name('positions');
+
+        Route::get('/academics-map',     [AuthController::class, 'getAcademicsMap'])->name('academics.map');
+        Route::get('/council-positions', [AuthController::class, 'getCouncilPositions'])->name('council.positions');
+        Route::get('/council-orgs',      [AuthController::class, 'getCouncilOrgs'])->name('council_orgs');
+    });
+
+    Route::get('/otp', [AuthController::class, 'showOtpForm'])->name('otp.show');
     Route::post('/otp', [AuthController::class, 'verifyOtp'])->name('otp.verify');
-    Route::post('/otp/resend', [AuthController::class, 'resendOtp'])->name('otp.resend');
+    Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])
+        ->name('password.request');
+
+    Route::post('/forgot-password', [AuthController::class, 'sendForgotPasswordOtp'])
+        ->name('password.email');   // <-- this name must exist
+
+    Route::post('/otp/resend', [AuthController::class, 'resendOtp'])
+        ->name('otp.resend');
+
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])
+        ->name('password.update');
 });
 
-// Logout
+// logout still just needs auth
 Route::post('/logout', [AuthController::class, 'logout'])
     ->middleware('auth')
     ->name('logout');
-
-
-
-
-
 /*
 |--------------------------------------------------------------------------
-| STUDENT ROUTES (Protected)
+| STUDENT ROUTES
 |--------------------------------------------------------------------------
 */
-// routes/web.php (student section only)
 Route::prefix('student')
     ->middleware(['auth', 'role:student'])
     ->name('student.')
     ->controller(StudentController::class)
     ->group(function () {
-        // Revalidation page is always reachable for students
-        Route::get('/revalidation', 'revalidation')->name('revalidation');
 
-        // The 3 interactable actions (allowed even when locked)
+        Route::get('/revalidation', 'revalidation')->name('revalidation');
         Route::post('/update-academic', 'updateAcademicInfo')->name('updateAcademic');
         Route::post('/upload-cor', 'uploadCOR')->name('uploadCOR');
         Route::post('/update-leadership', 'updateLeadership')->name('updateLeadership');
+        Route::post('/profile/avatar', 'updateAvatar')->name('updateAvatar');
+        Route::post('/change-password', 'changePassword')->name('changePassword');
 
-        // Everything else requires being eligible
         Route::middleware('eligible')->group(function () {
             Route::get('/profile', 'profile')->name('profile');
             Route::get('/performance', 'performance')->name('performance');
             Route::get('/criteria', 'criteria')->name('criteria');
             Route::get('/history', 'history')->name('history');
+            Route::post('/performance/mark-ready', 'markReadyForSlea')->name('performance.mark-ready');
+            Route::post('/performance/cancel-ready', 'cancelReadyForSlea')->name('performance.cancel-ready');
 
-            // submissions (example)
-            Route::get('/submissions', [SubmissionRecordController::class, 'index'])->name('submissions.index');
-            Route::get('/submissions/create', [SubmissionRecordController::class, 'create'])->name('submissions.create');
-            Route::post('/submissions', [SubmissionRecordController::class, 'store'])->name('submissions.store');
-            Route::get('/submissions/download/{id}', [SubmissionRecordController::class, 'download'])->name('submissions.download');
-            Route::get('/submit', [SubmissionRecordController::class, 'create'])->name('submit');
+            // *** ONLY ONE submit route ***
+            Route::get('/submit', [SubmissionRecordController::class, 'create'])
+                ->name('submit');
+
+            // list submissions (student dashboard)
+            Route::get('/submissions', [SubmissionRecordController::class, 'index'])
+                ->name('submissions.index');
+
+            // save
+            Route::post('/submissions', [SubmissionRecordController::class, 'store'])
+                ->name('submissions.store');
+
+            // download
+            Route::get('/submissions/preview/{id}', [SubmissionRecordController::class, 'preview'])
+                ->name('submissions.preview');
         });
     });
+
 
 /*
 |--------------------------------------------------------------------------
 | ADMIN ROUTES
 |--------------------------------------------------------------------------
 */
-// ADMIN ROUTES
+
 Route::prefix('admin')
     ->middleware(['auth', 'role:admin'])
-    ->name('admin.') // <<< add this so routes become admin.*
+    ->name('admin.')
     ->group(function () {
-
-        // PROFILE & DASHBOARD
         Route::get('/profile', [AdminController::class, 'profile'])->name('profile');
         Route::put('/profile/update', [AdminController::class, 'updateProfile'])->name('profile.update');
         Route::post('/profile/avatar', [AdminController::class, 'updateAvatar'])->name('profile.avatar');
         Route::put('/profile/password', [AdminController::class, 'updatePassword'])->name('profile.password.update');
 
-        // USER ACCOUNT MANAGEMENT
-        // Admin creation (limited slots)
         Route::get('/create_user', [AdminController::class, 'createUser'])->name('create_user');
         Route::post('/create_user', [AdminController::class, 'storeUser'])->name('store_user');
         Route::get('/approve-reject', [AdminController::class, 'approveReject'])->name('approve-reject');
         Route::post('/approve/{student_id}', [AdminController::class, 'approveUser'])->name('approve');
         Route::post('/reject/{student_id}', [AdminController::class, 'rejectUser'])->name('reject');
-        Route::get('/manage', [AdminController::class, 'manageAccount'])->name('manage');
+
+        Route::get('/manage', [AdminController::class, 'manageAccount'])->name('manage-account');
         Route::patch('/manage/{user}/toggle', [AdminController::class, 'toggleUser'])->name('manage.toggle');
         Route::delete('/manage/{user}', [AdminController::class, 'destroyUser'])->name('manage.destroy');
 
-        // Revalidation
         Route::get('/revalidation', [AdminController::class, 'revalidationQueue'])->name('revalidation');
         Route::post('/revalidation/{user}/approve', [AdminController::class, 'approveRevalidation'])->name('revalidation.approve');
         Route::post('/revalidation/{user}/reject',  [AdminController::class, 'rejectRevalidation'])->name('revalidation.reject');
 
-        // ORGANIZATION MANAGEMENT
+
         Route::get('/organizations', [OrganizationController::class, 'index'])->name('organizations.index');
         Route::post('/organizations', [OrganizationController::class, 'store'])->name('organizations.store');
         Route::put('/organizations/{organization}', [OrganizationController::class, 'update'])->name('organizations.update');
         Route::delete('/organizations/{organization}', [OrganizationController::class, 'destroy'])->name('organizations.destroy');
 
-        // Rubrics (sections)
-        Route::get('/rubrics', [RubricSectionController::class, 'index'])->name('rubrics.index');
-        Route::post('/rubrics', [RubricSectionController::class, 'store'])->name('rubrics.store');
+        /*
+         |------------------------------------------------------
+         | RUBRICS (Categories, Sections, Subsections, Options)
+         |------------------------------------------------------
+         */
+        Route::prefix('rubrics')->name('rubrics.')->group(function () {
 
-        // Leadership CRUD under /admin/rubrics/leadership
-        Route::prefix('rubrics')->group(function () {
-            Route::resource('leadership', RubricSubsectionLeadershipController::class)
-                ->except(['show'])
-                ->names('rubrics.leadership'); // results in admin.rubrics.leadership.*
+            // Unified page
+            Route::get('/', [RubricController::class, 'index'])->name('index');
+
+            // Categories
+            Route::post('/categories', [RubricController::class, 'categoryStore'])->name('categories.store');
+            Route::put('/categories/{category}', [RubricController::class, 'categoryUpdate'])->name('categories.update');
+            Route::delete('/categories/{category}', [RubricController::class, 'categoryDestroy'])->name('categories.destroy');
+
+            // Sections
+            Route::post('/sections', [RubricController::class, 'sectionStore'])->name('sections.store');
+            Route::put('/sections/{section}', [RubricController::class, 'sectionUpdate'])->name('sections.update');
+            Route::delete('/sections/{section}', [RubricController::class, 'sectionDestroy'])->name('sections.destroy');
+
+            // Subsections
+            Route::post('/subsections', [RubricController::class, 'subsectionStore'])->name('subsections.store');
+            Route::put('/subsections/{subsection}', [RubricController::class, 'subsectionUpdate'])->name('subsections.update');
+            Route::delete('/subsections/{subsection}', [RubricController::class, 'subsectionDestroy'])->name('subsections.destroy');
+
+            // Options
+            Route::post('/options', [RubricController::class, 'optionStore'])->name('options.store');
+            Route::put('/options/{option}', [RubricController::class, 'optionUpdate'])->name('options.update');
+            Route::delete('/options/{option}', [RubricController::class, 'optionDestroy'])->name('options.destroy');
         });
 
-        // SYSTEM OPERATIONS
-        Route::get('/submission-oversight', [AdminController::class, 'submissionOversight'])->name('submission-oversight');
-        Route::get('/final-review', [AdminController::class, 'finalReview'])->name('final-review');
-        Route::get('/award-report', [AdminController::class, 'awardReport'])->name('award-report');
-        Route::get('/system-monitoring', [AdminController::class, 'systemMonitoring'])->name('system-monitoring');
-    });
 
+        Route::get('/final-review', [FinalReviewController::class, 'index'])
+            ->name('final-review');
+
+        // decision (matches route() in the blade JS)
+        Route::post('/final-review/{assessorFinalReview}', [FinalReviewController::class, 'storeDecision'])
+            ->name('final-review.decision');
+
+        Route::get('/award-report', [AdminController::class, 'awardReportDashboard'])
+            ->name('award-report');
+
+        // Awards report PDF (this will be admin.pdf.award-report.pdf)
+        Route::get('/award-report/pdf', [AdminController::class, 'exportAwardReportPdf'])
+            ->name('pdf.award-report.pdf');
+
+        Route::get('/system-monitoring', [SystemMonitoringAndLogController::class, 'index'])
+            ->name('system-logs.index');
+
+        Route::delete('/system-monitoring', [SystemMonitoringAndLogController::class, 'clearAll'])
+            ->name('system-logs.clear');
+    });
 
 /*
 |--------------------------------------------------------------------------
@@ -155,21 +204,64 @@ Route::prefix('admin')
 |--------------------------------------------------------------------------
 */
 Route::prefix('assessor')
-    ->middleware(['auth', 'role:assessor,admin']) // allow admins to access assessor screens too
-    ->controller(AssessorController::class)
+    ->middleware(['auth', 'role:assessor,admin'])
+    ->name('assessor.')
     ->group(function () {
-        Route::get('/profile', 'profile')->name('assessor.profile');
-        Route::put('/profile', 'updateProfile')->name('assessor.profile.update');
-        Route::patch('/password', 'updatePassword')->name('assessor.password.update');
-        Route::post('/profile/picture', 'updateAvatar')->name('assessor.profile.picture');
 
-        // Submissions
-        Route::get('/pending-submissions', 'pendingSubmissions')->name('assessor.pending-submissions');
-        Route::get('/submissions', 'submissions')->name('assessor.submissions');
-        Route::get('/final-review', 'finalReview')->name('assessor.final-review');
+        // Assessor profile stuff
+        Route::controller(AssessorController::class)->group(function () {
+            Route::get('/profile', 'profile')->name('profile');
+            Route::put('/profile', 'updateProfile')->name('profile.update');
+            Route::patch('/password', 'updatePassword')->name('password.update');
+            Route::post('/profile/picture', 'updateAvatar')->name('profile.picture');
+        });
 
-        // API for review
-        Route::get('/submissions/{id}/details', 'getSubmissionDetails')->name('assessor.submission.details');
-        Route::post('/submissions/{id}/action', 'handleSubmissionAction')->name('assessor.submission.action');
-        Route::get('/documents/{id}/download', 'downloadDocument')->name('assessor.document.download');
+        // Pending submissions list + actions
+        Route::controller(AssessorSubmissionController::class)->group(function () {
+            // Pending list page
+            Route::get('/submissions/pending-submissions', 'pending')
+                ->name('submissions.pending-submissions');
+
+            // JSON details for modal
+            Route::get('/submissions/{submission}/details', 'details')
+                ->name('submissions.details');
+
+            // Handle approve/reject/return/flag
+            Route::post('/submissions/{submission}/action', 'handleAction')
+                ->name('submissions.action');
+
+            // View / download attachments
+            Route::get('/documents/{documentId}/view', 'viewDocument')
+                ->name('documents.view');
+
+            Route::get('/documents/{documentId}/download', 'downloadDocument')
+                ->name('documents.download');
+        });
+
+        // ✅ All reviewed submissions per student (this is the page using submissions.blade.php)
+        Route::get('/students/submissions', [AssessorStudentSubmissionController::class, 'index'])
+            ->name('students.submissions');
+
+        // ✅ JSON details for one student (used by the JS modal)
+        Route::get('/students/{student}/details', [AssessorStudentSubmissionController::class, 'studentDetails'])
+            ->name('students.details');
+        Route::post('/students/{student}/ready-status', [AssessorStudentSubmissionController::class, 'updateReadyStatus'])
+            ->name('students.ready-status');
+
+        // 2) Consolidated per student & category (compiled scores)
+        Route::get('/submissions/compiled', [AssessorCompiledScoreController::class, 'index'])
+            ->name('submissions.compiled');
+
+        // 3) Assessor final review (students list + send to final)
+        Route::get(
+            '/final-review',
+            [\App\Http\Controllers\AssessorFinalReviewController::class, 'index']
+        )->name('final-review.index');   // ✅ final name: assessor.final-review.index
+
+        // Submit to admin / flag
+        Route::post(
+            '/final-review/{student}',
+            [\App\Http\Controllers\AssessorFinalReviewController::class, 'storeForStudent']
+        )->name('final-review.store');   // ✅ final name: assessor.final-review.store
+
     });

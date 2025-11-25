@@ -2,80 +2,80 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\SystemMonitoringAndLog;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class SystemMonitoringAndLogController extends Controller
 {
     /**
-     * Display a listing of system logs (Admin only)
+     * Display a listing of system logs (Admin only).
      */
     public function index(Request $request)
     {
-        // Only allow admin access
-        if (!Auth::guard('admin')->check()) {
-            abort(403, 'Unauthorized action.');
-        }
+        // Route is already protected by middleware('role:admin') in web.php,
+        // so we don't need extra guard checks here.
 
-        // Filters: role, activity type, date
         $query = SystemMonitoringAndLog::query();
 
-        if ($request->filled('role')) {
-            $query->where('user_role', $request->role);
+        // Filter: role
+        if ($role = $request->input('role')) {
+            $query->where('user_role', $role);
         }
 
-        if ($request->filled('type')) {
-            $query->where('activity_type', $request->type);
+        // Filter: activity_type (Login, Logout, Create, Update, Delete, etc.)
+        if ($type = $request->input('activity_type')) {
+            $query->where('activity_type', $type);
         }
 
-        if ($request->filled('date')) {
-            $query->whereDate('created_at', $request->date);
+        // Filter: date range
+        if ($from = $request->input('from')) {
+            $query->whereDate('created_at', '>=', $from);
         }
 
-        // Get logs (latest first)
-        $logs = $query->orderBy('created_at', 'desc')->paginate(20);
+        if ($to = $request->input('to')) {
+            $query->whereDate('created_at', '<=', $to);
+        }
 
-        return view('admin.system-monitoring', [
-            'logs' => $logs,
-            'filters' => [
-                'role' => $request->role,
-                'type' => $request->type,
-                'date' => $request->date,
-            ],
-        ]);
+        // Search: user name / description
+        if ($search = trim((string) $request->input('q', ''))) {
+            $query->where(function ($q) use ($search) {
+                $q->where('user_name', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        $logs = $query
+            ->orderByDesc('created_at')
+            ->paginate(25)
+            ->appends($request->query());
+
+        return view('admin.system-monitoring', compact('logs'));
     }
 
     /**
-     * Delete a specific log entry
+     * Clear all logs (Admin only).
      */
-    public function destroy($id)
+    public function clearAll(Request $request)
     {
-        if (!Auth::guard('admin')->check()) {
+        $user = Auth::user();
+        if (!$user || $user->role !== 'admin') {
             abort(403, 'Unauthorized action.');
         }
 
-        $log = SystemMonitoringAndLog::findOrFail($id);
-        $log->delete();
-
-        SystemMonitoringAndLog::record('admin', Auth::guard('admin')->user()->name, 'Delete', "Deleted log entry #{$id}");
-
-        return back()->with('success', 'Log entry deleted successfully.');
-    }
-
-    /**
-     * Clear all logs (optional, admin only)
-     */
-    public function clearAll()
-    {
-        if (!Auth::guard('admin')->check()) {
-            abort(403, 'Unauthorized action.');
-        }
-
+        // Actually clear logs
         SystemMonitoringAndLog::truncate();
 
-        SystemMonitoringAndLog::record('admin', Auth::guard('admin')->user()->name, 'Delete', 'Cleared all system logs');
+        // 🔹 SYSTEM LOG: CLEAR (meta-log)
+        SystemMonitoringAndLog::record(
+            'admin',
+            trim($user->first_name . ' ' . $user->last_name) ?: $user->email,
+            'Delete',
+            'Cleared all system logs.'
+        );
 
-        return back()->with('success', 'All system logs have been cleared.');
+        return redirect()
+            ->route('admin.system-logs.index')
+            ->with('success', 'All system logs have been cleared.');
     }
 }

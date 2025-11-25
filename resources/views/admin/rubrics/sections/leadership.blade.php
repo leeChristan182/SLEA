@@ -1,154 +1,173 @@
 @php
-$leadershipCategory = $categories->firstWhere('key', 'leadership');
-$sections = $leadershipCategory?->sections ?? collect();
+    $leadershipCategory = $categories->firstWhere('key', 'leadership');
+
+    $allSections = $leadershipCategory?->sections ?? collect();
+
+    // For paginated leadership pages
+    $sections = $leadershipSections ?? $allSections;
 @endphp
 
 <div class="rubric-section">
     <h4 class="rubric-heading">I. Leadership</h4>
 
-    {{-- Category description --}}
     @if(!empty($leadershipCategory?->description))
-    <p class="rubric-category-description">{{ $leadershipCategory->description }}</p>
+        <p class="rubric-category-description">{{ $leadershipCategory->description }}</p>
     @endif
 
     @if($sections->isEmpty())
-    <p class="text-muted text-center">No leadership sections found.</p>
+        <p class="text-muted text-center">No leadership sections found.</p>
     @else
-    <table class="manage-table">
-        <thead>
-            <tr>
-                <th>Section</th>
-                <th>Subsection</th>
-                <th>Position / Role</th>
-                <th>Points</th>
-                <th>Max Points</th>
-                <th>Evidence Needed</th>
-                <th>Notes</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($sections as $section)
-            @php
-            $subsections = $section->subsections;
-            $sectionRowCount = $subsections->sum(fn($sub) => max($sub->leadershipPositions->count(), 1));
-            $sectionPrinted = false;
-            @endphp
+        <table class="manage-table">
+            <thead>
+                <tr>
+                    <th>Section</th>
+                    <th>Subsection</th>
+                    <th>Position / Role</th>
+                    <th>Points</th>
+                    <th>Evidence Needed</th>
+                    <th>Notes</th>
+                    <th style="width:120px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
 
-            @foreach($subsections as $subsection)
-            @php
-            $positions = $subsection->leadershipPositions;
-            $rowCount = max($positions->count(), 1);
-            @endphp
+                @foreach ($sections as $section)
 
-            @forelse($positions as $index => $pos)
-            <tr>
-                {{-- Section column rowspan --}}
-                @if(!$sectionPrinted)
-                <td rowspan="{{ $sectionRowCount }}">{{ $section->title }}</td>
-                @php $sectionPrinted = true; @endphp
-                @endif
+                    @php
+                        $subsections = $section->subsections ?? collect();
 
-                {{-- Subsection column rowspan --}}
-                @if($index === 0)
-                <td rowspan="{{ $rowCount }}">{{ $subsection->sub_section }}</td>
-                @endif
+                        $sectionRowCount = $subsections->sum(fn($sub) =>
+                            max(($sub->options ?? collect())->count(), 1)
+                        );
 
-                <td>{{ $pos->position }}</td>
-                <td>{{ number_format($pos->points, 2) }}</td>
-                <td>{{ $section->max_points ?? '5' }}</td>
+                        $sectionPrinted = false;
+                    @endphp
 
-                {{-- Evidence rowspan --}}
-                @if($index === 0)
-                <td rowspan="{{ $rowCount }}">
-                    @if(!empty($subsection->evidence_needed))
-                    <ul class="mb-0">
-                        @foreach(explode("\n", $subsection->evidence_needed) as $line)
-                        <li>{{ $line }}</li>
-                        @endforeach
-                    </ul>
-                    @else
-                    —
-                    @endif
-                </td>
-                @endif
+                    @foreach ($subsections as $subsection)
 
-                {{-- Notes rowspan (section-level, show only once per section) --}}
-                @if(!$section->notes_printed ?? false)
-                <td rowspan="{{ $sectionRowCount }}">
-                    @if(!empty($section->notes))
-                    <ul class="mb-0">
-                        @foreach(explode("\n", $section->notes) as $line)
-                        <li>{{ $line }}</li>
-                        @endforeach
-                    </ul>
-                    @else
-                    —
-                    @endif
-                </td>
-                @php $section->notes_printed = true; @endphp
-                @endif
+                        @php
+                            $positions = $subsection->options ?? collect();
+                            $rowCount  = max($positions->count(), 1);
 
-                <td>
-                    <a href="{{ route('admin.rubrics.leadership.edit', $pos->id) }}"
-                        class="btn btn-disable" title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </a>
-                    <form action="{{ route('admin.rubrics.leadership.destroy', $pos->id) }}"
-                        method="POST" class="d-inline"
-                        onsubmit="return confirm('Delete this leadership position?');">
-                        @csrf
-                        @method('DELETE')
-                        <button class="btn btn-delete" title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </form>
-                </td>
-            </tr>
-            @empty
-            <tr>
-                @if(!$sectionPrinted)
-                <td rowspan="{{ $sectionRowCount }}">{{ $section->title }}</td>
-                @php $sectionPrinted = true; @endphp
-                @endif
-                <td>{{ $subsection->sub_section }}</td>
-                <td colspan="6" class="text-muted text-center">No leadership positions listed</td>
-            </tr>
-            @endforelse
-            @endforeach
-            @endforeach
-        </tbody>
-    </table>
+                            $evidenceLines = preg_split("/\r\n|\n|\r/", $subsection->evidence_needed ?? '');
+                            $notesLines    = preg_split("/\r\n|\n|\r/", $subsection->notes ?? '');
+                        @endphp
 
-    {{-- Add new leadership position forms per section --}}
-    @foreach($sections as $section)
-    <div class="mt-3">
-        <h6>Add New Leadership Position ({{ $section->title }})</h6>
-        <form action="{{ route('admin.rubrics.leadership.store') }}" method="POST">
-            @csrf
-            <input type="hidden" name="section_id" value="{{ $section->section_id }}">
-            <div class="form-row">
-                <select name="sub_section_id" class="form-control" required>
-                    <option value="">Select Subsection</option>
-                    @foreach ($section->subsections as $sub)
-                    <option value="{{ $sub->sub_items }}">{{ $sub->sub_section }}</option>
+                        @forelse ($positions as $index => $pos)
+                        <tr>
+
+                            {{-- SECTION --}}
+                            @if(!$sectionPrinted)
+                                <td rowspan="{{ $sectionRowCount }}">
+                                    {{ $section->title }}
+                                </td>
+                                @php $sectionPrinted = true; @endphp
+                            @endif
+
+                            {{-- SUBSECTION --}}
+                            @if($index === 0)
+                                <td rowspan="{{ $rowCount }}">
+                                    {{ $subsection->sub_section }}
+                                </td>
+                            @endif
+
+                            {{-- POSITION / ROLE --}}
+                            <td>{{ $pos->label }}</td>
+
+                            {{-- POINTS --}}
+                            <td>
+                                {{ rtrim(rtrim(number_format($pos->points, 2), '0'), '.') }}
+                            </td>
+
+                            {{-- EVIDENCE --}}
+                            @if($index === 0)
+                                <td rowspan="{{ $rowCount }}">
+                                    @if(!empty($subsection->evidence_needed))
+                                        <ul class="mb-0">
+                                            @foreach ($evidenceLines as $line)
+                                                @if(trim($line) !== '')
+                                                    <li>{{ $line }}</li>
+                                                @endif
+                                            @endforeach
+                                        </ul>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+
+                                {{-- NOTES --}}
+                                <td rowspan="{{ $rowCount }}">
+                                    @if(!empty($subsection->notes))
+                                        <ul class="mb-0">
+                                            @foreach ($notesLines as $line)
+                                                @if(trim($line) !== '')
+                                                    <li>{{ $line }}</li>
+                                                @endif
+                                            @endforeach
+                                        </ul>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+                            @endif
+
+                            {{-- ACTIONS --}}
+                            <td>
+                                <button
+                                    class="btn btn-disable"
+                                    onclick="openEditRubricModal(
+                                        {{ $pos->id }},
+                                        'Leadership',
+                                        '{{ $pos->label }}',
+                                        {{ $pos->points ?? 0 }},
+                                        5,
+                                        @json($subsection->evidence_needed)
+                                    )"
+                                >
+                                    <i class="fas fa-edit"></i>
+                                </button>
+
+                                <button
+                                    class="btn btn-delete"
+                                    onclick="openDeleteRubricModal(
+                                        {{ $pos->id }},
+                                        'Leadership',
+                                        '{{ $pos->label }}'
+                                    )"
+                                >
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+
+                        </tr>
+                        @empty
+
+                        {{-- SUBSECTION WITH NO POSITIONS --}}
+                        <tr>
+                            @if(!$sectionPrinted)
+                                <td rowspan="{{ $sectionRowCount }}">{{ $section->title }}</td>
+                                @php $sectionPrinted = true; @endphp
+                            @endif
+
+                            <td>{{ $subsection->sub_section }}</td>
+                            <td colspan="4" class="text-center text-muted">
+                                No leadership positions listed.
+                            </td>
+                            <td></td>
+                        </tr>
+
+                        @endforelse
+
                     @endforeach
-                </select>
+                @endforeach
 
-                <input type="text" name="position" placeholder="Position / Role" class="form-control" required>
-                <input type="number" name="points" placeholder="Points" class="form-control" step="0.1" min="0" required>
-                <input type="number" name="position_order" placeholder="Order No." class="form-control" min="1" required>
-                <button type="submit" class="btn btn-disable" title="Add">
-                    <i class="fas fa-plus"></i>
-                </button>
-            </div>
-        </form>
-    </div>
-    @endforeach
+            </tbody>
+        </table>
     @endif
 </div>
+
 <style>
-    .manage-table tbody tr:hover {
-        background-color: transparent;
-    }
+.manage-table tbody tr:hover {
+    background: transparent;
+}
 </style>

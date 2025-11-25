@@ -9,16 +9,19 @@ class Position extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'leadership_type_id',
-        'name',
+    // Matches PositionSeeder columns
+    protected $fillable = ['name', 'key', 'rank_order', 'is_executive', 'is_elected'];
+
+    protected $casts = [
+        'rank_order'   => 'integer',
+        'is_executive' => 'boolean',
+        'is_elected'   => 'boolean',
     ];
 
-    /**
-     * Each position belongs to a specific leadership type.
-     */
-    public function leadershipType()
+    public function organizations()
     {
-        return $this->belongsTo(LeadershipType::class);
+        return $this->belongsToMany(Organization::class, 'organization_position')
+            ->withPivot('alias')
+            ->withTimestamps();
     }
 }

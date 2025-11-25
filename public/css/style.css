@@ -6870,3 +6870,14 @@ body.dark-mode .status-pending {
     background: #ccc !important;
     transform: none !important;
 }
+/* ------------------------------
+   SLEA: All Submissions Modal (Student)
+   Wider layout override
+-------------------------------*/
+
+/* SLEA – All Submissions modal override */
+#studentSubmissionsModal .modal-content {
+  width: 95vw !important;       /* take almost full screen */
+  max-width: 1400px !important; /* cap on large monitors */
+  margin: 1.5rem auto !important;
+}
