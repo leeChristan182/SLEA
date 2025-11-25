@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => env('APP_NAME', 'OSAS SLEA'),
 
     /*
     |--------------------------------------------------------------------------
@@ -27,7 +27,13 @@ return [
     */
 
     'env' => env('APP_ENV', 'production'),
+    'providers' => [
+        Barryvdh\DomPDF\ServiceProvider::class,
+    ],
 
+    'aliases' => [
+        'Pdf' => Barryvdh\DomPDF\Facade\Pdf::class,
+    ],
     /*
     |--------------------------------------------------------------------------
     | Application Debug Mode

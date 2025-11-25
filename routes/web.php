@@ -175,9 +175,19 @@ Route::prefix('admin')
         });
 
 
-        Route::get('/submission-oversight', [AdminController::class, 'submissionOversight'])->name('submission-oversight');
-        Route::get('/final-review', [AdminController::class, 'finalReview'])->name('final-review');
-        Route::get('/award-report', [AdminController::class, 'awardReport'])->name('award-report');
+        Route::get('/final-review', [FinalReviewController::class, 'index'])
+            ->name('final-review');
+
+        // decision (matches route() in the blade JS)
+        Route::post('/final-review/{assessorFinalReview}', [FinalReviewController::class, 'storeDecision'])
+            ->name('final-review.decision');
+
+        Route::get('/award-report', [AdminController::class, 'awardReportDashboard'])
+            ->name('award-report');
+
+        Route::get('/award-report/export', [AdminController::class, 'awardReport'])
+            ->name('award-report.export');
+
         Route::get('/system-monitoring', [AdminController::class, 'systemMonitoring'])->name('system-monitoring');
     });
 
@@ -228,15 +238,23 @@ Route::prefix('assessor')
         // ✅ JSON details for one student (used by the JS modal)
         Route::get('/students/{student}/details', [AssessorStudentSubmissionController::class, 'studentDetails'])
             ->name('students.details');
+        Route::post('/students/{student}/ready-status', [AssessorStudentSubmissionController::class, 'updateReadyStatus'])
+            ->name('students.ready-status');
 
         // 2) Consolidated per student & category (compiled scores)
         Route::get('/submissions/compiled', [AssessorCompiledScoreController::class, 'index'])
             ->name('submissions.compiled');
 
         // 3) Assessor final review (students list + send to final)
-        Route::get('/final-review', [AssessorFinalReviewController::class, 'index'])
-            ->name('final-review');
+        Route::get(
+            '/final-review',
+            [\App\Http\Controllers\AssessorFinalReviewController::class, 'index']
+        )->name('final-review.index');   // ✅ final name: assessor.final-review.index
 
-        Route::post('/final-review/{student}', [AssessorFinalReviewController::class, 'storeForStudent'])
-            ->name('final-review.store');
+        // Submit to admin / flag
+        Route::post(
+            '/final-review/{student}',
+            [\App\Http\Controllers\AssessorFinalReviewController::class, 'storeForStudent']
+        )->name('final-review.store');   // ✅ final name: assessor.final-review.store
+
     });

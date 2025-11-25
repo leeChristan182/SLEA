@@ -1,6 +1,7 @@
 // public/js/pending-submission.js
 
 let currentSubmissionId = null;
+
 const entriesPerPage = 5;
 
 // rubric context for currently open modal

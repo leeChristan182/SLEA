@@ -60,10 +60,11 @@
                     <i class="fas fa-clock-rotate-left"></i><span>History</span>
                 </a>
             </li>
-            {{-- Optional: criteria page if you keep it --}}
-            {{-- <li class="{{ request()->routeIs('student.criteria') ? 'active' : '' }}">
-                <a href="{{ route('student.criteria') }}"><i class="fas fa-list-check"></i><span>Criteria</span></a>
-            </li> --}}
+            <li class="{{ request()->routeIs('student.criteria') ? 'active' : '' }}">
+                <a href="{{ route('student.criteria') }}"
+                    style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                    <i class="fas fa-list-check"></i><span>Criteria</span></a>
+            </li>
         @endif
 
         {{-- ===================== ASSESSOR MENU ===================== --}}
@@ -89,12 +90,13 @@
                 </a>
             </li>
 
-            <li class="{{ request()->routeIs('assessor.final-review*') ? 'active' : '' }}">
-                <a href="{{ route('assessor.final-review') }}"
+            <li class="{{ request()->routeIs('assessor.final-review.*') ? 'active' : '' }}">
+                <a href="{{ route('assessor.final-review.index') }}"
                     style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
                     <i class="fas fa-clipboard-check"></i><span>Final Review</span>
                 </a>
             </li>
+
         @endif
 
 
@@ -141,13 +143,6 @@
                 <a href="{{ route('admin.organizations.index') }}"
                     style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
                     <i class="fas fa-building"></i><span>Organization Management</span>
-                </a>
-            </li>
-
-            <li class="{{ request()->routeIs('admin.submission-oversight') ? 'active' : '' }}">
-                <a href="{{ route('admin.submission-oversight') }}"
-                    style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
-                    <i class="fas fa-file-alt"></i><span>Submission Oversight</span>
                 </a>
             </li>
 

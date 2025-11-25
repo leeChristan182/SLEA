@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class AssessorFinalReview extends Model
 {
@@ -13,10 +15,11 @@ class AssessorFinalReview extends Model
         'student_id',
         'assessor_id',
         'total_score',
-        'max_points',
-        'status',      // references final_review_statuses.key
+        'max_possible',
+        'qualification',   // qualified | unqualified (enum "qualifications")
+        'status',          // draft | queued_for_admin | finalized
         'reviewed_at',
-        'remarks',     // if you add one later
+        'remarks',
     ];
 
     protected $casts = [
@@ -33,13 +36,16 @@ class AssessorFinalReview extends Model
         return $this->belongsTo(User::class, 'assessor_id');
     }
 
-    public function compiledScores()
+    /**
+     * Category-level compiled scores for this assessor + student.
+     * NOTE: linked by student_id (assessor filter is done in queries).
+     */
+    public function compiledScores(): HasMany
     {
-        return $this->hasMany(AssessorCompiledScore::class, 'student_id', 'student_id')
-            ->where('assessor_id', $this->assessor_id);
+        return $this->hasMany(AssessorCompiledScore::class, 'student_id', 'student_id');
     }
 
-    public function finalReview()
+    public function finalReview(): HasOne
     {
         return $this->hasOne(FinalReview::class, 'assessor_final_review_id');
     }

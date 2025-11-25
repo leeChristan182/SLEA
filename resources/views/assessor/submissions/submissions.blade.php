@@ -31,17 +31,6 @@
                         </select>
                     </div>
 
-                    <div class="filter-group">
-                        <label for="sectionFilterSelect">Filter by SLEA Section</label>
-                        <select id="sectionFilterSelect" class="form-select">
-                            <option value="">All</option>
-                            <option value="Leadership Excellence">Leadership Excellence</option>
-                            <option value="Academic Excellence">Academic Excellence</option>
-                            <option value="Awards Recognition">Awards Recognition</option>
-                            <option value="Community Involvement">Community Involvement</option>
-                            <option value="Good Conduct">Good Conduct</option>
-                        </select>
-                    </div>
                 </div>
 
                 <div class="search-controls">
@@ -71,13 +60,12 @@
                     <tbody>
                         @forelse($students as $student)
                                         @php
-                                            // Safely grab academic record
                                             $academic = $student->user->studentAcademic ?? null;
-
                                             $yearLevel = $academic->year_level ?? null;
                                             $readyFlag = (int) ($academic->ready_for_rating ?? 0);
                                             $appStatus = $academic->slea_application_status ?? null;
 
+                                            // Defaults
                                             $sleaStatusLabel = 'Not ready';
                                             $sleaStatusClass = 'slea-status-pill--not-ready';
                                             $sleaStatusKey = 'not_ready';
@@ -86,22 +74,28 @@
                                                 $sleaStatusLabel = 'No academic record';
                                                 $sleaStatusClass = 'slea-status-pill--no-record';
                                                 $sleaStatusKey = 'no_record';
+
                                             } elseif ((string) $yearLevel !== '4') {
-                                                // NEW: explicit status for non-4th years
+                                                // Explicit status for non-4th years
                                                 $sleaStatusLabel = 'Not in 4th year';
                                                 $sleaStatusClass = 'slea-status-pill--not-4th';
                                                 $sleaStatusKey = 'not_4th_year';
-                                            } elseif ($readyFlag === 0 && !$appStatus) {
-                                                $sleaStatusLabel = 'Not ready';
-                                                $sleaStatusClass = 'slea-status-pill--not-ready';
-                                                $sleaStatusKey = 'not_ready';
+
                                             } else {
-                                                switch ($appStatus) {
-                                                    case null:
+                                                // Normalize: if null, treat as "not_ready"
+                                                $statusKey = $appStatus ?: 'not_ready';
+
+                                                switch ($statusKey) {
+                                                    case 'not_ready':
+                                                        $sleaStatusLabel = 'Not ready';
+                                                        $sleaStatusClass = 'slea-status-pill--not-ready';
+                                                        $sleaStatusKey = 'not_ready';
+                                                        break;
+
                                                     case 'ready_for_assessor':
                                                         $sleaStatusLabel = 'Ready for assessor review';
                                                         $sleaStatusClass = 'slea-status-pill--ready-assessor';
-                                                        $sleaStatusKey = 'ready_assessor';
+                                                        $sleaStatusKey = 'ready_for_assessor';
                                                         break;
 
                                                     case 'for_admin_review':
@@ -116,20 +110,21 @@
                                                         $sleaStatusKey = 'awarded';
                                                         break;
 
-                                                    case 'rejected':
+                                                    case 'not_qualified':
                                                         $sleaStatusLabel = 'Not qualified';
                                                         $sleaStatusClass = 'slea-status-pill--rejected';
-                                                        $sleaStatusKey = 'rejected';
+                                                        $sleaStatusKey = 'not_qualified';
                                                         break;
 
                                                     default:
                                                         $sleaStatusLabel = 'In process';
                                                         $sleaStatusClass = 'slea-status-pill--in-process';
-                                                        $sleaStatusKey = 'in_process';
+                                                        $sleaStatusKey = $statusKey; // keep whatever enum key it is
                                                         break;
                                                 }
                                             }
                                         @endphp
+
 
                                         <tr data-student-id="{{ $student->id }}" data-slea-status="{{ $sleaStatusKey }}">
                                             <td>{{ $student->student_id }}</td>
@@ -154,6 +149,7 @@
                                                 </button>
                                             </td>
                                         </tr>
+
                         @empty
                             <tr>
                                 <td colspan="8" class="text-center">
@@ -195,7 +191,7 @@
     {{-- ===========================
     MODAL: STUDENT SUBMISSION LIST
     =========================== --}}
-    <div class="modal fade" id="studentSubmissionsModal" tabindex="-1">
+    <div class="modal fade assessor-modal" id="studentSubmissionsModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-xxl modal-dialog-scrollable">
             <div class="modal-content">
 
@@ -240,9 +236,9 @@
                         </div>
                     </div>
 
-                    {{-- Categorized Submissions (KEEPING YOUR EXISTING STRUCTURE) --}}
+                    {{-- Categorized Submissions (JS renders here) --}}
                     <div id="categorizedSubmissionsContainer">
-                        {{-- JS will render the category tables here (unchanged) --}}
+                        {{-- JS will render the category tables here --}}
                     </div>
 
                     {{-- Ready for Rating decision --}}
@@ -256,7 +252,7 @@
 
                         <div class="slea-decision-actions">
                             <button type="button" class="btn btn-success" id="btnMarkReadyForRating">
-                                Student is READY for rating
+                                Student is READY for Admin Review
                             </button>
 
                             <button type="button" class="btn btn-outline-secondary" id="btnMarkNotReadyForRating">
@@ -264,7 +260,7 @@
                             </button>
                         </div>
 
-                        <small class="slea-decision-note">
+                        <small class="slea-decision-note" id="readyForRatingStatusNote">
                             You can still adjust this decision later from the Assessor Final Review page before sending
                             qualified students to the Admin Final Review.
                         </small>
@@ -434,6 +430,24 @@
     STYLES
     =========================== --}}
     <style>
+        /* ==== WIDER MODAL FOR ALL SUBMISSIONS (studentSubmissionsModal) ==== */
+        .assessor-modal .modal-dialog {
+            max-width: 95% !important;
+            width: 95% !important;
+            margin: 1.5rem auto;
+        }
+
+        .assessor-modal .modal-content {
+            min-height: 80vh;
+            border-radius: 12px;
+        }
+
+        .assessor-modal .modal-body {
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+
+        /* ==== Page Header ==== */
         .page-header {
             margin-bottom: 1.5rem;
         }
@@ -449,6 +463,7 @@
             color: #f9bd3d !important;
         }
 
+        /* ==== Filter + Search Bar ==== */
         .controls-section {
             display: flex;
             justify-content: space-between;
@@ -508,6 +523,7 @@
             pointer-events: none;
         }
 
+        /* ==== Main table ==== */
         .submissions-table-container {
             background: white;
             border-radius: 8px;
@@ -556,7 +572,7 @@
             background-color: #f8f9fa;
         }
 
-        /* SLEA status pill */
+        /* ==== SLEA status pill ==== */
         .slea-status-pill {
             display: inline-block;
             padding: 0.15rem 0.6rem;
@@ -615,7 +631,295 @@
             border-color: #d1d5db;
         }
 
-        /* Dark mode form controls */
+        /* ==== Info cards (inside modals) ==== */
+        .info-card {
+            background: #ffffff;
+            border-radius: 10px;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+
+        .info-card .card-header {
+            background: #f9fafb;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .info-card .card-title {
+            margin: 0;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .info-card .card-body {
+            padding: 0.85rem 1rem 1rem;
+        }
+
+        .detail-row {
+            display: flex;
+            align-items: baseline;
+            margin-bottom: 0.4rem;
+            font-size: 0.9rem;
+        }
+
+        .detail-row .label {
+            width: 160px;
+            font-weight: 600;
+            color: #4b5563;
+        }
+
+        .detail-row .value {
+            flex: 1;
+            color: #111827;
+        }
+
+        /* ==== Category sections / totals (JS-generated) ==== */
+        .slea-category-section {
+            margin-bottom: 2.5rem;
+        }
+
+        .category-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .category-total-row td {
+            background: #f9fafb;
+            font-size: 0.9rem;
+        }
+
+        .overall-total-section {
+            margin-top: 1rem;
+        }
+
+        .overall-total-row td {
+            background: #111827;
+            color: #f9fafb;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        /* ==== Document preview list ==== */
+        .document-preview {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .document-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0.9rem;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            background: #f9fafb;
+        }
+
+        .document-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .document-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .document-icon.image {
+            background: #dbeafe;
+        }
+
+        .document-icon.pdf {
+            background: #fee2e2;
+        }
+
+        .document-icon.other {
+            background: #e5e7eb;
+        }
+
+        .document-details h6 {
+            margin: 0;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .document-details small {
+            color: #6b7280;
+            font-size: 0.8rem;
+        }
+
+        .document-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-preview,
+        .btn-download {
+            border-radius: 999px;
+            border: 1px solid #8B0000;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.8rem;
+            background: #ffffff;
+            color: #8B0000;
+            cursor: pointer;
+            transition: all 0.15s ease-in-out;
+        }
+
+        .btn-preview:hover,
+        .btn-download:hover {
+            background: #8B0000;
+            color: #ffffff;
+        }
+
+        /* ==== Status badges for submissions inside modal ==== */
+        .status-badge {
+            display: inline-block;
+            padding: 0.15rem 0.6rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+
+        .status-accepted {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-returned {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-flagged {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .status-pending {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        /* ==== Auto score display ==== */
+        .score-display {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        .score-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #8B0000;
+        }
+
+        /* ==== Action buttons under individual modal ==== */
+        .action-buttons-container {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            margin-top: 1.2rem;
+        }
+
+        .action-buttons-container .btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border: none;
+            color: #ffffff;
+            cursor: pointer;
+            transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+        }
+
+        .btn-approve {
+            background: #22c55e;
+        }
+
+        .btn-reject {
+            background: #b91c1c;
+        }
+
+        .btn-return {
+            background: #f97316;
+        }
+
+        .btn-flag {
+            background: #eab308;
+        }
+
+        .action-buttons-container .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        .action-buttons-container .btn i {
+            font-size: 1rem;
+        }
+
+        /* ==== Ready for rating area ==== */
+        .slea-decision-text {
+            font-size: 0.95rem;
+            color: #4b5563;
+        }
+
+        .slea-decision-actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 0.75rem;
+        }
+
+        .slea-decision-note {
+            display: block;
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        /* ==== Validation & Success modals (used in JS) ==== */
+        .validation-modal-content,
+        .success-modal-content {
+            border-radius: 12px;
+            border: none;
+        }
+
+        .validation-title,
+        .success-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .validation-message,
+        .success-message {
+            font-size: 0.95rem;
+        }
+
+        .validation-icon i,
+        .success-icon i {
+            filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.15));
+        }
+
+        /* ==== Dark mode overrides ==== */
         body.dark-mode .form-select {
             background-color: #2a2a2a !important;
             border-color: #555 !important;
@@ -650,7 +954,92 @@
             color: #f0f0f0 !important;
         }
 
-        /* Pagination Styles */
+        body.dark-mode .submissions-table-container {
+            background: #2a2a2a !important;
+            border: 1px solid #555 !important;
+        }
+
+        body.dark-mode .submissions-table {
+            background: #2a2a2a !important;
+        }
+
+        body.dark-mode .submissions-table thead {
+            background-color: #8B0000 !important;
+        }
+
+        body.dark-mode .submissions-table thead th {
+            color: white !important;
+            border-bottom: 1px solid white !important;
+            border-right: 1px solid white !important;
+            background-color: #8B0000 !important;
+        }
+
+        body.dark-mode .submissions-table tbody td {
+            background: #363636 !important;
+            color: #f0f0f0 !important;
+            border-bottom: 1px solid #555 !important;
+            border-right: 1px solid #555 !important;
+        }
+
+        body.dark-mode .submissions-table tbody tr:hover {
+            background-color: #404040 !important;
+        }
+
+        body.dark-mode .info-card {
+            background: #262626 !important;
+            border-color: #444 !important;
+        }
+
+        body.dark-mode .info-card .card-header {
+            background: #1f2937 !important;
+            border-bottom-color: #444 !important;
+        }
+
+        body.dark-mode .card-title {
+            color: #f9fafb !important;
+        }
+
+        body.dark-mode .detail-row .label {
+            color: #d1d5db !important;
+        }
+
+        body.dark-mode .detail-row .value {
+            color: #f9fafb !important;
+        }
+
+        body.dark-mode .document-item {
+            background: #1f2937 !important;
+            border-color: #4b5563 !important;
+        }
+
+        body.dark-mode .document-details small {
+            color: #9ca3af !important;
+        }
+
+        body.dark-mode .btn-preview,
+        body.dark-mode .btn-download {
+            background: #111827 !important;
+            color: #f9fafb !important;
+            border-color: #8B0000 !important;
+        }
+
+        body.dark-mode .btn-preview:hover,
+        body.dark-mode .btn-download:hover {
+            background: #8B0000 !important;
+            color: #ffffff !important;
+        }
+
+        body.dark-mode .overall-total-row td {
+            background: #111827 !important;
+            color: #f9fafb !important;
+        }
+
+        body.dark-mode .slea-decision-text,
+        body.dark-mode .slea-decision-note {
+            color: #e5e7eb;
+        }
+
+        /* ==== Pagination Styles ==== */
         .pagination-container {
             display: flex;
             justify-content: space-between;
@@ -752,37 +1141,7 @@
             border-color: #8B0000 !important;
         }
 
-        body.dark-mode .submissions-table-container {
-            background: #2a2a2a !important;
-            border: 1px solid #555 !important;
-        }
-
-        body.dark-mode .submissions-table {
-            background: #2a2a2a !important;
-        }
-
-        body.dark-mode .submissions-table thead {
-            background-color: #8B0000 !important;
-        }
-
-        body.dark-mode .submissions-table thead th {
-            color: white !important;
-            border-bottom: 1px solid white !important;
-            border-right: 1px solid white !important;
-            background-color: #8B0000 !important;
-        }
-
-        body.dark-mode .submissions-table tbody td {
-            background: #363636 !important;
-            color: #f0f0f0 !important;
-            border-bottom: 1px solid #555 !important;
-            border-right: 1px solid #555 !important;
-        }
-
-        body.dark-mode .submissions-table tbody tr:hover {
-            background-color: #404040 !important;
-        }
-
+        /* ==== View button in main table ==== */
         .btn-view {
             background-color: #8B0000;
             color: white;
@@ -817,29 +1176,16 @@
             background-color: #A52A2A !important;
         }
 
-        /* SLEA decision area in modal */
-        .slea-decision-text {
-            font-size: 0.95rem;
-            color: #4b5563;
-        }
+        /* ==== Responsive ==== */
+        @media (max-width: 992px) {
+            .detail-row {
+                flex-direction: column;
+            }
 
-        .slea-decision-actions {
-            display: flex;
-            gap: 0.75rem;
-            margin-top: 0.75rem;
-        }
-
-        .slea-decision-note {
-            display: block;
-            margin-top: 0.5rem;
-            font-size: 0.8rem;
-            color: #6b7280;
-            font-style: italic;
-        }
-
-        body.dark-mode .slea-decision-text,
-        body.dark-mode .slea-decision-note {
-            color: #e5e7eb;
+            .detail-row .label {
+                width: auto;
+                margin-bottom: 0.1rem;
+            }
         }
 
         @media (max-width: 768px) {
@@ -861,11 +1207,17 @@
             .slea-decision-actions {
                 flex-direction: column;
             }
+
+            .assessor-modal .modal-dialog {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 1rem;
+            }
         }
     </style>
 
 @endsection
 
 @push('scripts')
-    <script src="{{ asset('js/assessor_submission.js') }}"></script>
+    <script src="{{ asset('js/assessor-all-submissions.js') }}"></script>
 @endpush

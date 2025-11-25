@@ -1,6 +1,7 @@
 // assessor-all-submissions.js
 
 let currentSubmissionId = null;
+let currentStudentIdForModal = null; // remember which student is open
 
 // Pagination + search
 let currentPage = 1;
@@ -28,7 +29,8 @@ function showModalLoading(modalId) {
         if (programDetail) programDetail.textContent = 'Loading...';
         if (collegeDetail) collegeDetail.textContent = 'Loading...';
         if (container) {
-            container.innerHTML = '<p class="text-muted text-center"><i class="fas fa-spinner fa-spin"></i> Loading submissions...</p>';
+            container.innerHTML =
+                '<p class="text-muted text-center"><i class="fas fa-spinner fa-spin"></i> Loading submissions...</p>';
         }
     } else if (modalId === 'individualSubmissionModal') {
         const idEl = document.getElementById('modalIndividualStudentId');
@@ -62,7 +64,8 @@ function showModalLoading(modalId) {
         if (remarksEl) remarksEl.value = 'Loading...';
         if (assessorNameEl) assessorNameEl.textContent = 'Loading...';
         if (docPreview) {
-            docPreview.innerHTML = '<p class="text-muted"><i class="fas fa-spinner fa-spin"></i> Loading documents...</p>';
+            docPreview.innerHTML =
+                '<p class="text-muted"><i class="fas fa-spinner fa-spin"></i> Loading documents...</p>';
         }
     }
 }
@@ -149,7 +152,9 @@ function previewDocument(filePath, mimeType) {
     if (!filePath) return;
 
     const fileExtension = filePath.split('.').pop().toLowerCase();
-    const viewerUrl = `/assessor/document-viewer?path=${encodeURIComponent(filePath)}&mime=${encodeURIComponent(mimeType || '')}`;
+    const viewerUrl = `/assessor/document-viewer?path=${encodeURIComponent(filePath)}&mime=${encodeURIComponent(
+        mimeType || ''
+    )}`;
 
     if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExtension)) {
         window.open(`/storage/${filePath}`, '_blank');
@@ -197,7 +202,11 @@ async function openIndividualSubmissionModal(submissionId) {
         if (idEl) idEl.textContent = submission.student?.student_id || '-';
         if (nameEl) nameEl.textContent = submission.student?.user?.name || 'N/A';
         if (titleEl) titleEl.textContent = submission.document_title || '-';
-        if (dateEl) dateEl.textContent = submission.submitted_at ? new Date(submission.submitted_at).toLocaleDateString() : '-';
+        if (dateEl) {
+            dateEl.textContent = submission.submitted_at
+                ? new Date(submission.submitted_at).toLocaleDateString()
+                : '-';
+        }
 
         if (statusEl) {
             const status = submission.status || 'Unknown';
@@ -237,7 +246,6 @@ async function openIndividualSubmissionModal(submissionId) {
             const modal = new bootstrap.Modal(modalEl);
             modal.show();
         }
-
     } catch (error) {
         console.error('Error fetching individual submission details:', error);
         showErrorModal('Failed to load submission details: ' + error.message);
@@ -250,6 +258,8 @@ async function openIndividualSubmissionModal(submissionId) {
 
 async function openStudentSubmissionsModal(studentId) {
     try {
+        currentStudentIdForModal = studentId; // remember which student is open
+
         showModalLoading('studentSubmissionsModal');
 
         const response = await fetch(`/assessor/students/${studentId}/details`);
@@ -261,16 +271,15 @@ async function openStudentSubmissionsModal(studentId) {
 
         const student = data.student;
         const categorizedSubmissions = data.submissions || {};
-const categoryTotals = data.category_totals || {};
-// Make sure it's a real number, not a string
-const overallTotalScore = Number(data.overall_total_score ?? 0);
+        const categoryTotals = data.category_totals || {};
+        // Make sure it's a real number, not a string
+        const overallTotalScore = Number(data.overall_total_score ?? 0);
 
-// Compute max possible total from all categories
-const overallMaxScore = Object.values(categoryTotals).reduce((sum, cat) => {
-    const max = Number(cat?.max_score ?? 0);
-    return sum + (isNaN(max) ? 0 : max);
-}, 0);
-
+        // Compute max possible total from all categories
+        const overallMaxScore = Object.values(categoryTotals).reduce((sum, cat) => {
+            const max = Number(cat?.max_score ?? 0);
+            return sum + (isNaN(max) ? 0 : max);
+        }, 0);
 
         const nameTitle = document.getElementById('modalStudentNameTitle');
         const idDetail = document.getElementById('modalStudentIdDetail');
@@ -292,9 +301,9 @@ const overallMaxScore = Object.values(categoryTotals).reduce((sum, cat) => {
         const sleaSectionsOrder = [
             'Leadership Excellence',
             'Academic Excellence',
-            'Awards Recognition',
+         'Awards/Recognition Received',
             'Community Involvement',
-            'Good Conduct'
+            'Good Conduct',
         ];
 
         const romanNumeralMap = {
@@ -302,7 +311,7 @@ const overallMaxScore = Object.values(categoryTotals).reduce((sum, cat) => {
             2: 'II',
             3: 'III',
             4: 'IV',
-            5: 'V'
+            5: 'V',
         };
 
         let sectionCounter = 1;
@@ -315,13 +324,13 @@ const overallMaxScore = Object.values(categoryTotals).reduce((sum, cat) => {
         });
 
         if (!hasSubmissions) {
-            submissionsContainer.innerHTML = '<p class="text-muted text-center">No submissions found for this student.</p>';
+            submissionsContainer.innerHTML =
+                '<p class="text-muted text-center">No submissions found for this student.</p>';
         } else {
             sleaSectionsOrder.forEach(section => {
-const sectionSubmissions = categorizedSubmissions[section] || [];
-const totalCategoryScore = Number(categoryTotals[section]?.score ?? 0);
-const maxCategoryScore = Number(categoryTotals[section]?.max_score ?? 0);
-
+                const sectionSubmissions = categorizedSubmissions[section] || [];
+                const totalCategoryScore = Number(categoryTotals[section]?.score ?? 0);
+                const maxCategoryScore = Number(categoryTotals[section]?.max_score ?? 0);
 
                 const sectionDiv = document.createElement('div');
                 sectionDiv.className = 'slea-category-section mb-5';
@@ -338,54 +347,66 @@ const maxCategoryScore = Number(categoryTotals[section]?.max_score ?? 0);
                                 <td>${submission.document_title || '-'}</td>
                                 <td>${submission.subsection || '-'}</td>
                                 <td>${submission.role_in_activity || '-'}</td>
-                                <td>${submission.reviewed_at ? new Date(submission.reviewed_at).toLocaleDateString() : 'N/A'}</td>
+                                <td>${
+                                    submission.reviewed_at
+                                        ? new Date(submission.reviewed_at).toLocaleDateString()
+                                        : 'N/A'
+                                }</td>
                                 <td>${submission.assessor?.name || 'N/A'}</td>
                                 <td>
                                     <span class="status-badge status-${normalized}">
                                         ${status.charAt(0).toUpperCase() + status.slice(1)}
                                     </span>
                                 </td>
-                                <td>${submission.assessor_score != null ? submission.assessor_score : 'N/A'}</td>
+                                <td>${
+                                    submission.assessor_score != null
+                                        ? submission.assessor_score
+                                        : 'N/A'
+                                }</td>
                             </tr>
                         `;
                     });
                 } else {
-                    tableRowsHtml = '<tr><td colspan="7" class="text-center">No submissions for this category.</td></tr>';
+                    tableRowsHtml =
+                        '<tr><td colspan="7" class="text-center">No submissions for this category.</td></tr>';
                 }
 
-sectionDiv.innerHTML = `
-    <h5 class="category-title mb-3">
-        ${romanNumeralMap[sectionCounter++]}. <strong>${section}</strong>
-    </h5>
-    <div class="table-responsive mb-3">
-        <table class="table submissions-table category-table">
-            <thead>
-                <tr>
-                    <th>Document Title</th>
-                    <th>Type of Activity</th>
-                    <th>Role in Activity</th>
-                    <th>Date Reviewed</th>
-                    <th>Reviewed By</th>
-                    <th>Submission Status</th>
-                    <th>Score</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${tableRowsHtml}
-                <tr class="category-total-row">
-                    <td colspan="7" class="text-end">
-                        <strong>
-                            Total Score for ${section}:
-                            ${totalCategoryScore.toFixed(2)}
-                            ${maxCategoryScore ? ` / ${maxCategoryScore.toFixed(2)}` : ''}
-                        </strong>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-`;
-
+                sectionDiv.innerHTML = `
+                    <h5 class="category-title mb-3">
+                        ${romanNumeralMap[sectionCounter++]}. <strong>${section}</strong>
+                    </h5>
+                    <div class="table-responsive mb-3">
+                        <table class="table submissions-table category-table">
+                            <thead>
+                                <tr>
+                                    <th>Document Title</th>
+                                    <th>Type of Activity</th>
+                                    <th>Role in Activity</th>
+                                    <th>Date Reviewed</th>
+                                    <th>Reviewed By</th>
+                                    <th>Submission Status</th>
+                                    <th>Score</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tableRowsHtml}
+                                <tr class="category-total-row">
+                                    <td colspan="7" class="text-end">
+                                        <strong>
+                                            Total Score for ${section}:
+                                            ${totalCategoryScore.toFixed(2)}
+                                            ${
+                                                maxCategoryScore
+                                                    ? ` / ${maxCategoryScore.toFixed(2)}`
+                                                    : ''
+                                            }
+                                        </strong>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                `;
 
                 submissionsContainer.appendChild(sectionDiv);
             });
@@ -393,26 +414,47 @@ sectionDiv.innerHTML = `
             // Overall total at bottom
             const overallTotalDiv = document.createElement('div');
             overallTotalDiv.className = 'overall-total-section mt-4';
-overallTotalDiv.innerHTML = `
-    <div class="table-responsive">
-        <table class="table overall-total-table">
-            <tbody>
-                <tr class="overall-total-row">
-                    <td class="text-center">
-                        <strong>
-                            Overall Total Score:
-                            ${overallTotalScore.toFixed(2)}
-                            ${overallMaxScore ? ` / ${overallMaxScore.toFixed(2)}` : ''}
-                        </strong>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-`;
-
+            overallTotalDiv.innerHTML = `
+                <div class="table-responsive">
+                    <table class="table overall-total-table">
+                        <tbody>
+                            <tr class="overall-total-row">
+                                <td class="text-center">
+                                    <strong>
+                                        Overall Total Score:
+                                        ${overallTotalScore.toFixed(2)}
+                                        ${
+                                            overallMaxScore
+                                                ? ` / ${overallMaxScore.toFixed(2)}`
+                                                : ''
+                                        }
+                                    </strong>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            `;
 
             submissionsContainer.appendChild(overallTotalDiv);
+        }
+
+        // Set the ready-status note based on the main table row (if element exists)
+        const noteEl = document.getElementById('readyForRatingStatusNote');
+        if (noteEl) {
+            const row = document.querySelector(`tr[data-student-id="${studentId}"]`);
+            const statusKey = row ? row.dataset.sleaStatus : '';
+
+            if (statusKey === 'ready_assessor') {
+                noteEl.textContent = 'Current status: READY for assessor review.';
+            } else if (statusKey === 'for_admin_review') {
+                noteEl.textContent =
+                    'Current status: already sent for Admin Final Review.';
+            } else if (statusKey === 'awarded') {
+                noteEl.textContent = 'Current status: already AWARDED.';
+            } else {
+                noteEl.textContent = 'Current status: NOT yet marked as ready.';
+            }
         }
 
         const modalEl = document.getElementById('studentSubmissionsModal');
@@ -420,10 +462,139 @@ overallTotalDiv.innerHTML = `
             const modal = new bootstrap.Modal(modalEl);
             modal.show();
         }
-
     } catch (error) {
         console.error('Error fetching student submissions:', error);
         showErrorModal('Failed to load student submissions: ' + error.message);
+    }
+}
+
+/* -----------------------------
+   READY / NOT READY FOR RATING
+----------------------------- */
+
+async function updateReadyForRating(isReady) {
+    if (!currentStudentIdForModal) {
+        console.warn('No student selected for ready/not ready action.');
+        return;
+    }
+
+    const noteEl = document.getElementById('readyForRatingStatusNote');
+
+    // Optional: if you already have a confirmation modal helper, use it here.
+    // If not, this simple confirm() will do for now.
+    const confirmMsg = isReady
+        ? 'Mark this student as READY for rating?'
+        : 'Mark this student as NOT READY for rating?';
+
+    if (!window.confirm(confirmMsg)) {
+        if (noteEl) {
+            noteEl.textContent = 'Ready status change cancelled.';
+        }
+        return;
+    }
+
+    if (noteEl) {
+        noteEl.textContent = 'Saving ready status...';
+    }
+
+    const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
+    const csrfToken = csrfTokenMeta ? csrfTokenMeta.getAttribute('content') : null;
+
+    try {
+        const response = await fetch(
+            `/assessor/students/${currentStudentIdForModal}/ready-status`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
+                },
+                body: JSON.stringify({
+                    ready: isReady ? 1 : 0,
+                }),
+            }
+        );
+
+        const data = await response.json();
+        console.log('ready-status response', data);
+
+        if (!response.ok || data.success === false) {
+            throw new Error(data.error || 'Failed to update ready status');
+        }
+
+        const newStatusKey = data.slea_status?.key ?? (isReady ? 'ready_assessor' : 'not_ready');
+        const newStatusLabel =
+            data.slea_status?.label ?? (isReady ? 'Ready for assessor review' : 'Not ready');
+
+        // Update note under the buttons
+        if (noteEl) {
+            if (isReady) {
+                noteEl.textContent =
+                    'Marked as READY for rating. This student will appear in your Assessor Final Review list.';
+            } else {
+                noteEl.textContent = 'Marked as NOT ready for rating.';
+            }
+        }
+
+        // 🔄 Update pill in the main students table, but DO NOT remove the row
+        const row = document.querySelector(
+            `tr[data-student-id="${currentStudentIdForModal}"]`
+        );
+        if (row) {
+            row.dataset.sleaStatus = newStatusKey;
+
+            const pill = row.querySelector('.slea-status-pill');
+            if (pill) {
+                // reset classes
+                pill.className = 'slea-status-pill';
+
+                switch (newStatusKey) {
+                    case 'ready_assessor':
+                        pill.classList.add('slea-status-pill--ready-assessor');
+                        break;
+                    case 'not_ready':
+                        pill.classList.add('slea-status-pill--not-ready');
+                        break;
+                    case 'for_admin_review':
+                        pill.classList.add('slea-status-pill--for-admin');
+                        break;
+                    case 'awarded':
+                        pill.classList.add('slea-status-pill--awarded');
+                        break;
+                    case 'rejected':
+                        pill.classList.add('slea-status-pill--rejected');
+                        break;
+                    case 'not_4th_year':
+                        pill.classList.add('slea-status-pill--not-4th');
+                        break;
+                    default:
+                        pill.classList.add('slea-status-pill--in-process');
+                        break;
+                }
+
+                pill.textContent = newStatusLabel;
+            }
+        }
+
+        // Optional: show a clear success modal if you have one
+        if (typeof showSuccessModal === 'function') {
+            showSuccessModal(
+                'Ready status updated',
+                isReady
+                    ? 'Student is now marked as READY for rating.'
+                    : 'Student is now marked as NOT READY for rating.'
+            );
+        }
+
+    } catch (error) {
+        console.error('Error updating ready status:', error);
+        if (noteEl) {
+            noteEl.textContent = 'Failed to update ready status: ' + error.message;
+        }
+        if (typeof showErrorModal === 'function') {
+            showErrorModal('Failed to update ready status: ' + error.message);
+        }
     }
 }
 
@@ -476,8 +647,10 @@ async function handleSubmission(action, buttonEl) {
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN':
-                    document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                'Accept': 'application/json',
+                    document
+                        .querySelector('meta[name="csrf-token"]')
+                        ?.getAttribute('content') || '',
+                Accept: 'application/json',
             },
             body: JSON.stringify({
                 action: action,
@@ -499,14 +672,24 @@ async function handleSubmission(action, buttonEl) {
             if (modal) modal.hide();
         }
 
-        // Show success and refresh to update list/status
-        showSuccessModal(
-            'Action completed',
-            `Submission has been ${action === 'approve' ? 'approved' : action + 'ed'}.`
-        );
+        // Success modal
+        let msg = '';
+        if (action === 'approve') {
+            msg = 'Submission has been successfully approved!';
+        } else if (action === 'reject') {
+            msg = 'Submission has been successfully rejected.';
+        } else if (action === 'return') {
+            msg = 'Submission has been returned to the student for revision.';
+        } else if (action === 'flag') {
+            msg = 'Submission has been flagged for further review.';
+        } else {
+            msg = 'Action completed successfully.';
+        }
 
-        // You can also do a more targeted DOM update here if you don't want a full reload
-        window.location.reload();
+        showSuccessModal('Action completed', msg, function () {
+            // Reload to update lists / scores
+            window.location.reload();
+        });
     } catch (error) {
         console.error('Error processing submission action:', error);
         showErrorModal(
@@ -520,9 +703,8 @@ async function handleSubmission(action, buttonEl) {
     }
 }
 
-
 /* -----------------------------
-   MODAL: ERROR / VALIDATION / SUCCESS
+   MODAL: ERROR / VALIDATION / SUCCESS / CONFIRM
 ----------------------------- */
 
 function showErrorModal(message) {
@@ -587,38 +769,8 @@ function showValidationError(message) {
     });
 }
 
-function showSuccessMessage(action) {
-    let message = '';
-    let icon = '';
-    let color = '';
-
-    switch (action) {
-        case 'approve':
-            message = 'Submission has been successfully approved!';
-            icon = 'fas fa-check-circle';
-            color = '#28a745';
-            break;
-        case 'reject':
-            message = 'Submission has been successfully rejected.';
-            icon = 'fas fa-times-circle';
-            color = '#8B0000';
-            break;
-        case 'return':
-            message = 'Submission has been returned to the student for revision.';
-            icon = 'fas fa-undo';
-            color = '#FFD700';
-            break;
-        case 'flag':
-            message = 'Submission has been flagged for further review.';
-            icon = 'fas fa-flag';
-            color = '#dc3545';
-            break;
-        default:
-            message = 'Action completed successfully!';
-            icon = 'fas fa-info-circle';
-            color = '#007bff';
-    }
-
+// Generic success modal, with optional onClose callback
+function showSuccessModal(title, message, onClose) {
     const successModal = document.createElement('div');
     successModal.className = 'modal fade';
     successModal.id = 'successModal';
@@ -628,9 +780,9 @@ function showSuccessMessage(action) {
             <div class="modal-content success-modal-content">
                 <div class="modal-body text-center p-4">
                     <div class="success-icon mb-3">
-                        <i class="${icon}" style="color: ${color}; font-size: 3rem;"></i>
+                        <i class="fas fa-check-circle" style="color: #28a745; font-size: 3rem;"></i>
                     </div>
-                    <h5 class="success-title mb-3">Success!</h5>
+                    <h5 class="success-title mb-3">${title}</h5>
                     <p class="success-message mb-4">${message}</p>
                     <button type="button" class="btn btn-success" data-bs-dismiss="modal">
                         OK
@@ -646,6 +798,56 @@ function showSuccessMessage(action) {
 
     successModal.addEventListener('hidden.bs.modal', function () {
         document.body.removeChild(successModal);
+        if (typeof onClose === 'function') {
+            onClose();
+        }
+    });
+}
+
+// Confirmation modal used for READY / NOT READY
+function showConfirmModal(title, message, onConfirm) {
+    const confirmModal = document.createElement('div');
+    confirmModal.className = 'modal fade';
+    confirmModal.id = 'confirmModal';
+
+    confirmModal.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content validation-modal-content">
+                <div class="modal-body text-center p-4">
+                    <div class="validation-icon mb-3">
+                        <i class="fas fa-question-circle" style="color: #0d6efd; font-size: 3rem;"></i>
+                    </div>
+                    <h5 class="validation-title mb-3">${title}</h5>
+                    <p class="validation-message mb-4">${message}</p>
+                    <div class="d-flex justify-content-center gap-2">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            Cancel
+                        </button>
+                        <button type="button" class="btn btn-primary" id="confirmModalConfirmBtn">
+                            Yes, proceed
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(confirmModal);
+    const modal = new bootstrap.Modal(confirmModal);
+    modal.show();
+
+    const confirmBtn = confirmModal.querySelector('#confirmModalConfirmBtn');
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', function () {
+            if (typeof onConfirm === 'function') {
+                onConfirm();
+            }
+            modal.hide();
+        });
+    }
+
+    confirmModal.addEventListener('hidden.bs.modal', function () {
+        document.body.removeChild(confirmModal);
     });
 }
 
@@ -666,7 +868,7 @@ function initializeStudentPage() {
                 studentName: (cells[1]?.textContent || '').toLowerCase(),
                 email: (cells[2]?.textContent || '').toLowerCase(),
                 program: (cells[3]?.textContent || '').toLowerCase(),
-                college: (cells[4]?.textContent || '').toLowerCase()
+                college: (cells[4]?.textContent || '').toLowerCase(),
             };
         });
 
@@ -790,17 +992,50 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // READY / NOT READY buttons inside the All Submissions modal
+    const readyBtn = document.getElementById('btnMarkReadyForRating');
+    if (readyBtn) {
+        readyBtn.addEventListener('click', function () {
+            showConfirmModal(
+                'Mark student as READY for rating?',
+                'This will mark the student as READY for rating and move them to your Final Review list.',
+                function () {
+                    updateReadyForRating(true);
+                }
+            );
+        });
+    }
+
+    const notReadyBtn = document.getElementById('btnMarkNotReadyForRating');
+    if (notReadyBtn) {
+        notReadyBtn.addEventListener('click', function () {
+            showConfirmModal(
+                'Mark student as NOT ready?',
+                'This will mark the student as NOT ready for rating. They will stay in your All Submissions list.',
+                function () {
+                    updateReadyForRating(false);
+                }
+            );
+        });
+    }
+
     // When individual modal opens, hide student list modal (if open)
-    const individualSubmissionModalElement = document.getElementById('individualSubmissionModal');
+    const individualSubmissionModalElement =
+        document.getElementById('individualSubmissionModal');
     if (individualSubmissionModalElement) {
-        individualSubmissionModalElement.addEventListener('show.bs.modal', function () {
-            const studentSubmissionsModalEl = document.getElementById('studentSubmissionsModal');
-            if (studentSubmissionsModalEl) {
-                const studentSubmissionsModal = bootstrap.Modal.getInstance(studentSubmissionsModalEl);
-                if (studentSubmissionsModal) {
-                    studentSubmissionsModal.hide();
+        individualSubmissionModalElement.addEventListener(
+            'show.bs.modal',
+            function () {
+                const studentSubmissionsModalEl =
+                    document.getElementById('studentSubmissionsModal');
+                if (studentSubmissionsModalEl) {
+                    const studentSubmissionsModal =
+                        bootstrap.Modal.getInstance(studentSubmissionsModalEl);
+                    if (studentSubmissionsModal) {
+                        studentSubmissionsModal.hide();
+                    }
                 }
             }
-        });
+        );
     }
 });

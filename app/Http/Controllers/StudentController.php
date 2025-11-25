@@ -279,6 +279,7 @@ class StudentController extends Controller
     }
 
     // POST /student/upload-cor
+    // POST /student/upload-cor
     public function uploadCOR(Request $request)
     {
         $request->validate([
@@ -289,13 +290,22 @@ class StudentController extends Controller
         $user = Auth::user();
 
         if (! Schema::hasTable('student_academic')) {
+            // If AJAX, send JSON error; otherwise redirect with errors
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Academic table not found.',
+                ], 500);
+            }
+
             return back()->withErrors(['cor' => 'Academic table not found.']);
         }
 
+        // Store file
         $path = $request->file('cor')->store('cor', 'public');
-
-        // Update academic row
         $now  = now();
+
+        // Upsert into student_academic
         $data = [
             'user_id'                          => $user->id,
             'certificate_of_registration_path' => $path,
@@ -305,29 +315,35 @@ class StudentController extends Controller
         $exists = DB::table('student_academic')->where('user_id', $user->id)->first();
 
         if ($exists) {
-            DB::table('student_academic')->where('user_id', $user->id)->update($data);
+            DB::table('student_academic')
+                ->where('user_id', $user->id)
+                ->update($data);
         } else {
             $data['created_at'] = $now;
             DB::table('student_academic')->insert($data);
         }
 
-        // Optional: log to user_documents
+        // Optional: log to user_documents with NEW column names
         if (Schema::hasTable('user_documents')) {
             DB::table('user_documents')->insert([
-                'user_id'    => $user->id,
-                'type'       => 'cor',
-                'path'       => $path,
-                'created_at' => $now,
-                'updated_at' => $now,
+                'user_id'      => $user->id,
+                'doc_type'     => 'cor',
+                'storage_path' => $path,
+                'meta'         => json_encode([
+                    'uploaded_via' => 'profile_page',
+                    'uploaded_at'  => $now->toDateTimeString(),
+                ]),
+                'created_at'   => $now,
+                'updated_at'   => $now,
             ]);
         }
 
-        // Recalculate eligibility only for this user
+        // Recalculate eligibility ONLY for this user
         $academic = DB::table('student_academic')->where('user_id', $user->id)->first();
 
         if ($academic) {
             $nowYear = (int) now()->year;
-            $status = 'eligible';
+            $status  = 'eligible';
 
             if (!empty($academic->expected_grad_year) && $nowYear > (int) $academic->expected_grad_year) {
                 // Past expected graduation year → needs revalidation
@@ -342,6 +358,18 @@ class StudentController extends Controller
                 ]);
         }
 
+        // If AJAX (used by student_profile.js) → JSON
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success'   => true,
+                'message'   => 'Certificate of Registration uploaded.',
+                'cor_path'  => $path,
+                'cor_url'   => Storage::disk('public')->url($path),
+                'eligibility_status' => $academic->eligibility_status ?? $status ?? null,
+            ]);
+        }
+
+        // Fallback for normal form POST
         return back()->with('status', 'Certificate of Registration uploaded.');
     }
 
@@ -360,11 +388,11 @@ class StudentController extends Controller
         // 1) Load rubric categories in display order
         $categories = RubricCategory::orderBy('order_no')->get();
 
-        // 2) Reviews for this student's APPROVED submissions
+        // 2) Reviews for this student's ACCEPTED submissions
         $reviews = SubmissionReview::query()
-            ->where('status', 'approved') // mirrored from submissions.status
             ->whereHas('submission', function ($q) use ($user) {
-                $q->where('user_id', $user->id);
+                $q->where('user_id', $user->id)
+                    ->where('status', 'accepted'); // ✅ only accepted submissions count
             })
             ->with(['submission.category'])
             ->get();
@@ -379,7 +407,7 @@ class StudentController extends Controller
             }
 
             $cat = $submission->category;
-            $key = $cat->key; // e.g. leadership, academic...
+            $key = $cat->key; // e.g. leadership, academic, awards, community, conduct
 
             if (! isset($scoresByCategoryKey[$key])) {
                 $scoresByCategoryKey[$key] = 0.0;
@@ -400,6 +428,7 @@ class StudentController extends Controller
             $max       = (float) ($cat->max_points ?? 0);
             $rawEarned = (float) ($scoresByCategoryKey[$key] ?? 0);
 
+            // Clamp earned to the category max
             $earned = $max > 0 ? min($rawEarned, $max) : $rawEarned;
 
             $labelPrefix = $roman[$index] ?? ($index . '.');
@@ -426,13 +455,12 @@ class StudentController extends Controller
         ];
 
         return view('student.performance', [
-            'perfData' => $perfData,
+            'perfData'               => $perfData,
             'slea_application_status' => $academic?->slea_application_status,
-            'ready_for_rating'        => (bool) ($academic->ready_for_rating ?? false),
+            'ready_for_rating'       => (bool) ($academic->ready_for_rating ?? false),
             'can_mark_ready_for_slea' => $user->canMarkReadyForSlea(),
         ]);
     }
-
     public function markReadyForSlea()
     {
         $user = Auth::user();
@@ -478,15 +506,28 @@ class StudentController extends Controller
     }
 
     // GET /student/criteria
+
     public function criteria()
     {
-        // show rubric sections/subsections if available
-        $sections = Schema::hasTable('rubric_sections')
-            ? DB::table('rubric_sections')->orderBy('order')->get()
-            : collect();
+        // If rubric tables are missing (dev / migration issue), avoid crashing
+        if (!Schema::hasTable('rubric_categories')) {
+            return view('student.criteria', [
+                'categories' => collect(),
+            ]);
+        }
 
-        return view('student.criteria', compact('sections'));
+        // Load the full rubric: category → sections → subsections → options
+        $categories = RubricCategory::with([
+            'sections.subsections.options',
+        ])
+            ->orderBy('order_no')
+            ->get();
+
+        return view('student.criteria', [
+            'categories' => $categories,
+        ]);
     }
+
 
     // GET /student/history
     public function history()

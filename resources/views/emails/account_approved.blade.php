@@ -1,5 +1,7 @@
 @component('mail::message')
 # SLEA Account Approved
+<img src="{{ asset('images/osas-logo.png') }}" alt="SLEA Logo"
+    style="max-width:150px; margin:20px auto; display:block;">
 
 Dear {{ $user->first_name }},
 

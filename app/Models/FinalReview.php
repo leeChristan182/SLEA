@@ -7,12 +7,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class FinalReview extends Model
 {
-    protected $table = 'final_reviews';
-
     protected $fillable = [
         'assessor_final_review_id',
         'admin_id',
-        'decision',
+        'decision',   // approved | not_qualified  (enum "final_review_decisions")
         'remarks',
         'reviewed_at',
     ];
@@ -23,7 +21,7 @@ class FinalReview extends Model
 
     public function assessorFinalReview(): BelongsTo
     {
-        return $this->belongsTo(AssessorFinalReview::class);
+        return $this->belongsTo(AssessorFinalReview::class, 'assessor_final_review_id');
     }
 
     public function admin(): BelongsTo

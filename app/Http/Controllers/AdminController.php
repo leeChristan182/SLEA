@@ -15,6 +15,11 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\OtpCodeMail;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\College;
+use App\Models\Program;
 
 class AdminController extends Controller
 {
@@ -382,24 +387,241 @@ class AdminController extends Controller
     /* =========================
      | SYSTEM PAGES (stubs)
      * ========================= */
-
-    public function submissionOversight()
+    public function awardReportDashboard(Request $request)
     {
-        return view('admin.system.submission-oversight');
+        $rows = $this->buildAwardReportRows($request);
+
+        // Stats for the summary cards (optional)
+        $stats = [
+            'total'     => $rows->count(),
+            'gold'      => $rows->where('award_level', 'gold')->count(),
+            'silver'    => $rows->where('award_level', 'silver')->count(),
+            'qualified' => $rows->where('award_level', 'qualified')->count(),
+            'tracking'  => $rows->whereIn('award_level', ['tracking', 'not_qualified'])->count(),
+        ];
+
+        // Manual pagination on the already-computed collection
+        $page    = LengthAwarePaginator::resolveCurrentPage();
+        $perPage = 20;
+
+        $pageItems = $rows->slice(($page - 1) * $perPage, $perPage)->values();
+
+        $students = new LengthAwarePaginator(
+            $pageItems,
+            $rows->count(),
+            $perPage,
+            $page,
+            [
+                'path'  => Paginator::resolveCurrentPath(),
+                'query' => $request->query(),
+            ]
+        );
+
+        // Dropdown data (safe defaults if models/tables not present)
+        $colleges = class_exists(\App\Models\College::class)
+            ? \App\Models\College::orderBy('short_name')->get()
+            : collect();
+
+        $programs = class_exists(\App\Models\Program::class)
+            ? \App\Models\Program::orderBy('name')->get()
+            : collect();
+
+        $batches = []; // fill later if you have a batch/AY column
+
+        // This should point to your admin list Blade:
+        // resources/views/admin/award-report.blade.php
+        return view('admin.award-report', [
+            'students' => $students,
+            'stats'    => $stats,
+            'colleges' => $colleges,
+            'programs' => $programs,
+            'batches'  => $batches,
+        ]);
     }
 
-    public function finalReview()
+    public function exportAwardReportPdf(Request $request)
     {
-        return view('admin.system.final-review');
+        $rows = $this->buildAwardReportRows($request);
+
+        // Adapt to the structure expected by resources/views/award-report.blade.php
+        // which uses array access: $student['name'], ['student_id'], ['program'], ['points'], ['status']
+        $allStudents = $rows->map(function ($row) {
+            return [
+                'student_id' => $row->student_number,
+                'name'       => $row->name,
+                'program'    => $row->program_code, // e.g., BTVTED, BPED, etc.
+                'points'     => $row->points,
+                'status'     => $row->status,
+            ];
+        })->values()->all();
+
+        $pdf = Pdf::loadView('award-report', [
+            'allStudents' => $allStudents,
+        ])->setPaper('A4', 'portrait');
+
+        return $pdf->download('SLEA-Award-Report.pdf');
     }
 
-    public function awardReport()
-    {
-        return view('admin.system.award-report');
-    }
 
     public function systemMonitoring()
     {
         return view('admin.system.monitoring');
+    }
+    protected function buildAwardReportRows(Request $request): \Illuminate\Support\Collection
+    {
+        if (
+            ! Schema::hasTable('student_academic') ||
+            ! Schema::hasTable('assessor_compiled_scores') ||
+            ! Schema::hasTable('users')
+        ) {
+            return collect();
+        }
+
+        // Sum compiled scores per student
+        $scoreSub = DB::table('assessor_compiled_scores as acs')
+            ->select(
+                'acs.student_id',
+                DB::raw('SUM(acs.total_score) AS total_score'),
+                DB::raw('SUM(acs.max_points)  AS max_points')
+            )
+            ->groupBy('acs.student_id');
+
+        // Base query with joins + filters
+        $query = DB::table('student_academic as sa')
+            ->select(
+                'sa.user_id',
+                'sa.student_number',
+                'sa.slea_application_status',
+                'u.first_name',
+                'u.last_name',
+                'u.middle_name',
+                'p.name  as program_name',
+                'p.code  as program_code',
+                'c.name  as college_name',
+                'c.code  as college_code',
+                'sc.total_score',
+                'sc.max_points'
+            )
+            ->join('users as u', 'u.id', '=', 'sa.user_id')
+            ->leftJoinSub($scoreSub, 'sc', function ($join) {
+                $join->on('sc.student_id', '=', 'sa.user_id');
+            })
+            ->leftJoin('programs as p', 'p.id', '=', 'sa.program_id')
+            ->leftJoin('colleges as c', 'c.id', '=', 'sa.college_id')
+            ->where('u.role', 'student')
+            // only APPROVED SLEA by admin
+            ->where('sa.slea_application_status', 'awarded')
+            ->whereNotNull('sc.total_score');
+
+        // --- filters from the list page ---
+        if ($q = trim((string) $request->input('q', ''))) {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('sa.student_number', 'like', "%{$q}%")
+                    ->orWhere('u.first_name', 'like', "%{$q}%")
+                    ->orWhere('u.last_name', 'like', "%{$q}%");
+            });
+        }
+
+        if ($collegeId = $request->input('college_id')) {
+            $query->where('sa.college_id', $collegeId);
+        }
+
+        if ($programId = $request->input('program_id')) {
+            $query->where('sa.program_id', $programId);
+        }
+
+        // Actually run the query
+        $rows = $query->get();
+
+        $mapped = $rows->map(function ($row) {
+            $max = (float) ($row->max_points ?? 0);
+            $percent = $max > 0
+                ? round(($row->total_score / $max) * 100, 2)
+                : 0.0;
+
+            // Simple award-level rules – adjust if you have different cut-offs
+            if ($percent >= 90) {
+                $awardLevel = 'gold';
+            } elseif ($percent >= 85) {
+                $awardLevel = 'silver';
+            } elseif ($percent >= 80) {
+                $awardLevel = 'qualified';
+            } elseif ($percent >= 70) {
+                $awardLevel = 'tracking';
+            } else {
+                $awardLevel = 'not_qualified';
+            }
+
+            // Map slea_application_status to display label
+            switch ($row->slea_application_status) {
+                case 'awarded':
+                    $statusLabel = 'SLEA Qualified';
+                    break;
+                case 'for_admin_review':
+                    $statusLabel = 'For Final Review';
+                    break;
+                default:
+                    $statusLabel = 'Tracking';
+                    break;
+            }
+
+            $fullName = trim(sprintf(
+                '%s, %s %s',
+                $row->last_name,
+                $row->first_name,
+                $row->middle_name ?? ''
+            ));
+
+            // Build pseudo-relationship objects so the frontend Blade
+            // can still do $row->user->studentAcademic->program, etc.
+            $college = new \stdClass();
+            $college->name = $row->college_name;
+            // no short_name here, you only have name + code
+            $college->code = $row->college_code;
+
+            $program = new \stdClass();
+            $program->name = $row->program_name;
+            $program->code = $row->program_code;
+
+            $academic = new \stdClass();
+            $academic->student_id = $row->student_number;
+            $academic->college    = $college;
+            $academic->program    = $program;
+
+            $user = new \stdClass();
+            $user->id             = $row->user_id;
+            $user->full_name      = $fullName;
+            $user->studentAcademic = $academic;
+            $user->student_id     = $row->student_number;
+
+            $record = new \stdClass();
+            $record->user         = $user;
+            $record->total_points = $percent;
+            $record->award_level  = $awardLevel;
+            $record->slea_status  = $statusLabel;
+
+            // extras used for PDF export
+            $record->program_code   = $row->program_code ?? $row->program_name ?? '';
+            $record->student_number = $row->student_number;
+            $record->name           = $fullName;
+            $record->points         = $percent;
+            $record->status         = $statusLabel;
+
+            return $record;
+        });
+
+        // In-memory filters: award_level + min_score
+        if ($request->filled('award_level')) {
+            $level  = $request->input('award_level');
+            $mapped = $mapped->filter(fn($row) => $row->award_level === $level)->values();
+        }
+
+        if ($request->filled('min_score')) {
+            $threshold = (int) $request->input('min_score');
+            $mapped    = $mapped->filter(fn($row) => $row->total_points >= $threshold)->values();
+        }
+
+        // Sort by score descending
+        return $mapped->sortByDesc('total_points')->values();
     }
 }

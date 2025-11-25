@@ -10,7 +10,6 @@ use Illuminate\Support\Facades\Auth;
 
 class AssessorStudentSubmissionController extends Controller
 {
-
     /**
      * Show all students who have approved / rejected submissions
      * reviewed by the current assessor, grouped by student.
@@ -22,8 +21,10 @@ class AssessorStudentSubmissionController extends Controller
         $assessor = Auth::user();
         abort_unless($assessor && $assessor->isAssessor(), 403);
 
-        // All submissions this assessor has already acted on
-        // NEW – use the new enum keys
+        // IMPORTANT:
+        //  - We ONLY filter by submission status + reviews by this assessor.
+        //  - We DO NOT filter by ready_for_rating or slea_application_status here,
+        //    so a student marking "ready to be rated" from Performance will NOT disappear.
         $submissions = Submission::with([
             'user',
             'user.studentAcademic.program.college',
@@ -31,10 +32,16 @@ class AssessorStudentSubmissionController extends Controller
                 $q->where('assessor_id', $assessor->id);
             },
         ])
-            ->whereIn('status', ['accepted', 'rejected']) // you can also add 'returned', 'flagged' if you want
             ->whereHas('reviews', function ($q) use ($assessor) {
                 $q->where('assessor_id', $assessor->id);
             })
+            ->whereIn('status', [
+                'accepted',
+                'rejected',
+                // add these if you also want them to appear:
+                // 'returned',
+                // 'flagged',
+            ])
             ->get();
 
         // Group by student (user_id)
@@ -46,26 +53,26 @@ class AssessorStudentSubmissionController extends Controller
             $user  = $first->user;
             $acad  = $user->studentAcademic;
 
-            // student number fallback logic
+            // Student number / ID
             $studentId = $acad->student_number
                 ?? $user->student_id
                 ?? $user->id;
 
-            // program name
+            // Program name
             if ($acad && $acad->program) {
                 $programName = $acad->program->name;
             } else {
                 $programName = $acad->program_name ?? $acad->program ?? '—';
             }
 
-            // college name
+            // College name
             if ($acad && $acad->program && $acad->program->college) {
                 $collegeName = $acad->program->college->name;
             } else {
                 $collegeName = $acad->college_name ?? $acad->college ?? '—';
             }
 
-            // latest review date across this student's submissions
+            // Latest review date across this student's submissions (by this assessor)
             $latestReviewedAt = $subs
                 ->flatMap(function ($sub) {
                     return $sub->reviews;
@@ -82,7 +89,8 @@ class AssessorStudentSubmissionController extends Controller
                 'submissions'        => $subs,
                 'latest_reviewed_at' => $latestReviewedAt,
             ];
-        })->values();
+        })
+            ->values();
 
         return view('assessor.submissions.submissions', compact('students'));
     }
@@ -103,7 +111,6 @@ class AssessorStudentSubmissionController extends Controller
         $student = User::with('studentAcademic.program.college')->findOrFail($studentId);
 
         // All finalized submissions for this student that this assessor reviewed
-        // NEW
         $submissions = Submission::with([
             'category',
             'subsection',
@@ -113,16 +120,15 @@ class AssessorStudentSubmissionController extends Controller
             'reviews.assessor',
         ])
             ->where('user_id', $studentId)
-            ->whereIn('status', ['accepted', 'rejected']) // or add more finalized statuses
+            ->whereIn('status', ['accepted', 'rejected'])
             ->whereHas('reviews', function ($q) use ($assessor) {
                 $q->where('assessor_id', $assessor->id);
             })
             ->get();
 
-
         $categorizedSubmissions = [];
-        $categoryTotals = [];
-        $overallTotalScore = 0.0;
+        $categoryTotals         = [];
+        $overallTotalScore      = 0.0;
 
         foreach ($submissions as $sub) {
             $sectionTitle = optional($sub->category)->title ?? 'Uncategorized';
@@ -149,7 +155,6 @@ class AssessorStudentSubmissionController extends Controller
                 'assessor_score'   => $score,
             ];
 
-            // build totals from the same scores
             if (!isset($categoryTotals[$sectionTitle])) {
                 $categoryTotals[$sectionTitle] = [
                     'score'     => 0.0,
@@ -158,7 +163,7 @@ class AssessorStudentSubmissionController extends Controller
             }
 
             $categoryTotals[$sectionTitle]['score'] += $score;
-            $overallTotalScore += $score;
+            $overallTotalScore                       += $score;
         }
 
         // Overlay MAX points per category from assessor_compiled_scores
@@ -211,6 +216,73 @@ class AssessorStudentSubmissionController extends Controller
             'submissions'         => $categorizedSubmissions,
             'category_totals'     => $categoryTotals,
             'overall_total_score' => $overallTotalScore,
+        ]);
+    }
+
+    /**
+     * Assessor marks a student as ready / not ready for SLEA rating.
+     *
+     * POST /assessor/students/{student}/ready-status
+     */
+    public function updateReadyStatus(int $studentId, Request $request)
+    {
+        $assessor = Auth::user();
+        abort_unless($assessor && $assessor->isAssessor(), 403);
+
+        $data = $request->validate([
+            'ready' => ['required', 'boolean'],
+        ]);
+
+        $student  = User::with('studentAcademic')->findOrFail($studentId);
+        $academic = $student->studentAcademic;
+
+        if (!$academic) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'Student has no academic record.',
+            ], 422);
+        }
+
+        if ($data['ready']) {
+            /**
+             * ASSESSOR SAYS: STUDENT IS READY
+             * --------------------------------
+             * - keep ready_for_rating = 1
+             * - move status forward to: for_admin_review
+             *   (this matches the Performance page text:
+             *   "For Admin Final Review")
+             */
+            $academic->ready_for_rating    = true;
+            $academic->ready_for_rating_at = $academic->ready_for_rating_at ?? now();
+            $academic->slea_application_status = 'for_admin_review';
+            $academic->save();
+
+            $statusKey   = 'for_admin_review';
+            $statusLabel = 'For admin final review';
+        } else {
+            /**
+             * ASSESSOR SAYS: STUDENT IS NOT READY
+             * -----------------------------------
+             * - clear ready flag
+             * - send them back to pre-application state
+             *   (they can apply again later)
+             */
+            $academic->ready_for_rating    = false;
+            $academic->ready_for_rating_at = null;
+            $academic->slea_application_status = null;
+            $academic->save();
+
+            $statusKey   = 'not_ready';
+            $statusLabel = 'Not ready';
+        }
+
+        return response()->json([
+            'success'     => true,
+            'ready'       => (bool) $academic->ready_for_rating,
+            'slea_status' => [
+                'key'   => $statusKey,
+                'label' => $statusLabel,
+            ],
         ]);
     }
 }

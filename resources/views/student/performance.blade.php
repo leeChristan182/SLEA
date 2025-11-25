@@ -467,64 +467,93 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // -------- Performance rendering --------
-        const perfData = (window.__PERF__) || {
-            totals: { earned: 0, max: 0 },
-            categories: []
-        };
+        // -------- Normalize performance data --------
+        let rawPerf = window.__PERF__ || {};
+        let perfData = {};
 
-        // Totals
+        // If the controller accidentally sends an array or an unexpected shape,
+        // fall back gracefully instead of throwing JS errors.
+        if (!rawPerf || typeof rawPerf !== 'object' || Array.isArray(rawPerf)) {
+            perfData = { totals: { earned: 0, max: 0 }, categories: [] };
+        } else {
+            perfData = rawPerf;
+        }
+
+        // Always have a categories array
+        const categories = Array.isArray(perfData.categories) ? perfData.categories : [];
+
+        // Build totals from categories if they are missing / invalid
+        let totals = perfData.totals;
+        if (!totals || typeof totals !== 'object') {
+            let earnedSum = 0;
+            let maxSum = 0;
+
+            categories.forEach(cat => {
+                const earned = Number(cat.earned ?? 0);
+                const max = Number(cat.max ?? 0);
+
+                earnedSum += isNaN(earned) ? 0 : earned;
+                maxSum += isNaN(max) ? 0 : max;
+            });
+
+            totals = { earned: earnedSum, max: maxSum };
+            perfData.totals = totals;
+        }
+
+        const totalEarned = Number(totals.earned ?? 0);
+        const totalMax = Number(totals.max ?? 0);
+
+        // Totals UI
         const totalPts = document.getElementById('totalPoints');
         const overallFill = document.getElementById('overallFill');
         const earnedLegend = document.getElementById('earnedLegend');
         const maxLegend = document.getElementById('maxLegend');
 
-        totalPts.textContent = perfData.totals.earned ?? 0;
-        earnedLegend.textContent = perfData.totals.earned ?? 0;
-        maxLegend.textContent = perfData.totals.max ?? 0;
+        if (totalPts) totalPts.textContent = totalEarned;
+        if (earnedLegend) earnedLegend.textContent = totalEarned;
+        if (maxLegend) maxLegend.textContent = totalMax;
 
-        const pct = (perfData.totals.max > 0)
-            ? (perfData.totals.earned / perfData.totals.max) * 100
-            : 0;
-
-        requestAnimationFrame(() => {
-            overallFill.style.width = Math.min(100, pct).toFixed(2) + '%';
-        });
-
-        // Categories
-        const holder = document.getElementById('categoryList');
-        holder.innerHTML = '';
-        const cats = Array.isArray(perfData.categories) ? perfData.categories : [];
-
-        for (let i = 0; i < cats.length; i += 2) {
-            const row = document.createElement('div');
-            row.className = 'po-row';
-
-            [cats[i], cats[i + 1]].forEach(cat => {
-                if (!cat) return;
-                const cpct = (cat.max > 0)
-                    ? (cat.earned / cat.max) * 100
-                    : 0;
-
-                const card = document.createElement('div');
-                card.className = 'po-cat';
-                card.innerHTML = `
-                <div class="po-cat-title">${cat.label}</div>
-                <div class="po-cat-bar">
-                    <div class="po-cat-fill" style="width:${Math.min(100, cpct).toFixed(2)}%"></div>
-                </div>
-                <div class="po-cat-legend">
-                    <span><strong>${cat.earned}</strong> Points Earned</span>
-                    <span><strong>${cat.max}</strong> Max Points</span>
-                </div>
-            `;
-                row.appendChild(card);
-            });
-
-            holder.appendChild(row);
+        const overallPct = totalMax > 0 ? (totalEarned / totalMax) * 100 : 0;
+        if (overallFill) {
+            overallFill.style.width = Math.min(100, overallPct).toFixed(2) + '%';
         }
 
-        // -------- SLEA Confirm modal logic --------
+        // -------- Category bars --------
+        const holder = document.getElementById('categoryList');
+        if (holder) {
+            holder.innerHTML = '';
+
+            for (let i = 0; i < categories.length; i += 2) {
+                const row = document.createElement('div');
+                row.className = 'po-row';
+
+                [categories[i], categories[i + 1]].forEach(cat => {
+                    if (!cat) return;
+
+                    const earned = Number(cat.earned ?? 0);
+                    const max = Number(cat.max ?? 0);
+                    const cpct = max > 0 ? (earned / max) * 100 : 0;
+
+                    const card = document.createElement('div');
+                    card.className = 'po-cat';
+                    card.innerHTML = `
+                        <div class="po-cat-title">${cat.label}</div>
+                        <div class="po-cat-bar">
+                            <div class="po-cat-fill" style="width:${Math.min(100, cpct).toFixed(2)}%"></div>
+                        </div>
+                        <div class="po-cat-legend">
+                            <span><strong>${earned}</strong> Points Earned</span>
+                            <span><strong>${max}</strong> Max Points</span>
+                        </div>
+                    `;
+                    row.appendChild(card);
+                });
+
+                holder.appendChild(row);
+            }
+        }
+
+        // -------- SLEA Confirm modal logic (unchanged) --------
         const readyBtn = document.getElementById('markReadyBtn');
         const readyForm = document.getElementById('markReadyForm');
         const cancelBtn = document.getElementById('cancelReadyBtn');
@@ -555,26 +584,33 @@
                 msgElement.textContent =
                     "Cancel your READY status?\n\n" +
                     "This will remove your 'Ready to be rated' status so you can keep submitting more requirements.\n" +
-                    "You can only do this before your assessor starts processing your application.\n\n" +
-                    "Are you sure you want to cancel?";
+                    "You can only do this before your assessor starts processing your application.";
             }
 
-            modal.classList.add('show');
+            if (modal) {
+                modal.classList.add('show');
+                document.body.classList.add('modal-open');
+            }
         }
 
         function closeModal() {
-            modal.classList.remove('show');
+            if (modal) {
+                modal.classList.remove('show');
+                document.body.classList.remove('modal-open');
+            }
             activeForm = null;
         }
 
         if (readyBtn && readyForm) {
-            readyBtn.addEventListener('click', function () {
+            readyBtn.addEventListener('click', function (e) {
+                e.preventDefault();
                 openModal('mark', readyForm);
             });
         }
 
         if (cancelBtn && cancelForm) {
-            cancelBtn.addEventListener('click', function () {
+            cancelBtn.addEventListener('click', function (e) {
+                e.preventDefault();
                 openModal('cancel', cancelForm);
             });
         }

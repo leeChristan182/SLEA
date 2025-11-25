@@ -13,17 +13,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
-  // NEW: detect current user id for per-user avatar cache
-  const userIdInput = document.querySelector('input[name="admin_id"], input[name="assessor_id"], input[name="student_id"]');
-  const currentUserId = userIdInput ? userIdInput.value : null;
-  const avatarStorageKey = currentUserId ? `profileImage_${currentUserId}` : null;
+// Detect which profile we're on (ADMIN or ASSESSOR only)
+const adminIdInput    = document.querySelector('input[name="admin_id"]');
+const assessorIdInput = document.querySelector('input[name="assessor_id"]');
 
-  // Detect context (admin or assessor) based on hidden/readonly id input
-  const isAdmin = !!document.querySelector('input[name="admin_id"]');
-  const isAssessor = !!document.querySelector('input[name="assessor_id"]');
+const isAdmin    = !!adminIdInput;
+const isAssessor = !!assessorIdInput;
 
-  const rolePrefix = isAssessor ? 'assessor' : 'admin'; // default to admin if unsure
-  const primaryIdFieldName = isAdmin ? 'admin_id' : (isAssessor ? 'assessor_id' : null);
+// If neither, don't run unified profile logic (student uses a different JS)
+if (!isAdmin && !isAssessor) {
+  console.warn('profile.js: no admin_id or assessor_id found; skipping unified profile script.');
+  return;
+}
+
+// Per-user avatar cache key (only admin/assessor)
+const currentUserId    = adminIdInput?.value || assessorIdInput?.value || null;
+const avatarStorageKey = currentUserId ? `profileImage:${currentUserId}` : null;
+
+// Role prefix used for toast CSS classnames etc.
+const rolePrefix = isAdmin ? 'admin' : 'assessor';
+
+// Which field should stay read-only in edit mode
+const primaryIdFieldName = isAdmin ? 'admin_id' : 'assessor_id';
 
   /* ---------- Utilities: toasts & modal helpers ---------- */
   function showToast(message, isError = false, timeout = 3500) {
