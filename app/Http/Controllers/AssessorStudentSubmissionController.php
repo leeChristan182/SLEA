@@ -23,6 +23,7 @@ class AssessorStudentSubmissionController extends Controller
         abort_unless($assessor && $assessor->isAssessor(), 403);
 
         // All submissions this assessor has already acted on
+        // NEW – use the new enum keys
         $submissions = Submission::with([
             'user',
             'user.studentAcademic.program.college',
@@ -30,7 +31,7 @@ class AssessorStudentSubmissionController extends Controller
                 $q->where('assessor_id', $assessor->id);
             },
         ])
-            ->whereIn('status', ['approved', 'rejected'])
+            ->whereIn('status', ['accepted', 'rejected']) // you can also add 'returned', 'flagged' if you want
             ->whereHas('reviews', function ($q) use ($assessor) {
                 $q->where('assessor_id', $assessor->id);
             })
@@ -102,20 +103,22 @@ class AssessorStudentSubmissionController extends Controller
         $student = User::with('studentAcademic.program.college')->findOrFail($studentId);
 
         // All finalized submissions for this student that this assessor reviewed
+        // NEW
         $submissions = Submission::with([
-            'category',   // RubricCategory (SLEA section)
-            'subsection', // RubricSubsection
+            'category',
+            'subsection',
             'reviews' => function ($q) use ($assessor) {
                 $q->where('assessor_id', $assessor->id)->latest();
             },
             'reviews.assessor',
         ])
             ->where('user_id', $studentId)
-            ->whereIn('status', ['approved', 'rejected'])
+            ->whereIn('status', ['accepted', 'rejected']) // or add more finalized statuses
             ->whereHas('reviews', function ($q) use ($assessor) {
                 $q->where('assessor_id', $assessor->id);
             })
             ->get();
+
 
         $categorizedSubmissions = [];
         $categoryTotals = [];
