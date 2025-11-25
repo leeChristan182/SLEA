@@ -1,6 +1,7 @@
 // public/js/pending-submission.js
 
 let currentSubmissionId = null;
+
 const entriesPerPage = 5;
 
 // rubric context for currently open modal
@@ -10,45 +11,261 @@ let currentRate = null;             // for rate-based subsections
 let currentCap = null;              // cap_points at subsection level (may be null)
 let currentRubricOptionId = null;   // selected descriptor id (if any)
 
-// small helper to avoid "cannot set textContent of null"
+/* =========================
+   BASIC HELPERS
+   ========================= */
+
 function setText(id, value) {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
 }
 
-// Minimal modal / message helpers (fallbacks)
+/* =========================
+   MODAL HELPERS (ERROR / VALIDATION / SUCCESS)
+   ========================= */
+
+// ERROR MODAL (server / network / unexpected errors)
 function showErrorModal(message) {
-    try {
-        alert(message);
-    } catch (e) {
-        console.error('showErrorModal fallback failed', e);
-    }
-}
+    const errorModal = document.createElement('div');
+    errorModal.className = 'modal fade';
+    errorModal.id = 'errorModal';
 
-function showValidationError(message) {
-    console.warn('Validation:', message);
-    alert(message);
-}
+    errorModal.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content validation-modal-content">
+                <div class="modal-body text-center p-4">
+                    <div class="validation-icon mb-3">
+                        <i class="fas fa-exclamation-triangle" style="color: #dc3545; font-size: 3rem;"></i>
+                    </div>
+                    <h5 class="validation-title mb-3">Error</h5>
+                    <p class="validation-message mb-4">${message}</p>
+                    <button type="button" class="btn btn-warning" data-bs-dismiss="modal">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
 
-function showSuccessMessage(action) {
-    const msg =
-        action === 'approve' ? 'Submission approved.' :
-        action === 'reject'  ? 'Submission rejected.' :
-        action === 'return'  ? 'Submission returned to student.' :
-        'Submission flagged for admin review.';
+    // ensure it appears above the review modal
+    errorModal.style.zIndex = '22000';
 
-    try {
-        if (window.toastr) {
-            toastr.success(msg);
-        } else {
-            alert(msg);
+    document.body.appendChild(errorModal);
+
+    const modal = new bootstrap.Modal(errorModal, {
+        backdrop: 'static',
+        keyboard: false
+    });
+
+    errorModal.addEventListener('shown.bs.modal', () => {
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        const backdrop = backdrops[backdrops.length - 1];
+        if (backdrop) {
+            backdrop.style.zIndex = '21900';
         }
-    } catch (e) {
-        alert(msg);
-    }
+    });
+
+    errorModal.addEventListener('hidden.bs.modal', () => {
+        document.body.removeChild(errorModal);
+    });
+
+    modal.show();
 }
 
-// Provide initializePagination wrapper if not already defined by included scripts
+// VALIDATION MODAL (missing remarks, missing score, etc.)
+function showValidationError(message) {
+    const validationModal = document.createElement('div');
+    validationModal.className = 'modal fade';
+    validationModal.id = 'validationModal';
+
+    validationModal.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content validation-modal-content">
+                <div class="modal-body text-center p-4">
+                    <div class="validation-icon mb-3">
+                        <i class="fas fa-exclamation-triangle" style="color: #dc3545; font-size: 3rem;"></i>
+                    </div>
+                    <h5 class="validation-title mb-3">Validation Required</h5>
+                    <p class="validation-message mb-4">${message}</p>
+                    <button type="button" class="btn btn-warning" data-bs-dismiss="modal">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    validationModal.style.zIndex = '22000';
+
+    document.body.appendChild(validationModal);
+
+    const modal = new bootstrap.Modal(validationModal, {
+        backdrop: 'static',
+        keyboard: false
+    });
+
+    validationModal.addEventListener('shown.bs.modal', () => {
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        const backdrop = backdrops[backdrops.length - 1];
+        if (backdrop) {
+            backdrop.style.zIndex = '21900';
+        }
+    });
+
+    validationModal.addEventListener('hidden.bs.modal', () => {
+        document.body.removeChild(validationModal);
+    });
+
+    modal.show();
+}
+
+// SUCCESS MODAL (approve / reject / return / flag)
+function showSuccessMessage(action) {
+    let message = '';
+    let icon = '';
+    let color = '';
+
+    switch (action) {
+        case 'approve':
+            message = 'Submission has been successfully approved!';
+            icon = 'fas fa-check-circle';
+            color = '#28a745';
+            break;
+        case 'reject':
+            message = 'Submission has been successfully rejected.';
+            icon = 'fas fa-times-circle';
+            color = '#8B0000';
+            break;
+        case 'return':
+            message = 'Submission has been returned to the student for revision.';
+            icon = 'fas fa-undo';
+            color = '#FFD700';
+            break;
+        case 'flag':
+            message = 'Submission has been flagged for further review.';
+            icon = 'fas fa-flag';
+            color = '#dc3545';
+            break;
+        default:
+            message = 'Action completed successfully!';
+            icon = 'fas fa-info-circle';
+            color = '#007bff';
+    }
+
+    const successModal = document.createElement('div');
+    successModal.className = 'modal fade';
+    successModal.id = 'successModal';
+
+    successModal.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content success-modal-content">
+                <div class="modal-body text-center p-4">
+                    <div class="success-icon mb-3">
+                        <i class="${icon}" style="color: ${color}; font-size: 3rem;"></i>
+                    </div>
+                    <h5 class="success-title mb-3">Success!</h5>
+                    <p class="success-message mb-4">${message}</p>
+                    <button type="button" class="btn btn-success" data-bs-dismiss="modal">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    successModal.style.zIndex = '22000';
+
+    document.body.appendChild(successModal);
+
+    const modal = new bootstrap.Modal(successModal, {
+        backdrop: 'static',
+        keyboard: false
+    });
+
+    successModal.addEventListener('shown.bs.modal', () => {
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        const backdrop = backdrops[backdrops.length - 1];
+        if (backdrop) {
+            backdrop.style.zIndex = '21900';
+        }
+    });
+
+    successModal.addEventListener('hidden.bs.modal', () => {
+        document.body.removeChild(successModal);
+    });
+
+    modal.show();
+}
+
+/* =========================
+   CONFIRMATION MODAL (UI)
+   ========================= */
+
+function showConfirmModal({ title, message, confirmLabel = 'Yes', confirmClass = 'btn-primary' }) {
+    return new Promise((resolve) => {
+        const modalEl = document.getElementById('confirmationModal');
+        const titleEl = document.getElementById('confirmationModalTitle');
+        const bodyEl = document.getElementById('confirmationModalBody');
+        const confirmBtn = document.getElementById('confirmActionBtn');
+
+        // Fallback to window.confirm if modal/bootstrap is missing
+        if (!modalEl || !titleEl || !bodyEl || !confirmBtn || typeof bootstrap === 'undefined') {
+            const ok = window.confirm(message || 'Are you sure?');
+            resolve(ok);
+            return;
+        }
+
+        titleEl.textContent = title || 'Confirm Action';
+        bodyEl.textContent = message || 'Are you sure you want to continue?';
+
+        confirmBtn.className = 'btn ' + confirmClass;
+        confirmBtn.textContent = confirmLabel || 'Yes';
+
+        let resolved = false;
+
+        const modal = new bootstrap.Modal(modalEl, {
+            backdrop: 'static',
+            keyboard: false
+        });
+
+        const handleConfirm = () => {
+            if (resolved) return;
+            resolved = true;
+            modal.hide();
+            resolve(true);
+        };
+
+        const handleHidden = () => {
+            if (resolved) return;
+            resolved = true;
+            resolve(false);
+        };
+
+        const handleShown = () => {
+            modalEl.style.zIndex = '23000';
+
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            const backdrop = backdrops[backdrops.length - 1];
+            if (backdrop) {
+                backdrop.classList.add('confirmation-backdrop');
+                backdrop.style.zIndex = '22900';
+            }
+
+            modalEl.removeEventListener('shown.bs.modal', handleShown);
+        };
+
+        confirmBtn.addEventListener('click', handleConfirm, { once: true });
+        modalEl.addEventListener('hidden.bs.modal', handleHidden, { once: true });
+        modalEl.addEventListener('shown.bs.modal', handleShown, { once: true });
+
+        modal.show();
+    });
+}
+
+/* =========================
+   PAGINATION WRAPPER
+   ========================= */
+
 if (typeof initializePagination === 'undefined') {
     window.initializePagination = function () {
         if (typeof initializeAdminPagination !== 'undefined') {
@@ -60,7 +277,7 @@ if (typeof initializePagination === 'undefined') {
 }
 
 /* =========================
-   MODAL HELPERS
+   MODAL STATE + DETAILS LOADER
    ========================= */
 
 function resetModalState() {
@@ -76,7 +293,7 @@ function resetModalState() {
         'modalOrganizingBody',
         'modalDescription',
         'modalAutoScore'
-    ].forEach(id => setText(id, 'Loading...'));
+    ].forEach(id => setText(id, '-'));
 
     currentSubmissionId   = null;
     currentAutoScore      = null;
@@ -84,6 +301,9 @@ function resetModalState() {
     currentRate           = null;
     currentCap            = null;
     currentRubricOptionId = null;
+
+    const remarksEl = document.getElementById('assessorRemarks');
+    if (remarksEl) remarksEl.value = '';
 }
 
 window.openSubmissionModal = async function (submissionId) {
@@ -152,9 +372,6 @@ window.openSubmissionModal = async function (submissionId) {
         // docs & rubric
         populateDocumentPreview(submission.documents || []);
         populateRubricOptions(rubric.options || []);
-
-        const remarksEl = document.getElementById('assessorRemarks');
-        if (remarksEl) remarksEl.value = '';
 
         currentSubmissionId = submissionId;
 
@@ -234,7 +451,7 @@ function populateRubricOptions(options) {
 
     container.innerHTML = '';
 
-    // CASE 1: option-based rubric (leadership A/B/C, academic, awards, conduct)
+    // CASE 1: option-based rubric
     if (options && options.length > 0) {
         const list = document.createElement('div');
         list.className = 'rubric-options-list';
@@ -276,7 +493,7 @@ function populateRubricOptions(options) {
         return;
     }
 
-    // CASE 2: rate-based rubric (D trainings, community service, etc.)
+    // CASE 2: rate-based rubric
     if (currentScoringMethod === 'rate') {
         const rateText = currentRate != null ? `${currentRate} pts/day` : 'rate not defined';
         const currentScoreText =
@@ -305,7 +522,6 @@ function populateRubricOptions(options) {
         const scoreDisplay = document.getElementById('rateScoreDisplay');
 
         if (daysInput && currentAutoScore != null && !isNaN(currentAutoScore) && currentRate) {
-            // Try to back-calc days just for convenience
             const approxDays = currentAutoScore / currentRate;
             if (!isNaN(approxDays)) {
                 daysInput.value = approxDays.toFixed(2).replace(/\.00$/, '');
@@ -327,7 +543,6 @@ function populateRubricOptions(options) {
                     score = Math.min(score, currentCap);
                 }
 
-                // Round to 2 decimals to match DB decimal(10,2)
                 score = Math.round(score * 100) / 100;
 
                 currentAutoScore = score;
@@ -337,7 +552,6 @@ function populateRubricOptions(options) {
             });
         }
 
-        // no radios here
         currentRubricOptionId = null;
         return;
     }
@@ -353,27 +567,32 @@ function populateRubricOptions(options) {
 
 window.handleSubmission = async function (action) {
     if (!currentSubmissionId) {
-        showErrorModal('No submission selected');
+        showErrorModal('No submission selected.');
         return;
     }
 
     const remarks = (document.getElementById('assessorRemarks')?.value || '').trim();
 
+    // Require remarks for reject/return/flag
     if ((action === 'reject' || action === 'return' || action === 'flag') && !remarks) {
         showValidationError('Please provide remarks before performing this action.');
         return;
     }
 
     const selectedOption = document.querySelector('input[name="rubric_option"]:checked');
-    let totalPoints = selectedOption ? parseFloat(selectedOption.value) : null;
 
-    // For approve: require either a radio (option-based) OR a valid auto score (rate-based/manual)
+    // Default score to 0 to avoid NULL inserts
+    let totalPoints = 0;
+
+    // For approve: require either a descriptor OR a valid rate-based score
     if (action === 'approve') {
-        if (selectedOption && !isNaN(totalPoints)) {
-            // descriptor-based path is fine
-        } else if (currentScoringMethod === 'rate' &&
-                   currentAutoScore != null &&
-                   !isNaN(currentAutoScore)) {
+        if (selectedOption && !isNaN(parseFloat(selectedOption.value))) {
+            totalPoints = parseFloat(selectedOption.value);
+        } else if (
+            currentScoringMethod === 'rate' &&
+            currentAutoScore != null &&
+            !isNaN(currentAutoScore)
+        ) {
             totalPoints = currentAutoScore;
         } else {
             showValidationError(
@@ -382,6 +601,61 @@ window.handleSubmission = async function (action) {
             return;
         }
     }
+
+    // Confirmation config
+    let confirmConfig = {
+        title: 'Confirm Action',
+        message: 'Are you sure you want to perform this action?',
+        confirmLabel: 'Yes, continue',
+        confirmClass: 'btn-primary'
+    };
+
+    switch (action) {
+        case 'approve':
+            confirmConfig = {
+                title: 'Confirm Approval',
+                message:
+                    `Are you sure you want to APPROVE this submission` +
+                    (totalPoints ? ` with a score of ${totalPoints} pts` : '') +
+                    `?\n\nThis will finalize the review for this entry.`,
+                confirmLabel: 'Yes, approve',
+                confirmClass: 'btn-success'
+            };
+            break;
+        case 'reject':
+            confirmConfig = {
+                title: 'Confirm Rejection',
+                message:
+                    'Are you sure you want to REJECT this submission?\n\n' +
+                    'The student will see your remarks and the submission will be marked as rejected.',
+                confirmLabel: 'Yes, reject',
+                confirmClass: 'btn-danger'
+            };
+            break;
+        case 'return':
+            confirmConfig = {
+                title: 'Return Submission',
+                message:
+                    'Are you sure you want to RETURN this submission to the student for revision?\n\n' +
+                    'They will be asked to revise and resubmit based on your remarks.',
+                confirmLabel: 'Yes, return',
+                confirmClass: 'btn-warning'
+            };
+            break;
+        case 'flag':
+            confirmConfig = {
+                title: 'Flag for Admin Review',
+                message:
+                    'Are you sure you want to FLAG this submission for admin review?\n\n' +
+                    'Use this for suspicious or problematic documents.',
+                confirmLabel: 'Yes, flag',
+                confirmClass: 'btn-danger'
+            };
+            break;
+    }
+
+    const confirmed = await showConfirmModal(confirmConfig);
+    if (!confirmed) return;
 
     const csrfMeta = document.querySelector('meta[name="csrf-token"]');
     if (!csrfMeta) {
@@ -397,13 +671,13 @@ window.handleSubmission = async function (action) {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': csrfToken,
                 'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
+                'X-Requested-With': 'XMLHttpRequest'
             },
             body: JSON.stringify({
                 action: action,
                 remarks: remarks,
                 total_points: totalPoints,
-                rubric_option_id: currentRubricOptionId,
+                rubric_option_id: currentRubricOptionId
             })
         });
 

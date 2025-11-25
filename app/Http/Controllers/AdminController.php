@@ -12,6 +12,17 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\OtpCodeMail;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\College;
+use App\Models\Program;
+use App\Models\StudentAcademic;
+use App\Models\UserDocument;
+use App\Models\SystemMonitoringAndLog;
 
 class AdminController extends Controller
 {
@@ -102,37 +113,48 @@ class AdminController extends Controller
     // PUT /admin/profile/password
     public function updatePassword(Request $request)
     {
-        $request->validate([
-            'current_password' => ['required'],
-            'password'         => ['required', 'confirmed', PasswordRule::min(8)],
-        ]);
-
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        if (! Hash::check($request->current_password, $user->password)) {
-            return back()->withErrors(['current_password' => 'Your current password is incorrect.']);
+        $data = $request->validate([
+            'current_password'      => ['required'],
+            'password'              => ['required', 'confirmed', \Illuminate\Validation\Rules\Password::defaults()],
+            'password_confirmation' => ['required'],
+        ]);
+
+        if (!\Hash::check($data['current_password'], $user->password)) {
+            return back()->withErrors(['current_password' => 'Current password is incorrect.']);
         }
 
-        // Optional: audit password change if table exists
-        if (Schema::hasTable('password_changes')) {
-            DB::table('password_changes')->insert([
-                'user_id'                => $user->id,
-                'previous_password_hash' => $user->password,
-                'changed_at'             => now(),
-                'changed_by'             => 'self',
-                'ip'                     => $request->ip(),
-                'user_agent'             => substr((string) $request->userAgent(), 0, 255),
-                'created_at'             => now(),
-                'updated_at'             => now(),
-            ]);
-        }
+        // Store previous hash in password_changes table (if you already do this)
+        \DB::table('password_changes')->insert([
+            'user_id'                => $user->id,
+            'previous_password_hash' => $user->password,
+            'changed_at'             => now(),
+            'changed_by'             => 'self',
+            'ip'                     => $request->ip(),
+            'user_agent'             => $request->userAgent(),
+            'created_at'             => now(),
+            'updated_at'             => now(),
+        ]);
 
-        $user->password = $request->password; // auto-hash via model mutator
+        // Actually change the password
+        $user->password = \Hash::make($data['password']);
         $user->save();
 
-        return back()->with('status', 'Password updated.');
+        // 🔹 SYSTEM LOG: PASSWORD CHANGE
+        $displayName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+
+        SystemMonitoringAndLog::record(
+            $user->role,
+            $displayName ?: $user->email,
+            'Update',
+            'User changed account password.'
+        );
+
+        return back()->with('status', 'Password updated successfully.');
     }
+
 
     /* =========================
      | USER MANAGEMENT
@@ -176,61 +198,45 @@ class AdminController extends Controller
 
     public function storeUser(Request $request)
     {
-        $limit    = (int) config('slea.max_admin_accounts', 3);
-        $roleList = ['admin', 'assessor'];
-
         $data = $request->validate([
-            'role'        => ['required', 'in:' . implode(',', $roleList)],
-            'last_name'   => ['required', 'string', 'max:50'],
-            'first_name'  => ['required', 'string', 'max:50'],
+            'first_name' => ['required', 'string', 'max:50'],
+            'last_name'  => ['required', 'string', 'max:50'],
             'middle_name' => ['nullable', 'string', 'max:50'],
-            'email'       => ['required', 'email', 'max:100', 'unique:users,email'],
-            'contact'     => ['nullable', 'string', 'max:20'],
+            'email'      => ['required', 'email', 'max:100', 'unique:users,email'],
+            'role'       => ['required', 'string', 'in:admin,assessor,student'],
+            'status'     => ['required', 'string', 'in:pending,approved,rejected'],
+            // other fields...
         ]);
 
-        // Enforce admin cap
-        if ($data['role'] === 'admin') {
-            $adminCnt = \App\Models\User::where('role', 'admin')->count();
-            if ($adminCnt >= $limit) {
-                return back()->withErrors(['role' => "Admin account limit of {$limit} reached."])->withInput();
-            }
-        }
+        $password = Str::random(10);
 
-        // 1) Create with a placeholder password (will be replaced immediately)
-        $user = \App\Models\User::create([
-            'first_name'  => $data['first_name'],
-            'last_name'   => $data['last_name'],
+        $user = User::create([
+            'first_name' => $data['first_name'],
+            'last_name'  => $data['last_name'],
             'middle_name' => $data['middle_name'] ?? null,
-            'email'       => $data['email'],
-            'contact'     => $data['contact'] ?? null,
-            'password'    => 'placeholder',   // will be overwritten; mutator will hash
-            'role'        => $data['role'],
-            'status'      => 'approved',
+            'email'      => $data['email'],
+            'password'   => \Hash::make($password),
+            'role'       => $data['role'],
+            'status'     => $data['status'],
+            // contact / birth_date / etc.
         ]);
 
-        // 2) Set friendly temp password based on its auto-increment ID (no migration needed)
-        $plain = 'password_' . $user->id;
-        $user->password = $plain;  // hashed by your User model mutator
-        $user->save();
+        $admin = Auth::user();
 
-        // (Optional) Insert admin privileges if table exists
-        if ($data['role'] === 'admin' && \Illuminate\Support\Facades\Schema::hasTable('admin_privileges')) {
-            \Illuminate\Support\Facades\DB::table('admin_privileges')->insert([
-                'user_id'     => $user->id,
-                'admin_level' => 'standard',
-                'permissions' => null,
-                'created_at'  => now(),
-                'updated_at'  => now(),
-            ]);
-        }
+        // 🔹 SYSTEM LOG: ACCOUNT CREATION
+        $adminName = trim($admin->first_name . ' ' . ($admin->middle_name ? $admin->middle_name . ' ' : '') . $admin->last_name);
+        $userName  = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
 
-        return redirect()
-            ->route('admin.create_user')
-            ->with([
-                'success'            => ucfirst($data['role']) . ' account created.',
-                'generated_password' => $plain, // shown once in your modal
-            ]);
+        SystemMonitoringAndLog::record(
+            $admin->role,                                       // 'admin'
+            $adminName ?: $admin->email,
+            'Create',
+            "Created {$user->role} account for {$userName} ({$user->email})."
+        );
+
+        return redirect()->route('admin.manage')->with('status', 'User account created successfully.');
     }
+
 
 
     // GET /admin/approve-reject
@@ -262,30 +268,53 @@ class AdminController extends Controller
 
 
     // POST /admin/approve/{student_id}
-    public function approveUser(int $student_id)
+    public function approveUser($student_id)
     {
-        $user = User::findOrFail($student_id);
+        $admin = Auth::user();
 
-        if (! $user->isStudent() || ! $user->isPending()) {
-            return back()->withErrors(['email' => 'Only pending student accounts can be approved.']);
-        }
+        $student = User::where('id', $student_id)->firstOrFail();
+        $student->status = 'approved';
+        $student->save();
 
-        $user->approve();
-        return back()->with('status', 'Student approved.');
+        $adminName   = trim($admin->first_name . ' ' . ($admin->middle_name ? $admin->middle_name . ' ' : '') . $admin->last_name);
+        $studentName = trim($student->first_name . ' ' . ($student->middle_name ? $student->middle_name . ' ' : '') . $student->last_name);
+
+        // 🔹 SYSTEM LOG: APPROVAL
+        SystemMonitoringAndLog::record(
+            $admin->role,
+            $adminName ?: $admin->email,
+            'Update',
+            "Approved account for {$studentName} ({$student->email})."
+        );
+
+        return redirect()->back()->with('status', 'Student account approved successfully.');
     }
 
 
     // POST /admin/reject/{user}
-    public function rejectUser(User $user)
+    public function rejectUser($student_id)
     {
-        if (! $user->isStudent() || ! $user->isPending()) {
-            return back()->withErrors(['email' => 'Only pending student accounts can be rejected.']);
-        }
+        $admin = Auth::user();
 
-        $user->reject(); // assumes you have this helper on the model
+        $student = User::where('id', $student_id)->firstOrFail();
+        $studentName = trim($student->first_name . ' ' . ($student->middle_name ? $student->middle_name . ' ' : '') . $student->last_name);
 
-        return back()->with('status', 'Student rejected.');
+        $student->status = 'rejected';
+        $student->save();
+
+        $adminName = trim($admin->first_name . ' ' . ($admin->middle_name ? $admin->middle_name . ' ' : '') . $admin->last_name);
+
+        // 🔹 SYSTEM LOG: REJECTION
+        SystemMonitoringAndLog::record(
+            $admin->role,
+            $adminName ?: $admin->email,
+            'Update',
+            "Rejected account for {$studentName} ({$student->email})."
+        );
+
+        return redirect()->back()->with('status', 'Student account rejected.');
     }
+
 
 
     // PATCH /admin/manage/{user}/toggle   (approved <-> disabled)
@@ -335,90 +364,367 @@ class AdminController extends Controller
         return back()->with('status', 'User deleted.');
     }
     // GET /admin/revalidation
+    // GET /admin/revalidation
     public function revalidationQueue()
     {
-        $rows = \DB::table('users as u')
-            ->join('student_academic as a', 'a.user_id', '=', 'u.id')
-            ->select('u.id', 'u.first_name', 'u.last_name', 'u.email', 'a.expected_grad_year', 'a.eligibility_status', 'a.updated_at')
-            ->where('u.role', 'student')
-            ->whereIn('a.eligibility_status', ['needs_revalidation', 'under_review'])
-            ->orderByDesc('a.updated_at')
+        // Use Eloquent so we can show more info and re-use relationships
+        $rows = StudentAcademic::with(['user'])
+            ->whereIn('eligibility_status', ['needs_revalidation', 'under_review'])
+            ->orderByDesc('updated_at')
             ->paginate(20)
             ->withQueryString();
 
-        return view('admin.users.revalidation', compact('rows'));
+        return view('admin.revalidation', compact('rows'));
     }
 
     // POST /admin/revalidation/{user}/approve
     public function approveRevalidation(User $user)
     {
-        // trust updated academic info + COR already uploaded; mark eligible again
-        \DB::table('student_academic')->where('user_id', $user->id)->update([
+        if (! $user->isStudent()) {
+            abort(403);
+        }
+
+        $academic = \App\Models\StudentAcademic::where('user_id', $user->id)->firstOrFail();
+
+        // Must be in revalidation-required state
+        if (! in_array($academic->eligibility_status, ['needs_revalidation', 'under_review'], true)) {
+            return back()->withErrors([
+                'revalidation' => 'This student is not marked for revalidation.',
+            ]);
+        }
+
+        // Must have COR
+        if (!$academic->hasCor()) {
+            return back()->withErrors([
+                'cor' => 'Student has no Certificate of Registration (COR) uploaded. Cannot approve.',
+            ]);
+        }
+
+        // (Optional future rule) Must have complete academic info
+        if (!$academic->expected_grad_year || !$academic->program_id || !$academic->year_level) {
+            return back()->withErrors([
+                'academic' => 'Academic details incomplete. Require student to update before revalidation.',
+            ]);
+        }
+
+        // Approve revalidation
+        $academic->update([
             'eligibility_status' => 'eligible',
             'revalidated_at'     => now(),
-            'updated_at'         => now(),
         ]);
 
-        return back()->with('status', 'Revalidation approved.');
+        return back()->with('status', 'Revalidation approved. Student is now eligible.');
     }
+
 
     // POST /admin/revalidation/{user}/reject
     public function rejectRevalidation(User $user)
     {
-        \DB::table('student_academic')->where('user_id', $user->id)->update([
+        if (! $user->isStudent()) {
+            abort(403);
+        }
+
+        /** @var StudentAcademic $academic */
+        $academic = StudentAcademic::where('user_id', $user->id)->firstOrFail();
+
+        if (! in_array((string) $academic->eligibility_status, ['needs_revalidation', 'under_review'], true)) {
+            return back()->withErrors([
+                'revalidation' => 'Only students flagged for revalidation can be rejected.',
+            ]);
+        }
+
+        // Simple: mark fully ineligible
+        $academic->update([
             'eligibility_status' => 'ineligible',
-            'updated_at'         => now(),
         ]);
 
-        return back()->with('status', 'Revalidation rejected.');
+        return back()->with('status', 'Revalidation rejected. Student marked ineligible.');
     }
+
 
     /* =========================
      | SYSTEM PAGES (stubs)
      * ========================= */
-
-    public function submissionOversight()
+    /* =========================
+     | SYSTEM PAGES (AWARDS REPORT)
+     * ========================= */
+    public function awardReportDashboard(Request $request)
     {
-        return view('admin.system.submission-oversight');
+        // Build all rows (already filtered by SLEA status, etc.)
+        $rows = $this->buildAwardReportRows($request);
+
+        // Stats for summary cards
+        $stats = [
+            'total'     => $rows->count(),
+            'gold'      => $rows->where('award_level', 'gold')->count(),
+            'silver'    => $rows->where('award_level', 'silver')->count(),
+            'qualified' => $rows->where('award_level', 'qualified')->count(),
+            'tracking'  => $rows->whereIn('award_level', ['tracking', 'not_qualified'])->count(),
+        ];
+
+        // Manual pagination on the already-computed collection
+        $page    = LengthAwarePaginator::resolveCurrentPage();
+        $perPage = 20;
+
+        $pageItems = $rows
+            ->slice(($page - 1) * $perPage, $perPage)
+            ->values();
+
+        $students = new LengthAwarePaginator(
+            $pageItems,
+            $rows->count(),
+            $perPage,
+            $page,
+            [
+                'path'  => request()->url(),
+                'query' => request()->query(),
+            ]
+        );
+
+        // For dropdown filters
+        $colleges = class_exists(\App\Models\College::class)
+            ? \App\Models\College::orderBy('name')->get()
+            : collect();
+
+        $programs = class_exists(\App\Models\Program::class)
+            ? \App\Models\Program::orderBy('name')->get()
+            : collect();
+
+        // Placeholder if you later add a "batch" column
+        $batches = [];
+
+        // Main admin awards report page
+        return view('admin.award-report', [
+            'students' => $students,
+            'stats'    => $stats,
+            'colleges' => $colleges,
+            'programs' => $programs,
+            'batches'  => $batches,
+        ]);
     }
 
-    public function finalReview()
+    public function exportAwardReportPdf(Request $request)
     {
-        return view('admin.system.final-review');
+        // buildAwardReportRows is whatever we already wrote earlier
+        $rows = $this->buildAwardReportRows($request);
+
+        $students = $rows;
+
+        // 👇 use the actual view path: resources/views/admin/pdf/admin-report.blade.php
+        $pdf = Pdf::loadView('admin.pdf.award-report', [
+            'students'    => $students,
+            'generatedAt' => now(),
+        ])->setPaper('A4', 'portrait');
+
+        return $pdf->download('slea-awards-report.pdf');
+    }
+
+    /**
+     * Build the base dataset for the awards report.
+     *
+     * Returns a collection of stdClass objects:
+     *  - user (stdClass with full_name, studentAcademic, etc.)
+     *  - total_points (percentage 0–100)
+     *  - award_level (gold/silver/qualified/tracking/not_qualified)
+     *  - slea_status (e.g. "SLEA Qualified")
+     *  - program_code, program_name, student_number, college_name, etc.
+     */
+    protected function buildAwardReportRows(Request $request): \Illuminate\Support\Collection
+    {
+        if (
+            ! Schema::hasTable('student_academic') ||
+            ! Schema::hasTable('assessor_compiled_scores') ||
+            ! Schema::hasTable('users')
+        ) {
+            return collect();
+        }
+
+        // Sum compiled scores per student
+        $scoreSub = DB::table('assessor_compiled_scores as acs')
+            ->select(
+                'acs.student_id',
+                DB::raw('SUM(acs.total_score) AS total_score'),
+                DB::raw('SUM(acs.max_points)  AS max_points')
+            )
+            ->groupBy('acs.student_id');
+
+        // Base query with joins + core filters
+        $query = DB::table('student_academic as sa')
+            ->select(
+                'sa.user_id',
+                'sa.student_number',
+                'sa.slea_application_status',
+                'u.first_name',
+                'u.last_name',
+                'u.middle_name',
+                'p.name  as program_name',
+                'p.code  as program_code',
+                'c.name  as college_name',
+                'c.code  as college_code',
+                'sc.total_score',
+                'sc.max_points'
+            )
+            ->join('users as u', 'u.id', '=', 'sa.user_id')
+            ->leftJoinSub($scoreSub, 'sc', function ($join) {
+                $join->on('sc.student_id', '=', 'sa.user_id');
+            })
+            ->leftJoin('programs as p', 'p.id', '=', 'sa.program_id')
+            ->leftJoin('colleges as c', 'c.id', '=', 'sa.college_id')
+            ->where('u.role', 'student')
+            // Only SLEA applications that are already awarded by admin
+            ->where('sa.slea_application_status', 'awarded')
+            ->whereNotNull('sc.total_score');
+
+        // --- filters from the list page (SEARCH) ---
+        if ($q = trim((string) $request->input('q', ''))) {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('sa.student_number', 'like', "%{$q}%")
+                    ->orWhere('u.first_name', 'like', "%{$q}%")
+                    ->orWhere('u.last_name', 'like', "%{$q}%");
+            });
+        }
+
+        // Filter by college
+        if ($collegeId = $request->input('college_id')) {
+            $query->where('sa.college_id', $collegeId);
+        }
+
+        // Filter by program
+        if ($programId = $request->input('program_id')) {
+            $query->where('sa.program_id', $programId);
+        }
+
+        // If you later add AY/batch, plug it here.
+        // if ($batch = $request->input('batch')) {
+        //     $query->where('sa.batch', $batch);
+        // }
+
+        $rows = $query->get();
+
+        // Map raw DB rows into richer objects for Blade
+        $mapped = $rows->map(function ($row) {
+            $max = (float) ($row->max_points ?? 0);
+            $percent = $max > 0
+                ? round(($row->total_score / $max) * 100, 2)
+                : 0.0;
+
+            // Simple award-level rules – adjust thresholds as needed
+            if ($percent >= 90) {
+                $awardLevel = 'gold';
+            } elseif ($percent >= 85) {
+                $awardLevel = 'silver';
+            } elseif ($percent >= 80) {
+                $awardLevel = 'qualified';
+            } elseif ($percent >= 70) {
+                $awardLevel = 'tracking';
+            } else {
+                $awardLevel = 'not_qualified';
+            }
+
+            // Map slea_application_status to display label
+            switch ($row->slea_application_status) {
+                case 'awarded':
+                    $statusLabel = 'SLEA Qualified';
+                    break;
+                case 'for_admin_review':
+                    $statusLabel = 'For Final Review';
+                    break;
+                default:
+                    $statusLabel = 'Tracking';
+                    break;
+            }
+
+            // Build pseudo-relationship objects so Blade can still do:
+            // $row->user->studentAcademic->program->code, etc.
+            $college = new \stdClass();
+            $college->name = $row->college_name;
+            $college->code = $row->college_code;
+
+            $program = new \stdClass();
+            $program->name = $row->program_name;
+            $program->code = $row->program_code;
+
+            $academic = new \stdClass();
+            $academic->student_id = $row->student_number;
+            $academic->college    = $college;
+            $academic->program    = $program;
+
+            $fullNameParts = array_filter([
+                $row->last_name,
+                ', ',
+                $row->first_name,
+                $row->middle_name ? ' ' . $row->middle_name : null,
+            ]);
+            $fullName = implode('', $fullNameParts);
+
+            $user = new \stdClass();
+            $user->id              = $row->user_id;
+            $user->full_name       = $fullName;
+            $user->studentAcademic = $academic;
+            $user->student_id      = $row->student_number;
+
+            $record = new \stdClass();
+            $record->user          = $user;
+            $record->total_points  = $percent;      // percentage (keep, we still use this for filters)
+            $record->award_level   = $awardLevel;
+            $record->slea_status   = $statusLabel;
+
+            // RAW scores – used by web table + PDF
+            $record->raw_total_score = (float) ($row->total_score ?? 0);
+            $record->raw_max_points  = (float) ($row->max_points ?? 0);
+
+            // extras used by some views
+            $record->program_code   = $row->program_code;
+            $record->program_name   = $row->program_name;
+            $record->college_name   = $row->college_name;
+            $record->student_number = $row->student_number;
+
+            return $record;
+        });
+
+        // Filter again by award_level if requested
+        if ($request->filled('award_level')) {
+            $level  = $request->input('award_level');
+            $mapped = $mapped
+                ->filter(fn($row) => $row->award_level === $level)
+                ->values();
+        }
+
+        // Filter again by minimum percentage score
+        if ($request->filled('min_score')) {
+            $threshold = (int) $request->input('min_score');
+            $mapped    = $mapped
+                ->filter(fn($row) => $row->total_points >= $threshold)
+                ->values();
+        }
+
+        // Sort by score descending
+        return $mapped->sortByDesc('total_points')->values();
     }
 
     public function awardReport(Request $request)
     {
-        // Sample data - replace with actual database query
-        $allStudents = [
-            ['id' => 1, 'name' => 'John Smith', 'student_id' => '2021-001', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 85],
-            ['id' => 2, 'name' => 'Sarah Wilson', 'student_id' => '2021-002', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 92],
-            ['id' => 3, 'name' => 'Michael Brown', 'student_id' => '2021-003', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 78],
-            ['id' => 4, 'name' => 'Lisa Garcia', 'student_id' => '2021-004', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 89],
-            ['id' => 5, 'name' => 'David Lee', 'student_id' => '2021-005', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 76],
-            ['id' => 6, 'name' => 'Maria Rodriguez', 'student_id' => '2021-006', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 94],
-            ['id' => 7, 'name' => 'James Wilson', 'student_id' => '2021-007', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 82],
-            ['id' => 8, 'name' => 'Anna Martinez', 'student_id' => '2021-008', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 87],
-            ['id' => 9, 'name' => 'Robert Kim', 'student_id' => '2021-009', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 91],
-            ['id' => 10, 'name' => 'Jennifer Chen', 'student_id' => '2021-010', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 83],
-            ['id' => 11, 'name' => 'Emily Davis', 'student_id' => '2021-011', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 88],
-            ['id' => 12, 'name' => 'David Miller', 'student_id' => '2021-012', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 95],
-            ['id' => 13, 'name' => 'Lisa Anderson', 'student_id' => '2021-013', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 82],
-            ['id' => 14, 'name' => 'Mark Thompson', 'student_id' => '2021-014', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 90],
-            ['id' => 15, 'name' => 'Rachel Green', 'student_id' => '2021-015', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 79],
-            ['id' => 16, 'name' => 'Kevin White', 'student_id' => '2021-016', 'college' => 'College of Engineering', 'program' => 'BSCE', 'points' => 86],
-            ['id' => 17, 'name' => 'Amanda Taylor', 'student_id' => '2021-017', 'college' => 'College of Engineering', 'program' => 'BSCE', 'points' => 93],
-            ['id' => 18, 'name' => 'Chris Johnson', 'student_id' => '2021-018', 'college' => 'College of Information and Computing', 'program' => 'BSIT', 'points' => 81],
-            ['id' => 19, 'name' => 'Nicole Brown', 'student_id' => '2021-019', 'college' => 'College of Information and Computing', 'program' => 'BSIT', 'points' => 89],
-            ['id' => 20, 'name' => 'Ryan Davis', 'student_id' => '2021-020', 'college' => 'College of Business Administration', 'program' => 'BSBA', 'points' => 84],
-        ];
-
         // Get filter parameters
         $college = $request->query('college');
         $program = $request->query('program');
         $search = $request->query('search');
 
-        // Apply filters
+        // Use buildAwardReportRows to get real data
+        $allRows = $this->buildAwardReportRows($request);
+
+        // Convert to array format compatible with existing view
+        $allStudents = $allRows->map(function ($row) {
+            return [
+                'id' => $row->user->id ?? 0,
+                'name' => $row->user->full_name ?? 'N/A',
+                'student_id' => $row->student_number ?? 'N/A',
+                'college' => $row->college_name ?? 'N/A',
+                'program' => $row->program_name ?? 'N/A',
+                'points' => round($row->total_points ?? 0),
+            ];
+        })->toArray();
+
+        // Apply additional filters (college, program, search)
         $filteredStudents = $allStudents;
         
         if ($college) {
@@ -475,33 +781,22 @@ class AdminController extends Controller
         $program = $request->query('program');
         $search = $request->query('search');
 
-        // Sample data - replace with actual database query
-        $allStudents = [
-            ['id' => 1, 'name' => 'John Smith', 'student_id' => '2021-001', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 85],
-            ['id' => 2, 'name' => 'Sarah Wilson', 'student_id' => '2021-002', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 92],
-            ['id' => 3, 'name' => 'Michael Brown', 'student_id' => '2021-003', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 78],
-            ['id' => 4, 'name' => 'Lisa Garcia', 'student_id' => '2021-004', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 89],
-            ['id' => 5, 'name' => 'David Lee', 'student_id' => '2021-005', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 76],
-            ['id' => 6, 'name' => 'Maria Rodriguez', 'student_id' => '2021-006', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 94],
-            ['id' => 7, 'name' => 'James Wilson', 'student_id' => '2021-007', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 82],
-            ['id' => 8, 'name' => 'Anna Martinez', 'student_id' => '2021-008', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 87],
-            ['id' => 9, 'name' => 'Robert Kim', 'student_id' => '2021-009', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 91],
-            ['id' => 10, 'name' => 'Jennifer Chen', 'student_id' => '2021-010', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 83],
-            ['id' => 11, 'name' => 'Emily Davis', 'student_id' => '2021-011', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 88],
-            ['id' => 12, 'name' => 'David Miller', 'student_id' => '2021-012', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 95],
-            ['id' => 13, 'name' => 'Lisa Anderson', 'student_id' => '2021-013', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 82],
-            ['id' => 14, 'name' => 'Mark Thompson', 'student_id' => '2021-014', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 90],
-            ['id' => 15, 'name' => 'Rachel Green', 'student_id' => '2021-015', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 79],
-            ['id' => 16, 'name' => 'Kevin White', 'student_id' => '2021-016', 'college' => 'College of Engineering', 'program' => 'BSCE', 'points' => 86],
-            ['id' => 17, 'name' => 'Amanda Taylor', 'student_id' => '2021-017', 'college' => 'College of Engineering', 'program' => 'BSCE', 'points' => 93],
-            ['id' => 18, 'name' => 'Chris Johnson', 'student_id' => '2021-018', 'college' => 'College of Information and Computing', 'program' => 'BSIT', 'points' => 81],
-            ['id' => 19, 'name' => 'Nicole Brown', 'student_id' => '2021-019', 'college' => 'College of Information and Computing', 'program' => 'BSIT', 'points' => 89],
-            ['id' => 20, 'name' => 'Ryan Davis', 'student_id' => '2021-020', 'college' => 'College of Business Administration', 'program' => 'BSBA', 'points' => 84],
-        ];
+        // Use buildAwardReportRows to get real data
+        $allRows = $this->buildAwardReportRows($request);
 
-        // Apply filters
-        $filteredStudents = $allStudents;
-        
+        // Convert to array format compatible with existing PDF view
+        $filteredStudents = $allRows->map(function ($row) {
+            return [
+                'id' => $row->user->id ?? 0,
+                'name' => $row->user->full_name ?? 'N/A',
+                'student_id' => $row->student_number ?? 'N/A',
+                'college' => $row->college_name ?? 'N/A',
+                'program' => $row->program_name ?? 'N/A',
+                'points' => round($row->total_points ?? 0),
+            ];
+        })->toArray();
+
+        // Apply additional filters
         if ($college) {
             $filteredStudents = array_filter($filteredStudents, function($student) use ($college) {
                 return $student['college'] === $college;
@@ -526,7 +821,6 @@ class AdminController extends Controller
         $filteredStudents = array_values($filteredStudents);
 
         // Generate PDF or CSV export
-        // For now, return a view that can be printed as PDF
         return view('admin.pdf.award-report', [
             'students' => $filteredStudents,
             'filters' => [

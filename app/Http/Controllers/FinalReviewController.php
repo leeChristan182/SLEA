@@ -1,47 +1,88 @@
 <?php
+
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Controller;
+use App\Models\AssessorFinalReview;
 use App\Models\FinalReview;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class FinalReviewController extends Controller
 {
+    /**
+     * List students queued for Admin final review (plus already decided ones).
+     */
     public function index()
     {
-        $finalReviews = FinalReview::all();
-        return view('final_reviews.index', compact('finalReviews'));
+        $items = AssessorFinalReview::query()
+            ->with([
+                'student.studentAcademic.program.college',
+                'compiledScores.category',
+                'finalReview',
+            ])
+            ->whereIn('status', ['queued_for_admin', 'finalized'])
+            ->orderByDesc('reviewed_at')
+            ->get();
+
+        return view('admin.final-review', compact('items'));
     }
 
-    public function create()
+    /**
+     * Store the admin decision (approved / not_qualified) for a student.
+     */
+    public function storeDecision(Request $request, AssessorFinalReview $assessorFinalReview)
     {
-        return view('final_reviews.create');
-    }
+        $data = $request->validate([
+            'decision' => ['required', 'in:approved,not_qualified'],
+        ]);
 
-    public function store(Request $request)
-    {
-        FinalReview::create($request->all());
-        return redirect()->route('final_reviews.index');
-    }
+        $admin = Auth::user();
 
-    public function show(FinalReview $finalReview)
-    {
-        return view('final_reviews.show', compact('finalReview'));
-    }
+        DB::transaction(function () use ($assessorFinalReview, $admin, $data) {
+            // Upsert final_reviews row
+            $final = $assessorFinalReview->finalReview()
+                ->firstOrNew([]);
 
-    public function edit(FinalReview $finalReview)
-    {
-        return view('final_reviews.edit', compact('finalReview'));
-    }
+            $final->fill([
+                'admin_id'    => $admin?->id,
+                'decision'    => $data['decision'],
+                'reviewed_at' => now(),
+            ]);
 
-    public function update(Request $request, FinalReview $finalReview)
-    {
-        $finalReview->update($request->all());
-        return redirect()->route('final_reviews.index');
-    }
+            $final->save();
 
-    public function destroy(FinalReview $finalReview)
+            // Update assessor_final_reviews
+            $assessorFinalReview->status = 'finalized';
+            $assessorFinalReview->qualification = $data['decision'] === 'approved'
+                ? 'qualified'
+                : 'unqualified';
+            $assessorFinalReview->save();
+
+            // Update student_academic.slea_application_status
+            $student = $assessorFinalReview->student;
+            if ($student && $student->studentAcademic) {
+                $studentAcademic = $student->studentAcademic;
+
+                $studentAcademic->slea_application_status = $data['decision'] === 'approved'
+                    ? 'awarded'
+                    : 'not_qualified';
+
+                $studentAcademic->save();
+            }
+        });
+
+        $msg = $data['decision'] === 'approved'
+            ? 'Student marked as AWARDED for SLEA.'
+            : 'Student marked as NOT QUALIFIED for SLEA.';
+
+        return redirect()
+            ->route('admin.final-review')
+            ->with('status', $msg);
+    }
+    public function decide(Request $request, AssessorFinalReview $assessorFinalReview)
     {
-        $finalReview->delete();
-        return redirect()->route('final_reviews.index');
+        return $this->storeDecision($request, $assessorFinalReview);
     }
 }

@@ -110,7 +110,7 @@ class AssessorSubmissionController extends Controller
                 'student' => [
                     'student_id'     => $studentId,
                     'student_number' => $studentId,
-                    'name'       => $studentName,
+                    'name'           => $studentName,
                 ],
 
                 'document_title'       => $submission->activity_title,
@@ -149,6 +149,7 @@ class AssessorSubmissionController extends Controller
             'remarks'        => 'nullable|string|max:2000',
             'total_points'   => 'nullable|numeric', // new name
             'assessor_score' => 'nullable|numeric', // old name from JS (if any)
+            'rubric_option_id' => 'nullable|integer', // optional, if you ever want to trust JS id
         ]);
 
         $action  = $data['action'];
@@ -162,24 +163,27 @@ class AssessorSubmissionController extends Controller
             $score = $submission->auto_score;
         }
 
-
-        $decisionMap = [
-            'approve' => 'approved',
+        // Map assessor actions → submission_statuses keys
+        // (aligned with your enum migration: pending, under_review, accepted, returned, rejected, flagged)
+        $statusMap = [
+            'approve' => 'accepted',
             'reject'  => 'rejected',
             'return'  => 'returned',
             'flag'    => 'flagged',
         ];
-        $newStatus = $decisionMap[$action];
+        $newStatus = $statusMap[$action];
 
-        DB::transaction(function () use ($submission, $user, $newStatus, $remarks, $score) {
+        DB::transaction(function () use ($submission, $user, $newStatus, $remarks, $score, $data) {
             $oldStatus = $submission->status;
 
             // 🔹 Always store which rubric_subsection this review belongs to
             $rubricSubsectionId = $submission->rubric_subsection_id;
 
             // 🔹 Try to resolve the specific rubric option (for option-based items)
-            $rubricOptionId = null;
-            if ($rubricSubsectionId && $score !== null) {
+            $rubricOptionId = $data['rubric_option_id'] ?? null;
+
+            // If no rubric_option_id was provided but we have a score, try best-effort lookup by points
+            if (!$rubricOptionId && $rubricSubsectionId && $score !== null) {
                 $rubricOption = RubricOption::where('sub_section_id', $rubricSubsectionId)
                     ->where('points', $score)
                     ->first();
@@ -196,14 +200,23 @@ class AssessorSubmissionController extends Controller
                     'assessor_id'   => $user->id,
                 ],
                 [
-                    'sub_section_id'    => $rubricSubsectionId,   // ✅ matches migration + model
+                    'rubric_category_id' => $submission->rubric_category_id,
+
+                    'sub_section_id'    => $rubricSubsectionId,
                     'rubric_option_id'  => $rubricOptionId,
-                    'comments'          => $remarks,
-                    'score'             => $score,
+                    'score'             => $score ?? 0,
+                    'score_source'      => 'auto', // or 'manual' if you later support overrides
                     'reviewed_at'       => now(),
+
+                    // Mirror workflow + remarks
+                    'status'  => $newStatus,
+                    'remarks' => $remarks,
+
+                    // Keep legacy fields in sync if you want
+                    'comments' => $remarks,
+                    'decision' => null, // map later to category_results if you need
                 ]
             );
-
 
             // 2) update submission workflow status
             $submission->status = $newStatus;
@@ -221,8 +234,8 @@ class AssessorSubmissionController extends Controller
                 'remarks'       => $remarks,
             ]);
 
-            // 4) recompute compiled score if approved
-            if ($newStatus === 'approved') {
+            // 4) recompute compiled score if accepted
+            if ($newStatus === 'accepted') {
                 $this->recomputeCompiledScoreForStudentCategory($submission, $user);
             }
         });
@@ -233,8 +246,6 @@ class AssessorSubmissionController extends Controller
         ]);
     }
 
-
-
     protected function recomputeCompiledScoreForStudentCategory(Submission $basis, $assessor): void
     {
         $categoryId = $basis->rubric_category_id;
@@ -243,7 +254,7 @@ class AssessorSubmissionController extends Controller
             ->whereHas('submission', function ($q) use ($basis, $categoryId) {
                 $q->where('user_id', $basis->user_id)
                     ->where('rubric_category_id', $categoryId)
-                    ->where('status', 'approved');
+                    ->where('status', 'accepted'); // 👈 aligned with new status
             })
             ->get();
 

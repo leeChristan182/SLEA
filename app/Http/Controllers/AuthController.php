@@ -3,12 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\UserOtp;
+use App\Mail\OtpCodeMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use App\Models\SystemMonitoringAndLog;
 
 class AuthController extends Controller
 {
@@ -27,27 +32,81 @@ class AuthController extends Controller
             'password' => ['required'],
         ]);
 
-        if (Auth::attempt(['email' => $data['email'], 'password' => $data['password']])) {
-            $request->session()->regenerate();
+        $credentials = [
+            'email'    => $data['email'],
+            'password' => $data['password'],
+        ];
 
-            return match (Auth::user()->role) {
-                User::ROLE_ADMIN    => redirect()->route('admin.profile'),
-                User::ROLE_ASSESSOR => redirect()->route('assessor.profile'),
-                default             => redirect()->route('student.profile'),
-            };
+        // First: validate credentials only (no login yet)
+        if (!Auth::validate($credentials)) {
+            return back()
+                ->withErrors(['email' => 'Invalid credentials.'])
+                ->withInput($request->only('email'));
         }
 
-        return back()->withErrors(['email' => 'Invalid credentials.']);
+        /** @var \App\Models\User $user */
+        $user = User::where('email', $data['email'])->firstOrFail();
+
+        // Optional: additional checks on status, role, etc.
+        if ($user->status !== 'approved') {
+            return back()
+                ->withErrors(['email' => 'Your account is not approved yet.'])
+                ->withInput($request->only('email'));
+        }
+
+        // Now actually log the user in
+        Auth::login($user, $request->boolean('remember'));
+
+        // 🔹 SYSTEM LOG: LOGIN
+        $displayName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+
+        SystemMonitoringAndLog::record(
+            $user->role,               // 'admin', 'assessor', 'student'
+            $displayName ?: $user->email,
+            'Login',
+            'User logged in.'
+        );
+
+        // Redirect based on role...
+        if ($user->role === 'admin') {
+            return redirect()->route('admin.profile');
+        } elseif ($user->role === 'assessor') {
+            return redirect()->route('assessor.profile');
+        }
+
+        return redirect()->route('student.profile');
     }
 
+    protected function redirectAfterLogin(User $user)
+    {
+        return match ($user->role) {
+            User::ROLE_ADMIN    => redirect()->route('admin.profile'),
+            User::ROLE_ASSESSOR => redirect()->route('assessor.profile'),
+            default             => redirect()->route('student.profile'),
+        };
+    }
     public function logout(Request $request)
     {
-        Auth::logout();
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
 
+        if ($user) {
+            $displayName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+
+            // 🔹 SYSTEM LOG: LOGOUT
+            SystemMonitoringAndLog::record(
+                $user->role,
+                $displayName ?: $user->email,
+                'Logout',
+                'User logged out.'
+            );
+        }
+
+        Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('login.show');
+        return redirect()->route('login');
     }
 
     /* =========================
@@ -164,7 +223,7 @@ class AuthController extends Controller
                 'status'               => User::STATUS_PENDING,
             ]);
 
-            // student_academic
+            // student_academic via relation
             $user->studentAcademic()->updateOrCreate([], [
                 'student_number'     => $validated['student_id'],
                 'college_id'         => $validated['college_id'],
@@ -243,24 +302,269 @@ class AuthController extends Controller
     }
 
     /* =========================
-     |  OTP placeholders
+     |  OTP / VERIFICATION
      * ========================= */
+
+    /**
+     * Generate & send OTP for given user/context.
+     */
+    protected function sendOtp(User $user, string $context = 'login'): void
+    {
+        // Remove existing active OTPs for this user + context
+        UserOtp::where('user_id', $user->id)
+            ->whereNull('used_at')
+            ->where('context', $context)
+            ->delete();
+
+        $rawCode = (string) random_int(100000, 999999);
+
+        UserOtp::create([
+            'user_id'    => $user->id,
+            'code_hash'  => hash('sha256', $rawCode),
+            'context'    => $context,
+            'attempts'   => 0,
+            'expires_at' => now()->addMinutes(config('auth.otp.lifetime_minutes', 10)),
+        ]);
+
+        Mail::to($user->email)->send(
+            new OtpCodeMail($user, $rawCode, $context === 'login' ? 'login' : 'password reset')
+        );
+    }
+
+    /**
+     * Alias for GET /otp if your routes still point to otp.show
+     */
     public function showOtp()
     {
-        return view('auth.otp');
+        return $this->showOtpForm();
     }
-    public function verifyOtp()
+
+    /**
+     * Used by GET /otp to re-open the login page with OTP modal.
+     */
+    public function showOtpForm()
     {
-        return back();
+        if (!session()->has('otp_pending_user_id')) {
+            return redirect()->route('login.show');
+        }
+
+        return redirect()
+            ->route('login.show')
+            ->with('show_otp_modal', true);
     }
-    public function resendOtp()
+
+    public function verifyOtp(Request $request)
     {
-        return back();
+        $request->validate([
+            'otp' => ['required', 'digits:6'],
+        ]);
+
+        $userId  = session('otp_pending_user_id');
+        $context = session('otp_context', 'login');
+
+        if (!$userId) {
+            return redirect()->route('login.show');
+        }
+
+        /** @var User|null $user */
+        $user = User::find($userId);
+        if (!$user) {
+            return redirect()->route('login.show');
+        }
+
+        // If you use student eligibility checks, re-check them here
+        if (
+            $context === 'login' &&
+            method_exists($user, 'isStudent') &&
+            method_exists($user, 'canLoginToSlea') &&
+            $user->isStudent() &&
+            !$user->canLoginToSlea()
+        ) {
+
+            return redirect()
+                ->route('login.show')
+                ->withErrors(['email' => $user->loginBlockReason()])
+                ->with('show_otp_modal', false);
+        }
+
+        /** @var UserOtp|null $otpRecord */
+        $otpRecord = UserOtp::where('user_id', $user->id)
+            ->whereNull('used_at')
+            ->where('context', $context)
+            ->where('expires_at', '>', now())
+            ->latest('id')
+            ->first();
+
+        if (!$otpRecord) {
+            return redirect()
+                ->route('login.show')
+                ->withErrors(['otp' => 'Your OTP session has expired. Please request a new code.'])
+                ->with('show_otp_modal', true);
+        }
+
+        if ($otpRecord->attempts >= 5) {
+            return redirect()
+                ->route('login.show')
+                ->withErrors(['otp' => 'Too many incorrect attempts. Please request a new code.'])
+                ->with('show_otp_modal', true);
+        }
+
+        $otpRecord->attempts++;
+
+        if (!hash_equals($otpRecord->code_hash, hash('sha256', $request->otp))) {
+            $otpRecord->save();
+
+            return redirect()
+                ->route('login.show')
+                ->withErrors(['otp' => 'Incorrect OTP. Please try again.'])
+                ->with('show_otp_modal', true);
+        }
+
+        // Success
+        $otpRecord->used_at = now();
+        $otpRecord->save();
+
+        if ($context === 'login') {
+            if (Schema::hasColumn('users', 'otp_last_verified_at')) {
+                $user->otp_last_verified_at = now();
+                $user->save();
+            }
+
+            $remember = session('otp_remember_me', false);
+
+            session()->forget(['otp_pending_user_id', 'otp_remember_me', 'otp_context', 'otp_display_email']);
+
+            Auth::login($user, $remember);
+            $request->session()->regenerate();
+
+            return $this->redirectAfterLogin($user);
+        }
+
+        if ($context === 'password_reset') {
+            session(['password_reset_user_id' => $user->id]);
+            session()->forget(['otp_pending_user_id', 'otp_context']);
+
+            return redirect()
+                ->route('login.show')
+                ->with('status', 'OTP verified. You can now set a new password.')
+                ->with('show_reset_modal', true);
+        }
+
+        return redirect()->route('login.show');
+    }
+
+    public function resendOtp(Request $request)
+    {
+        $userId  = session('otp_pending_user_id');
+        $context = session('otp_context', 'login');
+
+        if (!$userId) {
+            return redirect()->route('login.show');
+        }
+
+        /** @var User|null $user */
+        $user = User::find($userId);
+        if (!$user) {
+            return redirect()->route('login.show');
+        }
+
+        $this->sendOtp($user, $context);
+
+        return redirect()
+            ->route('login.show')
+            ->with('status', 'A new OTP has been sent to your email.')
+            ->with('show_otp_modal', true);
     }
 
     /* =========================
-     |  AJAX DROPDOWNS
+     |  FORGOT PASSWORD (OTP-BASED)
      * ========================= */
+
+    public function showForgotPasswordForm()
+    {
+        // use the login page modal instead of a separate page
+        return redirect()
+            ->route('login.show')
+            ->with('show_forgot_modal', true);
+    }
+
+    public function sendForgotPasswordOtp(Request $request)
+    {
+        $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        /** @var User|null $user */
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return redirect()
+                ->route('login.show')
+                ->withErrors(['email' => 'We could not find that email address.'])
+                ->withInput()
+                ->with('show_forgot_modal', true);
+        }
+
+        session([
+            'otp_pending_user_id' => $user->id,
+            'otp_context'         => 'password_reset',
+            'otp_display_email'   => $user->email,
+        ]);
+
+        $this->sendOtp($user, 'password_reset');
+
+        return redirect()
+            ->route('login.show')
+            ->with('status', 'We sent a one-time password (OTP) to your email.')
+            ->with('show_otp_modal', true);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'password' => [
+                'required',
+                'string',
+                'confirmed',
+                Password::min(8)->mixedCase()->numbers()->symbols(),
+            ],
+        ]);
+
+        $userId = session('password_reset_user_id');
+
+        if (!$userId) {
+            return redirect()
+                ->route('login.show')
+                ->withErrors([
+                    'email' => 'Your password reset session has expired. Please request a new OTP.',
+                ])
+                ->with('show_forgot_modal', true);
+        }
+
+        /** @var User|null $user */
+        $user = User::find($userId);
+
+        if (!$user) {
+            return redirect()
+                ->route('login.show')
+                ->withErrors(['email' => 'User not found. Please request a new OTP.'])
+                ->with('show_forgot_modal', true);
+        }
+
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        session()->forget('password_reset_user_id');
+
+        return redirect()
+            ->route('login.show')
+            ->with('status', 'Your password has been updated. You can now log in.');
+    }
+
+    /* =========================
+     |  AJAX DROPDOWNS & HELPERS
+     * ========================= */
+
     public function getPrograms(Request $r)
     {
         $collegeId = (int) $r->query('college_id');
@@ -285,18 +589,6 @@ class AuthController extends Controller
             ->get(['id', 'name']);
 
         return response()->json($rows);
-    }
-
-    private function councilOrgNames(): array
-    {
-        return [
-            'University Student Government (USG)',
-            'Obrero Student Council (OSC)',
-            'Local Council (LC)',
-            'Council of Clubs and Organizations (CCO)',
-            'Local Government Unit (LGU)',
-            'League of Class Mayors (LCM)',
-        ];
     }
 
     public function getCouncilPositions(Request $request)
@@ -344,6 +636,18 @@ class AuthController extends Controller
         return response()->json([]);
     }
 
+    protected function councilOrgNames(): array
+    {
+        return [
+            'University Student Government (USG)',
+            'Obrero Student Council (OSC)',
+            'Local Council (LC)',
+            'Council of Clubs and Organizations (CCO)',
+            'Local Government Unit (LGU)',
+            'League of Class Mayors (LCM)',
+        ];
+    }
+
     public function getPositions(Request $r)
     {
         $orgId = (int) $r->query('organization_id');
@@ -366,20 +670,44 @@ class AuthController extends Controller
 
         $q = DB::table('clusters')->orderBy('name');
 
+        // Only filter by leadership_type_id if that column actually exists
         if (Schema::hasColumn('clusters', 'leadership_type_id')) {
-            $typeId = (int) $request->query('leadership_type_id');
-            if ($typeId) {
-                $q->where('leadership_type_id', $typeId);
+            $leadershipTypeId = $request->input('leadership_type_id');
+            if ($leadershipTypeId) {
+                $q->where('leadership_type_id', $leadershipTypeId);
             }
         }
 
-        return response()->json($q->pluck('name', 'id'));
+        $clusters = $q->pluck('name', 'id'); // { id: "Cluster Name", ... }
+
+        return response()->json($clusters);
+    }
+
+    public function getCouncilOrgs(Request $request)
+    {
+        $leadershipTypeId = $request->input('leadership_type_id');
+
+        if (!Schema::hasTable('organizations')) {
+            return response()->json([]);
+        }
+
+        $orgs = DB::table('organizations')
+            ->when($leadershipTypeId, function ($q) use ($leadershipTypeId) {
+                $q->where('leadership_type_id', $leadershipTypeId);
+            })
+            ->orderBy('name')
+            ->pluck('name', 'id');
+
+        return response()->json($orgs);
     }
 
     public function getOrganizations(Request $request)
     {
-        $clusterId = (int) $request->query('cluster_id');
-        if (!Schema::hasTable('organizations')) return response()->json([]);
+        if (!Schema::hasTable('organizations')) {
+            return response()->json([]);
+        }
+
+        $clusterId = $request->input('cluster_id');
 
         $rows = DB::table('organizations')
             ->when($clusterId, fn($q) => $q->where('cluster_id', $clusterId))
@@ -405,6 +733,35 @@ class AuthController extends Controller
 
         return response()->json($rows);
     }
+
+    public function getAcademicsMap()
+    {
+        if (!Schema::hasTable('programs') || !Schema::hasTable('majors')) {
+            return response()->json(['programsByCollege' => [], 'majorsByProgram' => []]);
+        }
+
+        $programs = DB::table('programs')->select('id', 'college_id', 'name')->orderBy('name')->get();
+        $majors   = DB::table('majors')->select('id', 'program_id', 'name')->orderBy('name')->get();
+
+        $pMap = [];
+        foreach ($programs as $p) {
+            $pMap[$p->college_id][] = ['id' => $p->id, 'name' => $p->name];
+        }
+
+        $mMap = [];
+        foreach ($majors as $m) {
+            $mMap[$m->program_id][] = ['id' => $m->id, 'name' => $m->name];
+        }
+
+        return response()->json([
+            'programsByCollege' => $pMap,
+            'majorsByProgram'   => $mMap,
+        ]);
+    }
+
+    /* =========================
+     |  PRIVATE HELPERS
+     * ========================= */
 
     private function getCollegesList()
     {
@@ -476,30 +833,5 @@ class AuthController extends Controller
 
         $defaultDuration = 4;
         return $entryYear + $defaultDuration;
-    }
-
-    public function getAcademicsMap()
-    {
-        if (!Schema::hasTable('programs') || !Schema::hasTable('majors')) {
-            return response()->json(['programsByCollege' => [], 'majorsByProgram' => []]);
-        }
-
-        $programs = DB::table('programs')->select('id', 'college_id', 'name')->orderBy('name')->get();
-        $majors   = DB::table('majors')->select('id', 'program_id', 'name')->orderBy('name')->get();
-
-        $pMap = [];
-        foreach ($programs as $p) {
-            $pMap[$p->college_id][] = ['id' => $p->id, 'name' => $p->name];
-        }
-
-        $mMap = [];
-        foreach ($majors as $m) {
-            $mMap[$m->program_id][] = ['id' => $m->id, 'name' => $m->name];
-        }
-
-        return response()->json([
-            'programsByCollege' => $pMap,
-            'majorsByProgram'   => $mMap,
-        ]);
     }
 }

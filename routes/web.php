@@ -17,6 +17,7 @@ use App\Http\Controllers\AssessorStudentSubmissionsController;
 use App\Http\Controllers\AssessorFinalReviewController;
 use App\Http\Controllers\FinalReviewController;
 use App\Http\Controllers\AssessorStudentSubmissionController;
+use App\Http\Controllers\SystemMonitoringAndLogController;
 /*
 |--------------------------------------------------------------------------
 | AUTH ROUTES (guest-only)
@@ -27,7 +28,7 @@ Route::middleware(['guest'])->group(function () {
     Route::get('/', [AuthController::class, 'showLogin'])->name('login.show');
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'authenticate'])->name('login.auth')
-        ->middleware('throttle:5,1');
+        ->middleware('throttle:100,1');
 
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register.show');
     Route::post('/register', [AuthController::class, 'register'])->name('register.store')
@@ -45,11 +46,19 @@ Route::middleware(['guest'])->group(function () {
         Route::get('/council-orgs',      [AuthController::class, 'getCouncilOrgs'])->name('council_orgs');
     });
 
-    Route::get('/otp',         [AuthController::class, 'showOtp'])->name('otp.show');
-    Route::post('/otp',        [AuthController::class, 'verifyOtp'])->name('otp.verify')
-        ->middleware('throttle:5,1');
-    Route::post('/otp/resend', [AuthController::class, 'resendOtp'])->name('otp.resend')
-        ->middleware('throttle:5,1');
+    Route::get('/otp', [AuthController::class, 'showOtpForm'])->name('otp.show');
+    Route::post('/otp', [AuthController::class, 'verifyOtp'])->name('otp.verify');
+    Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])
+        ->name('password.request');
+
+    Route::post('/forgot-password', [AuthController::class, 'sendForgotPasswordOtp'])
+        ->name('password.email');   // <-- this name must exist
+
+    Route::post('/otp/resend', [AuthController::class, 'resendOtp'])
+        ->name('otp.resend');
+
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])
+        ->name('password.update');
 });
 
 // logout still just needs auth
@@ -79,6 +88,8 @@ Route::prefix('student')
             Route::get('/performance', 'performance')->name('performance');
             Route::get('/criteria', 'criteria')->name('criteria');
             Route::get('/history', 'history')->name('history');
+            Route::post('/performance/mark-ready', 'markReadyForSlea')->name('performance.mark-ready');
+            Route::post('/performance/cancel-ready', 'cancelReadyForSlea')->name('performance.cancel-ready');
 
             // *** ONLY ONE submit route ***
             Route::get('/submit', [SubmissionRecordController::class, 'create'])
@@ -128,6 +139,7 @@ Route::prefix('admin')
         Route::post('/revalidation/{user}/approve', [AdminController::class, 'approveRevalidation'])->name('revalidation.approve');
         Route::post('/revalidation/{user}/reject',  [AdminController::class, 'rejectRevalidation'])->name('revalidation.reject');
 
+
         Route::get('/organizations', [OrganizationController::class, 'index'])->name('organizations.index');
         Route::post('/organizations', [OrganizationController::class, 'store'])->name('organizations.store');
         Route::put('/organizations/{organization}', [OrganizationController::class, 'update'])->name('organizations.update');
@@ -139,46 +151,46 @@ Route::prefix('admin')
          |------------------------------------------------------
          */
         Route::prefix('rubrics')->name('rubrics.')->group(function () {
+
+            // Unified page
             Route::get('/', [RubricController::class, 'index'])->name('index');
 
             // Categories
-            Route::get('/categories', [RubricController::class, 'categoryIndex'])->name('categories.index');
-            Route::get('/categories/create', [RubricController::class, 'categoryCreate'])->name('categories.create');
             Route::post('/categories', [RubricController::class, 'categoryStore'])->name('categories.store');
-            Route::get('/categories/{category}/edit', [RubricController::class, 'categoryEdit'])->name('categories.edit');
             Route::put('/categories/{category}', [RubricController::class, 'categoryUpdate'])->name('categories.update');
             Route::delete('/categories/{category}', [RubricController::class, 'categoryDestroy'])->name('categories.destroy');
 
             // Sections
-            Route::get('/sections', [RubricController::class, 'sectionIndex'])->name('sections.index');
-            Route::get('/sections/create', [RubricController::class, 'sectionCreate'])->name('sections.create');
             Route::post('/sections', [RubricController::class, 'sectionStore'])->name('sections.store');
-            Route::get('/sections/{section}/edit', [RubricController::class, 'sectionEdit'])->name('sections.edit');
             Route::put('/sections/{section}', [RubricController::class, 'sectionUpdate'])->name('sections.update');
             Route::delete('/sections/{section}', [RubricController::class, 'sectionDestroy'])->name('sections.destroy');
 
             // Subsections
-            Route::get('/subsections', [RubricController::class, 'subsectionIndex'])->name('subsections.index');
-            Route::get('/subsections/create', [RubricController::class, 'subsectionCreate'])->name('subsections.create');
             Route::post('/subsections', [RubricController::class, 'subsectionStore'])->name('subsections.store');
-            Route::get('/subsections/{subsection}/edit', [RubricController::class, 'subsectionEdit'])->name('subsections.edit');
             Route::put('/subsections/{subsection}', [RubricController::class, 'subsectionUpdate'])->name('subsections.update');
             Route::delete('/subsections/{subsection}', [RubricController::class, 'subsectionDestroy'])->name('subsections.destroy');
 
-            // Options (positions / bands)
-            Route::get('/options', [RubricController::class, 'optionIndex'])->name('options.index');
-            Route::get('/options/create', [RubricController::class, 'optionCreate'])->name('options.create');
+            // Options
             Route::post('/options', [RubricController::class, 'optionStore'])->name('options.store');
-            Route::get('/options/{option}/edit', [RubricController::class, 'optionEdit'])->name('options.edit');
             Route::put('/options/{option}', [RubricController::class, 'optionUpdate'])->name('options.update');
             Route::delete('/options/{option}', [RubricController::class, 'optionDestroy'])->name('options.destroy');
         });
 
-        Route::get('/submission-oversight', [AdminController::class, 'submissionOversight'])->name('submission-oversight');
-        Route::get('/final-review', [AdminController::class, 'finalReview'])->name('final-review');
+        Route::get('/final-review', [FinalReviewController::class, 'index'])
+            ->name('final-review');
+
+        // decision (matches route() in the blade JS)
+        Route::post('/final-review/{assessorFinalReview}', [FinalReviewController::class, 'storeDecision'])
+            ->name('final-review.decision');
+
         Route::get('/award-report', [AdminController::class, 'awardReport'])->name('award-report');
         Route::get('/award-report/export', [AdminController::class, 'exportAwardReport'])->name('award-report.export');
-        Route::get('/system-monitoring', [AdminController::class, 'systemMonitoring'])->name('system-monitoring');
+
+        Route::get('/system-monitoring', [SystemMonitoringAndLogController::class, 'index'])
+            ->name('system-logs.index');
+
+        Route::delete('/system-monitoring', [SystemMonitoringAndLogController::class, 'clearAll'])
+            ->name('system-logs.clear');
     });
 
 /*
@@ -228,15 +240,23 @@ Route::prefix('assessor')
         // ✅ JSON details for one student (used by the JS modal)
         Route::get('/students/{student}/details', [AssessorStudentSubmissionController::class, 'studentDetails'])
             ->name('students.details');
+        Route::post('/students/{student}/ready-status', [AssessorStudentSubmissionController::class, 'updateReadyStatus'])
+            ->name('students.ready-status');
 
         // 2) Consolidated per student & category (compiled scores)
         Route::get('/submissions/compiled', [AssessorCompiledScoreController::class, 'index'])
             ->name('submissions.compiled');
 
         // 3) Assessor final review (students list + send to final)
-        Route::get('/final-review', [AssessorFinalReviewController::class, 'index'])
-            ->name('final-review');
+        Route::get(
+            '/final-review',
+            [\App\Http\Controllers\AssessorFinalReviewController::class, 'index']
+        )->name('final-review.index');   // ✅ final name: assessor.final-review.index
 
-        Route::post('/final-review/{student}', [AssessorFinalReviewController::class, 'storeForStudent'])
-            ->name('final-review.store');
+        // Submit to admin / flag
+        Route::post(
+            '/final-review/{student}',
+            [\App\Http\Controllers\AssessorFinalReviewController::class, 'storeForStudent']
+        )->name('final-review.store');   // ✅ final name: assessor.final-review.store
+
     });

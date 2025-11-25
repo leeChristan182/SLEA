@@ -2,321 +2,262 @@
 @section('title', 'Criteria & Point System')
 
 @section('content')
-<div class="Criteria">
-    <div class="container">
-        @include('partials.sidebar')
+    <div class="rubric-main-container">
+        <div class="container">
+            @include('partials.sidebar')
 
-        <main class="main-content">
+            <main class="main-content">
+                <div class="rubric-content">
 
-
-            <div class="toolbar">
-                <div class="left-tools">
-                    <button class="chip active" data-cat="all">All</button>
-                    <button class="chip" data-cat="leadership">Leadership</button>
-                    <button class="chip" data-cat="academic">Academic</button>
-                    <button class="chip" data-cat="awards">Awards</button>
-                    <button class="chip" data-cat="community">Community</button>
-                    <button class="chip" data-cat="conduct">Conduct</button>
-                    <button id="resetBtn" class="btn-flat" type="button">Reset</button>
-                </div>
-                <div class="right-tools">
-                    <div class="search-wrap">
-                        <input id="searchInput" type="text" placeholder="Search item, section, notes…">
-                        <button id="searchBtn" class="btn-primary" title="Search">Search</button>
-                        <button id="clearSearchBtn" class="btn-flat" title="Clear">Clear</button>
+                    {{-- Back Navigation --}}
+                    <div class="rubric-header-nav">
+                        <a href="{{ route('student.performance') }}" class="btn-back">
+                            <i class="fa-solid fa-arrow-left"></i>
+                            <span>Back to Performance Summary</span>
+                        </a>
                     </div>
+
+                    {{-- Page Title --}}
+                    <h1 class="rubric-main-title">SLEA Criteria &amp; Point System</h1>
+
+                    <p class="rubric-heading">
+                        Review how your submissions will be evaluated for each SLEA category.
+                        Use the category shortcuts below to jump between sections.
+                    </p>
+
+                    {{-- Category quick access (tabs) --}}
+                    <div class="mb-3">
+                        <div class="tab-nav" id="criteriaTabs"
+                            style="flex-wrap: wrap; overflow-x: visible; gap:.5rem; width:100%; justify-content:flex-start;">
+
+                            <button class="btn btn-disable" data-filter="all">
+                                All Categories
+                            </button>
+
+                            @foreach($categories as $cat)
+                                <button class="btn" data-filter="cat-{{ $cat->id }}">
+                                    {{ $loop->iteration }}. {{ $cat->title }}
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    {{-- Criteria Display --}}
+                    @forelse ($categories as $cat)
+                        <section class="rubric-section criteria-category" data-category-key="cat-{{ $cat->id }}">
+
+                            {{-- Category Header --}}
+                            <div class="rubric-heading d-flex justify-content-between align-items-center">
+                                <div>{{ $loop->iteration }}. {{ $cat->title }}</div>
+                                <div>
+                                    @if(!is_null($cat->min_required_points))
+                                        <span class="badge badge--red ms-1">
+                                            Min required:
+                                            {{ rtrim(rtrim(number_format($cat->min_required_points, 2), '0'), '.') }} pts
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+
+                            {{-- Description --}}
+                            @if($cat->description)
+                                <div class="account-summary mb-3">
+                                    <div class="summary-row">
+                                        <span class="summary-label">Description</span>
+                                        <span class="summary-value">{{ $cat->description }}</span>
+                                    </div>
+                                </div>
+                            @endif
+
+                            {{-- Sections --}}
+                            @forelse($cat->sections as $section)
+                                <div class="subsection">
+
+                                    <div class="subsection-title">
+                                        {{ $section->title }}
+                                        @if(!is_null($section->max_points))
+                                            <span class="text-muted ms-1">
+                                                (Section max:
+                                                {{ rtrim(rtrim(number_format($section->max_points, 2), '0'), '.') }} pts)
+                                            </span>
+                                        @endif
+                                    </div>
+
+                                    <div class="table-responsive rubric-table-wrapper">
+                                        <table class="manage-table">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 24%">Subsection</th>
+                                                    <th style="width: 30%">Positions / Options</th>
+                                                    <th style="width: 12%">Points</th>
+                                                    <th style="width: 17%">Evidence Needed</th>
+                                                    <th style="width: 17%">Notes</th>
+                                                </tr>
+                                            </thead>
+
+                                            <tbody>
+                                                @forelse($section->subsections as $sub)
+                                                    @php
+                                                        $options = $sub->options;
+                                                        $optionCount = max(1, $options->count());
+
+                                                        // SAFE decode for score_params (can be array or JSON string)
+                                                        if (is_array($sub->score_params)) {
+                                                            $params = $sub->score_params;
+                                                        } elseif (is_string($sub->score_params) && trim($sub->score_params) !== '') {
+                                                            $params = json_decode($sub->score_params, true);
+                                                        } else {
+                                                            $params = null;
+                                                        }
+
+                                                        // Fallback points text for subsections without options
+                                                        $noOptionDisplay = null;
+                                                        if (!is_null($sub->max_points)) {
+                                                            $noOptionDisplay =
+                                                                rtrim(rtrim(number_format($sub->max_points, 2), '0'), '.') . ' pts';
+                                                        } elseif (!is_null($sub->cap_points)) {
+                                                            $noOptionDisplay =
+                                                                'Up to ' .
+                                                                rtrim(rtrim(number_format($sub->cap_points, 2), '0'), '.') .
+                                                                ' pts';
+                                                        } elseif ($params && isset($params['rate'])) {
+                                                            $noOptionDisplay =
+                                                                rtrim(rtrim(number_format($params['rate'], 2), '0'), '.') .
+                                                                ' pts per ' . ($sub->unit ?: 'unit');
+                                                        }
+                                                    @endphp
+
+                                                    {{-- First row per subsection --}}
+                                                    <tr class="criteria-row">
+
+                                                        {{-- Subsection name (spans all option rows) --}}
+                                                        <td rowspan="{{ $optionCount }}">
+                                                            <strong>{{ $sub->sub_section }}</strong>
+                                                        </td>
+
+                                                        {{-- First option / position --}}
+                                                        <td style="padding:6px 10px; border-bottom:1px solid #e3e3e3;">
+                                                            @if($options->count())
+                                                                {{ $options[0]->label }}
+                                                            @else
+                                                                <span class="text-muted">No specific options listed.</span>
+                                                            @endif
+                                                        </td>
+
+                                                        {{-- First points cell --}}
+                                                        <td style="padding:6px 10px; border-bottom:1px solid #e3e3e3;">
+                                                            @if($options->count())
+                                                                @php $opt = $options[0]; @endphp
+                                                                @if(!is_null($opt->points))
+                                                                    {{ rtrim(rtrim(number_format($opt->points, 2), '0'), '.') }} pts
+                                                                @else
+                                                                    —
+                                                                @endif
+                                                            @else
+                                                                {{ $noOptionDisplay ?? '—' }}
+                                                            @endif
+                                                        </td>
+
+                                                        {{-- Evidence (spans all option rows) --}}
+                                                        <td rowspan="{{ $optionCount }}">
+                                                            @if($sub->evidence_needed)
+                                                                {!! nl2br(e($sub->evidence_needed)) !!}
+                                                            @elseif($section->evidence)
+                                                                {!! nl2br(e($section->evidence)) !!}
+                                                            @else
+                                                                <span class="text-muted">See category guidelines.</span>
+                                                            @endif
+                                                        </td>
+
+                                                        {{-- Notes (spans all option rows) --}}
+                                                        <td rowspan="{{ $optionCount }}">
+                                                            @if($sub->notes)
+                                                                {!! nl2br(e($sub->notes)) !!}
+                                                            @elseif($section->notes)
+                                                                {!! nl2br(e($section->notes)) !!}
+                                                            @else
+                                                                <span class="text-muted">—</span>
+                                                            @endif
+                                                        </td>
+                                                    </tr>
+
+                                                    {{-- Remaining options for this subsection --}}
+                                                    @if($options->count() > 1)
+                                                        @foreach($options->slice(1) as $opt)
+                                                            <tr>
+                                                                <td style="padding:6px 10px; border-bottom:1px solid #e3e3e3;">
+                                                                    {{ $opt->label }}
+                                                                </td>
+                                                                <td style="padding:6px 10px; border-bottom:1px solid #e3e3e3;">
+                                                                    @if(!is_null($opt->points))
+                                                                        {{ rtrim(rtrim(number_format($opt->points, 2), '0'), '.') }} pts
+                                                                    @else
+                                                                        —
+                                                                    @endif
+                                                                </td>
+                                                            </tr>
+                                                        @endforeach
+                                                    @endif
+                                                @empty
+                                                    <tr>
+                                                        <td colspan="5" class="text-center text-muted">
+                                                            No subsections configured for this section yet.
+                                                        </td>
+                                                    </tr>
+                                                @endforelse
+                                            </tbody>
+
+                                        </table>
+                                    </div>
+
+                                </div>
+                            @empty
+                                <div class="alert alert-light mt-2">
+                                    No sections configured under this category yet.
+                                </div>
+                            @endforelse
+
+                        </section>
+                    @empty
+                        <div class="alert alert-info mt-4">
+                            Criteria are not yet configured. Please check again later.
+                        </div>
+                    @endforelse
+
                 </div>
-            </div>
-
-            <div class="summary" id="summaryText"></div>
-
-            <div class="table-wrap">
-                <table class="criteria" id="criteriaTable">
-                    <thead>
-                        <tr>
-                            <th style="min-width:200px">Category</th>
-                            <th style="min-width:260px">Subsection</th>
-                            <th style="min-width:220px">Position</th>
-                            <th style="min-width:90px">Points</th>
-                            <th style="min-width:280px">Evidence Needed</th>
-                            <th style="min-width:320px">Notes</th>
-                        </tr>
-                    </thead>
-
-
-                    <tbody id="tableBody">
-                        <tr>
-                            <td colspan="5">Loading…</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div id="pager" class="pager-centered">
-                <button id="prevBtn" class="btn-page">Back</button>
-                <div id="pageNums" class="page-numbers"></div>
-                <button id="nextBtn" class="btn-page">Next</button>
-            </div>
-
-            <!-- Load the full dataset (pure JSON at public/js/criteria.js) -->
-            <script src="{{ asset('js/criteria.js') }}" defer></script>
-
-            <script>
-                (function() {
-                    let DATA = [],
-                        READY = false;
-                    const catMap = {
-                        leadership: 'I. Leadership Excellence',
-                        academic: 'II. Academic Excellence',
-                        awards: 'III. Awards/Recognition',
-                        community: 'IV. Community Involvement',
-                        conduct: 'V. Good Conduct'
-                    };
-
-                    const chips = [...document.querySelectorAll('.chip')];
-
-                    const searchInput = document.getElementById('searchInput');
-                    const searchBtn = document.getElementById('searchBtn');
-                    const clearSearchBtn = document.getElementById('clearSearchBtn');
-                    const resetBtn = document.getElementById('resetBtn');
-
-                    const tbody = document.getElementById('tableBody');
-                    const pageNums = document.getElementById('pageNums');
-                    const prevBtn = document.getElementById('prevBtn');
-                    const nextBtn = document.getElementById('nextBtn');
-                    const summaryText = document.getElementById('summaryText');
-
-                    let state = {
-                        cat: 'all',
-                        sort: 'none', // stays fixed
-                        q: '',
-                        page: 1,
-                        pageSize: 25, // fixed default
-                        group: true
-                    };
-
-
-                    function loadData() {
-                        return fetch("{{ asset('js/criteria.js') }}", {
-                                cache: 'no-store'
-                            })
-                            .then(r => {
-                                if (!r.ok) throw new Error('Failed to load criteria.js');
-                                return r.json();
-                            })
-                            .then(arr => {
-                                DATA = (arr || []).map((r, i) => ({
-                                    ...r,
-                                    __idx: i
-                                }));
-                                READY = true;
-                            })
-                            .catch(err => {
-                                console.error(err);
-                                DATA = [{
-                                    cat: 'leadership',
-                                    section: 'Campus Based – Student Government',
-                                    item: 'Student Regent / President',
-                                    points: 5,
-                                    evidence: 'Oath of Office / Certification',
-                                    notes: '(fallback)'
-                                }].map((r, i) => ({
-                                    ...r,
-                                    __idx: i
-                                }));
-                                READY = true;
-                            });
-                    }
-
-                    function esc(s) {
-                        return String(s).replace(/[&<>]/g, c => ({
-                            '&': '&amp;',
-                            '<': '&lt;',
-                            '>': '&gt;'
-                        } [c]));
-                    }
-
-                    function highlight(text, q) {
-                        if (!q) return esc(text || '');
-                        const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&') + ')', 'ig');
-                        return esc(text || '').replace(re, '<mark>$1</mark>');
-                    }
-
-                    function apply() {
-                        let rows = DATA.slice();
-                        if (state.cat !== 'all') rows = rows.filter(r => r.cat === state.cat);
-                        if (state.q.trim()) {
-                            const q = state.q.trim().toLowerCase();
-                            rows = rows.filter(r =>
-                                (r.item || '').toLowerCase().includes(q) ||
-                                (r.section || '').toLowerCase().includes(q) ||
-                                (r.notes || '').toLowerCase().includes(q) ||
-                                (r.evidence || '').toLowerCase().includes(q)
-                            );
-                        }
-                        switch (state.sort) {
-                            case 'pointsDesc':
-                                rows.sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
-                                break;
-                            case 'pointsAsc':
-                                rows.sort((a, b) => (a.points ?? 0) - (b.points ?? 0));
-                                break;
-                            case 'alpha':
-                                rows.sort((a, b) => (a.item || '').localeCompare(b.item || ''));
-                                break;
-                            case 'none':
-                            default:
-                                rows.sort((a, b) => a.__idx - b.__idx);
-                        }
-                        return rows;
-                    }
-
-                    function render() {
-                        if (!READY) return;
-                        const rowsAll = apply();
-                        const total = rowsAll.length;
-                        let pageSize = parseInt(state.pageSize, 10);
-                        if (!pageSize) pageSize = total || 1;
-                        const maxPage = Math.max(1, Math.ceil(total / pageSize));
-                        if (state.page > maxPage) state.page = maxPage;
-                        const start = (state.page - 1) * pageSize;
-                        const pageRows = rowsAll.slice(start, start + pageSize);
-                        const q = state.q.trim();
-                        let html = '';
-                        for (let i = 0; i < pageRows.length;) {
-                            const r = pageRows[i];
-
-                            // Group all rows for this category
-                            let j = i;
-                            while (j < pageRows.length && pageRows[j].cat === r.cat) j++;
-                            const catRows = pageRows.slice(i, j);
-                            const catRowCount = catRows.length;
-
-                            // Category row
-                            html += `<tr class="category-row"><td colspan="6"><strong>${highlight(catMap[r.cat] || r.cat, q)}</strong></td></tr>`;
-
-                            // Process subsections in this category
-                            let k = 0;
-                            while (k < catRowCount) {
-                                const sub = catRows[k];
-                                let m = k;
-                                while (m < catRowCount && catRows[m].section === sub.section) m++;
-                                const sectionRows = catRows.slice(k, m);
-
-                                // Subsection header row
-                                html += `<tr class="subsection-row"><td></td><td colspan="5"><em>${highlight(sub.section, q)}</em></td></tr>`;
-
-                                // Positions under subsection
-                                for (let n = 0; n < sectionRows.length; n++) {
-                                    const rr = sectionRows[n];
-                                    html += `<tr>`;
-                                    html += `<td></td>`;
-                                    html += `<td></td>`;
-                                    html += `<td>${highlight(rr.item, q)}</td>`;
-                                    html += `<td class="points">${Number.isFinite(rr.points) ? rr.points : ''}</td>`;
-                                    if (n === 0) {
-                                        html += `<td rowspan="${sectionRows.length}">${highlight(rr.evidence, q)}</td>`;
-                                        html += `<td rowspan="${sectionRows.length}">${highlight(rr.notes, q)}</td>`;
-                                    }
-                                    html += `</tr>`;
-                                }
-
-                                k = m;
-                            }
-
-                            i = j;
-                        }
-
-                        tbody.innerHTML = html || `<tr><td colspan="5">No results.</td></tr>`;
-
-                        // Summary text
-                        const shownTo = Math.min(start + pageRows.length, total);
-                        summaryText.textContent = total ?
-                            `Showing ${start+1}–${shownTo} of ${total} item(s)${state.cat!=='all' ? ' in '+(catMap[state.cat]||state.cat) : ''}${state.q ? ' • filtered by "'+state.q+'"' : ''}` :
-                            'No results';
-
-                        // Pager buttons
-                        // Pager
-                        pageNums.innerHTML = '';
-
-                        // Back button enable/disable
-                        prevBtn.disabled = state.page <= 1;
-
-                        // Create page number buttons
-                        for (let p = 1; p <= maxPage; p++) {
-                            const b = document.createElement('button');
-                            b.textContent = p;
-                            b.className = 'btn-page';
-                            if (p === state.page) b.classList.add('active');
-                            b.addEventListener('click', () => {
-                                state.page = p;
-                                render();
-                            });
-                            pageNums.appendChild(b);
-                        }
-
-                        // Next button enable/disable
-                        nextBtn.disabled = state.page >= maxPage;
-
-                    }
-
-                    // Events
-                    chips.forEach(ch => ch.addEventListener('click', () => {
-                        chips.forEach(x => x.classList.remove('active'));
-                        ch.classList.add('active');
-                        state.cat = ch.getAttribute('data-cat');
-                        state.page = 1;
-                        render();
-                    }));
-
-                    searchBtn.addEventListener('click', () => {
-                        state.q = searchInput.value;
-                        state.page = 1;
-                        render();
-                    });
-                    clearSearchBtn.addEventListener('click', () => {
-                        searchInput.value = '';
-                        state.q = '';
-                        state.page = 1;
-                        render();
-                    });
-                    searchInput.addEventListener('keyup', e => {
-                        if (e.key === 'Enter') {
-                            state.q = searchInput.value;
-                            state.page = 1;
-                            render();
-                        }
-                    });
-                    prevBtn.addEventListener('click', () => {
-                        state.page = Math.max(1, state.page - 1);
-                        render();
-                    });
-                    nextBtn.addEventListener('click', () => {
-                        state.page = state.page + 1;
-                        render();
-                    });
-                    resetBtn.addEventListener('click', () => {
-                        state = {
-                            cat: 'all',
-                            sort: 'none',
-                            q: '',
-                            page: 1,
-                            pageSize: 25,
-                            group: true
-                        };
-                        chips.forEach(x => x.classList.remove('active'));
-                        document.querySelector('.chip[data-cat="all"]').classList.add('active');
-
-                        searchInput.value = '';
-                        render();
-                    });
-
-                    loadData().then(render);
-                })();
-            </script>
-
-
-        </main>
+            </main>
+        </div>
     </div>
-</div>
+
+    {{-- Only category filtering (no search) --}}
+    @push('scripts')
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const tabs = document.querySelectorAll('#criteriaTabs .btn');
+                const sections = document.querySelectorAll('.criteria-category');
+
+                let activeFilter = 'all';
+
+                function applyFilters() {
+                    sections.forEach(section => {
+                        const matches = (activeFilter === 'all') ||
+                            (section.dataset.categoryKey === activeFilter);
+                        section.style.display = matches ? '' : 'none';
+                    });
+                }
+
+                tabs.forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        tabs.forEach(t => t.classList.remove('btn-disable'));
+                        tab.classList.add('btn-disable');
+                        activeFilter = tab.dataset.filter || 'all';
+                        applyFilters();
+                    });
+                });
+
+                applyFilters();
+            });
+        </script>
+    @endpush
+
 @endsection

@@ -134,8 +134,8 @@ $role = $user?->role; // 'admin' | 'assessor' | 'student'
             </a>
         </li>
 
-        <li class="{{ request()->routeIs('admin.system-monitoring') ? 'active' : '' }}">
-            <a href="{{ route('admin.system-monitoring') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+        <li class="{{ request()->routeIs('admin.system-logs.*') ? 'active' : '' }}">
+            <a href="{{ route('admin.system-logs.index') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
                 <i class="fas fa-server"></i><span>System Monitoring and Logs</span>
             </a>
         </li>

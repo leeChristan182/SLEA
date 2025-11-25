@@ -1,489 +1,768 @@
+{{-- resources/views/admin/final-review.blade.php --}}
 @extends('layouts.app')
 
-@section('title', 'Final Review')
+@section('title', 'Final Review - Admin Dashboard')
 
 @section('content')
-<div class="container">
-    @include('partials.sidebar')
+    <div class="container">
+        @include('partials.sidebar')
 
-    <main class="main-content">
-        <div class="page-with-back-button">
-            <div class="page-content">
-                <!-- Back Button -->
-                <div class="rubric-header-nav">
-                    <a href="{{ route('admin.profile') }}" class="btn btn-back">
-                        <i class="fas fa-arrow-left"></i> Back to Dashboard
-                    </a>
+        <main class="main-content">
+            <div class="page-header">
+                <h1>Graduating Student Leaders - Admin Final Review</h1>
+            </div>
+
+            {{-- Flash messages --}}
+            @if (session('status'))
+                <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
+                    {{ session('status') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
+            @endif
 
-                <h2 class="manage-title">Final Review</h2>
-
-                {{-- Messages --}}
-                @if (session('status'))
-                <div class="alert alert-success">{{ session('status') }}</div>
-                @endif
-                @if ($errors->any())
-                <div class="alert alert-danger">
-                    <ul class="m-0 pl-4">
-                        @foreach ($errors->all() as $e)
-                        <li>{{ $e }}</li>
-                        @endforeach
-                    </ul>
+            @if (session('error'))
+                <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
+                    {{ session('error') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
-                @endif
+            @endif
 
-                {{-- Controls: Filter / Sort / Search --}}
-                <form class="controls" method="GET" action="{{ route('admin.final-review') }}">
-                    <div class="controls-left">
-                        <div class="dropdowns">
-                            <label>
-                                <span>Graduation Batch</span>
-                                <select name="batch">
-                                    <option value="" @selected(request('batch')==='' )>None</option>
-                                    <option value="2024" @selected(request('batch')==='2024' )>2024</option>
-                                    <option value="2025" @selected(request('batch')==='2025' )>2025</option>
-                                    <option value="2026" @selected(request('batch')==='2026' )>2026</option>
-                                </select>
-                            </label>
+            {{-- Filter + search --}}
+            <div class="filter-bar mb-3">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label for="statusFilter" class="filter-label">Filter by Decision</label>
+                        <select id="statusFilter" class="form-select">
+                            <option value="">All</option>
+                            <option value="pending">Pending decision</option>
+                            <option value="approved">Awarded</option>
+                            <option value="not_qualified">Not qualified</option>
+                        </select>
+                    </div>
 
-                            <label>
-                                <span>Sort by</span>
-                                <select name="sort">
-                                    <option value="" @selected(request('sort')==='' )>None</option>
-                                    <option value="name" @selected(request('sort')==='name' )>Student Name</option>
-                                    <option value="id" @selected(request('sort')==='id' )>Student ID</option>
-                                    <option value="points" @selected(request('sort')==='points' )>Total Points</option>
-                                    <option value="status" @selected(request('sort')==='status' )>Submission Status</option>
-                                </select>
-                            </label>
+                    <div class="col-md-3">
+                        <label for="sortSelect" class="filter-label">Sort by</label>
+                        <select id="sortSelect" class="form-select">
+                            <option value="">None</option>
+                            <option value="name">Student Name</option>
+                            <option value="program">Program</option>
+                            <option value="score-desc">Highest Score</option>
+                            <option value="score-asc">Lowest Score</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="searchInput" class="search-label">Search</label>
+                        <div class="search-wrapper">
+                            <i class="fas fa-search search-icon"></i>
+                            <input type="text" id="searchInput" class="form-control"
+                                   placeholder="Search by ID, name, college, program, or major...">
                         </div>
                     </div>
-
-                    <div class="search-box">
-                        <input type="search" name="q" value="{{ request('q') }}" placeholder="Search...">
-                        <button class="search-btn" type="submit" aria-label="Search">
-                            <i class="fas fa-search"></i>
-                        </button>
-                    </div>
-                </form>
-
-                {{-- Table --}}
-                <div class="table-wrap">
-                    <table class="review-table">
-                        <thead>
-                            <tr>
-                                <th class="col-name">Student Name</th>
-                                <th class="col-id">Student ID</th>
-                                <th class="col-points">Total Points</th>
-                                <th class="col-status">Submission Status</th>
-                                <th class="col-action text-center">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @php
-                            $hasRows = isset($students) && (($students instanceof \Illuminate\Contracts\Pagination\Paginator && $students->count() > 0) || collect($students)->count() > 0);
-                            @endphp
-
-                            @if ($hasRows)
-                            @foreach ($students ?? [] as $student)
-                            <tr>
-                                <td>{{ $student->name ?? 'Edryan Manocay' }}</td>
-                                <td>{{ $student->student_id ?? '2022-00216' }}</td>
-                                <td>{{ $student->total_points ?? '16' }}</td>
-                                <td>
-                                    <span class="badge {{ $student->status === 'approve' ? 'badge--green' : ($student->status === 'reject' ? 'badge--red' : 'badge--yellow') }}">
-                                        {{ ucfirst($student->status ?? 'approve') }}
-                                    </span>
-                                </td>
-                                <td class="action-buttons">
-                                    <button type="button" class="btn-action btn-review" onclick="openReviewModal('{{ $student->id ?? 1 }}')" title="Review Submission">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            @endforeach
-                            @else
-                            {{-- Sample data for demonstration --}}
-                            <tr>
-                                <td>Edryan Manocay</td>
-                                <td>2022-00216</td>
-                                <td>16</td>
-                                <td>
-                                    <span class="badge badge--green">Approve</span>
-                                </td>
-                                <td class="action-buttons">
-                                    <button type="button" class="btn-action btn-review" onclick="openReviewModal('1')" title="Review Submission">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Maria Santos</td>
-                                <td>2022-00123</td>
-                                <td>14</td>
-                                <td>
-                                    <span class="badge badge--green">Approve</span>
-                                </td>
-                                <td class="action-buttons">
-                                    <button type="button" class="btn-action btn-review" onclick="openReviewModal('2')" title="Review Submission">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>John Dela Cruz</td>
-                                <td>2022-00124</td>
-                                <td>12</td>
-                                <td>
-                                    <span class="badge badge--yellow">Pending</span>
-                                </td>
-                                <td class="action-buttons">
-                                    <button type="button" class="btn-action btn-review" onclick="openReviewModal('3')" title="Review Submission">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Sarah Johnson</td>
-                                <td>2022-00125</td>
-                                <td>18</td>
-                                <td>
-                                    <span class="badge badge--green">Approve</span>
-                                </td>
-                                <td class="action-buttons">
-                                    <button type="button" class="btn-action btn-review" onclick="openReviewModal('4')" title="Review Submission">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Michael Rodriguez</td>
-                                <td>2022-00126</td>
-                                <td>10</td>
-                                <td>
-                                    <span class="badge badge--red">Reject</span>
-                                </td>
-                                <td class="action-buttons">
-                                    <button type="button" class="btn-action btn-review" onclick="openReviewModal('5')" title="Review Submission">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Anna Garcia</td>
-                                <td>2022-00127</td>
-                                <td>15</td>
-                                <td>
-                                    <span class="badge badge--green">Approve</span>
-                                </td>
-                                <td class="action-buttons">
-                                    <button type="button" class="btn-action btn-review" onclick="openReviewModal('6')" title="Review Submission">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>David Kim</td>
-                                <td>2022-00128</td>
-                                <td>13</td>
-                                <td>
-                                    <span class="badge badge--yellow">Pending</span>
-                                </td>
-                                <td class="action-buttons">
-                                    <button type="button" class="btn-action btn-review" onclick="openReviewModal('7')" title="Review Submission">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Lisa Chen</td>
-                                <td>2022-00129</td>
-                                <td>17</td>
-                                <td>
-                                    <span class="badge badge--green">Approve</span>
-                                </td>
-                                <td class="action-buttons">
-                                    <button type="button" class="btn-action btn-review" onclick="openReviewModal('8')" title="Review Submission">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Robert Wilson</td>
-                                <td>2022-00130</td>
-                                <td>9</td>
-                                <td>
-                                    <span class="badge badge--red">Reject</span>
-                                </td>
-                                <td class="action-buttons">
-                                    <button type="button" class="btn-action btn-review" onclick="openReviewModal('9')" title="Review Submission">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Jennifer Lee</td>
-                                <td>2022-00131</td>
-                                <td>19</td>
-                                <td>
-                                    <span class="badge badge--green">Approve</span>
-                                </td>
-                                <td class="action-buttons">
-                                    <button type="button" class="btn-action btn-review" onclick="openReviewModal('10')" title="Review Submission">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            @endif
-                        </tbody>
-                    </table>
                 </div>
-
-                {{-- Pagination --}}
-                @if (isset($students) && method_exists($students, 'links'))
-                <div class="unified-pagination">
-                    {{ $students->withQueryString()->links() }}
-                </div>
-                @else
-                {{-- Sample pagination for demonstration --}}
-                <div class="unified-pagination">
-                    <button class="btn-nav" disabled>Previous</button>
-                    <button class="btn-page active">1</button>
-                    <button class="btn-page">2</button>
-                    <button class="btn-page">3</button>
-                    <button class="btn-page">4</button>
-                    <button class="btn-nav">Next</button>
-                </div>
-                @endif
             </div>
-        </div>
 
-        <!-- Review Modal -->
-        <div id="reviewModal" class="modal">
-            <div class="modal-content review-modal">
+            {{-- Table --}}
+            <div class="table-container">
+                <table class="table table-hover graduating-table" id="adminFinalReviewTable">
+                    <thead>
+                    <tr>
+                        <th>Student ID</th>
+                        <th>Student Name</th>
+                        <th>College</th>
+                        <th>Program</th>
+                        <th>Major</th>
+                        <th>Final Score</th>
+                        <th>Decision</th>
+                        <th style="width: 80px;">Action</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @forelse($items as $item)
+                        @php
+                            /** @var \App\Models\AssessorFinalReview $afr */
+                            $afr      = $item;
+                            $student  = $afr->student ?? null;
+                            $academic = $student->studentAcademic ?? null;
+                            $final    = $afr->finalReview ?? null;
+
+                            $studentNumber = $academic->student_number
+                                ?? $academic->student_id
+                                ?? $student->student_id
+                                ?? $student->id;
+
+                            $yearLevel = $academic->year_level ?? '—';
+
+                            $lastName   = $student->last_name ?? $student->lastname ?? '';
+                            $firstName  = $student->first_name ?? $student->firstname ?? '';
+                            $middleName = $student->middle_name ?? $student->middlename ?? '';
+
+                            $studentName = trim(strtoupper($lastName).', '.$firstName.' '.$middleName);
+
+                            $programName = optional($academic->program)->name
+                                ?? optional($academic)->program_name
+                                ?? '—';
+
+                            $collegeName = optional(optional($academic->program)->college)->short_name
+                                ?? optional(optional($academic->program)->college)->name
+                                ?? optional($academic->college)->short_name
+                                ?? optional($academic->college)->name
+                                ?? optional($academic)->college_name
+                                ?? '—';
+
+                            $majorName = optional($academic->major)->name
+                                ?? optional($academic)->major_name
+                                ?? '—';
+
+                            // decision from final_reviews table (enum: approved / not_qualified)
+                            $decisionKey = $final->decision ?? null;
+                            $decisionLabels = [
+                                'approved'      => 'Awarded',
+                                'not_qualified' => 'Not qualified',
+                            ];
+                            $decisionLabel = $decisionKey
+                                ? ($decisionLabels[$decisionKey] ?? ucfirst(str_replace('_', ' ', $decisionKey)))
+                                : 'Pending';
+
+                            $decisionClass = match ($decisionKey) {
+                                'approved'      => 'badge-approved',
+                                'not_qualified' => 'badge-not-qualified',
+                                default         => 'badge-pending',
+                            };
+
+                            $breakdown = $afr->compiledScores
+                                ? $afr->compiledScores->map(function ($cs) {
+                                    return [
+                                        'category'     => optional($cs->category)->title ?? '—',
+                                        'result'       => $cs->category_result,
+                                        'score'        => (float) $cs->total_score,
+                                        'max_points'   => (float) $cs->max_points,
+                                        'min_required' => (float) $cs->min_required_points,
+                                    ];
+                                })->values()
+                                : [];
+                        @endphp
+
+                        <tr class="student-row"
+                            data-decision="{{ $decisionKey ?? 'pending' }}"
+                            data-name="{{ $studentName }}"
+                            data-program="{{ $programName }}"
+                            data-score="{{ $afr->total_score ?? 0 }}">
+                            <td class="student-id-cell">{{ $studentNumber }}</td>
+                            <td class="student-name-cell">{{ $studentName }}</td>
+                            <td class="college-cell">{{ $collegeName }}</td>
+                            <td class="program-cell">{{ $programName }}</td>
+                            <td class="major-cell">{{ $majorName }}</td>
+                            <td class="score-cell">{{ number_format($afr->total_score ?? 0, 2) }}</td>
+                            <td>
+                                <span class="decision-badge {{ $decisionClass }}">
+                                    {{ $decisionLabel }}
+                                </span>
+                            </td>
+                            <td>
+                                <button type="button"
+                                        class="btn btn-view btn-action"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#adminViewSummaryModal"
+                                        data-afr-id="{{ $afr->id }}"
+                                        data-student-number="{{ $studentNumber }}"
+                                        data-student-name="{{ $studentName }}"
+                                        data-college="{{ $collegeName }}"
+                                        data-program="{{ $programName }}"
+                                        data-major="{{ $majorName }}"
+                                        data-year-level="{{ $yearLevel }}"
+                                        data-score="{{ number_format($afr->total_score ?? 0, 2) }}"
+                                        data-decision="{{ $decisionKey ?? 'pending' }}"
+                                        data-breakdown='@json($breakdown)'>
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-4">
+                                No students queued for Admin final review.
+                            </td>
+                        </tr>
+                    @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    {{-- Hidden form for admin decision --}}
+    <form id="adminFinalDecisionForm" method="POST" class="d-none">
+        @csrf
+        <input type="hidden" name="decision" value="">
+    </form>
+
+    {{-- Admin View Summary Modal --}}
+    <div class="modal fade admin-final-modal"  {{-- <== extra class to scope overrides --}}
+         id="adminViewSummaryModal"
+         tabindex="-1"
+         aria-labelledby="adminViewSummaryModalLabel"
+         aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content final-modal">
                 <div class="modal-header">
-                    <h3>Document Review</h3>
-                    <span class="close" onclick="closeReviewModal()">&times;</span>
+                    <h5 class="modal-title" id="adminViewSummaryModalLabel">
+                        Graduating Student - Final Review
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
+
                 <div class="modal-body">
-                    <div class="review-container">
-                        <!-- Student Details Section -->
-                        <div class="student-details-section">
-                            <h4>Student Information</h4>
-                            <div class="student-info">
-                                <div class="info-row">
-                                    <span class="info-label">Name:</span>
-                                    <span class="info-value" id="modal-student-name">Edryan Manocay</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Student ID:</span>
-                                    <span class="info-value" id="modal-student-id">2022-00216</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Program:</span>
-                                    <span class="info-value" id="modal-program">Bachelor of Science in Information Technology</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">College:</span>
-                                    <span class="info-value" id="modal-college">College of Computer Studies</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Organization Role:</span>
-                                    <span class="info-value" id="modal-role">Student Leader</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Organization Name:</span>
-                                    <span class="info-value" id="modal-org">Student Council</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Expected Year to Graduate:</span>
-                                    <span class="info-value" id="modal-grad-year">2024</span>
-                                </div>
-                            </div>
+                    {{-- Header: name + score --}}
+                    <div class="student-header modal-student-header">
+                        <div>
+                            <h4 id="adminSummaryStudentName" class="mb-1"></h4>
+                            <p id="adminSummaryStudentMeta" class="mb-0 text-muted small"></p>
+                        </div>
+                        <div class="summary-score-pill">
+                            <span class="label">Assessor Final Score</span>
+                            <span class="value" id="adminSummaryTotalScore">0.00</span>
+                        </div>
+                    </div>
 
-                            <!-- Final Point Summary -->
-                            <div class="point-summary-section">
-                                <h4>Final Point Summary</h4>
-                                <div class="point-summary-table">
-                                    <table class="summary-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Category</th>
-                                                <th>Earned Points</th>
-                                                <th>Max Points</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td>I. Leadership</td>
-                                                <td>20</td>
-                                                <td>25</td>
-                                            </tr>
-                                            <tr>
-                                                <td>II. Academic Excellence</td>
-                                                <td>20</td>
-                                                <td>25</td>
-                                            </tr>
-                                            <tr>
-                                                <td>III. Community Service</td>
-                                                <td>10</td>
-                                                <td>15</td>
-                                            </tr>
-                                            <tr>
-                                                <td>IV. Extracurricular Activities</td>
-                                                <td>10</td>
-                                                <td>15</td>
-                                            </tr>
-                                            <tr>
-                                                <td>V. Special Recognition</td>
-                                                <td>3</td>
-                                                <td>10</td>
-                                            </tr>
-                                            <tr class="total-row">
-                                                <td><strong>Total Score</strong></td>
-                                                <td><strong>63</strong></td>
-                                                <td><strong>90</strong></td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
+                    {{-- Student info grid (ID, year level, college, program, major) --}}
+                    <div class="admin-student-info-grid mb-4">
+                        <div class="info-block">
+                            <p class="info-label">Student ID</p>
+                            <p class="info-value" id="adminInfoStudentNumber">—</p>
+                        </div>
+                        <div class="info-block">
+                            <p class="info-label">Year Level</p>
+                            <p class="info-value" id="adminInfoYearLevel">—</p>
+                        </div>
+                        <div class="info-block">
+                            <p class="info-label">College</p>
+                            <p class="info-value" id="adminInfoCollege">—</p>
+                        </div>
+                        <div class="info-block">
+                            <p class="info-label">Program</p>
+                            <p class="info-value" id="adminInfoProgram">—</p>
+                        </div>
+                        <div class="info-block">
+                            <p class="info-label">Major</p>
+                            <p class="info-value" id="adminInfoMajor">—</p>
+                        </div>
+                        <div class="info-block">
+                            <p class="info-label">Current Decision</p>
+                            <p class="info-value" id="adminSummaryDecision">Pending</p>
+                        </div>
+                    </div>
 
-                            <!-- Remarks Section -->
-                            <div class="remarks-section">
-                                <h4>Remarks</h4>
-                                <textarea id="review-remarks" class="remarks-textarea" placeholder="Enter your remarks here..."></textarea>
-                            </div>
-
-                            <!-- Action Buttons -->
-                            <div class="review-actions">
-                                <button type="button" class="btn btn-approve-qualification" onclick="approveQualification()">
-                                    <i class="fas fa-check"></i> Approve Qualification
-                                </button>
-                                <button type="button" class="btn btn-reject-qualification" onclick="rejectQualification()">
-                                    <i class="fas fa-times"></i> Reject
-                                </button>
-                            </div>
+                    {{-- Category breakdown --}}
+                    <div class="mb-4 mt-3">
+                        <h5 class="section-title">Category Score Breakdown</h5>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle summary-table mb-0">
+                                <thead>
+                                <tr>
+                                    <th style="width:40%">Category</th>
+                                    <th style="width:30%">Score</th>
+                                    <th style="width:30%">Max Points</th>
+                                </tr>
+                                </thead>
+                                <tbody id="adminSummaryCategoryRows">
+                                <tr class="text-muted">
+                                    <td colspan="3" class="text-center">
+                                        Category-level scores will appear here once connected to compiled scores.
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- Success Modal -->
-        <div id="successModal" class="modal fade" style="display: none;">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content success-modal-content">
-                    <div class="modal-body text-center p-4">
-                        <div class="success-icon mb-3">
-                            <i class="fas fa-check-circle" style="color: #28a745; font-size: 3rem;"></i>
-                        </div>
-                        <h5 class="success-title mb-3">Success!</h5>
-                        <p class="success-message mb-4" id="successMessage">Operation completed successfully!</p>
-                        <button type="button" class="btn btn-success" onclick="closeSuccessModal()">
-                            OK
+                <div class="modal-footer justify-content-between">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        Close
+                    </button>
+
+                    <div class="right-actions">
+                        <button type="button"
+                                class="btn btn-outline-danger admin-decision-btn"
+                                id="adminNotQualifiedBtn">
+                            Mark as Not Qualified
+                        </button>
+                        <button type="button"
+                                class="btn btn-primary final-submit-btn admin-decision-btn"
+                                id="adminApproveBtn">
+                            Approve for SLEA Award
                         </button>
                     </div>
                 </div>
             </div>
         </div>
-
-        <script>
-            let currentStudentId = '';
-
-            function openReviewModal(studentId) {
-                currentStudentId = studentId;
-
-                // Show the modal
-                document.getElementById('reviewModal').style.display = 'block';
-                document.body.style.overflow = 'hidden';
-
-                // Load student data (in real app, fetch from server)
-                loadStudentData(studentId);
-            }
-
-            function closeReviewModal() {
-                document.getElementById('reviewModal').style.display = 'none';
-                document.body.style.overflow = 'auto';
-                currentStudentId = '';
-            }
-
-            function loadStudentData(studentId) {
-                // In a real application, you would fetch student data from the server
-                // For now, we'll use sample data
-                console.log('Loading data for student ID:', studentId);
-
-                // Update student information
-                document.getElementById('modal-student-name').textContent = 'Edryan Manocay';
-                document.getElementById('modal-student-id').textContent = '2022-00216';
-                document.getElementById('modal-program').textContent = 'Bachelor of Science in Information Technology';
-                document.getElementById('modal-college').textContent = 'College of Computer Studies';
-                document.getElementById('modal-role').textContent = 'Student Leader';
-                document.getElementById('modal-org').textContent = 'Student Council';
-                document.getElementById('modal-grad-year').textContent = '2024';
-            }
-
-            function approveQualification() {
-                const remarks = document.getElementById('review-remarks').value;
-
-                // In a real application, you would send an AJAX request to the server
-                console.log('Approving qualification for student:', currentStudentId);
-                console.log('Remarks:', remarks);
-
-                // Close review modal first
-                closeReviewModal();
-
-                // Show custom success modal
-                showSuccessModal('Qualification approved successfully!');
-            }
-
-            function rejectQualification() {
-                const remarks = document.getElementById('review-remarks').value;
-
-                // In a real application, you would send an AJAX request to the server
-                console.log('Rejecting qualification for student:', currentStudentId);
-                console.log('Remarks:', remarks);
-
-                // Close review modal first
-                closeReviewModal();
-
-                // Show custom success modal
-                showSuccessModal('Qualification rejected successfully!');
-            }
-
-            // Success Modal Functions
-            function showSuccessModal(message) {
-                document.getElementById('successMessage').textContent = message;
-                const modal = document.getElementById('successModal');
-                modal.style.display = 'block';
-                modal.classList.add('show');
-                document.body.classList.add('modal-open');
-            }
-
-            function closeSuccessModal() {
-                const modal = document.getElementById('successModal');
-                modal.style.display = 'none';
-                modal.classList.remove('show');
-                document.body.classList.remove('modal-open');
-            }
-
-            // Close modal when clicking outside of it
-            window.onclick = function(event) {
-                const reviewModal = document.getElementById('reviewModal');
-                const successModal = document.getElementById('successModal');
-
-                if (event.target === reviewModal) {
-                    closeReviewModal();
-                }
-
-                if (event.target === successModal) {
-                    closeSuccessModal();
-                }
-            }
-        </script>
-
-</div>
-</main>
-</div>
-
+    </div>
 @endsection
+
+@push('scripts')
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const table        = document.getElementById('adminFinalReviewTable');
+            const statusFilter = document.getElementById('statusFilter');
+            const sortSelect   = document.getElementById('sortSelect');
+            const searchInput  = document.getElementById('searchInput');
+            const modalEl      = document.getElementById('adminViewSummaryModal');
+            const decisionForm = document.getElementById('adminFinalDecisionForm');
+            const approveBtn   = document.getElementById('adminApproveBtn');
+            const notQualBtn   = document.getElementById('adminNotQualifiedBtn');
+
+            const storeUrlTemplate = @json(route('admin.final-review.decision', ['assessorFinalReview' => '__AFR__']));
+
+            function applyFilters() {
+                if (!table) return;
+
+                const search   = (searchInput?.value || '').toLowerCase().trim();
+                const decision = statusFilter?.value || '';
+
+                const rows = table.querySelectorAll('tbody tr.student-row');
+                rows.forEach(row => {
+                    const name    = (row.querySelector('.student-name-cell')?.textContent || '').toLowerCase();
+                    const program = (row.querySelector('.program-cell')?.textContent || '').toLowerCase();
+                    const major   = (row.querySelector('.major-cell')?.textContent || '').toLowerCase();
+                    const idCell  = (row.querySelector('.student-id-cell')?.textContent || '').toLowerCase();
+                    const college = (row.querySelector('.college-cell')?.textContent || '').toLowerCase();
+                    const rowDec  = row.dataset.decision || 'pending';
+
+                    let matchesSearch =
+                        !search ||
+                        name.includes(search) ||
+                        program.includes(search) ||
+                        major.includes(search) ||
+                        idCell.includes(search) ||
+                        college.includes(search);
+
+                    let matchesDecision =
+                        !decision ||
+                        (decision === 'pending' && rowDec === 'pending') ||
+                        rowDec === decision;
+
+                    row.style.display = (matchesSearch && matchesDecision) ? '' : 'none';
+                });
+            }
+
+            function applySort() {
+                if (!table || !sortSelect) return;
+                const value = sortSelect.value;
+                if (!value) return;
+
+                const tbody = table.querySelector('tbody');
+                const rows  = Array.from(tbody.querySelectorAll('tr.student-row'));
+
+                rows.sort((a, b) => {
+                    if (value === 'name') {
+                        return (a.dataset.name || '').localeCompare(b.dataset.name || '');
+                    }
+                    if (value === 'program') {
+                        return (a.dataset.program || '').localeCompare(b.dataset.program || '');
+                    }
+                    if (value === 'score-desc') {
+                        return parseFloat(b.dataset.score || 0) - parseFloat(a.dataset.score || 0);
+                    }
+                    if (value === 'score-asc') {
+                        return parseFloat(a.dataset.score || 0) - parseFloat(b.dataset.score || 0);
+                    }
+                    return 0;
+                });
+
+                rows.forEach(r => tbody.appendChild(r));
+            }
+
+            if (searchInput)  searchInput.addEventListener('input', applyFilters);
+            if (statusFilter) statusFilter.addEventListener('change', applyFilters);
+            if (sortSelect)   sortSelect.addEventListener('change', applySort);
+
+            // Fill summary modal on open
+            if (modalEl) {
+                modalEl.addEventListener('show.bs.modal', function (event) {
+                    const button = event.relatedTarget;
+                    if (!button) return;
+
+                    const afrId       = button.getAttribute('data-afr-id');
+                    const studentNum  = button.getAttribute('data-student-number') || '—';
+                    const name        = button.getAttribute('data-student-name') || '';
+                    const program     = button.getAttribute('data-program') || '—';
+                    const college     = button.getAttribute('data-college') || '—';
+                    const major       = button.getAttribute('data-major') || '—';
+                    const yearLevel   = button.getAttribute('data-year-level') || '—';
+                    const score       = button.getAttribute('data-score') || '0.00';
+                    const decisionKey = button.getAttribute('data-decision') || 'pending';
+                    const breakdownRaw = button.getAttribute('data-breakdown') || '[]';
+
+                    modalEl.dataset.afrId = afrId || '';
+
+                    // Header
+                    document.getElementById('adminSummaryStudentName').textContent = name;
+                    document.getElementById('adminSummaryStudentMeta').textContent =
+                        `${college} • ${program} • ${major} • Year ${yearLevel}`;
+                    document.getElementById('adminSummaryTotalScore').textContent = score;
+
+                    // Info grid
+                    document.getElementById('adminInfoStudentNumber').textContent = studentNum;
+                    document.getElementById('adminInfoYearLevel').textContent    = yearLevel;
+                    document.getElementById('adminInfoCollege').textContent      = college;
+                    document.getElementById('adminInfoProgram').textContent      = program;
+                    document.getElementById('adminInfoMajor').textContent        = major;
+
+                    const decisionLabel =
+                        decisionKey === 'approved'
+                            ? 'Awarded'
+                            : decisionKey === 'not_qualified'
+                                ? 'Not qualified'
+                                : 'Pending';
+                    document.getElementById('adminSummaryDecision').textContent = decisionLabel;
+
+                    // Category rows
+                    const tbody = document.getElementById('adminSummaryCategoryRows');
+                    tbody.innerHTML = '';
+
+                    let breakdown = [];
+                    try {
+                        breakdown = JSON.parse(breakdownRaw);
+                    } catch (e) {
+                        breakdown = [];
+                    }
+
+                    let totalScore = 0;
+                    let totalMax   = 0;
+
+                    if (!Array.isArray(breakdown) || breakdown.length === 0) {
+                        tbody.innerHTML = `
+                            <tr class="text-muted">
+                                <td colspan="3" class="text-center">
+                                    No category breakdown available for this student.
+                                </td>
+                            </tr>`;
+                    } else {
+                        breakdown.forEach((row, index) => {
+                            const catName = row.category || `Category ${index + 1}`;
+                            const sc      = parseFloat(row.score) || 0;
+                            const maxPts  = parseFloat(row.max_points) || 0;
+
+                            totalScore += sc;
+                            totalMax   += maxPts;
+
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td>${catName}</td>
+                                <td>${sc.toFixed(2)}</td>
+                                <td>${maxPts.toFixed(2)}</td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+
+                        const totalTr = document.createElement('tr');
+                        totalTr.classList.add('summary-total-row');
+                        totalTr.innerHTML = `
+                            <td><strong>Total Score</strong></td>
+                            <td><strong>${totalScore.toFixed(2)}</strong></td>
+                            <td><strong>${totalMax.toFixed(2)}</strong></td>
+                        `;
+                        tbody.appendChild(totalTr);
+                    }
+                });
+            }
+
+            function submitDecision(decisionKey) {
+                const afrId = modalEl?.dataset.afrId || '';
+                if (!afrId) {
+                    alert('Missing review ID.');
+                    return;
+                }
+                if (!decisionForm) return;
+
+                const url = storeUrlTemplate.replace('__AFR__', afrId);
+                decisionForm.action = url;
+                decisionForm.querySelector('input[name="decision"]').value = decisionKey;
+                decisionForm.submit();
+            }
+
+            if (approveBtn) {
+                approveBtn.addEventListener('click', function () {
+                    submitDecision('approved');
+                });
+            }
+
+            if (notQualBtn) {
+                notQualBtn.addEventListener('click', function () {
+                    submitDecision('not_qualified');
+                });
+            }
+        });
+    </script>
+@endpush
+
+@push('styles')
+    <style>
+        /* ------------------------------
+           Admin Final Review – override global .modal rules safely
+        ------------------------------ */
+
+        /* Only this modal: center it instead of bottom-sheet style.css behavior */
+        .admin-final-modal.modal {
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        .admin-final-modal .modal-dialog {
+            max-width: 960px !important;
+            width: 95vw !important;
+            margin: 1.5rem auto !important;
+        }
+
+        .admin-final-modal .modal-content {
+            border-radius: 12px !important;
+            max-height: 85vh;
+        }
+
+        .admin-final-modal .modal-body {
+            max-height: calc(85vh - 140px);
+            overflow-y: auto;
+        }
+
+        /* ---- Page header ---- */
+        .page-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .page-header h1 {
+            color: #8B0000;
+            font-size: 2rem;
+            margin-bottom: 0;
+            font-weight: 700;
+        }
+
+        body.dark-mode .page-header h1 {
+            color: #f9bd3d !important;
+        }
+
+        /* ---- Filter bar ---- */
+        .filter-bar {
+            background: #fff;
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.25rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+        }
+
+        body.dark-mode .filter-bar {
+            background: #2b2b2b;
+        }
+
+        .filter-label,
+        .search-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: #555;
+        }
+
+        body.dark-mode .filter-label,
+        body.dark-mode .search-label {
+            color: #ddd;
+        }
+
+        .search-wrapper {
+            position: relative;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.85rem;
+            color: #999;
+        }
+
+        .search-wrapper input {
+            padding-left: 2rem;
+        }
+
+        /* ---- Table container ---- */
+        .table-container {
+            background: #fff;
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+        }
+
+        body.dark-mode .table-container {
+            background: #2b2b2b;
+        }
+
+        .graduating-table thead th {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: #666;
+            border-bottom: 2px solid #eee;
+        }
+
+        .graduating-table tbody td {
+            vertical-align: middle;
+            font-size: 0.92rem;
+        }
+
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.35rem 0.6rem;
+            border-radius: 999px;
+            border: none;
+            font-size: 0.9rem;
+        }
+
+        .btn-view {
+            background: #8B0000;
+            color: #fff;
+        }
+
+        .btn-view:hover {
+            background: #a00000;
+            color: #fff;
+        }
+
+        .decision-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.25rem 0.6rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-pending {
+            background: rgba(108, 117, 125, 0.15);
+            color: #6c757d;
+        }
+
+        .badge-approved {
+            background: rgba(40, 167, 69, 0.15);
+            color: #198754;
+        }
+
+        .badge-not-qualified {
+            background: rgba(220, 53, 69, 0.15);
+            color: #b21f2d;
+        }
+
+        /* ---- Header & score pill ---- */
+        .student-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .summary-score-pill {
+            background: #8B0000;
+            color: #fff;
+            border-radius: 999px;
+            padding: 0.5rem 1.2rem;
+            text-align: right;
+        }
+
+        .summary-score-pill .label {
+            display: block;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            opacity: 0.8;
+        }
+
+        .summary-score-pill .value {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        /* ---- Student info grid ---- */
+        .admin-student-info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.75rem 1rem;
+        }
+
+        .admin-student-info-grid .info-block {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 0.55rem 0.75rem;
+        }
+
+        body.dark-mode .admin-student-info-grid .info-block {
+            background: #343a40;
+        }
+
+        .info-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #666;
+            margin-bottom: 0.1rem;
+        }
+
+        .info-value {
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        /* ---- Category table ---- */
+        .section-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .summary-table th,
+        .summary-table td {
+            padding: 10px 12px;
+            font-size: 0.95rem;
+            border-color: #ddd;
+        }
+
+        .summary-total-row td {
+            border-top: 2px solid #bbb;
+            font-weight: 700;
+        }
+
+        /* ---- Buttons in footer ---- */
+        .admin-decision-btn {
+            min-width: 210px;
+            padding: 0.55rem 1.25rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            white-space: normal;
+            text-align: center;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .final-submit-btn {
+            border-radius: 999px;
+        }
+
+        @media (max-width: 768px) {
+            .admin-student-info-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .student-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+            }
+
+            .summary-score-pill {
+                align-self: flex-end;
+            }
+        }
+    </style>
+@endpush
