@@ -15,7 +15,7 @@
     @yield('head')
 </head>
 
-<body class="d-flex flex-column {{ session('dark_mode', false) ? 'dark-mode' : '' }}">
+<body class="d-flex flex-column min-vh-100 {{ session('dark_mode', false) ? 'dark-mode' : '' }}">
     <!-- Header -->
     <div class="header-container">
         <div class="header">
@@ -40,36 +40,33 @@
         </div>
     </div>
 
-    <div class="d-flex flex-column flex-md-row m-0 p-0 login-main-container">
+    <div class="d-flex flex-column flex-md-row m-0 p-0" style="flex:1 1 auto; height:100vh;">
         <div class="login-left flex-shrink-0 flex-fill">
-            <div class="login-content-wrapper">
-                <h3 class="login-welcome-title">Welcome, USePians!</h3>
-                <p class="login-subtitle">Please login to get started.</p>
+            <div style="max-width:640px;width:100%;margin:0 auto;">
+                <h3 class="text-center mb-4 display-5 fw-bold" style="font-family:'Quicksand','sans-serif';">Welcome, USePians!</h3>
+                <p class="text-center mb-5 display-6 fw-normal" style="color:#F9BD3D">Please login to get started.</p>
 
-                {{-- Validation & Status - Fixed height container to prevent layout shift --}}
-                <div class="error-message-container">
-                    <div class="error-placeholder" style="display: {{ ($errors->any() || session('status')) ? 'none' : 'block' }};"></div>
-                    @if ($errors->any())
-                    <div class="alert alert-danger">
-                        <ul class="mb-0">
-                            @foreach ($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                    @endif
-
-                    @if (session('status'))
-                    <div class="alert alert-success">{{ session('status') }}</div>
-                    @endif
+                {{-- Validation & Status --}}
+                @if ($errors->any())
+                <div class="alert alert-danger">
+                    <ul class="mb-0">
+                        @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
                 </div>
+                @endif
+
+                @if (session('status'))
+                <div class="alert alert-success">{{ session('status') }}</div>
+                @endif
 
                 {{-- Login Form --}}
                 <form method="POST" action="{{ route('login.auth') }}" autocomplete="on" autocapitalize="none" autocorrect="off" novalidate>
                     @csrf
 
                     <div class="mb-4">
-                        <label class="form-label fw-normal" style="color:white;">USeP Email</label>
+                        <label class="form-label fs-5 fw-normal" style="color:white;">USeP Email</label>
                         <div class="input-group input-group-lg">
                             <span class="input-group-text"><i class="fa-solid fa-envelope"></i></span>
                             <input
@@ -89,8 +86,8 @@
                     </div>
 
                     <div class="mb-4">
-                        <label class="form-label fw-normal" style="color:white;">Password</label>
-                        <div class="input-group input-group-lg password-input-wrapper">
+                        <label class="form-label fs-5 fw-normal" style="color:white;">Password</label>
+                        <div class="input-group input-group-lg">
                             <span class="input-group-text"><i class="fa-solid fa-lock"></i></span>
                             <input
                                 type="password"
@@ -98,12 +95,11 @@
                                 id="passwordInput"
                                 class="form-control @error('password') is-invalid @enderror"
                                 required
-                                autocomplete="current-password"
-                                data-custom-toggle="true">
-                            <button class="toggle-password" type="button" title="Show/Hide">
+                                autocomplete="current-password">
+                            @error('password') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            <button class="input-group-text toggle-password" type="button" title="Show/Hide">
                                 <i class="fa-solid fa-eye"></i>
                             </button>
-                            @error('password') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
                     </div>
 
@@ -119,13 +115,13 @@
                         <i class="fas fa-sign-in-alt me-2"></i> Log In
                     </button>
 
-                    <div class="text-center signup-link-wrapper">
-                        <small style="color:white; font-size: 0.85rem;">Don't have an account? <a href="{{ route('register.show') }}">Sign Up</a></small>
+                    <div class="text-center mt-3 fs-6 fw-bold">
+                        <small style="color:white;">Don’t have an account? <a href="{{ route('register.show') }}">Sign Up</a></small>
                     </div>
                 </form>
             </div>
 
-            <div class="footer-wrapper text-center">
+            <div class="footer-wrapper text-center mt-1 fs-6">
                 &copy; {{ date('Y') }} University of Southeastern Philippines. All rights reserved.<br>
                 <a href="#" target="_blank">Terms of Use</a> |
                 <a href="https://www.usep.edu.ph/usep-data-privacy-statement/" target="_blank">Privacy Policy</a>
@@ -171,6 +167,17 @@
     {{-- Scripts --}}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ asset('js/login.js') }}"></script>
+    <script>
+        document.querySelectorAll('.toggle-password').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const input = document.getElementById('passwordInput');
+                const icon = this.querySelector('i');
+                input.type = input.type === 'password' ? 'text' : 'password';
+                icon.classList.toggle('fa-eye');
+                icon.classList.toggle('fa-eye-slash');
+            });
+        });
+    </script>
 </body>
 
 </html>

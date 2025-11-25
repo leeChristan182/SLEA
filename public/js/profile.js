@@ -377,10 +377,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (res.ok && data.success) {
           if (profilePicture && data.avatar_url) {
-            profilePicture.src = data.avatar_url;
+            // Add cache-busting parameter if not already present
+            let avatarUrl = data.avatar_url;
+            if (!avatarUrl.includes('?v=')) {
+              avatarUrl += (avatarUrl.includes('?') ? '&' : '?') + 'v=' + Date.now();
+            }
+            profilePicture.src = avatarUrl;
+            
+            // Force image reload
+            profilePicture.onload = function() {
+              console.log('✅ Avatar image loaded successfully');
+            };
+            profilePicture.onerror = function() {
+              console.error('❌ Failed to load avatar image');
+              // Fallback: reload page after a short delay
+              setTimeout(() => window.location.reload(), 1000);
+            };
+            
             if (avatarStorageKey) {
               try {
-                localStorage.setItem(avatarStorageKey, data.avatar_url);
+                localStorage.setItem(avatarStorageKey, avatarUrl);
               } catch (e) { /* ignore */ }
             }
           }

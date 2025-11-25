@@ -41,7 +41,7 @@
                 {{ $user->first_name ?? 'N/A' }}
                 {{ $user->last_name ?? '' }}
             </h1>
-            <p class="small {{ session('dark_mode') ? 'text-white-50' : 'text-muted' }}">
+            <p class="small text-white">
                 {{ ucfirst($user->role ?? 'assessor') }}
             </p>
         </div>

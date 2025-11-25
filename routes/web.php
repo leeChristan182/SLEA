@@ -177,6 +177,7 @@ Route::prefix('admin')
         Route::get('/submission-oversight', [AdminController::class, 'submissionOversight'])->name('submission-oversight');
         Route::get('/final-review', [AdminController::class, 'finalReview'])->name('final-review');
         Route::get('/award-report', [AdminController::class, 'awardReport'])->name('award-report');
+        Route::get('/award-report/export', [AdminController::class, 'exportAwardReport'])->name('award-report.export');
         Route::get('/system-monitoring', [AdminController::class, 'systemMonitoring'])->name('system-monitoring');
     });
 

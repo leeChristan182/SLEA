@@ -76,9 +76,15 @@ class AdminController extends Controller
             \Storage::disk('public')->delete($user->profile_picture_path);
         }
 
-        $user->update(['profile_picture_path' => $path]);
+        // Update database with new path
+        $user->profile_picture_path = $path;
+        $user->save();
+        
+        // Refresh user model to ensure we have the latest data
+        $user->refresh();
 
-        $avatarUrl = asset('storage/' . $path);
+        // Generate avatar URL with cache-busting parameter
+        $avatarUrl = asset('storage/' . $path) . '?v=' . time();
 
         // JSON for AJAX
         if ($request->ajax() || $request->expectsJson()) {
@@ -381,9 +387,154 @@ class AdminController extends Controller
         return view('admin.system.final-review');
     }
 
-    public function awardReport()
+    public function awardReport(Request $request)
     {
-        return view('admin.system.award-report');
+        // Sample data - replace with actual database query
+        $allStudents = [
+            ['id' => 1, 'name' => 'John Smith', 'student_id' => '2021-001', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 85],
+            ['id' => 2, 'name' => 'Sarah Wilson', 'student_id' => '2021-002', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 92],
+            ['id' => 3, 'name' => 'Michael Brown', 'student_id' => '2021-003', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 78],
+            ['id' => 4, 'name' => 'Lisa Garcia', 'student_id' => '2021-004', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 89],
+            ['id' => 5, 'name' => 'David Lee', 'student_id' => '2021-005', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 76],
+            ['id' => 6, 'name' => 'Maria Rodriguez', 'student_id' => '2021-006', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 94],
+            ['id' => 7, 'name' => 'James Wilson', 'student_id' => '2021-007', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 82],
+            ['id' => 8, 'name' => 'Anna Martinez', 'student_id' => '2021-008', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 87],
+            ['id' => 9, 'name' => 'Robert Kim', 'student_id' => '2021-009', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 91],
+            ['id' => 10, 'name' => 'Jennifer Chen', 'student_id' => '2021-010', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 83],
+            ['id' => 11, 'name' => 'Emily Davis', 'student_id' => '2021-011', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 88],
+            ['id' => 12, 'name' => 'David Miller', 'student_id' => '2021-012', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 95],
+            ['id' => 13, 'name' => 'Lisa Anderson', 'student_id' => '2021-013', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 82],
+            ['id' => 14, 'name' => 'Mark Thompson', 'student_id' => '2021-014', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 90],
+            ['id' => 15, 'name' => 'Rachel Green', 'student_id' => '2021-015', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 79],
+            ['id' => 16, 'name' => 'Kevin White', 'student_id' => '2021-016', 'college' => 'College of Engineering', 'program' => 'BSCE', 'points' => 86],
+            ['id' => 17, 'name' => 'Amanda Taylor', 'student_id' => '2021-017', 'college' => 'College of Engineering', 'program' => 'BSCE', 'points' => 93],
+            ['id' => 18, 'name' => 'Chris Johnson', 'student_id' => '2021-018', 'college' => 'College of Information and Computing', 'program' => 'BSIT', 'points' => 81],
+            ['id' => 19, 'name' => 'Nicole Brown', 'student_id' => '2021-019', 'college' => 'College of Information and Computing', 'program' => 'BSIT', 'points' => 89],
+            ['id' => 20, 'name' => 'Ryan Davis', 'student_id' => '2021-020', 'college' => 'College of Business Administration', 'program' => 'BSBA', 'points' => 84],
+        ];
+
+        // Get filter parameters
+        $college = $request->query('college');
+        $program = $request->query('program');
+        $search = $request->query('search');
+
+        // Apply filters
+        $filteredStudents = $allStudents;
+        
+        if ($college) {
+            $filteredStudents = array_filter($filteredStudents, function($student) use ($college) {
+                return $student['college'] === $college;
+            });
+        }
+        
+        if ($program) {
+            $filteredStudents = array_filter($filteredStudents, function($student) use ($program) {
+                return $student['program'] === $program;
+            });
+        }
+        
+        if ($search) {
+            $searchTerm = strtolower($search);
+            $filteredStudents = array_filter($filteredStudents, function($student) use ($searchTerm) {
+                return strpos(strtolower($student['name']), $searchTerm) !== false 
+                    || strpos(strtolower($student['student_id']), $searchTerm) !== false;
+            });
+        }
+        
+        // Re-index array after filtering
+        $filteredStudents = array_values($filteredStudents);
+
+        // Get current page from request
+        $currentPage = $request->get('page', 1);
+        $perPage = 10;
+        
+        // Create paginator manually
+        $total = count($filteredStudents);
+        $offset = ($currentPage - 1) * $perPage;
+        $items = array_slice($filteredStudents, $offset, $perPage);
+        
+        // Create paginator instance
+        $students = new \Illuminate\Pagination\LengthAwarePaginator(
+            $items,
+            $total,
+            $perPage,
+            $currentPage,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
+
+        return view('admin.award-report', compact('students'));
+    }
+
+    public function exportAwardReport(Request $request)
+    {
+        // Get filter parameters
+        $college = $request->query('college');
+        $program = $request->query('program');
+        $search = $request->query('search');
+
+        // Sample data - replace with actual database query
+        $allStudents = [
+            ['id' => 1, 'name' => 'John Smith', 'student_id' => '2021-001', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 85],
+            ['id' => 2, 'name' => 'Sarah Wilson', 'student_id' => '2021-002', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 92],
+            ['id' => 3, 'name' => 'Michael Brown', 'student_id' => '2021-003', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 78],
+            ['id' => 4, 'name' => 'Lisa Garcia', 'student_id' => '2021-004', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 89],
+            ['id' => 5, 'name' => 'David Lee', 'student_id' => '2021-005', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 76],
+            ['id' => 6, 'name' => 'Maria Rodriguez', 'student_id' => '2021-006', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 94],
+            ['id' => 7, 'name' => 'James Wilson', 'student_id' => '2021-007', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 82],
+            ['id' => 8, 'name' => 'Anna Martinez', 'student_id' => '2021-008', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 87],
+            ['id' => 9, 'name' => 'Robert Kim', 'student_id' => '2021-009', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 91],
+            ['id' => 10, 'name' => 'Jennifer Chen', 'student_id' => '2021-010', 'college' => 'College of Education', 'program' => 'BTVTED', 'points' => 83],
+            ['id' => 11, 'name' => 'Emily Davis', 'student_id' => '2021-011', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 88],
+            ['id' => 12, 'name' => 'David Miller', 'student_id' => '2021-012', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 95],
+            ['id' => 13, 'name' => 'Lisa Anderson', 'student_id' => '2021-013', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 82],
+            ['id' => 14, 'name' => 'Mark Thompson', 'student_id' => '2021-014', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 90],
+            ['id' => 15, 'name' => 'Rachel Green', 'student_id' => '2021-015', 'college' => 'College of Education', 'program' => 'BPED', 'points' => 79],
+            ['id' => 16, 'name' => 'Kevin White', 'student_id' => '2021-016', 'college' => 'College of Engineering', 'program' => 'BSCE', 'points' => 86],
+            ['id' => 17, 'name' => 'Amanda Taylor', 'student_id' => '2021-017', 'college' => 'College of Engineering', 'program' => 'BSCE', 'points' => 93],
+            ['id' => 18, 'name' => 'Chris Johnson', 'student_id' => '2021-018', 'college' => 'College of Information and Computing', 'program' => 'BSIT', 'points' => 81],
+            ['id' => 19, 'name' => 'Nicole Brown', 'student_id' => '2021-019', 'college' => 'College of Information and Computing', 'program' => 'BSIT', 'points' => 89],
+            ['id' => 20, 'name' => 'Ryan Davis', 'student_id' => '2021-020', 'college' => 'College of Business Administration', 'program' => 'BSBA', 'points' => 84],
+        ];
+
+        // Apply filters
+        $filteredStudents = $allStudents;
+        
+        if ($college) {
+            $filteredStudents = array_filter($filteredStudents, function($student) use ($college) {
+                return $student['college'] === $college;
+            });
+        }
+        
+        if ($program) {
+            $filteredStudents = array_filter($filteredStudents, function($student) use ($program) {
+                return $student['program'] === $program;
+            });
+        }
+        
+        if ($search) {
+            $searchTerm = strtolower($search);
+            $filteredStudents = array_filter($filteredStudents, function($student) use ($searchTerm) {
+                return strpos(strtolower($student['name']), $searchTerm) !== false 
+                    || strpos(strtolower($student['student_id']), $searchTerm) !== false;
+            });
+        }
+        
+        // Re-index array after filtering
+        $filteredStudents = array_values($filteredStudents);
+
+        // Generate PDF or CSV export
+        // For now, return a view that can be printed as PDF
+        return view('admin.pdf.award-report', [
+            'students' => $filteredStudents,
+            'filters' => [
+                'college' => $college,
+                'program' => $program,
+                'search' => $search,
+            ]
+        ]);
     }
 
     public function systemMonitoring()

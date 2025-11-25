@@ -125,19 +125,19 @@ class OrganizationSeeder extends Seeder
                     ]);
             } else {
                 // Use updateOrInsert for normal cases
-                DB::table('organizations')->updateOrInsert(
-                    ['name' => $o['name']],
-                    [
-                        'slug'        => $slug,
-                        'cluster_id'  => $cid($o['cluster'] ?? '') ?: null,
-                        'parent_id'   => null,
-                        'domain'      => $domain,
-                        'scope_level' => $scope,
-                        'is_active'   => true,
-                        'updated_at'  => now(),
-                        'created_at'  => now(),
-                    ]
-                );
+            DB::table('organizations')->updateOrInsert(
+                ['name' => $o['name']],
+                [
+                    'slug'        => $slug,
+                    'cluster_id'  => $cid($o['cluster'] ?? '') ?: null,
+                    'parent_id'   => null,
+                    'domain'      => $domain,
+                    'scope_level' => $scope,
+                    'is_active'   => true,
+                    'updated_at'  => now(),
+                    'created_at'  => now(),
+                ]
+            );
             }
         }
 

@@ -130,7 +130,7 @@ $role = $user?->role; // 'admin' | 'assessor' | 'student'
 
         <li class="{{ request()->routeIs('admin.award-report') ? 'active' : '' }}">
             <a href="{{ route('admin.award-report') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
-                <i class="fas a fa-trophy"></i><span>Award Report</span>
+                <i class="fas fa-trophy"></i><span>Award Report</span>
             </a>
         </li>
 

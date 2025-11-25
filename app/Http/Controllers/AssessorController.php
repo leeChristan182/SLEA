@@ -113,9 +113,15 @@ class AssessorController extends Controller
             Storage::disk('public')->delete($user->profile_picture_path);
         }
 
-        $user->update(['profile_picture_path' => $path]);
+        // Update database with new path
+        $user->profile_picture_path = $path;
+        $user->save();
+        
+        // Refresh user model to ensure we have the latest data
+        $user->refresh();
 
-        $avatarUrl = asset('storage/' . $path);
+        // Generate avatar URL with cache-busting parameter
+        $avatarUrl = asset('storage/' . $path) . '?v=' . time();
 
         if ($request->ajax() || $request->expectsJson()) {
             return response()->json([

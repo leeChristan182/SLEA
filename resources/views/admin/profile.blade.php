@@ -55,7 +55,7 @@ $admin = isset($admin) ? $admin : (isset($user) ? $user : auth()->user());
             </div>
 
             <h1 class="profile-name">{{ $admin->first_name }} {{ $admin->last_name }}</h1>
-            <p class="small {{ session('dark_mode') ? 'text-white-50' : 'text-muted' }}">
+            <p class="small text-white">
                 Administrator
             </p>
         </div>

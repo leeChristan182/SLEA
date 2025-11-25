@@ -82,7 +82,12 @@ class StudentController extends Controller
             Storage::disk('public')->delete($user->profile_picture_path);
         }
 
-        $user->update(['profile_picture_path' => $path]);
+        // Update database with new path
+        $user->profile_picture_path = $path;
+        $user->save();
+        
+        // Refresh user model to ensure we have the latest data
+        $user->refresh();
 
         return back()->with('status', 'Profile picture updated.');
     }
