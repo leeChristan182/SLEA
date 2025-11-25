@@ -1,5 +1,9 @@
 <?php
 
+use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Facade;
+
+
 return [
 
     /*
@@ -27,13 +31,8 @@ return [
     */
 
     'env' => env('APP_ENV', 'production'),
-    'providers' => [
-        Barryvdh\DomPDF\ServiceProvider::class,
-    ],
 
-    'aliases' => [
-        'Pdf' => Barryvdh\DomPDF\Facade\Pdf::class,
-    ],
+
     /*
     |--------------------------------------------------------------------------
     | Application Debug Mode
@@ -128,5 +127,34 @@ return [
         'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Autoloaded Service Providers
+    |--------------------------------------------------------------------------
+    */
+
+    'providers' => ServiceProvider::defaultProviders()->merge([
+        /*
+         * Package Service Providers...
+         */
+        Barryvdh\DomPDF\ServiceProvider::class,
+
+        /*
+         * Application Service Providers...
+         */
+        App\Providers\AppServiceProvider::class,
+
+    ])->toArray(),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Class Aliases
+    |--------------------------------------------------------------------------
+    */
+
+    'aliases' => Facade::defaultAliases()->merge([
+        'Pdf' => Barryvdh\DomPDF\Facade\Pdf::class,
+    ])->toArray(),
 
 ];

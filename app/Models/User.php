@@ -332,4 +332,24 @@ class User extends Authenticatable
     {
         return $this->hasMany(\App\Models\UserDocument::class);
     }
+    /**
+     * Get the student’s latest Certificate of Registration (COR).
+     */
+    public function latestCor()
+    {
+        return $this->documents()
+            ->where('doc_type', 'cor')
+            ->latest('created_at')
+            ->first();
+    }
+
+    /**
+     * Does the student have at least one COR uploaded?
+     */
+    public function hasCor(): bool
+    {
+        return $this->documents()
+            ->where('doc_type', 'cor')
+            ->exists();
+    }
 }

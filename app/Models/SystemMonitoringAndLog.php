@@ -11,7 +11,7 @@ class SystemMonitoringAndLog extends Model
 
     protected $table = 'system_monitoring_and_logs';
     protected $primaryKey = 'log_id';
-    public $timestamps = false; // Only created_at exists
+    public $timestamps = false;
 
     protected $fillable = [
         'user_role',
@@ -20,4 +20,15 @@ class SystemMonitoringAndLog extends Model
         'description',
         'created_at',
     ];
+
+    public static function record(string $userRole, string $userName, string $activityType, ?string $description = null): self
+    {
+        return static::create([
+            'user_role'     => $userRole,
+            'user_name'     => $userName,
+            'activity_type' => $activityType,
+            'description'   => $description,
+            'created_at'    => now(),
+        ]);
+    }
 }

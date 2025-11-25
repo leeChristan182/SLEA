@@ -17,6 +17,7 @@ use App\Http\Controllers\AssessorStudentSubmissionsController;
 use App\Http\Controllers\AssessorFinalReviewController;
 use App\Http\Controllers\FinalReviewController;
 use App\Http\Controllers\AssessorStudentSubmissionController;
+use App\Http\Controllers\SystemMonitoringAndLogController;
 /*
 |--------------------------------------------------------------------------
 | AUTH ROUTES (guest-only)
@@ -138,6 +139,7 @@ Route::prefix('admin')
         Route::post('/revalidation/{user}/approve', [AdminController::class, 'approveRevalidation'])->name('revalidation.approve');
         Route::post('/revalidation/{user}/reject',  [AdminController::class, 'rejectRevalidation'])->name('revalidation.reject');
 
+
         Route::get('/organizations', [OrganizationController::class, 'index'])->name('organizations.index');
         Route::post('/organizations', [OrganizationController::class, 'store'])->name('organizations.store');
         Route::put('/organizations/{organization}', [OrganizationController::class, 'update'])->name('organizations.update');
@@ -185,10 +187,15 @@ Route::prefix('admin')
         Route::get('/award-report', [AdminController::class, 'awardReportDashboard'])
             ->name('award-report');
 
-        Route::get('/award-report/export', [AdminController::class, 'awardReport'])
-            ->name('award-report.export');
+        // Awards report PDF (this will be admin.pdf.award-report.pdf)
+        Route::get('/award-report/pdf', [AdminController::class, 'exportAwardReportPdf'])
+            ->name('pdf.award-report.pdf');
 
-        Route::get('/system-monitoring', [AdminController::class, 'systemMonitoring'])->name('system-monitoring');
+        Route::get('/system-monitoring', [SystemMonitoringAndLogController::class, 'index'])
+            ->name('system-logs.index');
+
+        Route::delete('/system-monitoring', [SystemMonitoringAndLogController::class, 'clearAll'])
+            ->name('system-logs.clear');
     });
 
 /*

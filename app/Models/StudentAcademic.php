@@ -138,4 +138,15 @@ class StudentAcademic extends Model
         $this->slea_application_status = 'not_qualified';
         $this->save();
     }
+    /**
+     * Check if this student has a COR uploaded.
+     */
+    public function hasCor(): bool
+    {
+        if (! $this->relationLoaded('user')) {
+            $this->load('user');
+        }
+
+        return $this->user ? $this->user->hasCor() : false;
+    }
 }

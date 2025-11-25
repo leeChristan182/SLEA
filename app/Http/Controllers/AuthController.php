@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use App\Models\SystemMonitoringAndLog;
 
 class AuthController extends Controller
 {
@@ -36,54 +37,44 @@ class AuthController extends Controller
             'password' => $data['password'],
         ];
 
-        // Check credentials without logging in yet
+        // First: validate credentials only (no login yet)
         if (!Auth::validate($credentials)) {
             return back()
                 ->withErrors(['email' => 'Invalid credentials.'])
                 ->withInput($request->only('email'));
         }
 
-        /** @var User $user */
+        /** @var \App\Models\User $user */
         $user = User::where('email', $data['email'])->firstOrFail();
-        $remember = $request->boolean('remember');
 
-        // Optional: if you have these helpers on User, keep them.
-        if (method_exists($user, 'isStudent') && method_exists($user, 'canLoginToSlea')) {
-            if ($user->isStudent() && !$user->canLoginToSlea()) {
-                return back()
-                    ->withErrors(['email' => $user->loginBlockReason()])
-                    ->withInput($request->only('email'));
-            }
+        // Optional: additional checks on status, role, etc.
+        if ($user->status !== 'approved') {
+            return back()
+                ->withErrors(['email' => 'Your account is not approved yet.'])
+                ->withInput($request->only('email'));
         }
 
-        // Store info for OTP step
-        session([
-            'otp_pending_user_id' => $user->id,
-            'otp_remember_me'     => $remember,
-            'otp_context'         => 'login',
-            'otp_display_email'   => $user->email,
-        ]);
+        // Now actually log the user in
+        Auth::login($user, $request->boolean('remember'));
 
-        // If user has a method that decides OTP requirement, honor it; else default to requiring OTP
-        $needsOtp = method_exists($user, 'needsLoginOtp')
-            ? $user->needsLoginOtp()
-            : true;
+        // 🔹 SYSTEM LOG: LOGIN
+        $displayName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
 
-        if ($needsOtp) {
-            $this->sendOtp($user, 'login');
+        SystemMonitoringAndLog::record(
+            $user->role,               // 'admin', 'assessor', 'student'
+            $displayName ?: $user->email,
+            'Login',
+            'User logged in.'
+        );
 
-            // You’re using a modal-based OTP on the login page
-            return redirect()
-                ->route('login.show')
-                ->with('status', 'We sent a one-time password (OTP) to your email.')
-                ->with('show_otp_modal', true);
+        // Redirect based on role...
+        if ($user->role === 'admin') {
+            return redirect()->route('admin.profile');
+        } elseif ($user->role === 'assessor') {
+            return redirect()->route('assessor.profile');
         }
 
-        // No OTP required → login directly
-        Auth::login($user, $remember);
-        $request->session()->regenerate();
-
-        return $this->redirectAfterLogin($user);
+        return redirect()->route('student.profile');
     }
 
     protected function redirectAfterLogin(User $user)
@@ -94,15 +85,28 @@ class AuthController extends Controller
             default             => redirect()->route('student.profile'),
         };
     }
-
     public function logout(Request $request)
     {
-        Auth::logout();
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
 
+        if ($user) {
+            $displayName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+
+            // 🔹 SYSTEM LOG: LOGOUT
+            SystemMonitoringAndLog::record(
+                $user->role,
+                $displayName ?: $user->email,
+                'Logout',
+                'User logged out.'
+            );
+        }
+
+        Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('login.show');
+        return redirect()->route('login');
     }
 
     /* =========================

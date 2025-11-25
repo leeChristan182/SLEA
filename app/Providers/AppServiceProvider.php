@@ -7,25 +7,18 @@ use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
-use App\Models\StudentAcademic;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
         //
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
         /**
-         * ROLE + SLEA STATUS SHARING FOR ALL VIEWS
+         * SHARE ROLE + SLEA STATUS WITH ALL VIEWS
          */
         View::composer('*', function ($view) {
 
@@ -35,34 +28,27 @@ class AppServiceProvider extends ServiceProvider
             $sleaAwarded = false;
 
             /** Determine role */
-            if ($user instanceof \App\Models\AdminAccount) {
-                $role = 'admin';
-            } elseif ($user instanceof \App\Models\AssessorAccount) {
-                $role = 'assessor';
-            } elseif ($user) {
-                $role = 'student';
+            if ($user) {
+                $role = $user->role;   // <-- FIXED
             }
 
-            /** Share SLEA Award Status ONLY FOR STUDENTS */
-            if ($user && $role === 'student') {
-                $academic = $user->studentAcademic; // must match relationship
-
-                if ($academic) {
-                    $sleaApplicationStatus = $academic->slea_application_status;
-                    $sleaAwarded = ($sleaApplicationStatus === 'awarded');
-                }
+            /** Only students have SLEA status */
+            if ($role === 'student' && $user->studentAcademic) {
+                $academic = $user->studentAcademic;
+                $sleaApplicationStatus = $academic->slea_application_status;
+                $sleaAwarded = ($sleaApplicationStatus === 'awarded');
             }
 
-            /** Make available to all Blade views */
+            /** Make available globally */
             $view->with([
-                'currentRole'             => $role,
-                'sleaApplicationStatus'   => $sleaApplicationStatus,
-                'sleaAwarded'             => $sleaAwarded,
+                'currentRole'           => $role,
+                'sleaApplicationStatus' => $sleaApplicationStatus,
+                'sleaAwarded'           => $sleaAwarded,
             ]);
         });
 
         /**
-         * OVERRIDE EMAILS DURING DEVELOPMENT
+         * OVERRIDE EMAIL DURING DEVELOPMENT
          */
         if (app()->environment(['local', 'development'])) {
             $override = env('MAIL_TO_OVERRIDE');

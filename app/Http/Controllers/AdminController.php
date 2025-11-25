@@ -20,6 +20,9 @@ use Illuminate\Pagination\Paginator;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\College;
 use App\Models\Program;
+use App\Models\StudentAcademic;
+use App\Models\UserDocument;
+use App\Models\SystemMonitoringAndLog;
 
 class AdminController extends Controller
 {
@@ -104,37 +107,48 @@ class AdminController extends Controller
     // PUT /admin/profile/password
     public function updatePassword(Request $request)
     {
-        $request->validate([
-            'current_password' => ['required'],
-            'password'         => ['required', 'confirmed', PasswordRule::min(8)],
-        ]);
-
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        if (! Hash::check($request->current_password, $user->password)) {
-            return back()->withErrors(['current_password' => 'Your current password is incorrect.']);
+        $data = $request->validate([
+            'current_password'      => ['required'],
+            'password'              => ['required', 'confirmed', \Illuminate\Validation\Rules\Password::defaults()],
+            'password_confirmation' => ['required'],
+        ]);
+
+        if (!\Hash::check($data['current_password'], $user->password)) {
+            return back()->withErrors(['current_password' => 'Current password is incorrect.']);
         }
 
-        // Optional: audit password change if table exists
-        if (Schema::hasTable('password_changes')) {
-            DB::table('password_changes')->insert([
-                'user_id'                => $user->id,
-                'previous_password_hash' => $user->password,
-                'changed_at'             => now(),
-                'changed_by'             => 'self',
-                'ip'                     => $request->ip(),
-                'user_agent'             => substr((string) $request->userAgent(), 0, 255),
-                'created_at'             => now(),
-                'updated_at'             => now(),
-            ]);
-        }
+        // Store previous hash in password_changes table (if you already do this)
+        \DB::table('password_changes')->insert([
+            'user_id'                => $user->id,
+            'previous_password_hash' => $user->password,
+            'changed_at'             => now(),
+            'changed_by'             => 'self',
+            'ip'                     => $request->ip(),
+            'user_agent'             => $request->userAgent(),
+            'created_at'             => now(),
+            'updated_at'             => now(),
+        ]);
 
-        $user->password = $request->password; // auto-hash via model mutator
+        // Actually change the password
+        $user->password = \Hash::make($data['password']);
         $user->save();
 
-        return back()->with('status', 'Password updated.');
+        // 🔹 SYSTEM LOG: PASSWORD CHANGE
+        $displayName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+
+        SystemMonitoringAndLog::record(
+            $user->role,
+            $displayName ?: $user->email,
+            'Update',
+            'User changed account password.'
+        );
+
+        return back()->with('status', 'Password updated successfully.');
     }
+
 
     /* =========================
      | USER MANAGEMENT
@@ -178,61 +192,45 @@ class AdminController extends Controller
 
     public function storeUser(Request $request)
     {
-        $limit    = (int) config('slea.max_admin_accounts', 3);
-        $roleList = ['admin', 'assessor'];
-
         $data = $request->validate([
-            'role'        => ['required', 'in:' . implode(',', $roleList)],
-            'last_name'   => ['required', 'string', 'max:50'],
-            'first_name'  => ['required', 'string', 'max:50'],
+            'first_name' => ['required', 'string', 'max:50'],
+            'last_name'  => ['required', 'string', 'max:50'],
             'middle_name' => ['nullable', 'string', 'max:50'],
-            'email'       => ['required', 'email', 'max:100', 'unique:users,email'],
-            'contact'     => ['nullable', 'string', 'max:20'],
+            'email'      => ['required', 'email', 'max:100', 'unique:users,email'],
+            'role'       => ['required', 'string', 'in:admin,assessor,student'],
+            'status'     => ['required', 'string', 'in:pending,approved,rejected'],
+            // other fields...
         ]);
 
-        // Enforce admin cap
-        if ($data['role'] === 'admin') {
-            $adminCnt = \App\Models\User::where('role', 'admin')->count();
-            if ($adminCnt >= $limit) {
-                return back()->withErrors(['role' => "Admin account limit of {$limit} reached."])->withInput();
-            }
-        }
+        $password = Str::random(10);
 
-        // 1) Create with a placeholder password (will be replaced immediately)
-        $user = \App\Models\User::create([
-            'first_name'  => $data['first_name'],
-            'last_name'   => $data['last_name'],
+        $user = User::create([
+            'first_name' => $data['first_name'],
+            'last_name'  => $data['last_name'],
             'middle_name' => $data['middle_name'] ?? null,
-            'email'       => $data['email'],
-            'contact'     => $data['contact'] ?? null,
-            'password'    => 'placeholder',   // will be overwritten; mutator will hash
-            'role'        => $data['role'],
-            'status'      => 'approved',
+            'email'      => $data['email'],
+            'password'   => \Hash::make($password),
+            'role'       => $data['role'],
+            'status'     => $data['status'],
+            // contact / birth_date / etc.
         ]);
 
-        // 2) Set friendly temp password based on its auto-increment ID (no migration needed)
-        $plain = 'password_' . $user->id;
-        $user->password = $plain;  // hashed by your User model mutator
-        $user->save();
+        $admin = Auth::user();
 
-        // (Optional) Insert admin privileges if table exists
-        if ($data['role'] === 'admin' && \Illuminate\Support\Facades\Schema::hasTable('admin_privileges')) {
-            \Illuminate\Support\Facades\DB::table('admin_privileges')->insert([
-                'user_id'     => $user->id,
-                'admin_level' => 'standard',
-                'permissions' => null,
-                'created_at'  => now(),
-                'updated_at'  => now(),
-            ]);
-        }
+        // 🔹 SYSTEM LOG: ACCOUNT CREATION
+        $adminName = trim($admin->first_name . ' ' . ($admin->middle_name ? $admin->middle_name . ' ' : '') . $admin->last_name);
+        $userName  = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
 
-        return redirect()
-            ->route('admin.create_user')
-            ->with([
-                'success'            => ucfirst($data['role']) . ' account created.',
-                'generated_password' => $plain, // shown once in your modal
-            ]);
+        SystemMonitoringAndLog::record(
+            $admin->role,                                       // 'admin'
+            $adminName ?: $admin->email,
+            'Create',
+            "Created {$user->role} account for {$userName} ({$user->email})."
+        );
+
+        return redirect()->route('admin.manage')->with('status', 'User account created successfully.');
     }
+
 
 
     // GET /admin/approve-reject
@@ -264,39 +262,53 @@ class AdminController extends Controller
 
 
     // POST /admin/approve/{student_id}
-    public function approveUser(int $student_id)
+    public function approveUser($student_id)
     {
-        $user = User::findOrFail($student_id);
+        $admin = Auth::user();
 
-        if (! $user->isStudent() || ! $user->isPending()) {
-            return back()->withErrors(['email' => 'Only pending student accounts can be approved.']);
-        }
+        $student = User::where('id', $student_id)->firstOrFail();
+        $student->status = 'approved';
+        $student->save();
 
-        // Approve student
-        $user->approve();
+        $adminName   = trim($admin->first_name . ' ' . ($admin->middle_name ? $admin->middle_name . ' ' : '') . $admin->last_name);
+        $studentName = trim($student->first_name . ' ' . ($student->middle_name ? $student->middle_name . ' ' : '') . $student->last_name);
 
-        // === SEND MAIL NOTIFICATION ===
-        try {
-            \Mail::to($user->email)->send(new \App\Mail\AccountApprovedMail($user));
-        } catch (\Throwable $e) {
-            // Optional: Log or ignore
-            \Log::error('Approval email failed: ' . $e->getMessage());
-        }
+        // 🔹 SYSTEM LOG: APPROVAL
+        SystemMonitoringAndLog::record(
+            $admin->role,
+            $adminName ?: $admin->email,
+            'Update',
+            "Approved account for {$studentName} ({$student->email})."
+        );
 
-        return back()->with('status', 'Student approved. Email notification sent.');
+        return redirect()->back()->with('status', 'Student account approved successfully.');
     }
+
 
     // POST /admin/reject/{user}
-    public function rejectUser(User $user)
+    public function rejectUser($student_id)
     {
-        if (! $user->isStudent() || ! $user->isPending()) {
-            return back()->withErrors(['email' => 'Only pending student accounts can be rejected.']);
-        }
+        $admin = Auth::user();
 
-        $user->reject(); // assumes you have this helper on the model
+        $student = User::where('id', $student_id)->firstOrFail();
+        $studentName = trim($student->first_name . ' ' . ($student->middle_name ? $student->middle_name . ' ' : '') . $student->last_name);
 
-        return back()->with('status', 'Student rejected.');
+        $student->status = 'rejected';
+        $student->save();
+
+        $adminName = trim($admin->first_name . ' ' . ($admin->middle_name ? $admin->middle_name . ' ' : '') . $admin->last_name);
+
+        // 🔹 SYSTEM LOG: REJECTION
+        SystemMonitoringAndLog::record(
+            $admin->role,
+            $adminName ?: $admin->email,
+            'Update',
+            "Rejected account for {$studentName} ({$student->email})."
+        );
+
+        return redirect()->back()->with('status', 'Student account rejected.');
     }
+
 
 
     // PATCH /admin/manage/{user}/toggle   (approved <-> disabled)
@@ -346,52 +358,96 @@ class AdminController extends Controller
         return back()->with('status', 'User deleted.');
     }
     // GET /admin/revalidation
+    // GET /admin/revalidation
     public function revalidationQueue()
     {
-        $rows = \DB::table('users as u')
-            ->join('student_academic as a', 'a.user_id', '=', 'u.id')
-            ->select('u.id', 'u.first_name', 'u.last_name', 'u.email', 'a.expected_grad_year', 'a.eligibility_status', 'a.updated_at')
-            ->where('u.role', 'student')
-            ->whereIn('a.eligibility_status', ['needs_revalidation', 'under_review'])
-            ->orderByDesc('a.updated_at')
+        // Use Eloquent so we can show more info and re-use relationships
+        $rows = StudentAcademic::with(['user'])
+            ->whereIn('eligibility_status', ['needs_revalidation', 'under_review'])
+            ->orderByDesc('updated_at')
             ->paginate(20)
             ->withQueryString();
 
-        return view('admin.users.revalidation', compact('rows'));
+        return view('admin.revalidation', compact('rows'));
     }
 
     // POST /admin/revalidation/{user}/approve
     public function approveRevalidation(User $user)
     {
-        // trust updated academic info + COR already uploaded; mark eligible again
-        \DB::table('student_academic')->where('user_id', $user->id)->update([
+        if (! $user->isStudent()) {
+            abort(403);
+        }
+
+        $academic = \App\Models\StudentAcademic::where('user_id', $user->id)->firstOrFail();
+
+        // Must be in revalidation-required state
+        if (! in_array($academic->eligibility_status, ['needs_revalidation', 'under_review'], true)) {
+            return back()->withErrors([
+                'revalidation' => 'This student is not marked for revalidation.',
+            ]);
+        }
+
+        // Must have COR
+        if (!$academic->hasCor()) {
+            return back()->withErrors([
+                'cor' => 'Student has no Certificate of Registration (COR) uploaded. Cannot approve.',
+            ]);
+        }
+
+        // (Optional future rule) Must have complete academic info
+        if (!$academic->expected_grad_year || !$academic->program_id || !$academic->year_level) {
+            return back()->withErrors([
+                'academic' => 'Academic details incomplete. Require student to update before revalidation.',
+            ]);
+        }
+
+        // Approve revalidation
+        $academic->update([
             'eligibility_status' => 'eligible',
             'revalidated_at'     => now(),
-            'updated_at'         => now(),
         ]);
 
-        return back()->with('status', 'Revalidation approved.');
+        return back()->with('status', 'Revalidation approved. Student is now eligible.');
     }
+
 
     // POST /admin/revalidation/{user}/reject
     public function rejectRevalidation(User $user)
     {
-        \DB::table('student_academic')->where('user_id', $user->id)->update([
+        if (! $user->isStudent()) {
+            abort(403);
+        }
+
+        /** @var StudentAcademic $academic */
+        $academic = StudentAcademic::where('user_id', $user->id)->firstOrFail();
+
+        if (! in_array((string) $academic->eligibility_status, ['needs_revalidation', 'under_review'], true)) {
+            return back()->withErrors([
+                'revalidation' => 'Only students flagged for revalidation can be rejected.',
+            ]);
+        }
+
+        // Simple: mark fully ineligible
+        $academic->update([
             'eligibility_status' => 'ineligible',
-            'updated_at'         => now(),
         ]);
 
-        return back()->with('status', 'Revalidation rejected.');
+        return back()->with('status', 'Revalidation rejected. Student marked ineligible.');
     }
+
 
     /* =========================
      | SYSTEM PAGES (stubs)
      * ========================= */
+    /* =========================
+     | SYSTEM PAGES (AWARDS REPORT)
+     * ========================= */
     public function awardReportDashboard(Request $request)
     {
+        // Build all rows (already filtered by SLEA status, etc.)
         $rows = $this->buildAwardReportRows($request);
 
-        // Stats for the summary cards (optional)
+        // Stats for summary cards
         $stats = [
             'total'     => $rows->count(),
             'gold'      => $rows->where('award_level', 'gold')->count(),
@@ -404,7 +460,9 @@ class AdminController extends Controller
         $page    = LengthAwarePaginator::resolveCurrentPage();
         $perPage = 20;
 
-        $pageItems = $rows->slice(($page - 1) * $perPage, $perPage)->values();
+        $pageItems = $rows
+            ->slice(($page - 1) * $perPage, $perPage)
+            ->values();
 
         $students = new LengthAwarePaginator(
             $pageItems,
@@ -412,24 +470,24 @@ class AdminController extends Controller
             $perPage,
             $page,
             [
-                'path'  => Paginator::resolveCurrentPath(),
-                'query' => $request->query(),
+                'path'  => request()->url(),
+                'query' => request()->query(),
             ]
         );
 
-        // Dropdown data (safe defaults if models/tables not present)
+        // For dropdown filters
         $colleges = class_exists(\App\Models\College::class)
-            ? \App\Models\College::orderBy('short_name')->get()
+            ? \App\Models\College::orderBy('name')->get()
             : collect();
 
         $programs = class_exists(\App\Models\Program::class)
             ? \App\Models\Program::orderBy('name')->get()
             : collect();
 
-        $batches = []; // fill later if you have a batch/AY column
+        // Placeholder if you later add a "batch" column
+        $batches = [];
 
-        // This should point to your admin list Blade:
-        // resources/views/admin/award-report.blade.php
+        // Main admin awards report page
         return view('admin.award-report', [
             'students' => $students,
             'stats'    => $stats,
@@ -441,32 +499,30 @@ class AdminController extends Controller
 
     public function exportAwardReportPdf(Request $request)
     {
+        // buildAwardReportRows is whatever we already wrote earlier
         $rows = $this->buildAwardReportRows($request);
 
-        // Adapt to the structure expected by resources/views/award-report.blade.php
-        // which uses array access: $student['name'], ['student_id'], ['program'], ['points'], ['status']
-        $allStudents = $rows->map(function ($row) {
-            return [
-                'student_id' => $row->student_number,
-                'name'       => $row->name,
-                'program'    => $row->program_code, // e.g., BTVTED, BPED, etc.
-                'points'     => $row->points,
-                'status'     => $row->status,
-            ];
-        })->values()->all();
+        $students = $rows;
 
-        $pdf = Pdf::loadView('award-report', [
-            'allStudents' => $allStudents,
+        // 👇 use the actual view path: resources/views/admin/pdf/admin-report.blade.php
+        $pdf = Pdf::loadView('admin.pdf.award-report', [
+            'students'    => $students,
+            'generatedAt' => now(),
         ])->setPaper('A4', 'portrait');
 
-        return $pdf->download('SLEA-Award-Report.pdf');
+        return $pdf->download('slea-awards-report.pdf');
     }
 
-
-    public function systemMonitoring()
-    {
-        return view('admin.system.monitoring');
-    }
+    /**
+     * Build the base dataset for the awards report.
+     *
+     * Returns a collection of stdClass objects:
+     *  - user (stdClass with full_name, studentAcademic, etc.)
+     *  - total_points (percentage 0–100)
+     *  - award_level (gold/silver/qualified/tracking/not_qualified)
+     *  - slea_status (e.g. "SLEA Qualified")
+     *  - program_code, program_name, student_number, college_name, etc.
+     */
     protected function buildAwardReportRows(Request $request): \Illuminate\Support\Collection
     {
         if (
@@ -486,7 +542,7 @@ class AdminController extends Controller
             )
             ->groupBy('acs.student_id');
 
-        // Base query with joins + filters
+        // Base query with joins + core filters
         $query = DB::table('student_academic as sa')
             ->select(
                 'sa.user_id',
@@ -509,11 +565,11 @@ class AdminController extends Controller
             ->leftJoin('programs as p', 'p.id', '=', 'sa.program_id')
             ->leftJoin('colleges as c', 'c.id', '=', 'sa.college_id')
             ->where('u.role', 'student')
-            // only APPROVED SLEA by admin
+            // Only SLEA applications that are already awarded by admin
             ->where('sa.slea_application_status', 'awarded')
             ->whereNotNull('sc.total_score');
 
-        // --- filters from the list page ---
+        // --- filters from the list page (SEARCH) ---
         if ($q = trim((string) $request->input('q', ''))) {
             $query->where(function ($sub) use ($q) {
                 $sub->where('sa.student_number', 'like', "%{$q}%")
@@ -522,24 +578,31 @@ class AdminController extends Controller
             });
         }
 
+        // Filter by college
         if ($collegeId = $request->input('college_id')) {
             $query->where('sa.college_id', $collegeId);
         }
 
+        // Filter by program
         if ($programId = $request->input('program_id')) {
             $query->where('sa.program_id', $programId);
         }
 
-        // Actually run the query
+        // If you later add AY/batch, plug it here.
+        // if ($batch = $request->input('batch')) {
+        //     $query->where('sa.batch', $batch);
+        // }
+
         $rows = $query->get();
 
+        // Map raw DB rows into richer objects for Blade
         $mapped = $rows->map(function ($row) {
             $max = (float) ($row->max_points ?? 0);
             $percent = $max > 0
                 ? round(($row->total_score / $max) * 100, 2)
                 : 0.0;
 
-            // Simple award-level rules – adjust if you have different cut-offs
+            // Simple award-level rules – adjust thresholds as needed
             if ($percent >= 90) {
                 $awardLevel = 'gold';
             } elseif ($percent >= 85) {
@@ -565,18 +628,10 @@ class AdminController extends Controller
                     break;
             }
 
-            $fullName = trim(sprintf(
-                '%s, %s %s',
-                $row->last_name,
-                $row->first_name,
-                $row->middle_name ?? ''
-            ));
-
-            // Build pseudo-relationship objects so the frontend Blade
-            // can still do $row->user->studentAcademic->program, etc.
+            // Build pseudo-relationship objects so Blade can still do:
+            // $row->user->studentAcademic->program->code, etc.
             $college = new \stdClass();
             $college->name = $row->college_name;
-            // no short_name here, you only have name + code
             $college->code = $row->college_code;
 
             $program = new \stdClass();
@@ -588,40 +643,61 @@ class AdminController extends Controller
             $academic->college    = $college;
             $academic->program    = $program;
 
+            $fullNameParts = array_filter([
+                $row->last_name,
+                ', ',
+                $row->first_name,
+                $row->middle_name ? ' ' . $row->middle_name : null,
+            ]);
+            $fullName = implode('', $fullNameParts);
+
             $user = new \stdClass();
-            $user->id             = $row->user_id;
-            $user->full_name      = $fullName;
+            $user->id              = $row->user_id;
+            $user->full_name       = $fullName;
             $user->studentAcademic = $academic;
-            $user->student_id     = $row->student_number;
+            $user->student_id      = $row->student_number;
 
             $record = new \stdClass();
-            $record->user         = $user;
-            $record->total_points = $percent;
-            $record->award_level  = $awardLevel;
-            $record->slea_status  = $statusLabel;
+            $record->user          = $user;
+            $record->total_points  = $percent;      // percentage (keep, we still use this for filters)
+            $record->award_level   = $awardLevel;
+            $record->slea_status   = $statusLabel;
 
-            // extras used for PDF export
-            $record->program_code   = $row->program_code ?? $row->program_name ?? '';
+            // RAW scores – used by web table + PDF
+            $record->raw_total_score = (float) ($row->total_score ?? 0);
+            $record->raw_max_points  = (float) ($row->max_points ?? 0);
+
+            // extras used by some views
+            $record->program_code   = $row->program_code;
+            $record->program_name   = $row->program_name;
+            $record->college_name   = $row->college_name;
             $record->student_number = $row->student_number;
-            $record->name           = $fullName;
-            $record->points         = $percent;
-            $record->status         = $statusLabel;
 
             return $record;
         });
 
-        // In-memory filters: award_level + min_score
+        // Filter again by award_level if requested
         if ($request->filled('award_level')) {
             $level  = $request->input('award_level');
-            $mapped = $mapped->filter(fn($row) => $row->award_level === $level)->values();
+            $mapped = $mapped
+                ->filter(fn($row) => $row->award_level === $level)
+                ->values();
         }
 
+        // Filter again by minimum percentage score
         if ($request->filled('min_score')) {
             $threshold = (int) $request->input('min_score');
-            $mapped    = $mapped->filter(fn($row) => $row->total_points >= $threshold)->values();
+            $mapped    = $mapped
+                ->filter(fn($row) => $row->total_points >= $threshold)
+                ->values();
         }
 
         // Sort by score descending
         return $mapped->sortByDesc('total_points')->values();
+    }
+
+    public function systemMonitoring()
+    {
+        return view('admin.system.monitoring');
     }
 }
