@@ -80,11 +80,11 @@ class AuthController extends Controller
     protected function redirectAfterLogin(User $user)
     {
         return match ($user->role) {
-            User::ROLE_ADMIN    => redirect()->route('admin.profile'),
-            User::ROLE_ASSESSOR => redirect()->route('assessor.profile'),
-            default             => redirect()->route('student.profile'),
-        };
-    }
+                User::ROLE_ADMIN    => redirect()->route('admin.profile'),
+                User::ROLE_ASSESSOR => redirect()->route('assessor.profile'),
+                default             => redirect()->route('student.profile'),
+            };
+        }
     public function logout(Request $request)
     {
         /** @var \App\Models\User|null $user */
@@ -171,7 +171,7 @@ class AuthController extends Controller
 
         // Cluster/org enforcement for CCO etc.
         $needsOrg = $this->leadershipRequiresOrg((int) $validated['leadership_type_id']);
-        
+
         // Check if CCO is selected
         $isCCO = DB::table('leadership_types')
             ->where('id', (int) $validated['leadership_type_id'])
@@ -385,7 +385,7 @@ class AuthController extends Controller
                 ->route('login.show')
                 ->withErrors(['email' => $user->loginBlockReason()])
                 ->with('show_otp_modal', false);
-        }
+    }
 
         /** @var UserOtp|null $otpRecord */
         $otpRecord = UserOtp::where('user_id', $user->id)
@@ -624,17 +624,17 @@ class AuthController extends Controller
                 ->orderBy('rank_order')
                 ->orderBy('name')
                 ->select('id', 'name')
-                ->get()
-                ->map(fn($r) => [
-                    'id'   => $r->id,
+                        ->get()
+                        ->map(fn($r) => [
+                            'id'   => $r->id,
                     'name' => $r->name,
-                ]);
+                        ]);
 
-            return response()->json($rows);
+                    return response()->json($rows);
+                }
+
+            return response()->json([]);
         }
-
-        return response()->json([]);
-    }
 
     protected function councilOrgNames(): array
     {

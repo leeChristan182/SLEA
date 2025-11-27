@@ -11,6 +11,52 @@ let totalPages = 0;
 let initialStudentsData = [];
 
 /* -----------------------------
+   GLOBAL FALLBACK FUNCTIONS (for onclick handlers)
+----------------------------- */
+
+// Global fallback functions for search and clear buttons
+// These are called from onclick handlers in the HTML
+window.handleSearchClick = function(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    // Ensure filterAndPaginateStudents is available
+    if (typeof filterAndPaginateStudents === 'function') {
+        currentPage = 1;
+        filterAndPaginateStudents();
+    } else {
+        // Fallback: trigger the search input event
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            const searchEvent = new Event('input', { bubbles: true });
+            searchInput.dispatchEvent(searchEvent);
+        }
+    }
+};
+
+window.handleClearClick = function(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.value = '';
+        // Ensure filterAndPaginateStudents is available
+        if (typeof filterAndPaginateStudents === 'function') {
+            currentPage = 1;
+            filterAndPaginateStudents();
+        } else {
+            // Fallback: trigger the search input event
+            const searchEvent = new Event('input', { bubbles: true });
+            searchInput.dispatchEvent(searchEvent);
+        }
+        searchInput.focus();
+    }
+};
+
+/* -----------------------------
    MODAL HELPERS
 ----------------------------- */
 
@@ -256,6 +302,15 @@ async function openIndividualSubmissionModal(submissionId) {
    FETCH: STUDENT + ALL SUBMISSIONS
 ----------------------------- */
 
+// Helper function to open modal from button data attribute
+// Made global for inline onclick handlers
+window.openStudentSubmissionsModalFromButton = function(button) {
+    const studentId = button.getAttribute('data-student-id');
+    if (studentId) {
+        openStudentSubmissionsModal(parseInt(studentId));
+    }
+};
+
 async function openStudentSubmissionsModal(studentId) {
     try {
         currentStudentIdForModal = studentId; // remember which student is open
@@ -439,19 +494,23 @@ async function openStudentSubmissionsModal(studentId) {
             submissionsContainer.appendChild(overallTotalDiv);
         }
 
-        // Set the ready-status note based on the main table row (if element exists)
+        // Set the ready-status note based on actual student academic data
         const noteEl = document.getElementById('readyForRatingStatusNote');
         if (noteEl) {
-            const row = document.querySelector(`tr[data-student-id="${studentId}"]`);
-            const statusKey = row ? row.dataset.sleaStatus : '';
+            // Get actual status from student data if available
+            const sleaStatus = student?.studentAcademic?.slea_application_status || '';
+            const readyForRating = student?.studentAcademic?.ready_for_rating || false;
 
-            if (statusKey === 'ready_assessor') {
-                noteEl.textContent = 'Current status: READY for assessor review.';
-            } else if (statusKey === 'for_admin_review') {
-                noteEl.textContent =
-                    'Current status: already sent for Admin Final Review.';
-            } else if (statusKey === 'awarded') {
-                noteEl.textContent = 'Current status: already AWARDED.';
+            if (sleaStatus === 'pending_administrative_validation') {
+                noteEl.textContent = 'Current status: Pending Administrative Validation.';
+            } else if (sleaStatus === 'qualified') {
+                noteEl.textContent = 'Current status: QUALIFIED for SLEA.';
+            } else if (sleaStatus === 'not_qualified') {
+                noteEl.textContent = 'Current status: NOT QUALIFIED.';
+            } else if (sleaStatus === 'pending_assessor_evaluation' || readyForRating) {
+                noteEl.textContent = 'Current status: Pending Assessor Evaluation.';
+            } else if (sleaStatus === 'incomplete') {
+                noteEl.textContent = 'Current status: Incomplete (not yet marked as ready).';
             } else {
                 noteEl.textContent = 'Current status: NOT yet marked as ready.';
             }
@@ -480,18 +539,8 @@ async function updateReadyForRating(isReady) {
 
     const noteEl = document.getElementById('readyForRatingStatusNote');
 
-    // Optional: if you already have a confirmation modal helper, use it here.
-    // If not, this simple confirm() will do for now.
-    const confirmMsg = isReady
-        ? 'Mark this student as READY for rating?'
-        : 'Mark this student as NOT READY for rating?';
-
-    if (!window.confirm(confirmMsg)) {
-        if (noteEl) {
-            noteEl.textContent = 'Ready status change cancelled.';
-        }
-        return;
-    }
+    // Note: Confirmation is handled by showConfirmModal() before this function is called
+    // No need for native browser confirm() dialog here
 
     if (noteEl) {
         noteEl.textContent = 'Saving ready status...';
@@ -523,9 +572,9 @@ async function updateReadyForRating(isReady) {
             throw new Error(data.error || 'Failed to update ready status');
         }
 
-        const newStatusKey = data.slea_status?.key ?? (isReady ? 'ready_assessor' : 'not_ready');
+        const newStatusKey = data.slea_status?.key ?? (isReady ? 'pending_assessor_evaluation' : 'incomplete');
         const newStatusLabel =
-            data.slea_status?.label ?? (isReady ? 'Ready for assessor review' : 'Not ready');
+            data.slea_status?.label ?? (isReady ? 'Pending Assessor Evaluation' : 'Incomplete');
 
         // Update note under the buttons
         if (noteEl) {
@@ -550,22 +599,23 @@ async function updateReadyForRating(isReady) {
                 pill.className = 'slea-status-pill';
 
                 switch (newStatusKey) {
-                    case 'ready_assessor':
+                    case 'pending_assessor_evaluation':
                         pill.classList.add('slea-status-pill--ready-assessor');
                         break;
-                    case 'not_ready':
+                    case 'incomplete':
                         pill.classList.add('slea-status-pill--not-ready');
                         break;
-                    case 'for_admin_review':
+                    case 'pending_administrative_validation':
                         pill.classList.add('slea-status-pill--for-admin');
                         break;
-                    case 'awarded':
+                    case 'qualified':
                         pill.classList.add('slea-status-pill--awarded');
                         break;
                     case 'rejected':
+                    case 'not_qualified':
                         pill.classList.add('slea-status-pill--rejected');
                         break;
-                    case 'not_4th_year':
+                    case 'not_eligible':
                         pill.classList.add('slea-status-pill--not-4th');
                         break;
                     default:
@@ -577,14 +627,16 @@ async function updateReadyForRating(isReady) {
             }
         }
 
-        // Optional: show a clear success modal if you have one
-        if (typeof showSuccessModal === 'function') {
-            showSuccessModal(
-                'Ready status updated',
-                isReady
-                    ? 'Student is now marked as READY for rating.'
-                    : 'Student is now marked as NOT READY for rating.'
-            );
+        // Close the student submissions modal after successful update
+        const studentSubmissionsModalEl = document.getElementById('studentSubmissionsModal');
+        if (studentSubmissionsModalEl) {
+            const studentSubmissionsModal = bootstrap.Modal.getInstance(studentSubmissionsModalEl);
+            if (studentSubmissionsModal) {
+                // Close modal after a brief delay to show the updated status message
+                setTimeout(() => {
+                    studentSubmissionsModal.hide();
+                }, 1000);
+            }
         }
 
     } catch (error) {
@@ -869,6 +921,7 @@ function initializeStudentPage() {
                 email: (cells[2]?.textContent || '').toLowerCase(),
                 program: (cells[3]?.textContent || '').toLowerCase(),
                 college: (cells[4]?.textContent || '').toLowerCase(),
+                sleaStatus: row.dataset.sleaStatus || '', // Get status from data-slea-status attribute
             };
         });
 
@@ -877,16 +930,24 @@ function initializeStudentPage() {
 
 function filterAndPaginateStudents() {
     const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilterSelect');
     const searchTerm = (searchInput?.value || '').toLowerCase();
+    const statusValue = (statusFilter?.value || '').toLowerCase();
 
     const filteredStudents = initialStudentsData.filter(student => {
-        return (
+        // Filter by search term
+        const matchesSearch = !searchTerm || (
             student.studentId.includes(searchTerm) ||
             student.studentName.includes(searchTerm) ||
             student.email.includes(searchTerm) ||
             student.program.includes(searchTerm) ||
             student.college.includes(searchTerm)
         );
+
+        // Filter by status
+        const matchesStatus = !statusValue || student.sleaStatus === statusValue;
+
+        return matchesSearch && matchesStatus;
     });
 
     totalEntries = filteredStudents.length;
@@ -985,8 +1046,51 @@ document.addEventListener('DOMContentLoaded', function () {
     initializeStudentPage();
 
     const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    
     if (searchInput) {
         searchInput.addEventListener('input', () => {
+            currentPage = 1;
+            filterAndPaginateStudents();
+        });
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                currentPage = 1;
+                filterAndPaginateStudents();
+            }
+        });
+    }
+
+    // Search button click
+    if (searchBtn) {
+        searchBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            currentPage = 1;
+            filterAndPaginateStudents();
+        });
+    }
+
+    // Clear button click
+    if (clearBtn) {
+        clearBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (searchInput) {
+                searchInput.value = '';
+                currentPage = 1;
+                filterAndPaginateStudents();
+                searchInput.focus();
+            }
+        });
+    }
+
+    // Add event listener for status filter dropdown
+    const statusFilter = document.getElementById('statusFilterSelect');
+    if (statusFilter) {
+        statusFilter.addEventListener('change', () => {
             currentPage = 1;
             filterAndPaginateStudents();
         });

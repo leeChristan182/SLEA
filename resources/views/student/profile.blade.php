@@ -2,6 +2,10 @@
 
 @section('title', 'Student Profile')
 
+@section('head')
+<meta name="csrf-token" content="{{ csrf_token() }}">
+@endsection
+
 @section('content')
     @php
         use Carbon\Carbon;
@@ -31,21 +35,36 @@
             @include('partials.sidebar')
 
             <main class="main-content">
-                {{-- Avatar --}}
-                <div class="avatar-container">
-                    <img src="{{ $student->profile_picture_path ? asset('storage/' . $student->profile_picture_path) : asset('images/avatars/default-avatar.png') }}"
-                        class="avatar" id="avatarPreview" alt="Avatar">
+                <!-- Profile Header Banner -->
+                <div class="profile-banner">
+                    <div class="profile-avatar">
+                        <img
+                            src="{{ $student->profile_picture_path ? asset('storage/' . $student->profile_picture_path) : asset('images/avatars/default-avatar.png') }}"
+                            alt="Profile Picture"
+                            id="profilePicture">
 
-                    <form action="{{ route('student.updateAvatar') }}" method="POST" enctype="multipart/form-data"
-                        id="avatarForm">
-                        @csrf
-                        <button class="edit-icon" type="button" onclick="document.getElementById('avatarUpload').click()"
-                            title="Change photo">
-                            <i class="fas fa-pencil-alt"></i>
+                        <form id="avatarForm" method="POST" action="{{ route('student.updateAvatar') }}" enctype="multipart/form-data">
+                            @csrf
+                            <input
+                                type="file"
+                                id="avatarUpload"
+                                name="avatar"
+                                accept="image/*"
+                                style="display:none;">
+                        </form>
+
+                        <button type="button" class="upload-photo-btn" id="uploadPhotoBtn" title="Change Profile Picture">
+                            <i class="fas fa-camera"></i>
                         </button>
-                        <input type="file" id="avatarUpload" name="avatar" accept="image/*" style="display:none;"
-                            onchange="document.getElementById('avatarForm').submit();">
-                    </form>
+                    </div>
+
+                    <h1 class="profile-name">
+                        {{ $student->first_name ?? 'N/A' }}
+                        {{ $student->last_name ?? '' }}
+                    </h1>
+                    <p class="small text-white">
+                        Student
+                    </p>
                 </div>
 
                 {{-- Personal + Academic --}}
@@ -157,13 +176,18 @@
                             <label for="password">New Password</label>
                             <div class="password-wrapper">
                                 <input id="password" name="password" type="password" required>
-                                <i class="fas fa-eye toggle-password" data-target="password"></i>
                             </div>
 
                             <label for="password_confirmation">Confirm Password</label>
                             <div class="password-wrapper">
                                 <input id="password_confirmation" name="password_confirmation" type="password" required>
-                                <i class="fas fa-eye toggle-password" data-target="password_confirmation"></i>
+                            </div>
+
+                            <div class="checkbox-field" style="margin-top: 10px;">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="showPasswordCheckbox" onchange="toggleNewPasswords()">
+                                    Show Password
+                                </label>
                             </div>
 
                             <button class="change-btn" type="submit">Change Password</button>
@@ -265,7 +289,7 @@
         .requirements.visible-box {
             background-color: #fff8f8;
             border: 1px solid #e5bebe;
-            border-left: 5px solid #c0392b;
+            border-left: 5px solid #8B0000;
             border-radius: 10px;
             padding: 14px 18px;
             margin: 14px 0 20px;
@@ -276,7 +300,7 @@
         .requirements.visible-box strong {
             display: block;
             font-weight: 700;
-            color: #b21d1d;
+            color: #8B0000;
             margin-bottom: 6px;
             font-size: 15px;
         }
@@ -290,7 +314,7 @@
         }
 
         #passwordChecklist li:hover {
-            color: #b21d1d;
+            color: #8B0000;
             font-weight: 500;
         }
 
@@ -318,7 +342,7 @@
 
         select:focus,
         input:focus {
-            border-color: #b21d1d;
+            border-color: #8B0000;
             outline: none;
         }
 
@@ -339,12 +363,42 @@
         }
 
         .toggle-password:hover {
-            color: #c0392b;
+            color: #8B0000;
+        }
+
+        /* === Checkbox Field === */
+        .checkbox-field {
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+            cursor: pointer;
+            accent-color: #8B0000;
+        }
+
+        .checkbox-label:hover {
+            color: #8B0000;
+        }
+
+        body.dark-mode .checkbox-label {
+            color: #f0f0f0;
         }
 
         /* === Buttons === */
         .change-btn {
-            background-color: #c0392b;
+            background-color: #8B0000;
             border: none;
             color: white;
             padding: 10px 16px;
@@ -355,17 +409,24 @@
         }
 
         .change-btn:hover {
-            background-color: #a93226;
+            background-color: #6B0000;
         }
 
         /* === Cards === */
         .profile-info,
         .change-password {
-            border-top: 3px solid #c0392b;
             background-color: white;
             box-shadow: 0 3px 6px rgba(0, 0, 0, .06);
             border-radius: 10px;
             padding: 20px;
+        }
+
+        .profile-info h3,
+        .change-password h3 {
+            color: #8B0000;
+            margin-bottom: 15px;
+            border-bottom: none !important;
+            padding-bottom: 0;
         }
 
         @media (max-width: 1200px) {
@@ -381,6 +442,7 @@
     <script src="{{ asset('js/student_profile.js') }}"></script>
 
     <script>
+        // Toggle visibility for Present Password (keep individual icon)
         document.querySelectorAll('.toggle-password').forEach(icon => {
             icon.addEventListener('click', () => {
                 const target = document.getElementById(icon.dataset.target);
@@ -390,5 +452,18 @@
                 icon.classList.toggle('fa-eye-slash', isPassword);
             });
         });
+
+        // Toggle visibility for both New Password and Confirm Password fields
+        window.toggleNewPasswords = function() {
+            const checkbox = document.getElementById('showPasswordCheckbox');
+            const passwordField = document.getElementById('password');
+            const confirmPasswordField = document.getElementById('password_confirmation');
+            
+            if (checkbox && passwordField && confirmPasswordField) {
+                const showPassword = checkbox.checked;
+                passwordField.type = showPassword ? 'text' : 'password';
+                confirmPasswordField.type = showPassword ? 'text' : 'password';
+            }
+        };
     </script>
 @endsection

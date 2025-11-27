@@ -22,12 +22,12 @@
                         <label for="statusFilterSelect">Filter by Status</label>
                         <select id="statusFilterSelect" class="form-select">
                             <option value="">All</option>
-                            <option value="not_ready">Not ready</option>
-                            <option value="ready_assessor">Ready for assessor review</option>
-                            <option value="for_admin_review">For admin review</option>
-                            <option value="awarded">Awarded</option>
-                            <option value="rejected">Not qualified</option>
-                            <option value="not_4th_year">Not 4th year</option>
+                            <option value="incomplete">Incomplete</option>
+                            <option value="pending_assessor_evaluation">Pending Assessor Evaluation</option>
+                            <option value="pending_administrative_validation">Pending Administrative Validation</option>
+                            <option value="qualified">Qualified</option>
+                            <option value="not_qualified">Not qualified</option>
+                            <option value="not_eligible">Not Eligible</option>
                         </select>
                     </div>
 
@@ -35,8 +35,18 @@
 
                 <div class="search-controls">
                     <div class="search-group">
-                        <input type="text" id="searchInput" class="form-control" placeholder="Search submissions...">
-                        <i class="fas fa-search search-icon"></i>
+                        <input
+                            type="text"
+                            id="searchInput"
+                            class="form-control"
+                            placeholder="Search submissions..."
+                        >
+                        <button type="button" id="searchBtn" class="btn-search-maroon search-btn-attached" title="Search" onclick="handleSearchClick(event)">
+                            <i class="fas fa-search"></i>
+                        </button>
+                        <button type="button" id="clearBtn" class="btn-clear" title="Clear search" onclick="handleClearClick(event)">
+                            Clear
+                        </button>
                     </div>
                 </div>
             </div>
@@ -66,9 +76,9 @@
                                             $appStatus = $academic->slea_application_status ?? null;
 
                                             // Defaults
-                                            $sleaStatusLabel = 'Not ready';
+                                            $sleaStatusLabel = 'Incomplete';
                                             $sleaStatusClass = 'slea-status-pill--not-ready';
-                                            $sleaStatusKey = 'not_ready';
+                                            $sleaStatusKey = 'incomplete';
 
                                             if (!$academic) {
                                                 $sleaStatusLabel = 'No academic record';
@@ -77,37 +87,37 @@
 
                                             } elseif ((string) $yearLevel !== '4') {
                                                 // Explicit status for non-4th years
-                                                $sleaStatusLabel = 'Not in 4th year';
+                                                $sleaStatusLabel = 'Not Eligible';
                                                 $sleaStatusClass = 'slea-status-pill--not-4th';
-                                                $sleaStatusKey = 'not_4th_year';
+                                                $sleaStatusKey = 'not_eligible';
 
                                             } else {
-                                                // Normalize: if null, treat as "not_ready"
-                                                $statusKey = $appStatus ?: 'not_ready';
+                                                // Normalize: if null, treat as "incomplete"
+                                                $statusKey = $appStatus ?: 'incomplete';
 
                                                 switch ($statusKey) {
-                                                    case 'not_ready':
-                                                        $sleaStatusLabel = 'Not ready';
+                                                    case 'incomplete':
+                                                        $sleaStatusLabel = 'Incomplete';
                                                         $sleaStatusClass = 'slea-status-pill--not-ready';
-                                                        $sleaStatusKey = 'not_ready';
+                                                        $sleaStatusKey = 'incomplete';
                                                         break;
 
-                                                    case 'ready_for_assessor':
-                                                        $sleaStatusLabel = 'Ready for assessor review';
+                                                    case 'pending_assessor_evaluation':
+                                                        $sleaStatusLabel = 'Pending Assessor Evaluation';
                                                         $sleaStatusClass = 'slea-status-pill--ready-assessor';
-                                                        $sleaStatusKey = 'ready_for_assessor';
+                                                        $sleaStatusKey = 'pending_assessor_evaluation';
                                                         break;
 
-                                                    case 'for_admin_review':
-                                                        $sleaStatusLabel = 'For admin final review';
+                                                    case 'pending_administrative_validation':
+                                                        $sleaStatusLabel = 'Pending Administrative Validation';
                                                         $sleaStatusClass = 'slea-status-pill--for-admin';
-                                                        $sleaStatusKey = 'for_admin_review';
+                                                        $sleaStatusKey = 'pending_administrative_validation';
                                                         break;
 
-                                                    case 'awarded':
-                                                        $sleaStatusLabel = 'Awarded';
+                                                    case 'qualified':
+                                                        $sleaStatusLabel = 'Qualified';
                                                         $sleaStatusClass = 'slea-status-pill--awarded';
-                                                        $sleaStatusKey = 'awarded';
+                                                        $sleaStatusKey = 'qualified';
                                                         break;
 
                                                     case 'not_qualified':
@@ -143,7 +153,9 @@
                             : 'N/A' }}
                                             </td>
                                             <td>
-                                                <button class="btn btn-view" onclick="openStudentSubmissionsModal({{ $student->id }})"
+                                                <button class="btn btn-view" 
+                                                    data-student-id="{{ $student->id }}"
+                                                    onclick="openStudentSubmissionsModalFromButton(this)"
                                                     title="View Submissions">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
@@ -463,6 +475,25 @@
             color: #f9bd3d !important;
         }
 
+        /* ==== Prevent body and container overflow ==== */
+        body {
+            overflow-x: hidden !important;
+            max-width: 100vw;
+        }
+        
+        .container {
+            overflow-x: hidden !important;
+            max-width: 100vw;
+            box-sizing: border-box;
+        }
+        
+        /* ==== Main content wrapper ==== */
+        .main-content {
+            max-width: 100%;
+            overflow-x: hidden; /* Prevent horizontal scroll on main content */
+            box-sizing: border-box;
+        }
+        
         /* ==== Filter + Search Bar ==== */
         .controls-section {
             display: flex;
@@ -470,6 +501,7 @@
             align-items: flex-end;
             margin-bottom: 2rem;
             gap: 2rem;
+            flex-wrap: wrap; /* Allow wrapping on smaller screens */
         }
 
         .filter-controls {
@@ -499,28 +531,98 @@
 
         .search-controls {
             flex: 1;
-            max-width: 300px;
+            max-width: 500px;
         }
 
         .search-group {
             position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .search-group input {
-            width: 100%;
-            padding: 0.5rem 2.5rem 0.5rem 0.75rem;
+            flex: 1;
+            padding: 0.5rem 0.75rem;
             border: 1px solid #ddd;
             border-radius: 6px;
             font-size: 0.9rem;
         }
 
-        .search-icon {
-            position: absolute;
-            right: 0.75rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #666;
-            pointer-events: none;
+        /* Search button - maroon with icon */
+        .btn-search-maroon {
+            background-color: #7E0308;
+            color: white;
+            border: 1px solid #7E0308;
+            border-radius: 6px;
+            padding: 0;
+            min-width: 38px;
+            height: 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 16px;
+            line-height: 1;
+            pointer-events: auto;
+            z-index: 10;
+            position: relative;
+        }
+
+        .btn-search-maroon:hover {
+            background-color: #5a0206;
+            border-color: #5a0206;
+        }
+
+        .btn-search-maroon:active {
+            background-color: #4a0105;
+            border-color: #4a0105;
+        }
+
+        .btn-search-maroon i {
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        /* Clear button */
+        .btn-clear {
+            background-color: #6c757d;
+            color: white;
+            border: 1px solid #6c757d;
+            border-radius: 6px;
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            height: 38px;
+            white-space: nowrap;
+            pointer-events: auto;
+            z-index: 10;
+            position: relative;
+        }
+
+        .btn-clear:hover {
+            background-color: #5a6268;
+            border-color: #5a6268;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
+        }
+
+        .btn-clear:active {
+            background-color: #545b62;
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2);
+        }
+
+        body.dark-mode .btn-clear {
+            background-color: #495057;
+            border-color: #495057;
+        }
+
+        body.dark-mode .btn-clear:hover {
+            background-color: #3d4146;
+            border-color: #3d4146;
         }
 
         /* ==== Main table ==== */
@@ -528,13 +630,19 @@
             background: white;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
+            overflow-x: hidden; /* Remove horizontal scrollbar */
+            overflow-y: auto; /* Keep vertical scrollbar if needed */
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
         }
 
         .submissions-table {
             margin: 0;
             width: 100%;
             background: white;
+            table-layout: fixed; /* Use fixed layout for better control */
+            border-collapse: collapse;
         }
 
         .submissions-table thead {
@@ -542,13 +650,57 @@
         }
 
         .submissions-table thead th {
-            padding: 1rem;
+            padding: 0.7rem 0.5rem; /* Reduced padding to fit more content */
             font-weight: 600;
             color: white !important;
             border-bottom: 1px solid white !important;
             border-right: 1px solid white !important;
-            font-size: 0.9rem;
+            font-size: 0.8rem; /* Slightly smaller font for headers */
             background-color: #8B0000 !important;
+            white-space: nowrap; /* Prevent header text wrapping */
+            overflow: visible; /* Show full header text */
+            text-overflow: clip; /* Don't truncate headers */
+            vertical-align: middle;
+            line-height: 1.3; /* Tighter line height for headers */
+        }
+        
+        /* Ensure Date Reviewed header fits on one line */
+        .submissions-table thead th:nth-child(7) {
+            font-size: 0.75rem; /* Slightly smaller to fit "Date Reviewed" */
+            white-space: nowrap;
+        }
+        
+        /* Center Action column header */
+        .submissions-table thead th:nth-child(8) {
+            text-align: center;
+            font-size: 0.8rem;
+        }
+        
+        /* Optimize column widths - percentages that add up to 100% */
+        /* Redistributed: Reduced Student Name & Program, Increased Email for single-line display */
+        .submissions-table thead th:nth-child(1) { /* Student ID */
+            width: 9%; /* Maintained - accommodates wrapped IDs */
+        }
+        .submissions-table thead th:nth-child(2) { /* Student Name */
+            width: 12%; /* Reduced from 14% - wraps long names within cell */
+        }
+        .submissions-table thead th:nth-child(3) { /* Email */
+            width: 18%; /* Increased from 15% - ensures emails fit on one line */
+        }
+        .submissions-table thead th:nth-child(4) { /* Program */
+            width: 16%; /* Reduced from 18% - wraps long programs within cell */
+        }
+        .submissions-table thead th:nth-child(5) { /* College */
+            width: 14%; /* Maintained - allows wrapping */
+        }
+        .submissions-table thead th:nth-child(6) { /* SLEA Status */
+            width: 12%; /* Maintained - allows badge wrapping */
+        }
+        .submissions-table thead th:nth-child(7) { /* Date Reviewed */
+            width: 11%; /* Maintained - fits header text on one line */
+        }
+        .submissions-table thead th:nth-child(8) { /* Action */
+            width: 8%; /* Slightly increased for better button visibility */
         }
 
         .submissions-table thead th:last-child {
@@ -556,12 +708,100 @@
         }
 
         .submissions-table tbody td {
-            padding: 1rem;
+            padding: 0.65rem 0.5rem; /* Adequate padding for multi-line content */
             border-bottom: 1px solid #e9ecef;
             border-right: 1px solid #e9ecef;
             color: #333;
-            font-size: 0.9rem;
+            font-size: 0.85rem; /* Slightly smaller font */
             background: white;
+            vertical-align: middle; /* Center content vertically */
+            box-sizing: border-box; /* Include padding in width calculation */
+        }
+        
+        /* Student ID - allow wrapping for long IDs */
+        .submissions-table tbody td:nth-child(1) {
+            white-space: normal;
+            overflow: hidden; /* Prevent overflow into adjacent columns */
+            text-overflow: clip;
+            word-break: break-word;
+            word-wrap: break-word;
+        }
+        
+        /* Student Name - wrap long names within cell boundaries */
+        .submissions-table tbody td:nth-child(2) {
+            white-space: normal; /* Allow wrapping for long names */
+            overflow: hidden; /* Prevent overflow into adjacent columns */
+            text-overflow: clip;
+            word-break: break-word; /* Break at word boundaries */
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.5; /* Adequate line height for wrapped text */
+        }
+        
+        /* Email - keep on single line, no wrapping */
+        .submissions-table tbody td:nth-child(3) {
+            white-space: nowrap; /* Keep email on one line */
+            overflow: hidden; /* Prevent overflow */
+            text-overflow: ellipsis; /* Show ellipsis if extremely long (shouldn't happen with 18% width) */
+            word-break: normal;
+        }
+        
+        /* Program - wrap long program names within cell boundaries */
+        .submissions-table tbody td:nth-child(4) {
+            white-space: normal; /* Allow wrapping for long programs */
+            overflow: hidden; /* Prevent overflow into adjacent columns */
+            text-overflow: clip;
+            word-break: break-word; /* Break at word boundaries */
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.5; /* Adequate line height for wrapped text */
+        }
+        
+        /* College - allow wrapping */
+        .submissions-table tbody td:nth-child(5) {
+            white-space: normal;
+            overflow: hidden;
+            text-overflow: clip;
+            word-break: break-word;
+            word-wrap: break-word;
+        }
+        
+        /* SLEA Status - allow badge to wrap if needed */
+        .submissions-table tbody td:nth-child(6) {
+            white-space: normal;
+            overflow: hidden;
+            text-overflow: clip;
+            word-break: break-word;
+        }
+        
+        /* Date Reviewed - keep on one line */
+        .submissions-table tbody td:nth-child(7) {
+            white-space: nowrap; /* Keep date on one line */
+            overflow: hidden;
+            text-overflow: clip;
+        }
+        
+        /* Action column - keep button on one line */
+        .submissions-table tbody td:nth-child(8) {
+            white-space: nowrap; /* Keep button on one line */
+            text-align: center; /* Center the button */
+            padding: 0.5rem; /* Reduced padding for smaller button */
+            vertical-align: middle;
+        }
+        
+        /* Ensure Action column button is smaller and compact */
+        .submissions-table tbody td:nth-child(8) .btn-view {
+            width: 28px; /* Reduced from 35px */
+            height: 28px; /* Reduced from 35px */
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem; /* Smaller icon */
+        }
+        
+        .submissions-table tbody td:nth-child(8) .btn-view i {
+            font-size: 0.75rem; /* Smaller icon size */
         }
 
         .submissions-table tbody td:last-child {
@@ -570,6 +810,41 @@
 
         .submissions-table tbody tr:hover {
             background-color: #f8f9fa;
+        }
+        
+        /* Ensure table rows have consistent height that accommodates wrapped text */
+        .submissions-table tbody tr {
+            height: auto; /* Allow height to adjust based on content */
+            min-height: 45px; /* Minimum row height for readability */
+        }
+        
+        /* Ensure table cells respect column boundaries - prevent overflow */
+        .submissions-table tbody td {
+            max-width: 0; /* Force cells to respect column width */
+        }
+        
+        /* Override max-width for columns that need wrapping */
+        .submissions-table tbody td:nth-child(2), /* Student Name */
+        .submissions-table tbody td:nth-child(4) { /* Program */
+            max-width: 100%; /* Allow content to use full column width */
+        }
+        
+        /* Ensure SLEA status badge can wrap if needed */
+        .submissions-table tbody td:nth-child(6) .slea-status-pill {
+            display: inline-block;
+            max-width: 100%; /* Prevent badge from overflowing */
+            word-wrap: break-word;
+            white-space: normal; /* Allow badge text to wrap if extremely long */
+        }
+        
+        /* Ensure Student Name wraps at word boundaries */
+        .submissions-table tbody td:nth-child(2) {
+            hyphens: auto; /* Add hyphens when breaking words if needed */
+        }
+        
+        /* Ensure Program wraps at word boundaries */
+        .submissions-table tbody td:nth-child(4) {
+            hyphens: auto; /* Add hyphens when breaking words if needed */
         }
 
         /* ==== SLEA status pill ==== */
@@ -957,6 +1232,7 @@
         body.dark-mode .submissions-table-container {
             background: #2a2a2a !important;
             border: 1px solid #555 !important;
+            overflow-x: hidden !important; /* Remove horizontal scrollbar in dark mode */
         }
 
         body.dark-mode .submissions-table {
@@ -1141,21 +1417,23 @@
             border-color: #8B0000 !important;
         }
 
-        /* ==== View button in main table ==== */
+        /* ==== View button in main table - smaller and more compact ==== */
         .btn-view {
             background-color: #8B0000;
             color: white;
             border: none;
-            border-radius: 6px;
-            width: 35px;
-            height: 35px;
-            display: flex;
+            border-radius: 4px; /* Slightly smaller border radius */
+            width: 28px; /* Reduced from 35px */
+            height: 28px; /* Reduced from 35px */
+            display: inline-flex; /* Changed to inline-flex */
             align-items: center;
             justify-content: center;
-            font-size: 0.9rem;
+            font-size: 0.75rem; /* Reduced from 0.9rem */
             transition: all 0.2s ease;
             cursor: pointer;
             padding: 0;
+            min-width: 28px; /* Ensure minimum size */
+            flex-shrink: 0; /* Prevent shrinking */
         }
 
         .btn-view:hover {
@@ -1164,7 +1442,8 @@
         }
 
         .btn-view i {
-            font-size: 0.9rem;
+            font-size: 0.75rem; /* Reduced from 0.9rem */
+            line-height: 1;
         }
 
         body.dark-mode .btn-view {
@@ -1212,6 +1491,15 @@
                 width: 100% !important;
                 max-width: 100% !important;
                 margin: 1rem;
+            }
+            
+            /* Make table scrollable horizontally on mobile if needed */
+            .submissions-table-container {
+                overflow-x: auto !important;
+            }
+            
+            .submissions-table {
+                min-width: 800px; /* Minimum width for table on mobile */
             }
         }
     </style>

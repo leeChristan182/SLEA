@@ -14,19 +14,9 @@
             <h1>Pending Submissions</h1>
         </div>
 
-        <!-- Filter and Search Controls -->
+        <!-- Search and Sort Controls -->
         <div class="controls-section">
             <div class="filter-controls">
-                <div class="filter-group">
-                    <label for="filterSelect">Filter</label>
-                    <select id="filterSelect" class="form-select">
-                        <option value="">None</option>
-                        <option value="recent">Recent</option>
-                        <option value="overdue">Overdue</option>
-                        <option value="priority">Priority</option>
-                    </select>
-                </div>
-
                 <div class="filter-group">
                     <label for="sortSelect">Sort by</label>
                     <select id="sortSelect" class="form-select">
@@ -46,7 +36,12 @@
                         class="form-control"
                         placeholder="Search submissions..."
                     >
-                    <i class="fas fa-search search-icon"></i>
+                    <button type="button" id="searchBtn" class="btn-search-maroon search-btn-attached" title="Search" onclick="handleSearchClick(event)">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    <button type="button" id="clearBtn" class="btn-clear" title="Clear search" onclick="handleClearClick(event)">
+                        Clear
+                    </button>
                 </div>
             </div>
         </div>

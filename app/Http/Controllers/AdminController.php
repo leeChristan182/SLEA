@@ -533,54 +533,65 @@ class AdminController extends Controller
     {
         if (
             ! Schema::hasTable('student_academic') ||
-            ! Schema::hasTable('assessor_compiled_scores') ||
+            ! Schema::hasTable('assessor_final_reviews') ||
             ! Schema::hasTable('users')
         ) {
             return collect();
         }
 
-        // Sum compiled scores per student
-        $scoreSub = DB::table('assessor_compiled_scores as acs')
-            ->select(
-                'acs.student_id',
-                DB::raw('SUM(acs.total_score) AS total_score'),
-                DB::raw('SUM(acs.max_points)  AS max_points')
-            )
-            ->groupBy('acs.student_id');
+        // Check if slea_application_status column exists
+        $hasSleaStatus = Schema::hasColumn('student_academic', 'slea_application_status');
 
-        // Base query with joins + core filters
+        // Use assessor_final_reviews as the source of truth for final scores
+        // This ensures consistency with Final Review page
+        // Build select fields
+        $selectFields = [
+            'sa.user_id',
+            'sa.student_number',
+            'u.first_name',
+            'u.last_name',
+            'u.middle_name',
+            'p.name  as program_name',
+            'p.code  as program_code',
+            'c.name  as college_name',
+            'c.code  as college_code',
+            'afr.total_score',
+            'afr.max_possible as max_points'
+        ];
+
+        // Add slea_application_status only if column exists
+        if ($hasSleaStatus) {
+            $selectFields[] = 'sa.slea_application_status';
+        }
+
+        // Join directly with assessor_final_reviews to get the latest final review
         $query = DB::table('student_academic as sa')
-            ->select(
-                'sa.user_id',
-                'sa.student_number',
-                'sa.slea_application_status',
-                'u.first_name',
-                'u.last_name',
-                'u.middle_name',
-                'p.name  as program_name',
-                'p.code  as program_code',
-                'c.name  as college_name',
-                'c.code  as college_code',
-                'sc.total_score',
-                'sc.max_points'
-            )
+            ->select($selectFields)
             ->join('users as u', 'u.id', '=', 'sa.user_id')
-            ->leftJoinSub($scoreSub, 'sc', function ($join) {
-                $join->on('sc.student_id', '=', 'sa.user_id');
+            ->leftJoin('assessor_final_reviews as afr', function($join) {
+                $join->on('afr.student_id', '=', 'sa.user_id')
+                     ->whereIn('afr.status', ['queued_for_admin', 'finalized']);
             })
             ->leftJoin('programs as p', 'p.id', '=', 'sa.program_id')
             ->leftJoin('colleges as c', 'c.id', '=', 'sa.college_id')
             ->where('u.role', 'student')
-            // Only SLEA applications that are already awarded by admin
-            ->where('sa.slea_application_status', 'awarded')
-            ->whereNotNull('sc.total_score');
+            ->whereNotNull('afr.total_score')
+            ->whereNotNull('afr.max_possible');
+
+        // Only filter by slea_application_status if column exists
+        if ($hasSleaStatus) {
+            // Only SLEA applications that are already qualified by admin
+            $query->where('sa.slea_application_status', 'qualified');
+        }
 
         // --- filters from the list page (SEARCH) ---
-        if ($q = trim((string) $request->input('q', ''))) {
-            $query->where(function ($sub) use ($q) {
-                $sub->where('sa.student_number', 'like', "%{$q}%")
-                    ->orWhere('u.first_name', 'like', "%{$q}%")
-                    ->orWhere('u.last_name', 'like', "%{$q}%");
+        // Support both 'q' (from INCOMING) and 'search' (from HEAD view)
+        $searchTerm = trim((string) ($request->input('q') ?: $request->input('search', '')));
+        if ($searchTerm) {
+            $query->where(function ($sub) use ($searchTerm) {
+                $sub->where('sa.student_number', 'like', "%{$searchTerm}%")
+                    ->orWhere('u.first_name', 'like', "%{$searchTerm}%")
+                    ->orWhere('u.last_name', 'like', "%{$searchTerm}%");
             });
         }
 
@@ -602,10 +613,14 @@ class AdminController extends Controller
         $rows = $query->get();
 
         // Map raw DB rows into richer objects for Blade
-        $mapped = $rows->map(function ($row) {
-            $max = (float) ($row->max_points ?? 0);
-            $percent = $max > 0
-                ? round(($row->total_score / $max) * 100, 2)
+        $mapped = $rows->map(function ($row) use ($hasSleaStatus) {
+            // Use the same calculation as Final Review
+            $totalScore = (float) ($row->total_score ?? 0);
+            $maxPoints = (float) ($row->max_points ?? 0);
+            
+            // Calculate percentage for display
+            $percent = $maxPoints > 0
+                ? round(($totalScore / $maxPoints) * 100, 2)
                 : 0.0;
 
             // Simple award-level rules – adjust thresholds as needed
@@ -622,11 +637,12 @@ class AdminController extends Controller
             }
 
             // Map slea_application_status to display label
-            switch ($row->slea_application_status) {
-                case 'awarded':
+            $sleaStatus = $hasSleaStatus ? ($row->slea_application_status ?? null) : null;
+            switch ($sleaStatus) {
+                case 'qualified':
                     $statusLabel = 'SLEA Qualified';
                     break;
-                case 'for_admin_review':
+                case 'pending_administrative_validation':
                     $statusLabel = 'For Final Review';
                     break;
                 default:
@@ -669,9 +685,9 @@ class AdminController extends Controller
             $record->award_level   = $awardLevel;
             $record->slea_status   = $statusLabel;
 
-            // RAW scores – used by web table + PDF
-            $record->raw_total_score = (float) ($row->total_score ?? 0);
-            $record->raw_max_points  = (float) ($row->max_points ?? 0);
+            // RAW scores – used by web table + PDF (same as Final Review)
+            $record->raw_total_score = $totalScore;
+            $record->raw_max_points  = $maxPoints;
 
             // extras used by some views
             $record->program_code   = $row->program_code;
@@ -704,23 +720,30 @@ class AdminController extends Controller
 
     public function awardReport(Request $request)
     {
-        // Get filter parameters
+        // Get filter parameters from view (college/program are names, not IDs)
         $college = $request->query('college');
         $program = $request->query('program');
         $search = $request->query('search');
 
         // Use buildAwardReportRows to get real data
+        // buildAwardReportRows now supports both 'q' and 'search' parameters
         $allRows = $this->buildAwardReportRows($request);
 
         // Convert to array format compatible with existing view
+        // Use raw_total_score and raw_max_points to match Final Review display
         $allStudents = $allRows->map(function ($row) {
+            // Display as "score/max" format to match Final Review
+            $score = $row->raw_total_score ?? 0;
+            $max = $row->raw_max_points ?? 0;
             return [
                 'id' => $row->user->id ?? 0,
                 'name' => $row->user->full_name ?? 'N/A',
                 'student_id' => $row->student_number ?? 'N/A',
                 'college' => $row->college_name ?? 'N/A',
                 'program' => $row->program_name ?? 'N/A',
-                'points' => round($row->total_points ?? 0),
+                'points' => round($score, 2), // Use raw score, not percentage
+                'max_points' => round($max, 2), // Include max for display
+                'points_display' => number_format($score, 2) . '/' . number_format($max, 2), // Format: 23.70/60.00
             ];
         })->toArray();
 
@@ -785,14 +808,19 @@ class AdminController extends Controller
         $allRows = $this->buildAwardReportRows($request);
 
         // Convert to array format compatible with existing PDF view
+        // Use raw_total_score and raw_max_points to match Final Review display
         $filteredStudents = $allRows->map(function ($row) {
+            $score = $row->raw_total_score ?? 0;
+            $max = $row->raw_max_points ?? 0;
             return [
                 'id' => $row->user->id ?? 0,
                 'name' => $row->user->full_name ?? 'N/A',
                 'student_id' => $row->student_number ?? 'N/A',
                 'college' => $row->college_name ?? 'N/A',
                 'program' => $row->program_name ?? 'N/A',
-                'points' => round($row->total_points ?? 0),
+                'points' => round($score, 2), // Use raw score to match Final Review
+                'max_points' => round($max, 2),
+                'points_display' => number_format($score, 2) . '/' . number_format($max, 2),
             ];
         })->toArray();
 

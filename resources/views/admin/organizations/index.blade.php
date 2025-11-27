@@ -82,13 +82,18 @@
                         <td>{{ $org->cluster->name ?? '—' }}</td>
                         <td class="action-cell">
                             <div class="action-buttons">
-                                <button class="action-btn btn-edit" title="Edit" onclick='openOrgModal(@json($org))'>
+                                <button class="action-btn btn-edit" title="Edit" data-org-id="{{ $org->id }}" onclick="openOrgModal(parseInt(this.getAttribute('data-org-id')))">
                                     <i class="fas fa-edit"></i>
                                 </button>
 
-                                <button type="button" class="action-btn btn-delete" title="Delete" onclick='openDeleteModal(@json($org))'>
-                                        <i class="fas fa-trash-alt"></i>
-                                    </button>
+                                <button type="button" class="action-btn btn-delete" title="Delete" 
+                                    data-org-id="{{ $org->id }}"
+                                    data-org-name="{{ $org->name }}"
+                                    data-org-cluster-id="{{ $org->cluster_id }}"
+                                    data-org-description="{{ $org->description ?? '' }}"
+                                    onclick="openDeleteModalFromButton(this)">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -344,13 +349,24 @@
     function closeDeleteModal() {
         const modal = document.getElementById('deleteModal');
         if (modal) {
-        modal.style.display = 'none';
+            modal.style.display = 'none';
             // Restore body scroll
             document.body.style.overflow = '';
             document.body.style.position = '';
             document.body.style.width = '';
             document.body.style.height = '';
         }
+    }
+
+    // Helper function to open delete modal from button data attributes
+    function openDeleteModalFromButton(button) {
+        const org = {
+            id: button.getAttribute('data-org-id'),
+            name: button.getAttribute('data-org-name'),
+            cluster_id: button.getAttribute('data-org-cluster-id'),
+            description: button.getAttribute('data-org-description')
+        };
+        openDeleteModal(org);
     }
 
     // Close modal on background click

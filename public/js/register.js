@@ -354,7 +354,7 @@
       resetDropdown(organizationSelect, 'Loading organizations...');
       // Only reset positions if NOT SCO (SCO positions are loaded by leadership type, not org)
       if (!isSCOSelected()) {
-        resetDropdown(positionSelect, 'Select Position');
+      resetDropdown(positionSelect, 'Select Position');
       }
       if (!clusterId) {
         resetDropdown(organizationSelect, 'Select Organization');
@@ -398,7 +398,7 @@
       // Load CCO positions
       const typeId = leadershipTypeSelect.value;
       loadPositionsByLeadershipType(typeId, oldPosition || '');
-    }
+      }
 
     // Handle SCO selection: Show and enable Cluster and Organization
     function handleSCOSelection() {
@@ -407,17 +407,17 @@
       setDisabled(organizationSelect, false);
       
       // Show Cluster and Organization fields for SCO
-      setVisible(clusterWrap, true);
-      setVisible(orgWrap, true);
-      setRequired(clusterSelect, true, clusterStar);
-      setRequired(organizationSelect, true, orgStar);
+        setVisible(clusterWrap, true);
+        setVisible(orgWrap, true);
+        setRequired(clusterSelect, true, clusterStar);
+        setRequired(organizationSelect, true, orgStar);
       if (orgOptHint) orgOptHint.style.display = 'none';
       
       // Enable scrolling for SCO (7 fields layout)
       toggleScrollableForm(true);
-      
+
       // Load clusters
-      loadClusters();
+        loadClusters();
       
       // Load positions for the selected leadership type (SCO positions)
       const typeId = leadershipTypeSelect.value;
@@ -427,12 +427,12 @@
     // Handle non-CCO, non-SCO selection: Hide Cluster and Organization
     function handleNonCCOSelection() {
       // Hide Cluster and Organization fields completely
-      setVisible(clusterWrap, false);
-      setVisible(orgWrap, false);
-      setRequired(clusterSelect, false, clusterStar);
-      setRequired(organizationSelect, false, orgStar);
-      if (orgOptHint) orgOptHint.style.display = 'none';
-      
+        setVisible(clusterWrap, false);
+        setVisible(orgWrap, false);
+        setRequired(clusterSelect, false, clusterStar);
+        setRequired(organizationSelect, false, orgStar);
+        if (orgOptHint) orgOptHint.style.display = 'none';
+
       // Clear values (fields won't be submitted for non-SCO, non-CCO)
       resetDropdown(clusterSelect, 'Select Cluster');
       resetDropdown(organizationSelect, 'Select Organization');
@@ -447,7 +447,7 @@
       // Load positions for the selected leadership type
       const typeId = leadershipTypeSelect.value;
       loadPositionsByLeadershipType(typeId, oldPosition || '');
-    }
+      }
 
     // Toggle scrollable form container based on SCO selection
     function toggleScrollableForm(enableScroll) {
@@ -521,7 +521,7 @@
       // For SCO, positions are loaded by leadership type, not by organization
       // Ensure positions remain loaded for SCO (they're loaded by leadership type, not org)
       if (isSCOSelected() && leadershipTypeSelect.value) {
-        const typeId = leadershipTypeSelect.value;
+      const typeId = leadershipTypeSelect.value;
         loadPositionsByLeadershipType(typeId, oldPosition || '');
         return; // Don't load positions by organization for SCO
       }

@@ -11,8 +11,7 @@
             <h2 class="page-title">Submission History</h2>
 
             <div class="history-table-wrapper">
-                <div class="history-table-wrapper">
-                    <table class="history-table w-100" id="historyTable">
+                <table class="history-table w-100" id="historyTable">
                         <thead>
                             <tr>
                                 <th>Date Submitted</th>
@@ -21,7 +20,7 @@
                                 <th>Organization</th>
                                 <th>Role in Activity</th>
                                 <th>Status</th>
-                                <th>Details</th>
+                                <th>Score</th>
                                 <th>Remarks</th>
                                 <th>Actions</th>
                             </tr>
@@ -58,10 +57,13 @@
                             ?? optional($submission->latestHistory)->new_status
                             ?? 'Pending';
 
-                            $details = $submission->description ?? '';
                             $remarks = $submission->remarks
                             ?? optional($submission->latestHistory)->remarks
                             ?? '';
+
+                            // Get score from latest review
+                            $latestReview = $submission->reviews->first();
+                            $score = $latestReview ? (float) $latestReview->score : null;
                             @endphp
 
                             <tr>
@@ -87,9 +89,13 @@
                                     </span>
                                 </td>
 
-                                {{-- Details (student’s description of submission) --}}
-                                <td title="{{ $details }}">
-                                    {{ \Illuminate\Support\Str::limit($details, 40) ?: '—' }}
+                                {{-- Score --}}
+                                <td>
+                                    @if($score !== null)
+                                        {{ number_format($score, 2) }}
+                                    @else
+                                        —
+                                    @endif
                                 </td>
 
                                 {{-- Remarks (assessor feedback) --}}
@@ -100,8 +106,9 @@
                                 {{-- View file --}}
                                 <td>
                                     <button class="history-btn view-btn"
-                                        data-file="{{ route('student.submissions.preview', $submission->id) }}">
-                                        View
+                                        data-file="{{ route('student.submissions.preview', $submission->id) }}"
+                                        title="View Submission">
+                                        <i class="fas fa-eye"></i>
                                     </button>
                                 </td>
                             </tr>
@@ -113,9 +120,59 @@
                         </tbody>
 
                     </table>
-                </div>
-
             </div>
+
+            {{-- Pagination --}}
+            @php
+                $isPaginator = isset($submissions) && ($submissions instanceof \Illuminate\Pagination\LengthAwarePaginator || method_exists($submissions, 'links'));
+            @endphp
+            @if($isPaginator)
+            <div class="pagination-wrapper mt-4">
+                {{-- Previous --}}
+                @if($submissions->onFirstPage())
+                <span class="page-btn disabled"><i class="fas fa-chevron-left"></i> Previous</span>
+                @else
+                <a href="{{ $submissions->previousPageUrl() }}" class="page-btn">
+                    <i class="fas fa-chevron-left"></i> Previous
+                </a>
+                @endif
+
+                {{-- Page numbers --}}
+                @php
+                    $links = $submissions->links();
+                    $elements = $links->elements ?? [];
+                @endphp
+                @foreach($elements as $element)
+                    @if(is_string($element))
+                    <span class="page-btn disabled">{{ $element }}</span>
+                    @endif
+
+                    @if(is_array($element))
+                        @foreach($element as $page => $url)
+                            @if($page == $submissions->currentPage())
+                            <span class="page-btn active">{{ $page }}</span>
+                            @else
+                            <a href="{{ $url }}" class="page-btn">{{ $page }}</a>
+                            @endif
+                        @endforeach
+                    @endif
+                @endforeach
+
+                {{-- Next --}}
+                @if($submissions->hasMorePages())
+                <a href="{{ $submissions->nextPageUrl() }}" class="page-btn">
+                    Next <i class="fas fa-chevron-right"></i>
+                </a>
+                @else
+                <span class="page-btn disabled">Next <i class="fas fa-chevron-right"></i></span>
+                @endif
+            </div>
+
+            <div class="text-right small text-muted mt-2">
+                Showing {{ $submissions->firstItem() ?? 0 }} – {{ $submissions->lastItem() ?? 0 }}
+                of {{ $submissions->total() }} submissions
+            </div>
+            @endif
 
             {{-- Slide-in file viewer (just the file) --}}
             <div id="pdfViewerContainer" class="pdf-viewer-container hidden">
@@ -145,31 +202,114 @@
         margin-bottom: 12px;
         font-size: 1.4rem;
         font-weight: 600;
-    }
-
-    .history-table-wrapper {
-        margin-top: 16px;
-        overflow-x: auto;
-    }
-
-    .history-table {
-        width: 100%;
-        border-collapse: collapse;
-        background: #fff;
-        border-radius: 6px;
+        color: #8B0000;
         text-align: left;
     }
 
-    .history-table th,
-    .history-table td {
-        padding: 12px 10px;
-        border-bottom: 1px solid #ddd;
-        vertical-align: middle;
+    body.dark-mode .page-title {
+        color: #f1f1f1;
     }
 
+    /* Table container matching assessor/admin design */
+    .history-table-wrapper {
+        margin: 16px 0;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        overflow-x: hidden;
+        overflow-y: visible;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    body.dark-mode .history-table-wrapper {
+        background: #2a2a2a;
+        border: 1px solid #555;
+    }
+
+    /* Table styling matching assessor/admin tables */
+    .history-table {
+        margin: 0;
+        width: 100%;
+        max-width: 100%;
+        background: white;
+        table-layout: auto;
+        border-collapse: collapse;
+    }
+
+    body.dark-mode .history-table {
+        background: #2a2a2a;
+    }
+
+    .history-table thead {
+        background-color: #8B0000 !important;
+    }
+
+    body.dark-mode .history-table thead {
+        background-color: #8B0000 !important;
+    }
+
+    .history-table thead th {
+        padding: 0.7rem 0.75rem;
+        font-weight: 600;
+        color: white !important;
+        border-bottom: 1px solid white !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.2) !important;
+        font-size: 0.9rem;
+        background-color: #8B0000 !important;
+        text-align: left;
+        white-space: nowrap;
+    }
+
+    body.dark-mode .history-table thead th {
+        color: white !important;
+        border-bottom: 1px solid white !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.2) !important;
+        background-color: #8B0000 !important;
+    }
+
+    .history-table thead th:last-child {
+        border-right: none !important;
+    }
+
+    .history-table tbody td {
+        padding: 0.65rem 0.75rem;
+        font-size: 0.85rem;
+        color: #333;
+        border-bottom: 1px solid #e9ecef;
+        border-right: 1px solid #e9ecef;
+        vertical-align: middle;
+        background: white;
+    }
+
+    body.dark-mode .history-table tbody td {
+        background: #363636 !important;
+        color: #f0f0f0 !important;
+        border-bottom: 1px solid #555 !important;
+        border-right: 1px solid #555 !important;
+    }
+
+    .history-table tbody td:last-child {
+        border-right: none;
+    }
+
+    .history-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    body.dark-mode .history-table tbody tr:hover {
+        background-color: #404040 !important;
+    }
+
+    /* Status badges */
     .history-status.approved {
         color: #2ecc71;
         font-weight: 600;
+    }
+
+    body.dark-mode .history-status.approved {
+        color: #4ade80;
     }
 
     .history-status.pending {
@@ -177,26 +317,69 @@
         font-weight: 600;
     }
 
+    body.dark-mode .history-status.pending {
+        color: #fbbf24;
+    }
+
     .history-status.rejected {
         color: #e74c3c;
         font-weight: 600;
     }
 
+    body.dark-mode .history-status.rejected {
+        color: #f87171;
+    }
+
+    /* Score column styling */
+    .history-table tbody td:nth-child(7) {
+        text-align: center;
+        font-weight: 500;
+    }
+
+    /* View button - Icon only, maroon */
     .history-btn {
-        background: #0056b3;
+        background: #8B0000;
         color: #fff;
         border: none;
-        padding: 6px 14px;
+        padding: 8px 10px;
         border-radius: 6px;
         cursor: pointer;
         margin-right: 6px;
         font-size: 0.9rem;
-        transition: background 0.2s;
+        transition: all 0.2s;
         white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 36px;
+        height: 36px;
     }
 
     .history-btn:hover {
-        background: #00448f;
+        background: #6B0000;
+        transform: scale(1.05);
+    }
+
+    .history-btn i {
+        font-size: 1rem;
+    }
+
+    body.dark-mode .history-btn {
+        background: #8B0000;
+        color: #fff;
+    }
+
+    body.dark-mode .history-btn:hover {
+        background: #6B0000;
+    }
+
+    /* Empty state */
+    body.dark-mode .text-center {
+        color: #e0e0e0;
+    }
+
+    body.dark-mode .main-content {
+        color: #f1f1f1;
     }
 
     /* Viewer panel */
@@ -224,6 +407,15 @@
         flex: 1;
         width: 100%;
         height: 100%;
+    }
+
+    body.dark-mode .pdf-viewer-container {
+        background: #2d2d2d;
+        border-left: 2px solid #555;
+    }
+
+    body.dark-mode .pdf-viewer-container iframe {
+        background: #2d2d2d;
     }
 
     /* Close button */
@@ -255,6 +447,115 @@
 
     .close-viewer-btn:hover {
         background: #a93226;
+    }
+
+    body.dark-mode .close-viewer-btn {
+        background: #dc2626;
+        color: #fff;
+    }
+
+    body.dark-mode .close-viewer-btn:hover {
+        background: #b91c1c;
+    }
+
+    /* Pagination Styles */
+    .pagination-wrapper {
+        display: flex !important;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 1.5rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+        width: 100%;
+        visibility: visible !important;
+    }
+
+    .page-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 36px;
+        height: 36px;
+        padding: 0.5rem 0.75rem;
+        background: white;
+        color: #333;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .page-btn:hover:not(.disabled):not(.active) {
+        background: #f8f9fa;
+        border-color: #8B0000;
+        color: #8B0000;
+    }
+
+    .page-btn.active {
+        background: #8B0000;
+        color: white;
+        border-color: #8B0000;
+        font-weight: 600;
+    }
+
+    .page-btn.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background: #f5f5f5;
+    }
+
+    body.dark-mode .page-btn {
+        background: #363636;
+        color: #f0f0f0;
+        border-color: #555;
+    }
+
+    body.dark-mode .page-btn:hover:not(.disabled):not(.active) {
+        background: #404040;
+        border-color: #8B0000;
+        color: #f0f0f0;
+    }
+
+    body.dark-mode .page-btn.active {
+        background: #8B0000;
+        color: white;
+        border-color: #8B0000;
+    }
+
+    body.dark-mode .page-btn.disabled {
+        background: #2a2a2a;
+        opacity: 0.5;
+    }
+
+    body.dark-mode .text-muted {
+        color: #aaa !important;
+    }
+
+    /* Main content layout */
+    .main-content {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    body.dark-mode .main-content {
+        color: #f1f1f1;
+    }
+
+    /* Ensure container doesn't cause horizontal scroll */
+    .student-history-page .container {
+        overflow-x: hidden;
+        max-width: 100%;
+    }
+
+    body {
+        overflow-x: hidden;
     }
 </style>
 

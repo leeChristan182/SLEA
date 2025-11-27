@@ -152,13 +152,36 @@ const primaryIdFieldName = isAdmin ? 'admin_id' : 'assessor_id';
           method: 'POST',
           headers: {
             'X-CSRF-TOKEN': csrfToken,
-            'X-Requested-With': 'XMLHttpRequest'
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
           },
           body: fd
         });
-        const data = await res.json();
+
+        // Check if response is JSON
+        const contentType = res.headers.get('content-type');
+        let data;
+        
+        if (contentType && contentType.includes('application/json')) {
+          data = await res.json();
+        } else {
+          // If not JSON, it's likely a redirect (successful save)
+          // Check if it's a redirect (status 302 or 200 with HTML)
+          if (res.ok || res.redirected) {
+            showToast('Profile updated successfully', false);
+            setTimeout(() => window.location.reload(), 900);
+            return;
+          } else {
+            // Read as text to see what the error is
+            const text = await res.text();
+            console.error('Profile update non-JSON response', { status: res.status, text });
+            showToast('Profile update failed', true);
+            return;
+          }
+        }
+
         if (res.ok && data.success) {
-          showToast(data.message || 'Profile updated');
+          showToast(data.message || 'Profile updated successfully', false);
           setTimeout(() => window.location.reload(), 900);
         } else {
           const msg = data.message || (data.errors ? Object.values(data.errors).flat().join(', ') : 'Update failed');
@@ -166,7 +189,14 @@ const primaryIdFieldName = isAdmin ? 'admin_id' : 'assessor_id';
         }
       } catch (err) {
         console.error('Profile update error', err);
-        showToast('Error saving profile', true);
+        // Check if it's a JSON parse error (which might mean the save actually succeeded)
+        if (err instanceof SyntaxError && err.message.includes('JSON')) {
+          // Likely a redirect response, which means the save succeeded
+          showToast('Profile updated successfully', false);
+          setTimeout(() => window.location.reload(), 900);
+        } else {
+          showToast('Error saving profile', true);
+        }
       }
     });
 

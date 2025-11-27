@@ -6,6 +6,8 @@ use App\Models\AssessorCompiledScore;
 use App\Models\AssessorFinalReview;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Models\StudentAcademic;
 use App\Models\User;
 use App\Models\Submission;
@@ -19,13 +21,14 @@ class AssessorFinalReviewController extends Controller
      */
     public function index()
     {
+        /** @var User $assessor */
         $assessor = Auth::user();
-        abort_unless($assessor->isAssessor(), 403);
+        abort_unless($assessor && $assessor->isAssessor(), 403);
 
         // Students who requested rating AND were marked ready for admin
         $eligibleStudentIds = StudentAcademic::query()
             ->where('ready_for_rating', true)
-            ->where('slea_application_status', 'for_admin_review') // enum key
+            ->where('slea_application_status', 'pending_administrative_validation') // enum key
             ->pluck('user_id');
 
         // Group compiled scores for those students only
@@ -38,6 +41,19 @@ class AssessorFinalReviewController extends Controller
 
         // Sync/update AssessorFinalReview rows
         foreach ($compiledByStudent as $studentId => $rows) {
+            // Verify student exists in users table
+            $studentExists = User::where('id', $studentId)->exists();
+            if (!$studentExists) {
+                Log::warning("Student ID {$studentId} does not exist in users table, skipping assessor_final_reviews sync");
+                continue;
+            }
+
+            // Verify assessor exists in users table
+            if (!$assessor || !$assessor->exists || !User::where('id', $assessor->id)->exists()) {
+                Log::warning("Assessor ID {$assessor->id} does not exist in users table, skipping assessor_final_reviews sync");
+                continue;
+            }
+
             $totalScore  = $rows->sum('total_score');
             $maxPoints   = $rows->sum('max_points'); // per-category max, usually 20 each
 
@@ -47,18 +63,47 @@ class AssessorFinalReviewController extends Controller
 
             $status = $existing?->status ?? 'draft'; // enum from final_review_statuses
 
-            AssessorFinalReview::updateOrCreate(
-                [
-                    'student_id'  => $studentId,
-                    'assessor_id' => $assessor->id,
-                ],
-                [
-                    'total_score' => $totalScore,
-                    'max_points'  => $maxPoints,
-                    'status'      => $status,
-                    'reviewed_at' => $existing?->reviewed_at ?? now(),
-                ]
-            );
+            // Verify status exists in enum table
+            $statusExists = DB::table('final_review_statuses')->where('key', $status)->exists();
+            if (!$statusExists) {
+                Log::warning("Invalid status '{$status}' for assessor_final_reviews, using 'draft'");
+                $status = 'draft';
+                // Ensure draft exists
+                if (!DB::table('final_review_statuses')->where('key', 'draft')->exists()) {
+                    DB::table('final_review_statuses')->insert(['key' => 'draft']);
+                }
+            }
+
+            // Build update data, excluding qualification if it's null to avoid FK constraint issues
+            $updateData = [
+                'total_score' => $totalScore,
+                'max_possible'  => $maxPoints,
+                'status'      => $status,
+                'reviewed_at' => $existing?->reviewed_at ?? now(),
+            ];
+
+            // Only set qualification if it exists and is not null
+            if ($existing && $existing->qualification) {
+                // Verify qualification exists in enum table
+                $qualExists = DB::table('qualifications')->where('key', $existing->qualification)->exists();
+                if ($qualExists) {
+                    $updateData['qualification'] = $existing->qualification;
+                }
+            }
+
+            try {
+                AssessorFinalReview::updateOrCreate(
+                    [
+                        'student_id'  => $studentId,
+                        'assessor_id' => $assessor->id,
+                    ],
+                    $updateData
+                );
+            } catch (\Exception $e) {
+                Log::error("Failed to create/update assessor_final_reviews for student {$studentId} and assessor {$assessor->id}: " . $e->getMessage());
+                // Continue with next student instead of breaking
+                continue;
+            }
         }
 
         // Load items for the table + modal
@@ -81,8 +126,9 @@ class AssessorFinalReviewController extends Controller
      */
     public function storeForStudent(int $studentId, Request $request)
     {
+        /** @var User $assessor */
         $assessor = Auth::user();
-        abort_unless($assessor->isAssessor(), 403);
+        abort_unless($assessor && $assessor->isAssessor(), 403);
 
         $remarks = $request->input('remarks');
 
@@ -103,25 +149,53 @@ class AssessorFinalReviewController extends Controller
             ? 'qualified'
             : 'unqualified';
 
+        // Verify qualification exists in enum table
+        $qualificationExists = DB::table('qualifications')->where('key', $qualification)->exists();
+        if (!$qualificationExists) {
+            Log::warning("Invalid qualification '{$qualification}' for assessor_final_reviews");
+            $qualification = null; // Set to null if invalid
+        }
+
+        // Verify status exists in enum table, create if missing
+        $status = 'queued_for_admin';
+        $statusExists = DB::table('final_review_statuses')->where('key', $status)->exists();
+        if (!$statusExists) {
+            Log::warning("Status '{$status}' not found in final_review_statuses, creating it");
+            try {
+                DB::table('final_review_statuses')->insert(['key' => $status]);
+            } catch (\Exception $e) {
+                Log::error("Failed to create status '{$status}': " . $e->getMessage());
+                // Don't fall back to draft - this is critical for admin visibility
+                return back()->with('error', 'Failed to submit review. Please contact system administrator.');
+            }
+        }
+
+        // Build update data
+        $updateData = [
+            'total_score'   => $totalScore,
+            'max_possible'    => $maxPossible,
+            'status'        => $status,
+            'remarks'       => $remarks,
+            'reviewed_at'   => now(),
+        ];
+
+        // Only set qualification if it's valid
+        if ($qualification) {
+            $updateData['qualification'] = $qualification;
+        }
+
         AssessorFinalReview::updateOrCreate(
             [
                 'student_id'  => $studentId,
                 'assessor_id' => $assessor->id,
             ],
-            [
-                'total_score'   => $totalScore,
-                'max_points'    => $maxPossible,
-                'qualification' => $qualification,        // enum key
-                'status'        => 'queued_for_admin',    // enum key
-                'remarks'       => $remarks,
-                'reviewed_at'   => now(),
-            ]
+            $updateData
         );
 
         // Also ensure the student’s SLEA app status is enum-correct
         $academic = \App\Models\StudentAcademic::where('user_id', $studentId)->first();
         if ($academic) {
-            $academic->slea_application_status = 'for_admin_review'; // enum key
+            $academic->slea_application_status = 'pending_administrative_validation'; // enum key
             $academic->save();
         }
 

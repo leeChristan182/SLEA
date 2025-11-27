@@ -116,20 +116,20 @@ class StudentAcademic extends Model
     {
         $this->ready_for_rating        = true;
         $this->ready_for_rating_at     = now();
-        $this->slea_application_status = 'ready_for_assessor';
+        $this->slea_application_status = 'pending_assessor_evaluation';
         $this->save();
     }
     public function markReadyForAdminReview(): void
     {
         // enum from slea_application_statuses table
-        $this->slea_application_status = 'for_admin_review';
+        $this->slea_application_status = 'pending_administrative_validation';
         $this->save();
     }
     // in StudentAcademic.php
 
     public function markAwarded()
     {
-        $this->slea_application_status = 'awarded';
+        $this->slea_application_status = 'qualified';
         $this->save();
     }
 

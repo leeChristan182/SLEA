@@ -10,6 +10,7 @@ use App\Models\SubmissionReview;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
@@ -388,33 +389,71 @@ class StudentController extends Controller
         $user = Auth::user();
         abort_unless($user->isStudent(), 403);
 
+        // Refresh the relationship to get the latest status
+        $user->load('studentAcademic');
         $academic = $user->studentAcademic;
+        
+        // If academic record doesn't exist, create a basic one
+        if (!$academic) {
+            $academic = \App\Models\StudentAcademic::firstOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'slea_application_status' => null,
+                    'ready_for_rating' => false,
+                ]
+            );
+            // Reload to get the fresh record
+            $academic->refresh();
+        } else {
+            // Refresh to get latest data from database
+            $academic->refresh();
+        }
 
         // 1) Load rubric categories in display order
         $categories = RubricCategory::orderBy('order_no')->get();
 
-        // 2) Reviews for this student's ACCEPTED submissions
+        // 2) Get all reviews for this student's APPROVED submissions (from all assessors)
+        // We need to aggregate scores across all assessors for the same submission
         $reviews = SubmissionReview::query()
             ->whereHas('submission', function ($q) use ($user) {
                 $q->where('user_id', $user->id)
-                    ->where('status', 'accepted'); // ✅ only accepted submissions count
+                    ->where('status', 'approved'); // ✅ only approved submissions count
             })
             ->with(['submission.category'])
             ->get();
 
         // 3) Sum scores per category key
+        // Group by submission_id first to get the latest review per submission (in case multiple assessors reviewed)
         $scoresByCategoryKey = [];
+        $reviewsBySubmission = $reviews->groupBy('submission_id');
 
-        foreach ($reviews as $review) {
-            $submission = $review->submission;
-            if (! $submission || ! $submission->category) {
+        foreach ($reviewsBySubmission as $submissionId => $submissionReviews) {
+            // Get the latest review for this submission (most recent)
+            $review = $submissionReviews->sortByDesc('reviewed_at')->first();
+            
+            // Skip if no score (null), but allow 0 scores as they might be valid
+            if (!isset($review->score) || $review->score === null) {
                 continue;
             }
 
-            $cat = $submission->category;
-            $key = $cat->key; // e.g. leadership, academic, awards, community, conduct
+            $submission = $review->submission;
+            if (!$submission) {
+                continue;
+            }
 
-            if (! isset($scoresByCategoryKey[$key])) {
+            // Try to get category from submission first, then from review's rubric_category_id
+            $category = $submission->category;
+            if (!$category && $review->rubric_category_id) {
+                $category = RubricCategory::find($review->rubric_category_id);
+            }
+
+            if (!$category) {
+                continue;
+            }
+
+            $key = $category->key; // e.g. leadership, academic, awards, community, conduct
+
+            if (!isset($scoresByCategoryKey[$key])) {
                 $scoresByCategoryKey[$key] = 0.0;
             }
 
@@ -459,55 +498,23 @@ class StudentController extends Controller
             'categories' => $perfCategories,
         ];
 
+        // Get the status directly from database to ensure we have the latest value
+        $status = $academic ? \App\Models\StudentAcademic::where('user_id', $user->id)
+            ->value('slea_application_status') : null;
+        
+        // Log for debugging
+        Log::info('Student performance page loaded', [
+            'user_id' => $user->id,
+            'status_from_relationship' => $academic?->slea_application_status,
+            'status_from_db' => $status,
+            'ready_for_rating' => (bool) ($academic->ready_for_rating ?? false),
+        ]);
+
         return view('student.performance', [
             'perfData'               => $perfData,
-            'slea_application_status' => $academic?->slea_application_status,
+            'slea_application_status' => $status ?? $academic?->slea_application_status,
             'ready_for_rating'       => (bool) ($academic->ready_for_rating ?? false),
-            'can_mark_ready_for_slea' => $user->canMarkReadyForSlea(),
         ]);
-    }
-    public function markReadyForSlea()
-    {
-        $user = Auth::user();
-        abort_unless($user->isStudent(), 403);
-
-        $academic = $user->studentAcademic;
-
-        if (! $academic) {
-            return back()->with('error', 'No academic record found. Please contact OSAS.');
-        }
-
-        if (! $academic->canMarkReadyForSlea()) {
-            return back()->with('error', 'You are not eligible to mark yourself ready for SLEA at this time.');
-        }
-
-        $academic->markReadyForSlea();
-
-        return back()->with('success', 'You are now marked as ready to be rated for the Student Leadership Excellence Award.');
-    }
-    public function cancelReadyForSlea()
-    {
-        $user = Auth::user();
-        abort_unless($user->isStudent(), 403);
-
-        $academic = $user->studentAcademic;
-
-        if (! $academic) {
-            return back()->with('error', 'No academic record found.');
-        }
-
-        // Only allow cancel if status is still "ready_for_assessor"
-        if ($academic->slea_application_status !== 'ready_for_assessor') {
-            return back()->with('error', 'You can no longer cancel. Your request is already being processed.');
-        }
-
-        // Reset flags
-        $academic->ready_for_rating        = false;
-        $academic->ready_for_rating_at     = null;
-        $academic->slea_application_status = null;
-        $academic->save();
-
-        return back()->with('success', 'Your SLEA rating request has been cancelled. You may continue submitting more requirements.');
     }
 
     // GET /student/criteria
@@ -544,11 +551,14 @@ class StudentController extends Controller
                 'category',
                 'leadership',
                 'latestHistory', // from Submission model
+                'reviews' => function ($q) {
+                    $q->latest('reviewed_at');
+                },
             ])
                 ->where('user_id', Auth::id())
                 ->orderByDesc('submitted_at')
                 ->orderByDesc('created_at')
-                ->paginate(15);
+                ->paginate(5);
         }
 
         // resources/views/student/history.blade.php

@@ -74,7 +74,10 @@ class SubmissionRecordController extends Controller
 
         $user = Auth::user();
 
-        $data = $request->validate([
+        // Check if application_status column exists
+        $hasApplicationStatusColumn = Schema::hasColumn('submissions', 'application_status');
+        
+        $validationRules = [
             'rubric_category_id'   => ['required', 'exists:rubric_categories,id'],
             'rubric_section_id'    => ['nullable', 'exists:rubric_sections,section_id'],
             'rubric_subsection_id' => ['nullable', 'exists:rubric_subsections,sub_section_id'],
@@ -93,7 +96,14 @@ class SubmissionRecordController extends Controller
 
             'attachments'          => ['required'],
             'attachments.*'        => ['file', 'max:5120', 'mimes:jpeg,jpg,png,pdf'],
-        ]);
+        ];
+        
+        // Only require application_status if column exists
+        if ($hasApplicationStatusColumn) {
+            $validationRules['application_status'] = ['required', 'in:for_final_application,for_tracking'];
+        }
+        
+        $data = $request->validate($validationRules);
 
         // ---- upload files ----
         $filesMeta = [];
@@ -112,8 +122,11 @@ class SubmissionRecordController extends Controller
             }
         }
 
+        // Check if application_status column exists
+        $hasApplicationStatusColumn = Schema::hasColumn('submissions', 'application_status');
+        
         // ---- create submission ----
-        $submission = Submission::create([
+        $submissionData = [
             'user_id'              => $user->id,
             'leadership_id'        => null,
 
@@ -136,10 +149,17 @@ class SubmissionRecordController extends Controller
                 'document_type'    => $data['document_type']    ?? null,
             ],
 
-            'status'       => 'pending',  // matches submission_statuses.key
-            'remarks'      => null,
-            'submitted_at' => now(),
-        ]);
+            'status'            => 'pending',  // matches submission_statuses.key
+            'remarks'           => null,
+            'submitted_at'      => now(),
+        ];
+        
+        // Only add application_status if column exists
+        if ($hasApplicationStatusColumn) {
+            $submissionData['application_status'] = $data['application_status'];
+        }
+        
+        $submission = Submission::create($submissionData);
 
         // ---- REVERT RULE (safe) ----
         if (Schema::hasTable('assessor_final_reviews')) {

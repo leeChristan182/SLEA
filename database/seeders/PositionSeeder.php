@@ -58,7 +58,7 @@ class PositionSeeder extends Seeder
             'usg' => [
                 ['name' => 'Student Regent/President', 'rank' => 1, 'exec' => true],
                 ['name' => 'Vice President for Internal and External Affairs', 'rank' => 2, 'exec' => true],
-                ['name' => 'Vice President for Business Correspondence and Records', 'rank' => 3, 'exec' => true],
+            ['name' => 'Vice President for Business Correspondence and Records', 'rank' => 3, 'exec' => true],
                 ['name' => 'Vice President for Finance, Audit and Logistics', 'rank' => 4, 'exec' => true],
                 ['name' => 'Vice President for Publication and Information', 'rank' => 5, 'exec' => true],
                 ['name' => 'Committee Member', 'rank' => 6, 'exec' => false],
@@ -96,7 +96,7 @@ class PositionSeeder extends Seeder
                 ['name' => 'Treasurer', 'rank' => 4, 'exec' => false],
                 ['name' => 'Auditor', 'rank' => 5, 'exec' => false],
             ],
-            
+
             // LGU - Local Government Unit (keeping existing positions)
             'lgu' => [
                 ['name' => 'Municipal Councilor / SK Federated President', 'rank' => 1, 'exec' => false],
@@ -126,8 +126,8 @@ class PositionSeeder extends Seeder
             
             if (!$leadershipTypeId) {
                 $this->command?->warn("⚠️ Leadership type '{$typeKey}' not found; skipping positions.");
-                continue;
-            }
+                    continue;
+                }
 
             foreach ($positions as $pos) {
                 DB::table('positions')->updateOrInsert(

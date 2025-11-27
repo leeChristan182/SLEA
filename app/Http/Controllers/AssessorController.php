@@ -31,17 +31,37 @@ class AssessorController extends Controller
         /** @var User $user */
         $user = Auth::user();
 
-        $data = $request->validate([
-            'first_name' => ['required', 'string', 'max:50'],
-            'last_name'  => ['required', 'string', 'max:50'],
-            'middle_name' => ['nullable', 'string', 'max:50'],
-            'email'      => ['required', 'email', 'max:100', Rule::unique('users', 'email')->ignore($user->id)],
-            'contact'    => ['nullable', 'string', 'max:20'],
-        ]);
+        try {
+            $data = $request->validate([
+                'first_name' => ['required', 'string', 'max:50'],
+                'last_name'  => ['required', 'string', 'max:50'],
+                'middle_name' => ['nullable', 'string', 'max:50'],
+                'email'      => ['required', 'email', 'max:100', Rule::unique('users', 'email')->ignore($user->id)],
+                'contact'    => ['nullable', 'string', 'max:20'],
+            ]);
 
-        $user->update($data);
+            $user->update($data);
 
-        return back()->with('status', 'Profile updated.');
+            // Return JSON response for AJAX requests
+            if ($request->ajax() || $request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Profile updated successfully.',
+                ]);
+            }
+
+            return back()->with('status', 'Profile updated.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Return JSON response for validation errors on AJAX requests
+            if ($request->ajax() || $request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed.',
+                    'errors' => $e->errors(),
+                ], 422);
+            }
+            throw $e;
+        }
     }
 
     // PATCH /assessor/password
@@ -60,6 +80,14 @@ class AssessorController extends Controller
         $user = Auth::user();
 
         if (! Hash::check($request->current_password, $user->password)) {
+            // Return JSON response for AJAX requests
+            if ($request->ajax() || $request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Your current password is incorrect.',
+                    'errors' => ['current_password' => ['Your current password is incorrect.']],
+                ], 422);
+            }
             return back()->withErrors(['current_password' => 'Your current password is incorrect.']);
         }
 
@@ -79,6 +107,14 @@ class AssessorController extends Controller
 
         $user->password = $request->password; // model mutator will hash
         $user->save();
+
+        // Return JSON response for AJAX requests
+        if ($request->ajax() || $request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Password updated successfully.',
+            ]);
+        }
 
         return back()->with('status', 'Password updated.');
     }

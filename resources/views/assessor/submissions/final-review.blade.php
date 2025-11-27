@@ -27,10 +27,10 @@
             @endif
 
             {{-- Filter + search bar --}}
-            <div class="filter-bar">
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-3">
-                        <label for="statusFilter" class="filter-label">Filter by Status</label>
+            <div class="controls-section">
+                <div class="filter-controls">
+                    <div class="filter-group">
+                        <label for="statusFilter">Filter by Status</label>
                         <select id="statusFilter" class="form-select">
                             <option value="">All</option>
                             <option value="draft">Draft</option>
@@ -39,8 +39,8 @@
                         </select>
                     </div>
 
-                    <div class="col-md-3">
-                        <label for="sortSelect" class="filter-label">Sort by</label>
+                    <div class="filter-group">
+                        <label for="sortSelect">Sort by</label>
                         <select id="sortSelect" class="form-select">
                             <option value="">None</option>
                             <option value="name">Student Name</option>
@@ -49,31 +49,38 @@
                             <option value="score-asc">Lowest Score</option>
                         </select>
                     </div>
+                </div>
 
-                    <div class="col-md-6">
-                        <label for="searchInput" class="search-label">Search</label>
-                        <div class="search-wrapper">
-                            <i class="fas fa-search search-icon"></i>
-                            <input type="text" id="searchInput" class="form-control"
-                                placeholder="Search by ID, name, college, program, or major...">
-                        </div>
+                <div class="search-controls">
+                    <div class="search-group">
+                        <input
+                            type="text"
+                            id="searchInput"
+                            class="form-control"
+                            placeholder="Search submissions..."
+                        >
+                        <button type="button" id="searchBtn" class="btn-search-maroon search-btn-attached" title="Search" onclick="handleSearchClick(event)">
+                            <i class="fas fa-search"></i>
+                        </button>
+                        <button type="button" id="clearBtn" class="btn-clear" title="Clear search" onclick="handleClearClick(event)">
+                            Clear
+                        </button>
                     </div>
                 </div>
             </div>
 
             {{-- Table --}}
-            <div class="table-container">
-                <table class="table table-hover graduating-table" id="finalReviewTable">
+            <div class="submissions-table-container">
+                <table class="table submissions-table" id="finalReviewTable">
                     <thead>
                         <tr>
                             <th>Student ID</th>
                             <th>Student Name</th>
                             <th>College</th>
                             <th>Program</th>
-                            <th>Major</th>
                             <th>Total Score</th>
                             <th>Status</th>
-                            <th style="width: 80px;">Action</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -137,7 +144,6 @@
                                 <td class="student-name-cell">{{ $studentName }}</td>
                                 <td class="college-cell">{{ $collegeName }}</td>
                                 <td class="program-cell">{{ $programName }}</td>
-                                <td class="major-cell">{{ $majorName }}</td>
                                 <td class="score-cell">{{ number_format($item->total_score ?? 0, 2) }}</td>
                                 <td>
                                     <span class="status-badge {{ 'status-' . $statusKey }}">
@@ -145,27 +151,60 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <button type="button" class="btn btn-view btn-action" data-bs-toggle="modal"
-                                        data-bs-target="#viewSummaryModal" data-student-id="{{ $student->id ?? '' }}"
-                                        data-student-number="{{ $studentNumber }}" data-student-name="{{ $studentName }}"
-                                        data-program="{{ $programName }}" data-college="{{ $collegeName }}"
-                                        data-major="{{ $majorName }}"
-                                        data-score="{{ number_format($item->total_score ?? 0, 2) }}"
-                                        data-total-max="{{ $item->max_possible ?? $breakdown->sum('max_points') }}"
-                                        data-status="{{ $statusLabel }}" data-breakdown='@json($breakdown)'>
-                                        <i class="fas fa-eye"></i>
-                                    </button>
+                                    <div class="action-buttons-group">
+                                        <button type="button" class="btn btn-submit-admin" 
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#viewSummaryModal" 
+                                            data-student-id="{{ $student->id ?? '' }}"
+                                            data-student-number="{{ $studentNumber }}" 
+                                            data-student-name="{{ $studentName }}"
+                                            data-program="{{ $programName }}" 
+                                            data-college="{{ $collegeName }}"
+                                            data-major="{{ $majorName }}"
+                                            data-score="{{ number_format($item->total_score ?? 0, 2) }}"
+                                            data-total-max="{{ $item->max_possible ?? $breakdown->sum('max_points') }}"
+                                            data-status="{{ $statusLabel }}" 
+                                            data-breakdown='@json($breakdown)'
+                                            title="Submit to Admin">
+                                            <i class="fas fa-check-circle"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-reject-final" 
+                                            data-student-id="{{ $student->id ?? '' }}"
+                                            data-student-name="{{ $studentName }}"
+                                            title="Reject">
+                                            <i class="fas fa-times-circle"></i>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="text-center text-muted py-4">
+                                <td colspan="7" class="text-center text-muted py-4">
                                     No graduating students found for final review.
                                 </td>
                             </tr>
                         @endforelse
                     </tbody>
                 </table>
+            </div>
+
+            {{-- Pagination --}}
+            <div class="pagination-container" data-pagination-container>
+                <div class="pagination-info">
+                    <!-- Filled by admin_pagination.js -->
+                </div>
+
+                <div class="unified-pagination">
+                    <button class="btn-nav" id="prevBtn" disabled>
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </button>
+
+                    <span class="pagination-pages" id="paginationPages"></span>
+
+                    <button class="btn-nav" id="nextBtn" disabled>
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
             </div>
         </main>
     </div>
@@ -250,16 +289,66 @@
                         Close
                     </button>
                     <button type="button" class="btn btn-success final-submit-btn" id="submitToAdminBtn">
-                        Submit for Final Review
+                        Submit
                     </button>
                 </div>
             </div>
         </div>
     </div>
+
+    <link rel="stylesheet" href="{{ asset('css/pending-submissions.css') }}">
 @endsection
 
 @push('scripts')
+    @php
+        $storeUrlTemplate = route('assessor.final-review.store', ['student' => '__STUDENT__']);
+    @endphp
     <script>
+        // Global functions for search and clear buttons - will be updated after DOM loads
+        window.applyFiltersFunction = null;
+        
+        window.handleSearchClick = function(event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            console.log('handleSearchClick called');
+            // Try to call applyFilters if available
+            if (typeof window.applyFiltersFunction === 'function') {
+                window.applyFiltersFunction();
+            } else {
+                // Fallback: trigger input event which will trigger the listener
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput) {
+                    console.log('Dispatching input event');
+                    const searchEvent = new Event('input', { bubbles: true });
+                    searchInput.dispatchEvent(searchEvent);
+                }
+            }
+        };
+
+        window.handleClearClick = function(event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            console.log('handleClearClick called');
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.value = '';
+                // Try to call applyFilters if available
+                if (typeof window.applyFiltersFunction === 'function') {
+                    window.applyFiltersFunction();
+                } else {
+                    // Fallback: trigger input event which will trigger the listener
+                    console.log('Dispatching input event for clear');
+                    const searchEvent = new Event('input', { bubbles: true });
+                    searchInput.dispatchEvent(searchEvent);
+                }
+                searchInput.focus();
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', function () {
             const table = document.getElementById('finalReviewTable');
             const statusFilter = document.getElementById('statusFilter');
@@ -271,7 +360,7 @@
             const remarksInput = document.getElementById('assessorRemarks');
             const submitForm = document.getElementById('finalReviewSubmitForm');
 
-            const storeUrlTemplate = @json(route('assessor.final-review.store', ['student' => '__STUDENT__']));
+            const storeUrlTemplate = '{{ $storeUrlTemplate }}';
 
             function applyFilters() {
                 if (!table) return;
@@ -300,6 +389,9 @@
                     row.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
                 });
             }
+            
+            // Make applyFilters available globally for onclick handlers
+            applyFiltersFunction = applyFilters;
 
             function applySort() {
                 if (!table || !sortSelect) return;
@@ -332,6 +424,39 @@
             if (searchInput) searchInput.addEventListener('input', applyFilters);
             if (statusFilter) statusFilter.addEventListener('change', applyFilters);
             if (sortSelect) sortSelect.addEventListener('change', applySort);
+
+            // Update global function reference for onclick handlers
+            window.applyFiltersFunction = applyFilters;
+
+            // Search button functionality
+            const searchBtn = document.getElementById('searchBtn');
+            if (searchBtn) {
+                searchBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Search button clicked (event listener)');
+                    applyFilters();
+                });
+            } else {
+                console.error('Search button not found');
+            }
+
+            // Clear button functionality
+            const clearBtn = document.getElementById('clearBtn');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Clear button clicked (event listener)');
+                    if (searchInput) {
+                        searchInput.value = '';
+                        applyFilters();
+                        searchInput.focus();
+                    }
+                });
+            } else {
+                console.error('Clear button not found');
+            }
 
             // Fill summary modal on open
             if (modal) {
@@ -448,12 +573,30 @@
             function submitReview() {
                 const studentId = modal?.dataset.studentId || '';
                 if (!studentId) {
-                    alert('Missing student ID for this review.');
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'Missing student ID for this review.',
+                            icon: 'error',
+                            confirmButtonColor: '#dc3545'
+                        });
+                    } else {
+                        alert('Missing student ID for this review.');
+                    }
                     return;
                 }
 
                 if (!goodConductCheck.checked) {
-                    alert('Please confirm good conduct before submitting to Admin.');
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            title: 'Confirmation Required',
+                            text: 'Please confirm good conduct before submitting to Admin.',
+                            icon: 'warning',
+                            confirmButtonColor: '#198754'
+                        });
+                    } else {
+                        alert('Please confirm good conduct before submitting to Admin.');
+                    }
                     return;
                 }
 
@@ -469,16 +612,91 @@
 
             if (submitBtn) {
                 submitBtn.addEventListener('click', function () {
-                    if (confirm('Submit this student\'s final review to Admin?')) {
-                        submitReview();
+                    // Use SweetAlert2 instead of native confirm
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            title: 'Submit Final Review',
+                            text: 'Submit this student\'s final review to Admin?',
+                            icon: 'question',
+                            showCancelButton: true,
+                            confirmButtonColor: '#198754',
+                            cancelButtonColor: '#6c757d',
+                            confirmButtonText: 'Yes, submit',
+                            cancelButtonText: 'Cancel',
+                            reverseButtons: true
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                submitReview();
+                            }
+                        });
+                    } else {
+                        // Fallback to native confirm if SweetAlert2 is not loaded
+                        if (confirm('Submit this student\'s final review to Admin?')) {
+                            submitReview();
+                        }
                     }
                 });
             }
+
+            // Handle reject button clicks
+            const rejectButtons = document.querySelectorAll('.btn-reject-final');
+            rejectButtons.forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const studentId = this.getAttribute('data-student-id');
+                    const studentName = this.getAttribute('data-student-name');
+                    
+                    // Use SweetAlert2 instead of native confirm
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            title: 'Reject Student?',
+                            text: `Are you sure you want to REJECT ${studentName}? This action cannot be undone.`,
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonColor: '#dc3545',
+                            cancelButtonColor: '#6c757d',
+                            confirmButtonText: 'Yes, reject',
+                            cancelButtonText: 'Cancel',
+                            reverseButtons: true
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                // TODO: Implement reject functionality
+                                console.log('Reject student:', studentId);
+                                Swal.fire({
+                                    title: 'Reject Functionality',
+                                    text: 'Reject functionality will be implemented here.',
+                                    icon: 'info'
+                                });
+                            }
+                        });
+                    } else {
+                        // Fallback to native confirm if SweetAlert2 is not loaded
+                        if (confirm(`Are you sure you want to REJECT ${studentName}? This action cannot be undone.`)) {
+                            // TODO: Implement reject functionality
+                            console.log('Reject student:', studentId);
+                            alert('Reject functionality will be implemented here.');
+                        }
+                    }
+                });
+            });
+
+            // Initialize pagination
+            if (typeof initializeAdminPagination !== 'undefined') {
+                initializeAdminPagination('#finalReviewTable', 10);
+            }
         });
     </script>
+    <script src="{{ asset('js/admin_pagination.js') }}"></script>
 @endpush
 
+@push('styles')
 <style>
+    /* ============================================
+       FINAL REVIEW TABLE - CLEAN REBUILD
+       ============================================ */
+
+    /* Page Header */
     .page-header {
         margin-bottom: 1.5rem;
     }
@@ -494,90 +712,540 @@
         color: #f9bd3d !important;
     }
 
-    .filter-bar {
-        background: #fff;
-        border-radius: 12px;
-        padding: 1rem 1.25rem;
-        margin-bottom: 1.25rem;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+    .controls-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: 2rem;
+        gap: 2rem;
     }
 
-    body.dark-mode .filter-bar {
-        background: #2b2b2b;
+    .filter-controls {
+        display: flex;
+        gap: 1.5rem;
     }
 
-    .filter-label,
-    .search-label {
-        font-size: 0.85rem;
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .filter-group label {
         font-weight: 600;
-        margin-bottom: 0.25rem;
-        color: #555;
+        color: #333;
+        font-size: 0.9rem;
     }
 
-    body.dark-mode .filter-label,
-    body.dark-mode .search-label {
+    body.dark-mode .filter-group label {
         color: #ddd;
     }
 
-    .search-wrapper {
-        position: relative;
-    }
-
-    .search-icon {
-        position: absolute;
-        left: 10px;
-        top: 50%;
-        transform: translateY(-50%);
-        font-size: 0.85rem;
-        color: #999;
-    }
-
-    .search-wrapper input {
-        padding-left: 2rem;
-    }
-
-    .table-container {
-        background: #fff;
-        border-radius: 12px;
-        padding: 1rem 1.25rem;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
-    }
-
-    body.dark-mode .table-container {
-        background: #2b2b2b;
-    }
-
-    .graduating-table thead th {
+    .form-select {
+        min-width: 150px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
         font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        color: #666;
-        border-bottom: 2px solid #eee;
     }
 
-    .graduating-table tbody td {
-        vertical-align: middle;
-        font-size: 0.92rem;
+    .search-controls {
+        flex: 1;
+        max-width: 500px;
     }
 
-    .btn-action {
+    .search-group {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .search-group input {
+        flex: 1;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 0.9rem;
+    }
+
+    /* Search button - maroon with icon */
+    .btn-search-maroon {
+        background-color: #7E0308;
+        color: white;
+        border: 1px solid #7E0308;
+        border-radius: 6px;
+        padding: 0;
+        min-width: 38px;
+        height: 38px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 0.35rem 0.6rem;
-        border-radius: 999px;
-        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 16px;
+        line-height: 1;
+        pointer-events: auto;
+        z-index: 10;
+        position: relative;
+    }
+
+    .btn-search-maroon:hover {
+        background-color: #5a0206;
+        border-color: #5a0206;
+    }
+
+    .btn-search-maroon:active {
+        background-color: #4a0105;
+        border-color: #4a0105;
+    }
+
+    .btn-search-maroon i {
+        font-size: 16px;
+        line-height: 1;
+    }
+
+    /* Clear button */
+    .btn-clear {
+        background-color: #6c757d;
+        color: white;
+        border: 1px solid #6c757d;
+        border-radius: 6px;
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        height: 38px;
+        white-space: nowrap;
+        pointer-events: auto;
+        z-index: 10;
+        position: relative;
+    }
+
+    .btn-clear:hover {
+        background-color: #5a6268;
+        border-color: #5a6268;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
+    }
+
+    .btn-clear:active {
+        background-color: #545b62;
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2);
+    }
+
+    body.dark-mode .btn-clear {
+        background-color: #495057;
+        border-color: #495057;
+    }
+
+    body.dark-mode .btn-clear:hover {
+        background-color: #3d4146;
+        border-color: #3d4146;
+    }
+
+    /* Main content centering - match submissions page */
+    .main-content {
+        max-width: 100%;
+        overflow-x: hidden;
+        box-sizing: border-box;
+    }
+
+    body {
+        overflow-x: hidden !important;
+    }
+
+    .container {
+        overflow-x: hidden !important;
+        max-width: 100vw;
+        box-sizing: border-box;
+    }
+
+    /* Table styling to match other tables */
+    .submissions-table-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        overflow-x: hidden;
+        overflow-y: visible;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    body.dark-mode .submissions-table-container {
+        background: #2b2b2b;
+    }
+
+    .submissions-table {
+        margin: 0;
+        width: 100% !important;
+        max-width: 100% !important;
+        background: white;
+        table-layout: auto !important;
+        border-collapse: collapse;
+    }
+
+    body.dark-mode .submissions-table {
+        background: #2b2b2b;
+    }
+
+    .submissions-table thead {
+        background-color: #8B0000 !important;
+    }
+
+    .submissions-table thead th {
+        padding: 0.7rem 0.75rem;
+        font-weight: 600;
+        color: white !important;
+        border-bottom: 1px solid white !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.2) !important;
+        font-size: 0.9rem;
+        background-color: #8B0000 !important;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .submissions-table thead th:nth-child(7) {
+        text-align: center;
+        font-size: 0.85rem;
+        white-space: nowrap;
+        padding: 0.7rem 0.25rem;
+    }
+
+    .submissions-table thead th:last-child {
+        border-right: none !important;
+    }
+
+    .submissions-table tbody td {
+        padding: 0.65rem 0.5rem;
+        font-size: 0.85rem;
+        color: #333;
+        border-bottom: 1px solid #e9ecef;
+        border-right: 1px solid #e9ecef;
+        vertical-align: middle;
+        max-width: 0;
+    }
+
+    .submissions-table tbody td:last-child {
+        border-right: none;
+    }
+
+    .submissions-table tbody tr {
+        height: auto;
+        min-height: 45px;
+    }
+
+    /* Ensure Student ID displays properly in one line */
+    .submissions-table tbody td.student-id-cell {
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        font-family: 'Courier New', monospace;
+        font-weight: 500;
+    }
+
+    body.dark-mode .submissions-table tbody td {
+        color: #f0f0f0;
+        border-bottom-color: #444;
+    }
+
+    .submissions-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    body.dark-mode .submissions-table tbody tr:hover {
+        background-color: #333;
+    }
+
+    /* Column widths - optimized for compact Action column */
+    .submissions-table thead th:nth-child(1),
+    .submissions-table tbody td:nth-child(1) { 
+        width: 13% !important; 
+    } /* Student ID - increased from 10% */
+    
+    .submissions-table thead th:nth-child(2),
+    .submissions-table tbody td:nth-child(2) { 
+        width: 17% !important; 
+    } /* Student Name - increased from 14% */
+    
+    .submissions-table thead th:nth-child(3),
+    .submissions-table tbody td:nth-child(3) { 
+        width: 16% !important; 
+    } /* College */
+    
+    .submissions-table thead th:nth-child(4),
+    .submissions-table tbody td:nth-child(4) { 
+        width: 18% !important; 
+    } /* Program */
+    
+    .submissions-table thead th:nth-child(5),
+    .submissions-table tbody td:nth-child(5) { 
+        width: 13% !important; 
+    } /* Total Score - increased from 12% */
+    
+    .submissions-table thead th:nth-child(6),
+    .submissions-table tbody td:nth-child(6) { 
+        width: 14% !important; 
+    } /* Status */
+    
+    .submissions-table thead th:nth-child(7),
+    .submissions-table tbody td:nth-child(7) { 
+        width: 9% !important; 
+    } /* Action - reduced from 16% to 9% */
+
+    /* Student ID - single line, no wrapping, increased width */
+    .submissions-table tbody td:nth-child(1) {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 0.9rem;
+        font-weight: 500;
+        padding: 0.65rem 0.75rem;
+    }
+
+    /* Student Name - allow wrapping if needed, increased width */
+    .submissions-table tbody td:nth-child(2) {
+        white-space: normal;
+        overflow: hidden;
+        text-overflow: clip;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.4;
+        hyphens: auto;
+        padding: 0.65rem 0.75rem;
+    }
+
+    /* College - allow wrapping if needed */
+    .submissions-table tbody td:nth-child(3) {
+        white-space: normal;
+        overflow: hidden;
+        text-overflow: clip;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.4;
+    }
+
+    /* Program - allow wrapping if needed */
+    .submissions-table tbody td:nth-child(4) {
+        white-space: normal;
+        overflow: hidden;
+        text-overflow: clip;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.4;
+        hyphens: auto;
+    }
+
+    /* Total Score - single line, increased width */
+    .submissions-table tbody td:nth-child(5) {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: clip;
+        font-weight: 600;
+        font-size: 0.9rem;
+        padding: 0.65rem 0.75rem;
+    }
+
+    /* Status - allow wrapping for badge */
+    .submissions-table tbody td:nth-child(6) {
+        white-space: normal;
+        overflow: hidden;
+        text-overflow: clip;
+    }
+
+    /* Action - single line, centered, compact */
+    .submissions-table tbody td:nth-child(7) {
+        white-space: nowrap !important;
+        text-align: center !important;
+        padding: 0.5rem 0.25rem !important;
+        width: 9% !important;
+    }
+
+    /* Pagination styles */
+    .pagination-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 1.5rem;
+        padding: 1rem 0;
+    }
+
+    .pagination-info {
+        color: #666;
         font-size: 0.9rem;
     }
 
-    .btn-view {
-        background: #8B0000;
-        color: #fff;
+    body.dark-mode .pagination-info {
+        color: #ccc;
     }
 
-    .btn-view:hover {
-        background: #a00000;
-        color: #fff;
+    .unified-pagination {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-nav {
+        padding: 0.5rem 1rem;
+        border: 1px solid #ddd;
+        background: white;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: #333;
+        font-size: 0.9rem;
+    }
+
+    .btn-nav:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .btn-nav:hover:not(:disabled) {
+        background: #7E0308;
+        color: white;
+        border-color: #7E0308;
+    }
+
+    body.dark-mode .btn-nav {
+        background: #2a2a2a;
+        border-color: #555;
+        color: #f0f0f0;
+    }
+
+    body.dark-mode .btn-nav:hover:not(:disabled) {
+        background: #7E0308;
+        color: white;
+        border-color: #7E0308;
+    }
+
+    .pagination-pages {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    .page-btn {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #ddd;
+        background: white;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: #333;
+        font-size: 0.9rem;
+        min-width: 36px;
+        text-align: center;
+    }
+
+    .page-btn.active {
+        background: #7E0308;
+        color: white;
+        border-color: #7E0308;
+    }
+
+    .page-btn:hover:not(.active) {
+        background: #7E0308;
+        color: white;
+        border-color: #7E0308;
+    }
+
+    body.dark-mode .page-btn {
+        background: #2a2a2a;
+        border-color: #555;
+        color: #f0f0f0;
+    }
+
+    body.dark-mode .page-btn.active {
+        background: #7E0308;
+        color: white;
+        border-color: #7E0308;
+    }
+
+    body.dark-mode .page-btn:hover:not(.active) {
+        background: #7E0308;
+        color: white;
+        border-color: #7E0308;
+    }
+
+    /* Action buttons - compact icon-only buttons */
+    .action-buttons-group {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        flex-wrap: nowrap;
+    }
+
+    .btn-submit-admin,
+    .btn-reject-final {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        width: 26px !important;
+        height: 26px !important;
+        min-width: 26px !important;
+        min-height: 26px !important;
+        max-width: 26px !important;
+        max-height: 26px !important;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        padding: 0 !important;
+        flex-shrink: 0;
+        position: relative;
+    }
+
+    .btn-submit-admin i,
+    .btn-reject-final i {
+        font-size: 0.8rem;
+        line-height: 1;
+    }
+
+    .btn-submit-admin {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .btn-submit-admin:hover {
+        background-color: #218838;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+    }
+
+    .btn-submit-admin:active {
+        background-color: #1e7e34;
+        transform: translateY(0);
+    }
+
+    .btn-submit-admin:focus {
+        outline: 2px solid rgba(40, 167, 69, 0.5);
+        outline-offset: 2px;
+    }
+
+    .btn-reject-final {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .btn-reject-final:hover {
+        background-color: #c82333;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+    }
+
+    .btn-reject-final:active {
+        background-color: #bd2130;
+        transform: translateY(0);
+    }
+
+    .btn-reject-final:focus {
+        outline: 2px solid rgba(220, 53, 69, 0.5);
+        outline-offset: 2px;
     }
 
     .status-badge {
@@ -767,3 +1435,4 @@
 
     /* Remove Verified – already handled in JS */
 </style>
+@endpush

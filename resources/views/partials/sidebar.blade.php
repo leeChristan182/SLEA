@@ -73,7 +73,7 @@ $role = $user?->role; // 'admin' | 'assessor' | 'student'
         </li>
 
         <li class="{{ request()->routeIs('assessor.final-review*') ? 'active' : '' }}">
-            <a href="{{ route('assessor.final-review') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+            <a href="{{ route('assessor.final-review.index') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
                 <i class="fas fa-clipboard-check"></i><span>Final Review</span>
             </a>
         </li>

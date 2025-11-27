@@ -48,9 +48,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /* -------------------- AVATAR UPLOAD -------------------- */
+  // Handle new profile banner avatar upload button
+  const uploadPhotoBtn = document.getElementById('uploadPhotoBtn');
   const avatarInput = document.getElementById('avatarUpload');
   const avatarForm = document.getElementById('avatarForm');
-  const avatarPreview = document.getElementById('avatarPreview');
+  const profilePicture = document.getElementById('profilePicture');
+  
+  // Support both old (avatarPreview) and new (profilePicture) IDs
+  const avatarPreview = document.getElementById('avatarPreview') || profilePicture;
+  
+  if (uploadPhotoBtn && avatarInput) {
+    uploadPhotoBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      avatarInput.click();
+    });
+  }
 
   async function handleAvatarFile(file) {
     if (!file) return;
@@ -78,7 +90,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const data = await res.json();
         if (res.ok && data.success) {
-          avatarPreview.src = data.avatar_url;
+          // Update both old and new avatar preview elements if they exist
+          if (avatarPreview) avatarPreview.src = data.avatar_url + '?v=' + Date.now();
+          if (profilePicture) profilePicture.src = data.avatar_url + '?v=' + Date.now();
           showToast('Avatar updated successfully');
         } else showToast(data.message || 'Upload failed', true);
       } catch (err) {

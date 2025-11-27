@@ -116,11 +116,11 @@ return new class extends Migration {
         });
 
         DB::table('slea_application_statuses')->insert(array_map(fn($k) => ['key' => $k], [
-            'not_ready',          // default for eligible students
-            'ready_for_assessor', // student clicked "ready to be rated"
-            'for_admin_review',   // passed assessor threshold; waiting for admin
-            'awarded',            // approved for SLEA
-            'not_qualified',      // finished process but did not qualify
+            'incomplete',                      // default for eligible students
+            'pending_assessor_evaluation',    // student clicked "ready to be rated"
+            'pending_administrative_validation', // passed assessor threshold; waiting for admin
+            'qualified',                       // approved for SLEA
+            'not_qualified',                  // finished process but did not qualify
         ]));
 
         /*

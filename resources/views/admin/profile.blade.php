@@ -78,11 +78,9 @@ $admin = isset($admin) ? $admin : (isset($user) ? $user : auth()->user());
         <div class="profile-content">
             <!-- Personal Information Card -->
             <div class="profile-card">
-                <div class="card-header">
-                    <h2 class="card-title">Personal Information</h2>
-                </div>
-
                 <div class="card-content">
+                    <h2 class="card-title">Personal Information</h2>
+
                     <!-- Display Mode -->
                     <div id="displayMode" class="info-grid">
                         <div class="info-field">
@@ -156,23 +154,21 @@ $admin = isset($admin) ? $admin : (isset($user) ? $user : auth()->user());
                                 <button type="button" class="btn-cancel" id="cancelPersonalBtn">Cancel</button>
                             </div>
                         </form>
-                    </div>
                 </div>
 
-                <div class="card-footer">
+                    <div class="card-actions">
                     <button class="edit-btn" id="editPersonalBtn">
                         <i class="fas fa-edit"></i> Edit
                     </button>
+                    </div>
                 </div>
             </div>
 
             <!-- Change Password Card -->
             <div class="profile-card">
-                <div class="card-header">
-                    <h2 class="card-title">Change Password</h2>
-                </div>
-
                 <div class="card-content">
+                    <h2 class="card-title">Change Password</h2>
+
                     <div id="passwordDisplayMode" class="password-display">
                         <div class="password-info">
                             <i class="fas fa-lock"></i>
@@ -234,13 +230,13 @@ $admin = isset($admin) ? $admin : (isset($user) ? $user : auth()->user());
                                 <button type="button" class="btn-cancel" id="cancelPasswordBtn">Cancel</button>
                             </div>
                         </form>
-                    </div>
                 </div>
 
-                <div class="card-footer">
+                    <div class="card-actions">
                     <button class="edit-btn" id="editPasswordBtn">
                         <i class="fas fa-edit"></i> Edit
                     </button>
+                    </div>
                 </div>
             </div>
         </div>

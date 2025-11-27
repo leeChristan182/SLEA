@@ -21,10 +21,15 @@
                     </div>
                 @endif
 
+                <!-- Performance Overview Title -->
+                <div class="performance-overview-title">
+                    <h2>Performance Overview</h2>
+                </div>
+
                 <!-- Total Score Card -->
                 <section class="po-card po-score">
                     <div class="po-medal">
-                        <i class="fa-regular fa-medal"></i>
+                        <i class="fas fa-medal"></i>
                     </div>
                     <div class="po-points" id="totalPoints">0</div>
                     <div class="po-sub">Total Accumulated<br>Points</div>
@@ -57,65 +62,41 @@
                         $ready = $ready_for_rating ?? false;
                     @endphp
 
-                    {{-- NOT YET APPLIED --}}
-                    @if (!$status && !$ready)
+                    {{-- NOT YET APPLIED / INCOMPLETE --}}
+                    @if ((!$status || $status === 'incomplete') && !$ready)
                         <p class="po-slea-text">
-                            You have not yet requested to be rated for the Student Leadership Excellence Award.
+                            You have not yet submitted any documents for the Student Leadership Excellence Award.
+                        </p>
+                        <p class="po-slea-note mt-2">
+                            Submit your documents in the Submit section and select "For Final Application" to apply for the award.
                         </p>
 
-                        @if (!empty($can_mark_ready_for_slea) && $can_mark_ready_for_slea)
-                            <form id="markReadyForm" method="POST" action="{{ route('student.performance.mark-ready') }}"
-                                class="mt-2">
-                                @csrf
-                                <button type="button" id="markReadyBtn" class="btn btn-primary">
-                                    I am ready to be rated for SLEA
-                                </button>
-                            </form>
-                        @else
-                            <p class="po-slea-note mt-2">
-                                You will be able to mark yourself ready once you reach your graduating year and meet the eligibility
-                                criteria.
-                            </p>
-                        @endif
-
-                        {{-- READY FOR ASSESSOR --}}
-                    @elseif ($status === 'ready_for_assessor')
+                        {{-- PENDING ASSESSOR EVALUATION --}}
+                    @elseif ($status === 'pending_assessor_evaluation')
                         <p class="po-slea-text">
                             <strong>Status:</strong>
-                            <span class="po-slea-badge po-slea-badge-ready">Ready to be rated</span>
+                            <span class="po-slea-badge po-slea-badge-ready">Pending Assessor Evaluation</span>
                         </p>
                         <p class="po-slea-text">
                             Your application has been submitted and is currently queued for review by your assessor.
                         </p>
-                        <p class="po-slea-note mt-1">
-                            If you still want to submit more requirements, you may cancel your READY status below
-                            (only until your assessor starts processing it).
-                        </p>
 
-                        <form id="cancelReadyForm" method="POST" action="{{ route('student.performance.cancel-ready') }}"
-                            class="mt-2">
-                            @csrf
-                            <button type="button" id="cancelReadyBtn" class="btn btn-outline-danger">
-                                Cancel READY status
-                            </button>
-                        </form>
-
-                        {{-- FOR ADMIN REVIEW --}}
-                    @elseif ($status === 'for_admin_review')
+                        {{-- PENDING ADMINISTRATIVE VALIDATION --}}
+                    @elseif ($status === 'pending_administrative_validation')
                         <p class="po-slea-text">
                             <strong>Status:</strong>
-                            <span class="po-slea-badge po-slea-badge-pending">For Admin Final Review</span>
+                            <span class="po-slea-badge po-slea-badge-pending">Pending Administrative Validation</span>
                         </p>
                         <p class="po-slea-note mt-1">
                             Your application passed assessor evaluation and is now pending final review by the administrator.
                             No further action is needed from you at this time.
                         </p>
 
-                        {{-- AWARDED --}}
-                    @elseif ($status === 'awarded')
+                        {{-- QUALIFIED --}}
+                    @elseif ($status === 'qualified')
                         <p class="po-slea-text">
                             <strong>Status:</strong>
-                            <span class="po-slea-badge po-slea-badge-awarded">Awarded</span>
+                            <span class="po-slea-badge po-slea-badge-awarded">Qualified</span>
                         </p>
                         <p class="po-slea-text">
                             <strong>Congratulations!</strong> You have been recommended to receive the Student Leadership
@@ -125,8 +106,8 @@
                             Please coordinate with OSAS for award confirmation and graduation arrangements.
                         </p>
 
-                        {{-- REJECTED --}}
-                    @elseif ($status === 'rejected')
+                        {{-- NOT QUALIFIED --}}
+                    @elseif ($status === 'not_qualified')
                         <p class="po-slea-text">
                             <strong>Status:</strong>
                             <span class="po-slea-badge po-slea-badge-rejected">Not Qualified</span>
@@ -145,22 +126,6 @@
                 </section>
             </main>
 
-            {{-- SLEA confirmation modal (overlay) --}}
-            <div id="sleaConfirmModal" class="po-modal" aria-hidden="true">
-                <div class="po-modal-backdrop"></div>
-                <div class="po-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="sleaConfirmTitle">
-                    <h3 id="sleaConfirmTitle" class="po-modal-title">Confirm action</h3>
-                    <p id="sleaConfirmMessage" class="po-modal-text"></p>
-                    <div class="po-modal-actions">
-                        <button type="button" id="sleaConfirmCancel" class="btn btn-outline-secondary">
-                            Cancel
-                        </button>
-                        <button type="button" id="sleaConfirmProceed" class="btn btn-primary">
-                            Proceed
-                        </button>
-                    </div>
-                </div>
-            </div>
 
         </div>
     </div>
@@ -189,6 +154,30 @@
         background: #333;
         border-color: #555;
         color: #f1f1f1;
+    }
+
+    /* Performance Overview Title */
+    .performance-overview-title {
+        margin-bottom: 24px;
+        padding-bottom: 0;
+        border-bottom: none; /* Remove the line */
+    }
+
+    .performance-overview-title h2 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+        color: #7b0000; /* Maroon color */
+    }
+
+    body.dark-mode .performance-overview-title h2 {
+        color: #f9bd3d; /* Gold color for dark mode */
+    }
+    
+    /* Match the width of assessor dashboard main content */
+    .performance-page .main-content {
+        max-width: 100%;
+        width: 100%;
     }
 
     .performance-page .po-score {
@@ -402,7 +391,9 @@
     .performance-page .po-modal-backdrop {
         position: absolute;
         inset: 0;
-        background: rgba(0, 0, 0, 0.55);
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
         /* a bit darker for contrast */
     }
 
@@ -414,6 +405,7 @@
         /* was 420px */
         width: 90%;
         background: #ffffff;
+        border: none;
         border-radius: 18px;
         padding: 26px 28px;
         /* more padding */
@@ -553,86 +545,6 @@
             }
         }
 
-        // -------- SLEA Confirm modal logic (unchanged) --------
-        const readyBtn = document.getElementById('markReadyBtn');
-        const readyForm = document.getElementById('markReadyForm');
-        const cancelBtn = document.getElementById('cancelReadyBtn');
-        const cancelForm = document.getElementById('cancelReadyForm');
-
-        const modal = document.getElementById('sleaConfirmModal');
-        const msgElement = document.getElementById('sleaConfirmMessage');
-        const titleElement = document.getElementById('sleaConfirmTitle');
-        const btnClose = document.getElementById('sleaConfirmCancel');
-        const btnProceed = document.getElementById('sleaConfirmProceed');
-
-        let activeForm = null;
-
-        function openModal(type, form) {
-            activeForm = form;
-
-            if (type === 'mark') {
-                titleElement.textContent = 'Mark as READY to be rated';
-                msgElement.textContent =
-                    "Are you sure?\n\n" +
-                    "By marking yourself as READY TO BE RATED:\n" +
-                    "• Your submissions will be considered for SLEA evaluation.\n" +
-                    "• You should only do this if you are in your graduating year.\n" +
-                    "• You can still cancel while your status is only 'Ready to be rated'.\n\n" +
-                    "Continue?";
-            } else if (type === 'cancel') {
-                titleElement.textContent = 'Cancel READY status';
-                msgElement.textContent =
-                    "Cancel your READY status?\n\n" +
-                    "This will remove your 'Ready to be rated' status so you can keep submitting more requirements.\n" +
-                    "You can only do this before your assessor starts processing your application.";
-            }
-
-            if (modal) {
-                modal.classList.add('show');
-                document.body.classList.add('modal-open');
-            }
-        }
-
-        function closeModal() {
-            if (modal) {
-                modal.classList.remove('show');
-                document.body.classList.remove('modal-open');
-            }
-            activeForm = null;
-        }
-
-        if (readyBtn && readyForm) {
-            readyBtn.addEventListener('click', function (e) {
-                e.preventDefault();
-                openModal('mark', readyForm);
-            });
-        }
-
-        if (cancelBtn && cancelForm) {
-            cancelBtn.addEventListener('click', function (e) {
-                e.preventDefault();
-                openModal('cancel', cancelForm);
-            });
-        }
-
-        if (btnClose) {
-            btnClose.addEventListener('click', closeModal);
-        }
-
-        if (btnProceed) {
-            btnProceed.addEventListener('click', function () {
-                if (activeForm) {
-                    activeForm.submit();
-                }
-            });
-        }
-
-        if (modal) {
-            modal.addEventListener('click', function (e) {
-                if (e.target === modal) {
-                    closeModal();
-                }
-            });
-        }
+        // Mark ready functionality removed - now handled in submission form
     });
 </script>

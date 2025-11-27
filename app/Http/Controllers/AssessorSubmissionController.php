@@ -164,11 +164,11 @@ class AssessorSubmissionController extends Controller
         }
 
         // Map assessor actions → submission_statuses keys
-        // (aligned with your enum migration: pending, under_review, accepted, returned, rejected, flagged)
+        // (aligned with your enum migration: pending, under_review, resubmit, flagged, qualified, unqualified, approved, rejected)
         $statusMap = [
-            'approve' => 'accepted',
+            'approve' => 'approved',
             'reject'  => 'rejected',
-            'return'  => 'returned',
+            'return'  => 'resubmit',
             'flag'    => 'flagged',
         ];
         $newStatus = $statusMap[$action];
@@ -234,9 +234,12 @@ class AssessorSubmissionController extends Controller
                 'remarks'       => $remarks,
             ]);
 
-            // 4) recompute compiled score if accepted
-            if ($newStatus === 'accepted') {
+            // 4) recompute compiled score if approved
+            if ($newStatus === 'approved') {
                 $this->recomputeCompiledScoreForStudentCategory($submission, $user);
+                
+                // 5) Update SLEA application status based on application_status
+                $this->updateSleaStatusBasedOnSubmission($submission);
             }
         });
 
@@ -254,7 +257,7 @@ class AssessorSubmissionController extends Controller
             ->whereHas('submission', function ($q) use ($basis, $categoryId) {
                 $q->where('user_id', $basis->user_id)
                     ->where('rubric_category_id', $categoryId)
-                    ->where('status', 'accepted'); // 👈 aligned with new status
+                    ->where('status', 'approved'); // 👈 aligned with new status
             })
             ->get();
 
@@ -279,6 +282,41 @@ class AssessorSubmissionController extends Controller
                 // 'category_result'     => $resultKey, // keep commented for now
             ]
         );
+    }
+
+    /**
+     * Update SLEA application status based on submission's application_status
+     */
+    protected function updateSleaStatusBasedOnSubmission(Submission $submission): void
+    {
+        $student = $submission->user;
+        if (!$student) {
+            return;
+        }
+
+        $academic = $student->studentAcademic;
+        if (!$academic) {
+            return;
+        }
+
+        // Only update if submission is for final application
+        if ($submission->application_status === 'for_final_application') {
+            // Check if student has any approved submissions for final application
+            $hasApprovedFinalSubmissions = Submission::where('user_id', $student->id)
+                ->where('application_status', 'for_final_application')
+                ->where('status', 'approved')
+                ->exists();
+
+            if ($hasApprovedFinalSubmissions) {
+                // If student has approved final application submissions, set to pending assessor evaluation
+                // (This will be updated to pending_administrative_validation when assessor submits final review)
+                if (!$academic->slea_application_status || $academic->slea_application_status === 'incomplete') {
+                    $academic->slea_application_status = 'pending_assessor_evaluation';
+                    $academic->save();
+                }
+            }
+        }
+        // If application_status is 'for_tracking', don't change SLEA status (keep as pending/incomplete)
     }
 
     // legacy shorthand, still used by JS but now delegates to handleAction

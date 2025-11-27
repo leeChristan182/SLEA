@@ -153,6 +153,17 @@
                                 type="text"
                                 placeholder="e.g., OSAS">
                         </div>
+                        <div class="sr-field">
+                            <label for="applicationStatus">Application Status <span style="color:red">*</span></label>
+                            <select
+                                id="applicationStatus"
+                                name="application_status"
+                                required>
+                                <option value="">Select application status</option>
+                                <option value="for_final_application">For Final Application</option>
+                                <option value="for_tracking">For Tracking</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="sr-actions sr-actions-steps">
@@ -439,7 +450,7 @@
 
     .submit-record-page .sr-remove {
         border: none;
-        background: #dc3545;
+        background: #8B0000;
         color: #fff;
         width: 26px;
         height: 26px;
@@ -448,6 +459,11 @@
         align-items: center;
         justify-content: center;
         cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .submit-record-page .sr-remove:hover {
+        background: #6B0000;
     }
 
     .submit-record-page .sr-form h3 {
@@ -511,12 +527,12 @@
     }
 
     .submit-record-page .sr-btn-primary {
-        background: #d9534f;
+        background: #8B0000;
         color: #fff;
     }
 
     .submit-record-page .sr-btn-primary:hover {
-        background: #c73f3b;
+        background: #6B0000;
     }
 
     .submit-record-page .sr-btn-ghost {
@@ -544,13 +560,15 @@
     .submit-record-page .sr-modal-backdrop {
         position: absolute;
         inset: 0;
-        background: rgba(0, 0, 0, .25);
+        background: rgba(0, 0, 0, .4);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
     }
 
     .submit-record-page .sr-modal-dialog {
         position: relative;
         background: #fff;
-        border: 2px solid #222;
+        border: none;
         border-radius: 12px;
         margin: 100px auto 0;
         width: min(720px, 92%);
@@ -563,7 +581,7 @@
 
     body.dark-mode .submit-record-page .sr-modal-dialog {
         background: #2e2e2e;
-        border-color: #eee;
+        border: none;
         color: #fff;
     }
 
@@ -573,7 +591,7 @@
 
     .submit-record-page .sr-modal-title {
         text-align: center;
-        color: #c04a47;
+        color: #8B0000;
         font-weight: 800;
         margin-bottom: 6px;
     }
@@ -626,8 +644,12 @@
     }
 
     .submit-record-page .sr-pill-edit {
-        background: #e17673;
+        background: #8B0000;
         color: #fff;
+    }
+
+    .submit-record-page .sr-pill-edit:hover {
+        background: #6B0000;
     }
 
     .submit-record-page .sr-pill-x {
@@ -637,13 +659,13 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: #eee;
-        color: #444;
+        background: #8B0000;
+        color: #fff;
     }
 
     .submit-record-page .sr-pill-x:hover {
-        background: #f3b6b4;
-        color: #7b0000;
+        background: #6B0000;
+        color: #fff;
     }
 
     .submit-record-page .sr-confirm-text {
@@ -1065,8 +1087,21 @@
                             alert(firstMsg);
                         } else if (payload && payload.message) {
                             alert(payload.message);
+                        } else if (typeof payload === 'string' && payload.includes('application_status')) {
+                            alert('Database migration required. Please contact the administrator to run: php artisan migrate');
                         } else {
-                            alert('There was a problem submitting your record.');
+                            // Extract a user-friendly error message
+                            let errorMsg = 'There was a problem submitting your record.';
+                            if (typeof payload === 'string') {
+                                // Try to extract a cleaner error message
+                                const match = payload.match(/SQLSTATE\[.*?\]:\s*(.+?)(?:\s*\(Connection:|$)/);
+                                if (match && match[1]) {
+                                    errorMsg = 'Database error: ' + match[1].trim();
+                                } else if (payload.length < 200) {
+                                    errorMsg = payload;
+                                }
+                            }
+                            alert(errorMsg);
                         }
                         return;
                     }

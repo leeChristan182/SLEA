@@ -3344,11 +3344,22 @@ body.collapsed .sidebar ul li.has-submenu::after {
     font-size: 20px;
     font-weight: 700;
     color: #7b0000;
-    margin: 0;
+    margin: 0 0 35px 0;
+    text-align: center;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #f0f0f0;
 }
 
 .card-content {
     padding: 30px;
+}
+
+.card-actions {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: flex-end;
 }
 
 .card-footer {
@@ -3626,7 +3637,12 @@ body.dark-mode .card-header {
 }
 
 body.dark-mode .card-title {
-    color: #F9BD3D;
+    color: #7b0000;
+    border-bottom-color: #555;
+}
+
+body.dark-mode .card-actions {
+    border-top-color: #555;
 }
 
 body.dark-mode .card-footer {
@@ -6866,6 +6882,49 @@ body.dark-mode .approval-table {
 body.dark-mode .approval-table thead {
   background: #4a4a4a;
 }
+
+body.dark-mode .approval-table th {
+  color: #f0f0f0;
+  border-bottom-color: #555;
+}
+
+body.dark-mode .approval-table td {
+  border-bottom-color: #555;
+}
+
+body.dark-mode .approval-table tbody tr:hover {
+  background: #4a4a4a;
+}
+
+body.dark-mode .status-pending {
+  background: #3a2a00;
+  color: #ffc107;
+}
+
+/* Password Validation Button States */
+.btn-save:disabled {
+    background: #ccc !important;
+    color: #666 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+.btn-save:disabled:hover {
+    background: #ccc !important;
+    transform: none !important;
+}
+/* ------------------------------
+   SLEA: All Submissions Modal (Student)
+   Wider layout override
+-------------------------------*/
+
+/* SLEA – All Submissions modal override */
+#studentSubmissionsModal .modal-content {
+  width: 95vw !important;       /* take almost full screen */
+  max-width: 1400px !important; /* cap on large monitors */
+  margin: 1.5rem auto !important;
+}
+
 
 body.dark-mode .approval-table th {
   color: #f0f0f0;

@@ -88,8 +88,6 @@ Route::prefix('student')
             Route::get('/performance', 'performance')->name('performance');
             Route::get('/criteria', 'criteria')->name('criteria');
             Route::get('/history', 'history')->name('history');
-            Route::post('/performance/mark-ready', 'markReadyForSlea')->name('performance.mark-ready');
-            Route::post('/performance/cancel-ready', 'cancelReadyForSlea')->name('performance.cancel-ready');
 
             // *** ONLY ONE submit route ***
             Route::get('/submit', [SubmissionRecordController::class, 'create'])

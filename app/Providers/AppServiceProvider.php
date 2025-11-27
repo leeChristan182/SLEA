@@ -36,7 +36,7 @@ class AppServiceProvider extends ServiceProvider
             if ($role === 'student' && $user->studentAcademic) {
                 $academic = $user->studentAcademic;
                 $sleaApplicationStatus = $academic->slea_application_status;
-                $sleaAwarded = ($sleaApplicationStatus === 'awarded');
+                $sleaAwarded = ($sleaApplicationStatus === 'qualified');
             }
 
             /** Make available globally */

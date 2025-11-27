@@ -24,6 +24,7 @@ class Submission extends Model
         'meta',
 
         'status',
+        'application_status',
         'remarks',
         'submitted_at',
     ];

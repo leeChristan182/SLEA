@@ -306,7 +306,8 @@ function resetModalState() {
     if (remarksEl) remarksEl.value = '';
 }
 
-window.openSubmissionModal = async function (submissionId) {
+// Ensure function is available globally
+window.openSubmissionModal = window.openSubmissionModal || async function (submissionId) {
     try {
         resetModalState();
 
@@ -717,9 +718,524 @@ window.handleSubmission = async function (action) {
 };
 
 /* =========================
+   SEARCH FUNCTIONALITY
+   ========================= */
+
+function initializeSearch() {
+    console.log('Initializing search functionality...');
+    
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const sortSelect = document.getElementById('sortSelect');
+    
+    // Try multiple selectors for the table
+    const table = document.querySelector('.submissions-table') || 
+                  document.querySelector('table.submissions-table') ||
+                  document.querySelector('table.table.submissions-table') ||
+                  document.querySelector('.submissions-table-container table');
+
+    console.log('Elements found:', {
+        searchInput: !!searchInput,
+        searchBtn: !!searchBtn,
+        clearBtn: !!clearBtn,
+        sortSelect: !!sortSelect,
+        table: !!table
+    });
+
+    if (!table) {
+        console.error('Search initialization: table not found');
+        return;
+    }
+    
+    if (!searchInput) {
+        console.error('Search initialization: searchInput not found');
+        return;
+    }
+
+    let allRows = Array.from(table.querySelectorAll('tbody tr')).filter(row => {
+        return !row.hasAttribute('data-empty-row');
+    });
+    
+    console.log('Total rows found:', allRows.length);
+
+    function performSearch() {
+        console.log('performSearch called');
+        const searchTerm = (searchInput.value || '').toLowerCase().trim();
+        console.log('Search term:', searchTerm);
+        
+        let visibleCount = 0;
+        
+        // Store original display state for pagination
+        allRows.forEach(row => {
+            if (row.hasAttribute('data-empty-row')) {
+                // Hide empty row if searching
+                row.style.display = searchTerm ? 'none' : '';
+                return;
+            }
+
+            const cells = row.querySelectorAll('td');
+            if (cells.length === 0) {
+                row.style.display = 'none';
+                return;
+            }
+
+            const studentId = (cells[0]?.textContent || '').toLowerCase();
+            const studentName = (cells[1]?.textContent || '').toLowerCase();
+            const documentTitle = (cells[2]?.textContent || '').toLowerCase();
+            const dateSubmitted = (cells[3]?.textContent || '').toLowerCase();
+
+            const matches = !searchTerm || 
+                studentId.includes(searchTerm) ||
+                studentName.includes(searchTerm) ||
+                documentTitle.includes(searchTerm) ||
+                dateSubmitted.includes(searchTerm);
+
+            // Store match state in data attribute for pagination
+            row.dataset.searchMatch = matches ? 'true' : 'false';
+            row.style.display = matches ? '' : 'none';
+            
+            if (matches) visibleCount++;
+        });
+        
+        console.log('Visible rows after search:', visibleCount);
+
+        // Apply sorting if sort is selected
+        if (sortSelect && sortSelect.value) {
+            applySort();
+        }
+
+        // Update pagination with filtered results
+        updatePaginationAfterSearch(searchTerm);
+    }
+
+    function applySort() {
+        const sortValue = sortSelect ? sortSelect.value : '';
+        if (!sortValue) return;
+
+        const tbody = table.querySelector('tbody');
+        if (!tbody) return;
+
+        const visibleRows = Array.from(tbody.querySelectorAll('tr')).filter(row => {
+            return !row.hasAttribute('data-empty-row') && row.style.display !== 'none';
+        });
+
+        visibleRows.sort((a, b) => {
+            const aCells = a.querySelectorAll('td');
+            const bCells = b.querySelectorAll('td');
+            
+            if (aCells.length === 0 || bCells.length === 0) return 0;
+
+            let aValue = '';
+            let bValue = '';
+
+            switch(sortValue) {
+                case 'date':
+                    aValue = (aCells[3]?.textContent || '').trim();
+                    bValue = (bCells[3]?.textContent || '').trim();
+                    // Sort dates descending (newest first)
+                    return new Date(bValue) - new Date(aValue);
+                case 'name':
+                    aValue = (aCells[1]?.textContent || '').trim().toLowerCase();
+                    bValue = (bCells[1]?.textContent || '').trim().toLowerCase();
+                    return aValue.localeCompare(bValue);
+                case 'title':
+                    aValue = (aCells[2]?.textContent || '').trim().toLowerCase();
+                    bValue = (bCells[2]?.textContent || '').trim().toLowerCase();
+                    return aValue.localeCompare(bValue);
+                default:
+                    return 0;
+            }
+        });
+
+        // Reorder rows in DOM
+        visibleRows.forEach(row => tbody.appendChild(row));
+    }
+
+    function updatePaginationAfterSearch(searchTerm) {
+        if (typeof paginationInstances !== 'undefined') {
+            const visibleRows = allRows.filter(row => {
+                const matchAttr = row.dataset.searchMatch;
+                return matchAttr === 'true' || (!searchTerm && matchAttr !== 'false');
+            });
+            
+            // Try multiple selectors for pagination instance
+            const pagination = paginationInstances['.submissions-table'] || 
+                             paginationInstances['table.submissions-table'] ||
+                             paginationInstances['.table.submissions-table'];
+            
+            if (pagination) {
+                // Update pagination with filtered count
+                pagination.totalEntries = visibleRows.length;
+                pagination.totalPages = Math.ceil(pagination.totalEntries / pagination.entriesPerPage) || 1;
+                pagination.currentPage = 1; // Reset to first page
+                pagination.updatePaginationInfo();
+                pagination.generatePageButtons();
+                pagination.updateButtonStates();
+                pagination.updateTableDisplay();
+            } else {
+                // Reinitialize pagination if not found
+                if (typeof initializeAdminPagination !== 'undefined') {
+                    setTimeout(() => {
+                        initializeAdminPagination('.submissions-table', entriesPerPage);
+                    }, 100);
+                }
+            }
+        }
+    }
+
+    function clearSearch() {
+        console.log('clearSearch called');
+        if (searchInput) {
+            searchInput.value = '';
+            console.log('Search input cleared');
+            performSearch();
+            searchInput.focus();
+        } else {
+            console.error('searchInput not found in clearSearch');
+        }
+    }
+
+    // Search on input (debounced)
+    let searchTimeout;
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(performSearch, 300);
+        });
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(searchTimeout);
+                performSearch();
+            }
+        });
+    }
+
+    // Search button click
+    if (searchBtn) {
+        console.log('Adding click listener to search button');
+        searchBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Search button clicked');
+            clearTimeout(searchTimeout);
+            performSearch();
+        });
+    } else {
+        console.error('searchBtn not found');
+    }
+
+    // Clear button click
+    if (clearBtn) {
+        console.log('Adding click listener to clear button');
+        clearBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Clear button clicked');
+            clearSearch();
+        });
+    } else {
+        console.error('clearBtn not found');
+    }
+
+    // Sort dropdown change
+    if (sortSelect) {
+        sortSelect.addEventListener('change', () => {
+            applySort();
+            updatePaginationAfterSearch(searchInput.value || '');
+        });
+    }
+}
+
+/* =========================
    INIT
    ========================= */
 
 document.addEventListener('DOMContentLoaded', function () {
+    console.log('DOMContentLoaded - Initializing pending submissions page');
+    
+    // Initialize pagination first
     initializePagination();
+    
+    // Then initialize search after a short delay to ensure pagination is ready
+    setTimeout(() => {
+        console.log('Initializing search after delay');
+        initializeSearch();
+    }, 200);
 });
+
+// Also try to initialize if DOM is already loaded
+if (document.readyState === 'loading') {
+    // DOM is still loading, wait for DOMContentLoaded
+} else {
+    // DOM is already loaded
+    console.log('DOM already loaded - Initializing immediately');
+    setTimeout(() => {
+        initializePagination();
+        initializeSearch();
+    }, 100);
+}
+
+// Global fallback functions for onclick handlers
+window.handleSearchClick = function(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    console.log('handleSearchClick called (onclick fallback)');
+    const searchInput = document.getElementById('searchInput');
+    if (!searchInput) {
+        console.error('searchInput not found');
+        return;
+    }
+    
+    const searchTerm = searchInput.value.toLowerCase().trim();
+    console.log('Searching for:', searchTerm);
+    
+    const table = document.querySelector('.submissions-table') || 
+                  document.querySelector('table.submissions-table') ||
+                  document.querySelector('.submissions-table-container table');
+    
+    if (!table) {
+        console.error('Table not found');
+        return;
+    }
+    
+    const rows = table.querySelectorAll('tbody tr');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        if (row.hasAttribute('data-empty-row')) {
+            row.style.display = searchTerm ? 'none' : '';
+            return;
+        }
+        
+        const cells = row.querySelectorAll('td');
+        if (cells.length === 0) {
+            row.style.display = 'none';
+            return;
+        }
+        
+        const studentId = (cells[0]?.textContent || '').toLowerCase();
+        const studentName = (cells[1]?.textContent || '').toLowerCase();
+        const documentTitle = (cells[2]?.textContent || '').toLowerCase();
+        const dateSubmitted = (cells[3]?.textContent || '').toLowerCase();
+        
+        const matches = !searchTerm || 
+            studentId.includes(searchTerm) ||
+            studentName.includes(searchTerm) ||
+            documentTitle.includes(searchTerm) ||
+            dateSubmitted.includes(searchTerm);
+        
+        row.style.display = matches ? '' : 'none';
+        if (matches) visibleCount++;
+    });
+    
+    console.log('Search complete. Visible rows:', visibleCount);
+    
+    // Update pagination if available
+    if (typeof paginationInstances !== 'undefined') {
+        const pagination = paginationInstances['.submissions-table'];
+        if (pagination) {
+            pagination.totalEntries = visibleCount;
+            pagination.totalPages = Math.ceil(pagination.totalEntries / pagination.entriesPerPage) || 1;
+            pagination.currentPage = 1;
+            pagination.updatePaginationInfo();
+            pagination.generatePageButtons();
+            pagination.updateButtonStates();
+            pagination.updateTableDisplay();
+        }
+    }
+};
+
+window.handleClearClick = function(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    console.log('handleClearClick called (onclick fallback)');
+    const searchInput = document.getElementById('searchInput');
+    if (!searchInput) {
+        console.error('searchInput not found');
+        return;
+    }
+    
+    searchInput.value = '';
+    console.log('Search input cleared');
+    
+    const table = document.querySelector('.submissions-table') || 
+                  document.querySelector('table.submissions-table') ||
+                  document.querySelector('.submissions-table-container table');
+    
+    if (table) {
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            row.style.display = '';
+        });
+        console.log('All rows shown');
+    }
+    
+    // Update pagination if available
+    if (typeof paginationInstances !== 'undefined') {
+        const pagination = paginationInstances['.submissions-table'];
+        if (pagination) {
+            const allRows = table.querySelectorAll('tbody tr:not([data-empty-row])');
+            pagination.totalEntries = allRows.length;
+            pagination.totalPages = Math.ceil(pagination.totalEntries / pagination.entriesPerPage) || 1;
+            pagination.currentPage = 1;
+            pagination.updatePaginationInfo();
+            pagination.generatePageButtons();
+            pagination.updateButtonStates();
+            pagination.updateTableDisplay();
+        }
+    }
+    
+    searchInput.focus();
+};
+
+/* =========================
+   INIT
+   ========================= */
+
+document.addEventListener('DOMContentLoaded', function () {
+    console.log('DOMContentLoaded - Initializing pending submissions page');
+    
+    // Initialize pagination first
+    initializePagination();
+    
+    // Then initialize search after a short delay to ensure pagination is ready
+    setTimeout(() => {
+        console.log('Initializing search after delay');
+        initializeSearch();
+    }, 200);
+});
+
+// Also try to initialize if DOM is already loaded
+if (document.readyState === 'loading') {
+    // DOM is still loading, wait for DOMContentLoaded
+} else {
+    // DOM is already loaded
+    console.log('DOM already loaded - Initializing immediately');
+    setTimeout(() => {
+        initializePagination();
+        initializeSearch();
+    }, 100);
+}
+
+// Global fallback functions for onclick handlers
+window.handleSearchClick = function(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    console.log('handleSearchClick called (onclick fallback)');
+    const searchInput = document.getElementById('searchInput');
+    if (!searchInput) {
+        console.error('searchInput not found');
+        return;
+    }
+    
+    const searchTerm = searchInput.value.toLowerCase().trim();
+    console.log('Searching for:', searchTerm);
+    
+    const table = document.querySelector('.submissions-table') || 
+                  document.querySelector('table.submissions-table') ||
+                  document.querySelector('.submissions-table-container table');
+    
+    if (!table) {
+        console.error('Table not found');
+        return;
+    }
+    
+    const rows = table.querySelectorAll('tbody tr');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        if (row.hasAttribute('data-empty-row')) {
+            row.style.display = searchTerm ? 'none' : '';
+            return;
+        }
+        
+        const cells = row.querySelectorAll('td');
+        if (cells.length === 0) {
+            row.style.display = 'none';
+            return;
+        }
+        
+        const studentId = (cells[0]?.textContent || '').toLowerCase();
+        const studentName = (cells[1]?.textContent || '').toLowerCase();
+        const documentTitle = (cells[2]?.textContent || '').toLowerCase();
+        const dateSubmitted = (cells[3]?.textContent || '').toLowerCase();
+        
+        const matches = !searchTerm || 
+            studentId.includes(searchTerm) ||
+            studentName.includes(searchTerm) ||
+            documentTitle.includes(searchTerm) ||
+            dateSubmitted.includes(searchTerm);
+        
+        row.style.display = matches ? '' : 'none';
+        if (matches) visibleCount++;
+    });
+    
+    console.log('Search complete. Visible rows:', visibleCount);
+    
+    // Update pagination if available
+    if (typeof paginationInstances !== 'undefined') {
+        const pagination = paginationInstances['.submissions-table'];
+        if (pagination) {
+            pagination.totalEntries = visibleCount;
+            pagination.totalPages = Math.ceil(pagination.totalEntries / pagination.entriesPerPage) || 1;
+            pagination.currentPage = 1;
+            pagination.updatePaginationInfo();
+            pagination.generatePageButtons();
+            pagination.updateButtonStates();
+            pagination.updateTableDisplay();
+        }
+    }
+};
+
+window.handleClearClick = function(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    console.log('handleClearClick called (onclick fallback)');
+    const searchInput = document.getElementById('searchInput');
+    if (!searchInput) {
+        console.error('searchInput not found');
+        return;
+    }
+    
+    searchInput.value = '';
+    console.log('Search input cleared');
+    
+    const table = document.querySelector('.submissions-table') || 
+                  document.querySelector('table.submissions-table') ||
+                  document.querySelector('.submissions-table-container table');
+    
+    if (table) {
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            row.style.display = '';
+        });
+        console.log('All rows shown');
+    }
+    
+    // Update pagination if available
+    if (typeof paginationInstances !== 'undefined') {
+        const pagination = paginationInstances['.submissions-table'];
+        if (pagination) {
+            const allRows = table.querySelectorAll('tbody tr:not([data-empty-row])');
+            pagination.totalEntries = allRows.length;
+            pagination.totalPages = Math.ceil(pagination.totalEntries / pagination.entriesPerPage) || 1;
+            pagination.currentPage = 1;
+            pagination.updatePaginationInfo();
+            pagination.generatePageButtons();
+            pagination.updateButtonStates();
+            pagination.updateTableDisplay();
+        }
+    }
+    
+    searchInput.focus();
+};

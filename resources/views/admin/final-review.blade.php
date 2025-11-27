@@ -35,7 +35,7 @@
                         <select id="statusFilter" class="form-select">
                             <option value="">All</option>
                             <option value="pending">Pending decision</option>
-                            <option value="approved">Awarded</option>
+                            <option value="approved">Qualified</option>
                             <option value="not_qualified">Not qualified</option>
                         </select>
                     </div>
@@ -117,7 +117,7 @@
                             // decision from final_reviews table (enum: approved / not_qualified)
                             $decisionKey = $final->decision ?? null;
                             $decisionLabels = [
-                                'approved'      => 'Awarded',
+                                'approved'      => 'Qualified',
                                 'not_qualified' => 'Not qualified',
                             ];
                             $decisionLabel = $decisionKey
@@ -130,17 +130,23 @@
                                 default         => 'badge-pending',
                             };
 
-                            $breakdown = $afr->compiledScores
-                                ? $afr->compiledScores->map(function ($cs) {
-                                    return [
-                                        'category'     => optional($cs->category)->title ?? '—',
-                                        'result'       => $cs->category_result,
-                                        'score'        => (float) $cs->total_score,
-                                        'max_points'   => (float) $cs->max_points,
-                                        'min_required' => (float) $cs->min_required_points,
-                                    ];
-                                })->values()
-                                : [];
+                            // Get all categories in order and match with compiled scores
+                            $allCategories = \App\Models\RubricCategory::orderBy('order_no')->get();
+                            $compiledScores = $afr->compiledScores ?? collect();
+                            $scoresByCategory = $compiledScores->keyBy('rubric_category_id');
+                            
+                            // Build breakdown with all 5 categories in order
+                            $breakdown = $allCategories->map(function ($category) use ($scoresByCategory) {
+                                $cs = $scoresByCategory->get($category->id);
+                                return [
+                                    'category'     => $category->title ?? '—',
+                                    'order_no'     => $category->order_no ?? 999,
+                                    'result'       => $cs->category_result ?? null,
+                                    'score'        => (float) ($cs->total_score ?? 0),
+                                    'max_points'   => (float) ($cs->max_points ?? $category->max_points ?? 0),
+                                    'min_required' => (float) ($cs->min_required_points ?? $category->min_required_points ?? 0),
+                                ];
+                            })->sortBy('order_no')->values();
                         @endphp
 
                         <tr class="student-row"
@@ -277,21 +283,17 @@
                     </div>
                 </div>
 
-                <div class="modal-footer justify-content-between">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                        Close
-                    </button>
-
-                    <div class="right-actions">
+                <div class="modal-footer">
+                    <div class="decision-buttons-group">
                         <button type="button"
-                                class="btn btn-outline-danger admin-decision-btn"
-                                id="adminNotQualifiedBtn">
-                            Mark as Not Qualified
+                                class="btn btn-success admin-decision-btn"
+                                id="adminApproveBtn">
+                            <i class="fas fa-check-circle"></i> Qualified
                         </button>
                         <button type="button"
-                                class="btn btn-primary final-submit-btn admin-decision-btn"
-                                id="adminApproveBtn">
-                            Approve for SLEA Award
+                                class="btn btn-danger admin-decision-btn"
+                                id="adminNotQualifiedBtn">
+                            <i class="fas fa-times-circle"></i> Not Qualified
                         </button>
                     </div>
                 </div>
@@ -411,7 +413,7 @@
 
                     const decisionLabel =
                         decisionKey === 'approved'
-                            ? 'Awarded'
+                            ? 'Qualified'
                             : decisionKey === 'not_qualified'
                                 ? 'Not qualified'
                                 : 'Pending';
@@ -439,7 +441,26 @@
                                 </td>
                             </tr>`;
                     } else {
+                        // Sort breakdown by order_no to ensure correct sequence
+                        breakdown.sort((a, b) => {
+                            const orderA = a.order_no ?? 999;
+                            const orderB = b.order_no ?? 999;
+                            return orderA - orderB;
+                        });
+
+                        // Roman numeral mapping
+                        const romanNumerals = {
+                            1: 'I',
+                            2: 'II',
+                            3: 'III',
+                            4: 'IV',
+                            5: 'V',
+                            6: 'VI',
+                        };
+
                         breakdown.forEach((row, index) => {
+                            const orderNo = row.order_no ?? (index + 1);
+                            const roman = romanNumerals[orderNo] || orderNo;
                             const catName = row.category || `Category ${index + 1}`;
                             const sc      = parseFloat(row.score) || 0;
                             const maxPts  = parseFloat(row.max_points) || 0;
@@ -449,7 +470,7 @@
 
                             const tr = document.createElement('tr');
                             tr.innerHTML = `
-                                <td>${catName}</td>
+                                <td>${roman}. ${catName}</td>
                                 <td>${sc.toFixed(2)}</td>
                                 <td>${maxPts.toFixed(2)}</td>
                             `;
@@ -733,20 +754,84 @@
         }
 
         /* ---- Buttons in footer ---- */
+        .modal-footer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0;
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .decision-buttons-group {
+            display: flex;
+            flex-direction: row;
+            gap: 1rem;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+
         .admin-decision-btn {
-            min-width: 210px;
-            padding: 0.55rem 1.25rem;
+            min-width: 160px;
+            padding: 0.6rem 1.5rem;
             font-size: 0.95rem;
             font-weight: 600;
-            white-space: normal;
+            white-space: nowrap;
             text-align: center;
             display: inline-flex;
             justify-content: center;
             align-items: center;
+            gap: 0.5rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
         }
 
-        .final-submit-btn {
-            border-radius: 999px;
+        .admin-decision-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .admin-decision-btn.btn-success {
+            background-color: #198754;
+            border-color: #198754;
+            color: white;
+        }
+
+        .admin-decision-btn.btn-success:hover {
+            background-color: #157347;
+            border-color: #146c43;
+        }
+
+        .admin-decision-btn.btn-danger {
+            background-color: #dc3545;
+            border-color: #dc3545;
+            color: white;
+        }
+
+        .admin-decision-btn.btn-danger:hover {
+            background-color: #bb2d3b;
+            border-color: #b02a37;
+        }
+
+        @media (max-width: 768px) {
+            .modal-footer {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 1rem;
+            }
+
+            .decision-buttons-group {
+                flex-direction: row;
+                width: 100%;
+                justify-content: space-between;
+                gap: 1rem;
+            }
+
+            .admin-decision-btn {
+                flex: 1;
+                min-width: 0;
+            }
         }
 
         @media (max-width: 768px) {

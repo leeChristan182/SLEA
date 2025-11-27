@@ -87,7 +87,7 @@
                 @else
                     Showing 0 – 0 of 0 entries
                 @endif
-            </div>
+                    </div>
             <div class="table-wrap compact-table">
                 <table class="manage-table">
                             <thead>
@@ -106,7 +106,7 @@
                                     <td>{{ $student['name'] }}</td>
                                     <td>{{ $student['college'] }}</td>
                                     <td>{{ $student['program'] }}</td>
-                                    <td>{{ $student['points'] }}/100</td>
+                                    <td>{{ $student['points_display'] ?? number_format($student['points'] ?? 0, 2) . '/' . number_format($student['max_points'] ?? 100, 2) }}</td>
                                 </tr>
                                 @empty
                                 <tr>
@@ -215,10 +215,10 @@
         window.open(exportUrl, '_blank');
             }
 
-    // Initialize programs on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        updatePrograms();
-    });
+            // Initialize programs on page load
+            document.addEventListener('DOMContentLoaded', function() {
+                updatePrograms();
+            });
 </script>
 
 <style>

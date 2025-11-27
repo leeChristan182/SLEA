@@ -5,6 +5,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Middleware\AwardEligibilityMiddleware;
+use App\Http\Middleware\RedirectIfAuthenticated;
 
 return Illuminate\Foundation\Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -17,8 +18,8 @@ return Illuminate\Foundation\Application::configure(basePath: dirname(__DIR__))
         // register as a route middleware alias
         $middleware->alias([
             'eligible' => AwardEligibilityMiddleware::class,
-
             'role' => RoleMiddleware::class,
+            'guest' => RedirectIfAuthenticated::class,
         ]);
 
         // (optional) add something to groups
@@ -28,3 +29,4 @@ return Illuminate\Foundation\Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function ($exceptions) {
         //
     })->create();
+

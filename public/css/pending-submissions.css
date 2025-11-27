@@ -49,28 +49,98 @@
 
         .search-controls {
             flex: 1;
-            max-width: 300px;
+            max-width: 500px;
         }
 
         .search-group {
             position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .search-group input {
-            width: 100%;
-            padding: 0.5rem 2.5rem 0.5rem 0.75rem;
+            flex: 1;
+            padding: 0.5rem 0.75rem;
             border: 1px solid #ddd;
             border-radius: 6px;
             font-size: 0.9rem;
         }
 
-        .search-icon {
-            position: absolute;
-            right: 0.75rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #666;
-            pointer-events: none;
+        /* Search button - maroon with icon */
+        .btn-search-maroon {
+            background-color: #7E0308;
+            color: white;
+            border: 1px solid #7E0308;
+            border-radius: 6px;
+            padding: 0;
+            min-width: 38px;
+            height: 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 16px;
+            line-height: 1;
+            pointer-events: auto;
+            z-index: 10;
+            position: relative;
+        }
+
+        .btn-search-maroon:hover {
+            background-color: #5a0206;
+            border-color: #5a0206;
+        }
+
+        .btn-search-maroon:active {
+            background-color: #4a0105;
+            border-color: #4a0105;
+        }
+
+        .btn-search-maroon i {
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        /* Clear button */
+        .btn-clear {
+            background-color: #6c757d;
+            color: white;
+            border: 1px solid #6c757d;
+            border-radius: 6px;
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            height: 38px;
+            white-space: nowrap;
+            pointer-events: auto;
+            z-index: 10;
+            position: relative;
+        }
+
+        .btn-clear:hover {
+            background-color: #5a6268;
+            border-color: #5a6268;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
+        }
+
+        .btn-clear:active {
+            background-color: #545b62;
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2);
+        }
+
+        body.dark-mode .btn-clear {
+            background-color: #495057;
+            border-color: #495057;
+        }
+
+        body.dark-mode .btn-clear:hover {
+            background-color: #3d4146;
+            border-color: #3d4146;
         }
 
         .submissions-table-container {
@@ -224,6 +294,71 @@
             border-color: #8B0000;
         }
 
+        /* Unified Pagination Styles */
+        .unified-pagination {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+
+        .btn-nav {
+            padding: 0.5rem 1rem;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #333;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .btn-nav:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: #f5f5f5;
+            color: #999;
+        }
+
+        .btn-nav:hover:not(:disabled) {
+            background: #8B0000;
+            color: white;
+            border-color: #8B0000;
+        }
+
+        /* Page button styles (for dynamically generated buttons) */
+        .page-btn {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #333;
+            font-size: 0.9rem;
+            min-width: 36px;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .page-btn.active {
+            background: #8B0000;
+            color: white;
+            border-color: #8B0000;
+            font-weight: 600;
+        }
+
+        .page-btn:hover:not(.active) {
+            background: #8B0000;
+            color: white;
+            border-color: #8B0000;
+        }
+
         /* Dark mode pagination */
         body.dark-mode .pagination-info {
             color: #ccc !important;
@@ -254,6 +389,42 @@
         }
 
         body.dark-mode .pagination-page:hover:not(.active) {
+            background: #8B0000 !important;
+            color: white !important;
+            border-color: #8B0000 !important;
+        }
+
+        /* Dark mode for unified pagination */
+        body.dark-mode .btn-nav {
+            background: #2a2a2a !important;
+            border-color: #555 !important;
+            color: #f0f0f0 !important;
+        }
+
+        body.dark-mode .btn-nav:disabled {
+            background: #1a1a1a !important;
+            color: #666 !important;
+        }
+
+        body.dark-mode .btn-nav:hover:not(:disabled) {
+            background: #8B0000 !important;
+            color: white !important;
+            border-color: #8B0000 !important;
+        }
+
+        body.dark-mode .page-btn {
+            background: #2a2a2a !important;
+            border-color: #555 !important;
+            color: #f0f0f0 !important;
+        }
+
+        body.dark-mode .page-btn.active {
+            background: #8B0000 !important;
+            color: white !important;
+            border-color: #8B0000 !important;
+        }
+
+        body.dark-mode .page-btn:hover:not(.active) {
             background: #8B0000 !important;
             color: white !important;
             border-color: #8B0000 !important;
@@ -1170,6 +1341,76 @@ body.dark-mode .score-pill {
         body.dark-mode .modal-tabs-container {
             border-bottom-color: #555;
         }
+
+        body.dark-mode .modal-tab-btn {
+            color: #aaa;
+        }
+
+        body.dark-mode .modal-tab-btn:hover {
+            color: #F9BD3D;
+        }
+
+        body.dark-mode .modal-tab-btn.active {
+            color: #F9BD3D;
+            border-bottom-color: #F9BD3D;
+        }
+
+        .modal-tab-content {
+            display: none;
+        }
+
+        .modal-tab-content.active {
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .controls-section {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 1rem;
+            }
+
+            .filter-controls {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .search-controls {
+                max-width: none;
+            }
+
+            .action-buttons-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .action-buttons-container .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .detail-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.25rem;
+            }
+
+            .detail-row span {
+                text-align: left;
+            }
+        }
+
 
         body.dark-mode .modal-tab-btn {
             color: #aaa;

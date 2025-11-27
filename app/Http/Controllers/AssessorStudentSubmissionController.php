@@ -36,10 +36,10 @@ class AssessorStudentSubmissionController extends Controller
                 $q->where('assessor_id', $assessor->id);
             })
             ->whereIn('status', [
-                'accepted',
+                'approved',
                 'rejected',
                 // add these if you also want them to appear:
-                // 'returned',
+                // 'resubmit',
                 // 'flagged',
             ])
             ->get();
@@ -120,7 +120,7 @@ class AssessorStudentSubmissionController extends Controller
             'reviews.assessor',
         ])
             ->where('user_id', $studentId)
-            ->whereIn('status', ['accepted', 'rejected'])
+            ->whereIn('status', ['approved', 'rejected'])
             ->whereHas('reviews', function ($q) use ($assessor) {
                 $q->where('assessor_id', $assessor->id);
             })
@@ -212,6 +212,10 @@ class AssessorStudentSubmissionController extends Controller
                 ],
                 'program' => $programName,
                 'college' => $collegeName,
+                'studentAcademic' => $acad ? [
+                    'slea_application_status' => $acad->slea_application_status,
+                    'ready_for_rating' => (bool) ($acad->ready_for_rating ?? false),
+                ] : null,
             ],
             'submissions'         => $categorizedSubmissions,
             'category_totals'     => $categoryTotals,
@@ -254,10 +258,10 @@ class AssessorStudentSubmissionController extends Controller
              */
             $academic->ready_for_rating    = true;
             $academic->ready_for_rating_at = $academic->ready_for_rating_at ?? now();
-            $academic->slea_application_status = 'for_admin_review';
+            $academic->slea_application_status = 'pending_administrative_validation';
             $academic->save();
 
-            $statusKey   = 'for_admin_review';
+            $statusKey   = 'pending_administrative_validation';
             $statusLabel = 'For admin final review';
         } else {
             /**
@@ -272,7 +276,7 @@ class AssessorStudentSubmissionController extends Controller
             $academic->slea_application_status = null;
             $academic->save();
 
-            $statusKey   = 'not_ready';
+            $statusKey   = 'incomplete';
             $statusLabel = 'Not ready';
         }
 
