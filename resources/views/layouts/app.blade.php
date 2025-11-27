@@ -23,26 +23,6 @@
     {{-- Include Header --}}
     @include('partials.header')
 
-    {{-- Global SLEA Award banner – shows ONLY for awarded students --}}
-    @if(isset($currentRole, $sleaAwarded) && $currentRole === 'student' && $sleaAwarded)
-        <div class="slea-global-banner">
-            <div class="container slea-global-banner-inner">
-                <div class="slea-global-medal">
-                    <i class="fa-solid fa-medal"></i>
-                </div>
-                <div class="slea-global-text">
-                    <div class="slea-global-heading">
-                        Congratulations, {{ auth()->user()->first_name ?? 'Student' }}!
-                    </div>
-                    <div class="slea-global-sub">
-                        You have been awarded the
-                        <strong>Student Leadership Excellence Award</strong>.
-                    </div>
-                </div>
-            </div>
-        </div>
-    @endif
-
     <div class="d-flex">
         {{-- Global Sidebar --}}
 

@@ -173,7 +173,7 @@ class AdminController extends Controller
                     ->orWhere('email', 'like', $like);
             }))
             ->orderBy('last_name')
-            ->paginate(20)
+            ->paginate(5)
             ->withQueryString();
 
         return view('admin.manage-account', compact('users'));
@@ -203,10 +203,16 @@ class AdminController extends Controller
             'last_name'  => ['required', 'string', 'max:50'],
             'middle_name' => ['nullable', 'string', 'max:50'],
             'email'      => ['required', 'email', 'max:100', 'unique:users,email'],
-            'role'       => ['required', 'string', 'in:admin,assessor,student'],
-            'status'     => ['required', 'string', 'in:pending,approved,rejected'],
+            'role'       => ['nullable', 'string', 'in:admin,assessor,student'],
+            'contact'    => ['nullable', 'string', 'max:50'],
             // other fields...
         ]);
+
+        // Default to 'assessor' if role is not provided
+        $data['role'] = $data['role'] ?? 'assessor';
+
+        // Default status to 'approved' for new assessor/admin accounts
+        $status = User::STATUS_APPROVED;
 
         $password = Str::random(10);
 
@@ -217,7 +223,8 @@ class AdminController extends Controller
             'email'      => $data['email'],
             'password'   => \Hash::make($password),
             'role'       => $data['role'],
-            'status'     => $data['status'],
+            'status'     => $status,
+            'contact'    => $data['contact'] ?? null,
             // contact / birth_date / etc.
         ]);
 
@@ -242,12 +249,11 @@ class AdminController extends Controller
     // GET /admin/approve-reject
     public function approveReject(Request $request)
     {
-        $status = $request->input('status', User::STATUS_PENDING);
         $search = $request->input('q');
 
         $students = User::query()
             ->where('role', User::ROLE_STUDENT)
-            ->when($status, fn($q) => $q->where('status', $status))
+            ->where('status', User::STATUS_PENDING) // Only show pending students
             ->when($search, function ($q) use ($search) {
                 $like = '%' . $search . '%';
 
@@ -260,10 +266,10 @@ class AdminController extends Controller
             })
             ->with(['studentAcademic.program']) // eager load
             ->orderByDesc('created_at')
-            ->paginate(20)
+            ->paginate(5)
             ->withQueryString();
 
-        return view('admin.approve-reject', compact('students', 'status', 'search'));
+        return view('admin.approve-reject', compact('students', 'search'));
     }
 
 

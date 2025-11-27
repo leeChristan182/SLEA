@@ -21,6 +21,21 @@
                     </div>
                 @endif
 
+                {{-- SLEA Award banner – shows ONLY for qualified students in performance section --}}
+                @if(isset($currentRole, $sleaAwarded) && $currentRole === 'student' && $sleaAwarded)
+                    <div class="slea-performance-banner">
+                        <div class="slea-performance-text">
+                            <div class="slea-performance-heading">
+                                Congratulations, {{ auth()->user()->first_name ?? 'Student' }}!
+                            </div>
+                            <div class="slea-performance-sub">
+                                You have been awarded the
+                                <strong>Student Leadership Excellence Award</strong>.
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
                 <!-- Performance Overview Title -->
                 <div class="performance-overview-title">
                     <h2>Performance Overview</h2>
@@ -140,6 +155,58 @@
 </script>
 
 <style>
+    /* SLEA Award Banner - Performance Page Only */
+    .slea-performance-banner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        margin-bottom: 24px;
+        background: #fffef0;
+        border: 2px solid #ffd700;
+        border-radius: 14px;
+        box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+    }
+
+    body.dark-mode .slea-performance-banner {
+        background: #2a2a1a;
+        border-color: #ffd700;
+    }
+
+    .slea-performance-text {
+        text-align: center;
+    }
+
+    .slea-performance-heading {
+        font-size: 18px;
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 4px;
+    }
+
+    body.dark-mode .slea-performance-heading {
+        color: #f1f1f1;
+    }
+
+    .slea-performance-sub {
+        font-size: 14px;
+        color: #4b5563;
+        line-height: 1.5;
+    }
+
+    body.dark-mode .slea-performance-sub {
+        color: #e5e7eb;
+    }
+
+    .slea-performance-sub strong {
+        font-weight: 700;
+        color: #7b0000;
+    }
+
+    body.dark-mode .slea-performance-sub strong {
+        color: #f9bd3d;
+    }
+
     /* Base card/layout */
     .performance-page .po-card {
         background: #fff;

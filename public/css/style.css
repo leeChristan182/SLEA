@@ -34,6 +34,7 @@
 }
 .sidebar ul li.has-submenu {
     position: relative;
+    z-index: 9999;
 }
 
 .sidebar ul li .submenu {
@@ -44,7 +45,7 @@
     background: #ad0707;
     border-radius: 4px;
     box-shadow: 0 0 10px rgba(0,0,0,0.2);
-    z-index: 1000;
+    z-index: 9999;
     min-width: 180px;
 }
 
@@ -221,6 +222,8 @@
       flex-direction:column;
       padding:20px 10px;
       transition: none;
+      z-index: 1000;
+      overflow: visible;
 
     }
 
