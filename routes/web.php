@@ -99,6 +99,8 @@ Route::prefix('student')
         Route::post('/update-leadership', 'updateLeadership')->name('updateLeadership');
         Route::post('/profile/avatar', 'updateAvatar')->name('updateAvatar');
         Route::post('/change-password', 'changePassword')->name('changePassword');
+        Route::get('/cor/view', [StudentController::class, 'viewCOR'])
+            ->name('cor.view');
 
         Route::middleware('eligible')->group(function () {
             Route::get('/profile', 'profile')->name('profile');
@@ -153,7 +155,8 @@ Route::prefix('admin')
         Route::get('/revalidation', [AdminController::class, 'revalidationQueue'])->name('revalidation');
         Route::post('/revalidation/{user}/approve', [AdminController::class, 'approveRevalidation'])->name('revalidation.approve');
         Route::post('/revalidation/{user}/reject',  [AdminController::class, 'rejectRevalidation'])->name('revalidation.reject');
-
+        Route::get('/revalidation/{user}/cor', [AdminController::class, 'viewStudentCor'])
+            ->name('revalidation.cor');
 
         Route::get('/organizations', [OrganizationController::class, 'index'])->name('organizations.index');
         Route::post('/organizations', [OrganizationController::class, 'store'])->name('organizations.store');

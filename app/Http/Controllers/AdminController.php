@@ -446,6 +446,35 @@ class AdminController extends Controller
 
         return back()->with('status', 'Revalidation rejected. Student marked ineligible.');
     }
+    public function viewStudentCor(User $user)
+    {
+        // Only admins should be here (route will already be under admin middleware)
+        if (! $user->isStudent()) {
+            abort(403);
+        }
+
+        /** @var StudentAcademic|null $academic */
+        $academic = StudentAcademic::where('user_id', $user->id)->first();
+
+        if (! $academic || empty($academic->certificate_of_registration_path)) {
+            abort(404, 'No COR uploaded for this student.');
+        }
+
+        $path = $academic->certificate_of_registration_path;
+
+        // We assume you're using the same disk as in uploadCOR(): 'student_docs'
+        if (! Storage::disk('student_docs')->exists($path)) {
+            abort(404, 'COR file not found on server.');
+        }
+
+        // View inline in browser (PDF/image)
+        return response()->file(
+            Storage::disk('student_docs')->path($path)
+        );
+
+        // If you want forced download instead, use:
+        // return Storage::disk('student_docs')->download($path);
+    }
 
 
     /* =========================

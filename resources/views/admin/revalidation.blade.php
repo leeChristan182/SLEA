@@ -46,15 +46,21 @@
                                 <th>Expected Grad Year</th>
                                 <th>Eligibility Status</th>
                                 <th>Last Updated</th>
-                                <th style="width: 200px;">Actions</th>
+                                <th style="width: 260px;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($rows as $row)
+                                @php
+                                    // $row is StudentAcademic, with related User
+                                    $user = $row->user;
+                                @endphp
+
                                 <tr>
-                                    <td>{{ $row->id }}</td>
-                                    <td>{{ $row->last_name }}, {{ $row->first_name }}</td>
-                                    <td>{{ $row->email }}</td>
+                                    {{-- Show USER id, not academic id, since routes use {user} --}}
+                                    <td>{{ $user->id }}</td>
+                                    <td>{{ $user->last_name }}, {{ $user->first_name }}</td>
+                                    <td>{{ $user->email }}</td>
                                     <td>{{ $row->expected_grad_year ?? '—' }}</td>
                                     <td>
                                         @php
@@ -76,30 +82,40 @@
                                     <td>{{ \Carbon\Carbon::parse($row->updated_at)->format('M d, Y') }}</td>
 
                                     <td>
+                                        {{-- View COR button (only if student has uploaded one) --}}
+                                        @if (method_exists($row, 'hasCor') ? $row->hasCor() : !empty($row->certificate_of_registration_path))
+                                            <a href="{{ route('admin.revalidation.cor', $user->id) }}"
+                                                class="btn btn-outline-primary btn-sm me-1" target="_blank">
+                                                View COR
+                                            </a>
+                                        @else
+                                            <span class="badge bg-secondary me-1">No COR</span>
+                                        @endif
+
                                         {{-- Approve button --}}
                                         <button type="button" class="btn btn-success btn-sm me-1" data-bs-toggle="modal"
-                                            data-bs-target="#approveRevalModal{{ $row->id }}">
+                                            data-bs-target="#approveRevalModal{{ $user->id }}">
                                             Approve
                                         </button>
 
                                         {{-- Reject button --}}
                                         <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal"
-                                            data-bs-target="#rejectRevalModal{{ $row->id }}">
+                                            data-bs-target="#rejectRevalModal{{ $user->id }}">
                                             Reject
                                         </button>
                                     </td>
                                 </tr>
 
                                 {{-- APPROVE MODAL --}}
-                                <div class="modal fade" id="approveRevalModal{{ $row->id }}" tabindex="-1"
-                                    aria-labelledby="approveRevalLabel{{ $row->id }}" aria-hidden="true">
+                                <div class="modal fade" id="approveRevalModal{{ $user->id }}" tabindex="-1"
+                                    aria-labelledby="approveRevalLabel{{ $user->id }}" aria-hidden="true">
                                     <div class="modal-dialog modal-dialog-centered">
                                         <div class="modal-content">
-                                            <form method="POST" action="{{ route('admin.revalidation.approve', $row->id) }}">
+                                            <form method="POST" action="{{ route('admin.revalidation.approve', $user->id) }}">
                                                 @csrf
 
                                                 <div class="modal-header bg-success text-white">
-                                                    <h5 class="modal-title" id="approveRevalLabel{{ $row->id }}">
+                                                    <h5 class="modal-title" id="approveRevalLabel{{ $user->id }}">
                                                         Approve Student Revalidation
                                                     </h5>
                                                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
@@ -112,8 +128,8 @@
                                                         <strong>eligible</strong> again?
                                                     </p>
                                                     <p class="mb-0">
-                                                        <strong>{{ $row->last_name }}, {{ $row->first_name }}</strong><br>
-                                                        <small class="text-muted">{{ $row->email }}</small>
+                                                        <strong>{{ $user->last_name }}, {{ $user->first_name }}</strong><br>
+                                                        <small class="text-muted">{{ $user->email }}</small>
                                                     </p>
                                                 </div>
 
@@ -131,15 +147,15 @@
                                 </div>
 
                                 {{-- REJECT MODAL --}}
-                                <div class="modal fade" id="rejectRevalModal{{ $row->id }}" tabindex="-1"
-                                    aria-labelledby="rejectRevalLabel{{ $row->id }}" aria-hidden="true">
+                                <div class="modal fade" id="rejectRevalModal{{ $user->id }}" tabindex="-1"
+                                    aria-labelledby="rejectRevalLabel{{ $user->id }}" aria-hidden="true">
                                     <div class="modal-dialog modal-dialog-centered">
                                         <div class="modal-content">
-                                            <form method="POST" action="{{ route('admin.revalidation.reject', $row->id) }}">
+                                            <form method="POST" action="{{ route('admin.revalidation.reject', $user->id) }}">
                                                 @csrf
 
                                                 <div class="modal-header bg-danger text-white">
-                                                    <h5 class="modal-title" id="rejectRevalLabel{{ $row->id }}">
+                                                    <h5 class="modal-title" id="rejectRevalLabel{{ $user->id }}">
                                                         Reject Student Revalidation
                                                     </h5>
                                                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
@@ -151,16 +167,9 @@
                                                         This will mark the student as <strong>ineligible</strong>.
                                                     </p>
                                                     <p class="mb-3">
-                                                        <strong>{{ $row->last_name }}, {{ $row->first_name }}</strong><br>
-                                                        <small class="text-muted">{{ $row->email }}</small>
+                                                        <strong>{{ $user->last_name }}, {{ $user->first_name }}</strong><br>
+                                                        <small class="text-muted">{{ $user->email }}</small>
                                                     </p>
-
-                                                    {{-- Optional comment textarea if you want to store reason in another column
-                                                    later --}}
-                                                    {{-- <div class="mb-3">
-                                                        <label class="form-label">Reason (optional)</label>
-                                                        <textarea name="reason" class="form-control" rows="3"></textarea>
-                                                    </div> --}}
                                                 </div>
 
                                                 <div class="modal-footer">

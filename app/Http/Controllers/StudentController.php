@@ -148,7 +148,7 @@ class StudentController extends Controller
 
         // Validate only real columns / foreign keys
         $data = $request->validate([
-            'student_number' => ['nullable', 'string', 'max:30'],
+            'student_number' => ['nullable', 'string', 'max:20'],
             'year_level'     => ['nullable', 'string', 'max:20'],
 
             'college_id'     => ['nullable', 'exists:colleges,id'],
@@ -322,41 +322,37 @@ class StudentController extends Controller
         /** @var User $user */
         $user = Auth::user();
 
-        if (! Schema::hasTable('student_academic')) {
-            // If AJAX, send JSON error; otherwise redirect with errors
+        // Ensure academic row exists first (prevents invalid insert)
+        $academic = DB::table('student_academic')->where('user_id', $user->id)->first();
+        if (! $academic) {
+
+            // AJAX error response
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Academic table not found.',
-                ], 500);
+                    'message' => 'Please complete your academic information first before uploading your COR.',
+                ], 422);
             }
 
-            return back()->withErrors(['cor' => 'Academic table not found.']);
+            // Normal redirect error
+            return back()->withErrors([
+                'cor' => 'Please complete your academic information first before uploading your COR.',
+            ]);
         }
 
-        // Store file
+        // Store file in your custom disk
         $path = $request->file('cor')->store('cor', 'student_docs');
         $now  = now();
 
-        // Upsert into student_academic
-        $data = [
-            'user_id'                          => $user->id,
-            'certificate_of_registration_path' => $path,
-            'updated_at'                       => $now,
-        ];
+        // Update COR path
+        DB::table('student_academic')
+            ->where('user_id', $user->id)
+            ->update([
+                'certificate_of_registration_path' => $path,
+                'updated_at'                       => $now,
+            ]);
 
-        $exists = DB::table('student_academic')->where('user_id', $user->id)->first();
-
-        if ($exists) {
-            DB::table('student_academic')
-                ->where('user_id', $user->id)
-                ->update($data);
-        } else {
-            $data['created_at'] = $now;
-            DB::table('student_academic')->insert($data);
-        }
-
-        // Optional: log to user_documents with NEW column names
+        // Log to user_documents (optional)
         if (Schema::hasTable('user_documents')) {
             DB::table('user_documents')->insert([
                 'user_id'      => $user->id,
@@ -371,29 +367,24 @@ class StudentController extends Controller
             ]);
         }
 
-        // Recalculate eligibility ONLY for this user
+        // Recalculate eligibility
         $academic = DB::table('student_academic')->where('user_id', $user->id)->first();
 
-        $status = null;
+        $status = 'eligible';
+        $nowYear = (int) now()->year;
 
-        if ($academic) {
-            $nowYear = (int) now()->year;
-            $status  = 'eligible';
-
-            if (!empty($academic->expected_grad_year) && $nowYear > (int) $academic->expected_grad_year) {
-                $status = 'needs_revalidation';
-            }
-
-            DB::table('student_academic')
-                ->where('user_id', $user->id)
-                ->update([
-                    'eligibility_status' => $status,
-                    'updated_at'         => $now,
-                ]);
+        if (!empty($academic->expected_grad_year) && $nowYear > (int) $academic->expected_grad_year) {
+            $status = 'needs_revalidation';   // keep your own value
         }
 
+        DB::table('student_academic')
+            ->where('user_id', $user->id)
+            ->update([
+                'eligibility_status' => $status,
+                'updated_at'         => $now,
+            ]);
 
-        // If AJAX (used by student_profile.js) → JSON
+        // AJAX
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
                 'success'            => true,
@@ -404,8 +395,31 @@ class StudentController extends Controller
             ]);
         }
 
-        // Fallback for normal form POST
+        // Normal form POST redirect
         return back()->with('status', 'Certificate of Registration uploaded.');
+    }
+    public function viewCOR()
+    {
+        /** @var User $user */
+        $user = Auth::user();
+
+        // Ensure academic exists
+        $academic = \DB::table('student_academic')->where('user_id', $user->id)->first();
+
+        if (!$academic || empty($academic->certificate_of_registration_path)) {
+            abort(404, 'No COR uploaded.');
+        }
+
+        // Serve the file directly
+        $path = $academic->certificate_of_registration_path;
+
+        if (!\Storage::disk('student_docs')->exists($path)) {
+            abort(404, 'File not found.');
+        }
+
+        return response()->file(
+            Storage::disk('student_docs')->path($path)
+        );
     }
 
     /* =========================
