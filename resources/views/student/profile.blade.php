@@ -3,7 +3,11 @@
 @section('title', 'Student Profile')
 
 @section('head')
-<meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta id="slea-routes" data-clusters="{{ route('ajax.clusters') }}"
+        data-organizations="{{ route('ajax.organizations') }}"
+        @if(\Illuminate\Support\Facades\Route::has('ajax.council.positions'))
+        data-council-positions="{{ route('ajax.council.positions') }}" @endif>
 @endsection
 
 @section('content')
@@ -38,19 +42,13 @@
                 <!-- Profile Header Banner -->
                 <div class="profile-banner">
                     <div class="profile-avatar">
-                        <img
-                            src="{{ $student->profile_picture_path ? asset('storage/' . $student->profile_picture_path) : asset('images/avatars/default-avatar.png') }}"
-                            alt="Profile Picture"
-                            id="profilePicture">
+                        <img src="{{ $student->profile_picture_path ? asset('storage/' . $student->profile_picture_path) : asset('images/avatars/default-avatar.png') }}"
+                            alt="Profile Picture" id="profilePicture">
 
-                        <form id="avatarForm" method="POST" action="{{ route('student.updateAvatar') }}" enctype="multipart/form-data">
+                        <form id="avatarForm" method="POST" action="{{ route('student.updateAvatar') }}"
+                            enctype="multipart/form-data">
                             @csrf
-                            <input
-                                type="file"
-                                id="avatarUpload"
-                                name="avatar"
-                                accept="image/*"
-                                style="display:none;">
+                            <input type="file" id="avatarUpload" name="avatar" accept="image/*" style="display:none;">
                         </form>
 
                         <button type="button" class="upload-photo-btn" id="uploadPhotoBtn" title="Change Profile Picture">
@@ -111,9 +109,14 @@
                 </section>
 
                 {{-- Leadership Information --}}
-                {{-- Leadership Information --}}
                 <section class="profile-info" style="margin-top:24px;">
-                    <h3>Leadership Information</h3>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h3 class="mb-0">Leadership Information</h3>
+                        <button type="button" class="change-btn" data-bs-toggle="modal"
+                            data-bs-target="#addLeadershipModal">
+                            + Add Leadership Info
+                        </button>
+                    </div>
 
                     <div class="table-responsive">
                         <table class="approval-table w-100">
@@ -130,13 +133,12 @@
                             <tbody>
                                 @forelse (($leaderships ?? []) as $lead)
                                     <tr>
-                                        {{-- These names match what we select in StudentController@profile --}}
                                         <td>{{ $lead->leadership_type_name ?? '—' }}</td>
                                         <td>{{ $lead->organization_name ?? '—' }}</td>
                                         <td>{{ $lead->position_name ?? '—' }}</td>
                                         <td>{{ $lead->term ?? '—' }}</td>
                                         <td>{{ $lead->issued_by ?? '—' }}</td>
-                                        <td>{{ $lead->leadership_status ?? '—' }}</td>
+                                        <td>{{ $lead->leadership_status ?? $lead->status ?? '—' }}</td>
                                     </tr>
                                 @empty
                                     <tr>
@@ -454,11 +456,11 @@
         });
 
         // Toggle visibility for both New Password and Confirm Password fields
-        window.toggleNewPasswords = function() {
+        window.toggleNewPasswords = function () {
             const checkbox = document.getElementById('showPasswordCheckbox');
             const passwordField = document.getElementById('password');
             const confirmPasswordField = document.getElementById('password_confirmation');
-            
+
             if (checkbox && passwordField && confirmPasswordField) {
                 const showPassword = checkbox.checked;
                 passwordField.type = showPassword ? 'text' : 'password';
@@ -466,4 +468,141 @@
             }
         };
     </script>
+    {{-- Add Leadership Info Modal --}}
+    <div class="modal fade" id="addLeadershipModal" tabindex="-1" aria-labelledby="addLeadershipModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                {{-- IMPORTANT: id="updateLeadershipForm" --}}
+                <form id="updateLeadershipForm" method="POST" action="{{ route('student.updateLeadership') }}">
+                    @csrf
+
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addLeadershipModalLabel">Add Leadership Information</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <input type="hidden" name="leadership[0][id]" value="">
+
+                        {{-- Leadership Type --}}
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label" for="modal_leadership_type_id">
+                                    Leadership Type <span class="required">*</span>
+                                </label>
+                                <select id="modal_leadership_type_id" name="leadership[0][leadership_type_id]"
+                                    class="form-select" required>
+                                    <option value="">Select Leadership Type</option>
+                                    @foreach($leadershipTypes ?? [] as $type)
+                                        <option value="{{ $type->id }}"
+                                            data-requires-org="{{ (int) ($type->requires_org ?? 0) }}"
+                                            data-key="{{ $type->key ?? '' }}">
+                                            {{ $type->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
+                        {{-- Cluster / Organization --}}
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-6" id="modal_cluster_wrap" style="display:none;">
+                                <label class="form-label" for="modal_cluster_id">
+                                    Cluster <span id="modal_cluster_required_star" class="required"
+                                        style="display:none;">*</span>
+                                </label>
+                                <select id="modal_cluster_id" name="leadership[0][cluster_id]" class="form-select">
+                                    <option value="">Select Cluster</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6" id="modal_org_wrap" style="display:none;">
+                                <label class="form-label" for="modal_organization_id">
+                                    Organization <span id="modal_org_required_star" class="required"
+                                        style="display:none;">*</span>
+                                </label>
+                                <select id="modal_organization_id" name="leadership[0][organization_id]"
+                                    class="form-select">
+                                    <option value="">Select Organization</option>
+                                </select>
+                                <small id="modal_org_optional_hint" class="text-muted" style="display:none;">
+                                    Optional for non-CCO.
+                                </small>
+                            </div>
+                        </div>
+
+                        {{-- Position & Leadership Status --}}
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label" for="modal_position_id">
+                                    Position Held <span class="required">*</span>
+                                </label>
+                                <select id="modal_position_id" name="leadership[0][position_id]" class="form-select"
+                                    required>
+                                    <option value="">Select Position</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label" for="modal_leadership_status">
+                                    Leadership Status <span class="required">*</span>
+                                </label>
+                                <select id="modal_leadership_status" name="leadership[0][leadership_status]"
+                                    class="form-select" required>
+                                    <option value="">Select your leadership status</option>
+                                    <option value="Active">Active (Current Officer/Leader)</option>
+                                    <option value="Inactive">Inactive (Former Officer/Leader)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {{-- Term & Issued By --}}
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label" for="modal_term">
+                                    Leadership Term (School Year) <span class="required">*</span>
+                                </label>
+                                <input id="modal_term" type="text" name="leadership[0][term]" class="form-control"
+                                    placeholder="e.g., 2023-2024" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label" for="modal_issued_by">
+                                    Issued By <span class="required">*</span>
+                                </label>
+                                <input id="modal_issued_by" type="text" name="leadership[0][issued_by]" class="form-control"
+                                    required>
+                            </div>
+                        </div>
+
+                        {{-- Optional: scope/from/to --}}
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-4">
+                                <label class="form-label" for="modal_scope">Scope (optional)</label>
+                                <input id="modal_scope" type="text" name="leadership[0][scope]" class="form-control"
+                                    placeholder="e.g., University-wide">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="modal_from">From</label>
+                                <input id="modal_from" type="date" name="leadership[0][from]" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="modal_to">To</label>
+                                <input id="modal_to" type="date" name="leadership[0][to]" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Leadership Info</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+
 @endsection

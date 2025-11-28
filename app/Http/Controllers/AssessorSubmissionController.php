@@ -47,13 +47,13 @@ class AssessorSubmissionController extends Controller
             $attachments = json_decode($attachments, true) ?: [];
         }
 
-        $documents = collect($attachments)->map(function ($att, $index) {
+        $documents = collect($attachments)->map(function ($att, $index) use ($submission) {
             $mime    = $att['mime'] ?? ($att['type'] ?? '');
             $isPdf   = $mime && str_contains($mime, 'pdf');
             $isImage = $mime && str_starts_with($mime, 'image/');
 
             $path = $att['path'] ?? null;
-            $url  = $path ? Storage::url($path) : null;
+            $documentId = $submission->id . ':' . $index;
 
             return [
                 'id'                => $index,
@@ -62,10 +62,11 @@ class AssessorSubmissionController extends Controller
                 'file_size'         => $this->humanFileSize($att['size'] ?? null),
                 'is_pdf'            => $isPdf,
                 'is_image'          => $isImage,
-                'view_url'          => $url,   // 👈 JS just opens these in a new tab
-                'download_url'      => $url,
+                'view_url'          => route('assessor.submissions.viewDocument', $documentId),
+                'download_url'      => route('assessor.submissions.downloadDocument', $documentId),
             ];
         })->values();
+
 
         $subsection = $submission->subsection;
 
@@ -237,7 +238,7 @@ class AssessorSubmissionController extends Controller
             // 4) recompute compiled score if approved
             if ($newStatus === 'approved') {
                 $this->recomputeCompiledScoreForStudentCategory($submission, $user);
-                
+
                 // 5) Update SLEA application status based on application_status
                 $this->updateSleaStatusBasedOnSubmission($submission);
             }
@@ -331,6 +332,14 @@ class AssessorSubmissionController extends Controller
         [$submissionId, $index] = explode(':', $documentId . ':');
 
         $submission  = Submission::findOrFail($submissionId);
+
+        // 🔒 very important: access control
+        $user = Auth::user();
+        if ($user->isStudent() && $submission->user_id !== $user->id) {
+            abort(403);
+        }
+        // assessors/admins are already protected by route middleware
+
         $attachments = $submission->attachments ?? [];
 
         if (!isset($attachments[$index])) {
@@ -339,14 +348,15 @@ class AssessorSubmissionController extends Controller
 
         $file = $attachments[$index];
 
-        if (empty($file['path']) || !Storage::disk('public')->exists($file['path'])) {
+        if (empty($file['path']) || !Storage::disk('student_docs')->exists($file['path'])) {
             abort(404);
         }
 
         $downloadName = $file['original'] ?? basename($file['path']);
 
-        return Storage::disk('public')->download($file['path'], $downloadName);
+        return Storage::disk('student_docs')->download($file['path'], $downloadName);
     }
+
 
     // Inline view (for iframe / image preview)
     public function viewDocument(string $documentId)
@@ -356,17 +366,18 @@ class AssessorSubmissionController extends Controller
         $submission  = Submission::findOrFail($submissionId);
         $attachments = $submission->attachments ?? [];
 
-        if (!isset($attachments[$index])) {
-            abort(404);
+        $user = Auth::user();
+        if ($user->isStudent() && $submission->user_id !== $user->id) {
+            abort(403);
         }
+
 
         $file = $attachments[$index];
-
-        if (empty($file['path']) || !Storage::disk('public')->exists($file['path'])) {
+        if (empty($file['path']) || !Storage::disk('student_docs')->exists($file['path'])) {
             abort(404);
         }
 
-        $path = Storage::disk('public')->path($file['path']);
+        $path = Storage::disk('student_docs')->path($file['path']);
         $mime = $file['mime'] ?? null;
 
         return response()->file($path, [

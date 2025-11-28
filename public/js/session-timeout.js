@@ -5,9 +5,11 @@
 class SessionTimeout {
     constructor(options = {}) {
         this.options = {
-            warningTime: 5 * 60 * 1000, // 5 minutes in milliseconds
-            timeoutTime: 10 * 60 * 1000, // 10 minutes in milliseconds
-            checkInterval: 30 * 1000, // Check every 30 seconds
+            // Default values (you can override on init)
+            warningTime: 5 * 60 * 1000,   // 5 minutes
+            timeoutTime: 10 * 60 * 1000,  // 10 minutes
+            checkInterval: 30 * 1000,     // 30 seconds
+
             warningMessage: 'Your session will expire in {time} minutes due to inactivity. Do you want to stay logged in?',
             timeoutMessage: 'Your session has expired due to inactivity. You will be redirected to the login page.',
             ...options
@@ -19,6 +21,7 @@ class SessionTimeout {
         this.warningTimer = null;
         this.timeoutTimer = null;
         this.checkTimer = null;
+        this.countdownInterval = null;
 
         this.init();
     }
@@ -30,19 +33,19 @@ class SessionTimeout {
     }
 
     bindEvents() {
-        // Track user activity
+        // Track user activity BEFORE the warning modal is shown
         const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
 
         events.forEach(event => {
-            document.addEventListener(event, () => {
-                this.resetTimers();
+            document.addEventListener(event, (e) => {
+                this.handleActivity(e);
             }, true);
         });
 
         // Handle visibility change (tab switching)
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
-                this.resetTimers();
+                this.handleActivity();
             }
         });
 
@@ -50,6 +53,26 @@ class SessionTimeout {
         window.addEventListener('beforeunload', () => {
             this.cleanup();
         });
+    }
+
+    /**
+     * Called on any user interaction.
+     * BEFORE warning: resets timers.
+     * AFTER warning: does NOT reset timers (user must click "Stay Logged In").
+     */
+    handleActivity() {
+        if (this.isTimedOut) return;
+
+        // If warning popup is already shown, ignore passive activity.
+        // Only clicking "Stay Logged In" should extend the session.
+        if (this.isWarningShown) {
+            // We can optionally update lastActivity, but DO NOT reset timers.
+            this.lastActivity = Date.now();
+            return;
+        }
+
+        // Normal case: no warning yet → reset timers
+        this.resetTimers();
     }
 
     resetTimers() {
@@ -61,10 +84,15 @@ class SessionTimeout {
         // Clear existing timers
         if (this.warningTimer) {
             clearTimeout(this.warningTimer);
+            this.warningTimer = null;
         }
         if (this.timeoutTimer) {
             clearTimeout(this.timeoutTimer);
+            this.timeoutTimer = null;
         }
+
+        // Also clear any countdown in case it was running
+        this.clearCountdown();
 
         // Start new timers
         this.startWarningTimer();
@@ -88,19 +116,39 @@ class SessionTimeout {
         }, this.options.checkInterval);
     }
 
-    showWarning() {
-        if (this.isWarningShown || this.isTimedOut) return;
+showWarning() {
+    if (this.isWarningShown || this.isTimedOut) return;
 
-        this.isWarningShown = true;
-        const remainingTime = Math.ceil((this.options.timeoutTime - this.options.warningTime) / 60000);
+    this.isWarningShown = true;
 
-        const message = this.options.warningMessage.replace('{time}', remainingTime);
+    const remainingMs  = this.options.timeoutTime - this.options.warningTime;
+    const remainingMin = Math.max(1, Math.ceil(remainingMs / 60000)); // avoid 0
 
-        // Create warning modal
-        this.createWarningModal(message, remainingTime);
+    const message = this.options.warningMessage.replace('{time}', remainingMin);
+
+    // 🔔 If tab is not visible and notifications are allowed, show native browser notification
+    if (
+        document.hidden &&
+        'Notification' in window &&
+        Notification.permission === 'granted'
+    ) {
+        try {
+            new Notification('SLEA Session Expiring Soon', {
+                body: `Your SLEA session will expire in about ${remainingMin} minute(s) if you stay idle.`,
+                icon: '/images/osas-logo.png', // optional, adjust path
+            });
+        } catch (e) {
+            console.warn('Notification failed:', e);
+        }
     }
 
-    createWarningModal(message, remainingTime) {
+    // Existing behavior: show your Bootstrap-style in-page warning modal
+    this.createWarningModal(message, remainingMin);
+    this.startTimeoutTimer();
+}
+
+
+    createWarningModal(message, remainingMinutes) {
         // Remove existing modal if any
         const existingModal = document.getElementById('session-warning-modal');
         if (existingModal) {
@@ -112,11 +160,13 @@ class SessionTimeout {
         modal.className = 'modal fade show';
         modal.style.display = 'block';
         modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+        modal.style.zIndex = '1055';
+
         modal.innerHTML = `
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header bg-warning text-dark">
-                        <h5 class="modal-title">
+                        <h5 class="modal-title mb-0">
                             <i class="fas fa-exclamation-triangle me-2"></i>
                             Session Timeout Warning
                         </h5>
@@ -124,15 +174,25 @@ class SessionTimeout {
                     <div class="modal-body">
                         <p>${message}</p>
                         <div class="progress mb-3">
-                            <div class="progress-bar bg-warning" role="progressbar" style="width: 0%" id="timeout-progress"></div>
+                            <div class="progress-bar bg-warning" role="progressbar"
+                                 style="width: 0%" id="timeout-progress"></div>
                         </div>
-                        <p class="text-muted small">Click "Stay Logged In" to continue your session, or you will be automatically logged out.</p>
+                        <p class="text-muted small mb-0">
+                            Click <strong>"Stay Logged In"</strong> to continue your session,
+                            or you will be automatically logged out.
+                        </p>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" id="logout-now">
+                    <div class="modal-footer d-flex flex-column flex-sm-row gap-2">
+                        <button type="button"
+                                class="btn btn-secondary flex-fill flex-sm-grow-0"
+                                id="logout-now"
+                                style="min-width: 150px; white-space: nowrap;">
                             <i class="fas fa-sign-out-alt me-1"></i> Logout Now
                         </button>
-                        <button type="button" class="btn btn-primary" id="stay-logged-in">
+                        <button type="button"
+                                class="btn btn-primary flex-fill flex-sm-grow-0"
+                                id="stay-logged-in"
+                                style="min-width: 170px; white-space: nowrap;">
                             <i class="fas fa-clock me-1"></i> Stay Logged In
                         </button>
                     </div>
@@ -152,32 +212,43 @@ class SessionTimeout {
         });
 
         // Start countdown
-        this.startCountdown(remainingTime);
+        this.startCountdown(remainingMinutes);
     }
 
-    startCountdown(remainingTime) {
+    startCountdown(remainingMinutes) {
         const progressBar = document.getElementById('timeout-progress');
-        const totalTime = remainingTime * 60; // Convert to seconds
-        let timeLeft = totalTime;
+        if (!progressBar) return;
 
-        const countdown = setInterval(() => {
+        const totalTimeSec = remainingMinutes * 60;
+        let timeLeft = totalTimeSec;
+
+        this.clearCountdown(); // ensure any previous interval is cleared
+
+        this.countdownInterval = setInterval(() => {
             timeLeft--;
-            const percentage = ((totalTime - timeLeft) / totalTime) * 100;
+
+            const percentage = ((totalTimeSec - timeLeft) / totalTimeSec) * 100;
             progressBar.style.width = percentage + '%';
 
             if (timeLeft <= 0) {
-                clearInterval(countdown);
+                this.clearCountdown();
                 this.handleTimeout();
             }
         }, 1000);
     }
 
-    stayLoggedIn() {
-        this.resetTimers();
-        this.hideWarningModal();
+    clearCountdown() {
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
+            this.countdownInterval = null;
+        }
+    }
 
-        // Send keep-alive request to server
-        this.sendKeepAlive();
+    stayLoggedIn() {
+        // User explicitly chose to extend session
+        this.hideWarningModal();
+        this.resetTimers();   // will clear countdown + restart timers
+        this.sendKeepAlive(); // tell server we're still here
     }
 
     logoutNow() {
@@ -190,6 +261,8 @@ class SessionTimeout {
         if (modal) {
             modal.remove();
         }
+        this.clearCountdown();
+        this.isWarningShown = false;
     }
 
     async sendKeepAlive() {
@@ -198,7 +271,7 @@ class SessionTimeout {
                 method: 'GET',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
                 }
             });
 
@@ -220,7 +293,7 @@ class SessionTimeout {
                 method: 'GET',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
                 }
             });
 
@@ -243,8 +316,6 @@ class SessionTimeout {
 
         this.isTimedOut = true;
         this.hideWarningModal();
-
-        // Show timeout message
         this.showTimeoutMessage();
 
         // Perform logout after a short delay
@@ -254,16 +325,21 @@ class SessionTimeout {
     }
 
     showTimeoutMessage() {
+        const existing = document.getElementById('session-timeout-modal');
+        if (existing) existing.remove();
+
         const modal = document.createElement('div');
         modal.id = 'session-timeout-modal';
         modal.className = 'modal fade show';
         modal.style.display = 'block';
         modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+        modal.style.zIndex = '1056';
+
         modal.innerHTML = `
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title">
+                        <h5 class="modal-title mb-0">
                             <i class="fas fa-clock me-2"></i>
                             Session Expired
                         </h5>
@@ -284,28 +360,31 @@ class SessionTimeout {
 
     async performLogout() {
         try {
-            const response = await fetch('POST /logout', {
+            const response = await fetch('/logout', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                }
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                },
+                body: JSON.stringify({})
             });
 
-            const data = await response.json();
+            let data = {};
+            try {
+                data = await response.json();
+            } catch (e) {
+                // Non-JSON response is fine
+            }
 
-            if (data.success) {
-                // Redirect to login page
+            if (data.success && data.redirect_url) {
                 window.location.href = data.redirect_url;
             } else {
-                // Fallback redirect
-                window.location.href = '/';
+                window.location.href = '/login';
             }
         } catch (error) {
             console.error('Logout failed:', error);
-            // Fallback redirect
-            window.location.href = '/';
+            window.location.href = '/login';
         }
     }
 
@@ -319,24 +398,9 @@ class SessionTimeout {
         if (this.checkTimer) {
             clearInterval(this.checkTimer);
         }
+        this.clearCountdown();
     }
 }
 
-// Initialize session timeout when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    // Only initialize for authenticated users
-    if (document.body.classList.contains('authenticated') ||
-        document.querySelector('meta[name="user-authenticated"]')?.content === 'true') {
-
-        new SessionTimeout({
-            warningTime: 5 * 60 * 1000, // 5 minutes
-            timeoutTime: 10 * 60 * 1000, // 10 minutes
-            checkInterval: 30 * 1000, // 30 seconds
-        });
-    }
-});
-
 // Export for manual initialization if needed
 window.SessionTimeout = SessionTimeout;
-
-

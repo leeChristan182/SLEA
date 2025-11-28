@@ -1,5 +1,6 @@
 <?php
 
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -18,16 +19,11 @@ return new class extends Migration {
                 ->nullable()
                 ->after('ready_for_rating');
 
-            // Application flow statuses
-            // null                = no application yet
-            // ready_for_assessor  = student clicked ‘ready to be rated’
-            // for_admin_review    = assessor forwarded for admin evaluation
-            // awarded             = admin approved the award
-            // rejected            = admin rejected the application
+            // Application flow statuses (NEW scheme)
             $table->string('slea_application_status')
                 ->nullable()
                 ->after('ready_for_rating_at')
-                ->comment('SLEA lifecycle: ready_for_assessor, for_admin_review, awarded, rejected');
+                ->comment('SLEA lifecycle: incomplete, pending_assessor_evaluation, pending_administrative_validation, qualified, not_qualified');
         });
     }
 
