@@ -37,48 +37,61 @@ class StudentController extends Controller
 
         if (Schema::hasTable('student_leaderships')) {
             $leaderships = DB::table('student_leaderships as sl')
-                ->leftJoin('leadership_types as lt', 'sl.leadership_type_id', '=', 'lt.id')
-                ->leftJoin('clusters as c', 'sl.cluster_id', '=', 'c.id')
-                ->leftJoin('organizations as o', 'sl.organization_id', '=', 'o.id')
-                ->leftJoin('positions as p', 'sl.position_id', '=', 'p.id')
-                ->where('sl.user_id', $user->id)
-                ->select(
-                    'sl.*',
+                ->leftJoin('leadership_types as lt', 'lt.id', '=', 'sl.leadership_type_id')
+                ->leftJoin('organizations as org', 'org.id', '=', 'sl.organization_id')
+                ->leftJoin('positions as pos', 'pos.id', '=', 'sl.position_id')
+                ->select([
+                    'sl.id',
+                    'sl.leadership_type_id',
+                    'sl.organization_id',
+                    'sl.position_id',
+                    'sl.start_year',
+                    'sl.end_year',
+                    'sl.is_current',
+                    'sl.created_at',
+                    'sl.updated_at',
                     'lt.name as leadership_type_name',
-                    'lt.key as leadership_type_key',
-                    'c.name as cluster_name',
-                    'o.name as organization_name',
-                    'p.name as position_name'
-                )
+                    'lt.key  as leadership_type_key',
+                    'org.name as organization_name',
+                    'org.category',
+                    'pos.name as position_name',
+                    'pos.is_top_tier',
+                    'pos.leadership_type_id as pos_leadership_type_id',
+                ])
+                ->where('sl.user_id', $user->id)
+                ->orderByDesc('sl.start_year')
+                ->orderByDesc('sl.is_current')
                 ->get();
-        } elseif (Schema::hasTable('leadership_information')) {
-            $leaderships = \App\Models\LeadershipInformation::where('student_id', $user->id)->get();
         } else {
             $leaderships = collect();
         }
 
-        // 👇 New: for the modal dropdown
-        $leadershipTypes = Schema::hasTable('leadership_types')
-            ? DB::table('leadership_types')
-            ->select('id', 'name', 'key', 'requires_org')
-            ->orderByRaw("CASE `key`
-                WHEN 'usg' THEN 1
-                WHEN 'osc' THEN 2
-                WHEN 'lc'  THEN 3
-                WHEN 'cco' THEN 4
-                WHEN 'sco' THEN 5
-                WHEN 'lgu' THEN 6
-                WHEN 'lcm' THEN 7
-                WHEN 'eap' THEN 8
-                ELSE 99
-            END")
-            ->get()
-            : collect();
+        // Pre-load leadership types (with custom sort using CASE for known keys)
+        if (Schema::hasTable('leadership_types')) {
+            $leadershipTypes = DB::table('leadership_types')
+                ->select('*')
+                ->orderByRaw("
+                    CASE `key`
+                        WHEN 'usg' THEN 1
+                        WHEN 'osc' THEN 2
+                        WHEN 'lc'  THEN 3
+                        WHEN 'cco' THEN 4
+                        WHEN 'sco' THEN 5
+                        WHEN 'lgu' THEN 6
+                        WHEN 'lcm' THEN 7
+                        WHEN 'eap' THEN 8
+                        ELSE 99
+                    END
+                ")
+                ->get();
+        } else {
+            $leadershipTypes = collect();
+        }
 
         return view('student.profile', [
-            'user'           => $user,
-            'academic'       => $academic,
-            'leaderships'    => $leaderships,
+            'user'            => $user,
+            'academic'        => $academic,
+            'leaderships'     => $leaderships,
             'leadershipTypes' => $leadershipTypes,
         ]);
     }
@@ -88,20 +101,30 @@ class StudentController extends Controller
     // POST /student/update-avatar
     public function updateAvatar(Request $request)
     {
-        $request->validate([
-            'avatar' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
-        ]);
+        $request->validate(
+            [
+                'profile_picture' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            ],
+            [
+                'profile_picture.required' => 'Please select an image to upload.',
+                'profile_picture.image'    => 'The file must be an image.',
+                'profile_picture.mimes'    => 'Only JPG, JPEG, PNG, and WEBP files are allowed.',
+                'profile_picture.max'      => 'The image must not be greater than 5MB.',
+            ]
+        );
 
-        /** @var User $user */
+        /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        $path = $request->file('avatar')->store('avatars', 'public');
+        // Store the new profile picture
+        $path = $request->file('profile_picture')->store('avatars', 'public');
 
+        // Delete old profile picture if it exists
         if ($user->profile_picture_path && Storage::disk('public')->exists($user->profile_picture_path)) {
             Storage::disk('public')->delete($user->profile_picture_path);
         }
 
-        // Update database with new path
+        // Update user's profile picture path
         $user->profile_picture_path = $path;
         $user->save();
 
@@ -122,34 +145,66 @@ class StudentController extends Controller
         /** @var User $user */
         $user = Auth::user();
 
-        if (! Hash::check($request->current_password, $user->password)) {
-            return back()->withErrors(['current_password' => 'Your current password is incorrect.']);
+        if (!Hash::check($request->current_password, $user->password)) {
+            return back()->withErrors([
+                'current_password' => 'Your current password is incorrect.',
+            ]);
         }
 
-        $user->password = $request->password; // model mutator will hash
+        // Store old hash in a password history table if needed, or log it
+        DB::table('password_changes')->insert([
+            'user_id'                => $user->id,
+            'previous_password_hash' => $user->password,
+            'changed_at'             => now(),
+        ]);
+
+        $user->password = Hash::make($request->password);
         $user->save();
 
-        return back()->with('status', 'Password updated.');
+        return back()->with('status', 'Password updated successfully.');
     }
 
     /* =========================
-     | ACADEMIC INFO & LEADERSHIP
+     | ACADEMIC & ELIGIBILITY
      * ========================= */
 
-    // POST /student/update-academic
-    public function updateAcademicInfo(Request $request)
+    // GET /student/academic
+    public function academic()
     {
         /** @var User $user */
         $user = Auth::user();
 
-        if (! Schema::hasTable('student_academic')) {
-            return back()->withErrors(['student_number' => 'Academic table not found.']);
-        }
+        $colleges = Schema::hasTable('colleges')
+            ? DB::table('colleges')->orderBy('name')->get()
+            : collect();
 
-        // Validate only real columns / foreign keys
+        $programs = Schema::hasTable('programs')
+            ? DB::table('programs')->orderBy('name')->get()
+            : collect();
+
+        $majors = Schema::hasTable('majors')
+            ? DB::table('majors')->orderBy('name')->get()
+            : collect();
+
+        $academic = Schema::hasTable('student_academic')
+            ? StudentAcademic::with(['college', 'program', 'major'])
+            ->where('user_id', $user->id)
+            ->first()
+            : null;
+
+        return view('student.academic', compact('user', 'academic', 'colleges', 'programs', 'majors'));
+    }
+
+    // POST /student/academic
+    public function saveAcademic(Request $request)
+    {
+        /** @var User $user */
+        $user = Auth::user();
+
         $data = $request->validate([
             'student_number' => ['nullable', 'string', 'max:30'],
             'year_level'     => ['nullable', 'string', 'max:20'],
+            'expected_grad_year' => ['nullable', 'integer', 'digits:4'],
 
             'college_id'     => ['nullable', 'exists:colleges,id'],
             'program_id'     => ['nullable', 'exists:programs,id'],
@@ -161,26 +216,10 @@ class StudentController extends Controller
         $current = StudentAcademic::where('user_id', $user->id)->first();
 
         // --- Compute expected graduation year ---
-        // Rule (same as before): take first 4 digits of student_number as entry year, add 4
-        $expectedGradYear = null;
-        $numberForCalc = $data['student_number']
-            ?? ($current->student_number ?? null);
-
-        if (is_string($numberForCalc) && preg_match('/^\s*(\d{4})/', $numberForCalc, $m)) {
-            $entry = (int) $m[1];
-            if ($entry > 1900 && $entry < 3000) {
-                $expectedGradYear = $entry + 4; // adjust if you use 5-year programs
-            }
-        }
-
-        // Determine if program/major changed (forces revalidation)
-        $programChanged = isset($data['program_id']) && $current
-            && (int) $current->program_id !== (int) $data['program_id'];
-
-        $majorChanged = isset($data['major_id']) && $current
-            && (int) $current->major_id !== (int) $data['major_id'];
-
-        // Exceeded expected year?
+        // Rule (same as before):
+        //   If explicitly given (expected_grad_year), use that;
+        //   otherwise preserve previous expected_grad_year if it exists.
+        $expectedGradYear = $data['expected_grad_year'] ?? null;
         $nowYear  = (int) now()->year;
         $oldExpected = $current ? $current->expected_grad_year : null;
         $baseExpected = $expectedGradYear ?? $oldExpected;
@@ -189,109 +228,60 @@ class StudentController extends Controller
         // Decide new eligibility_status
         // - If exceeded OR program/major changed → under_review
         // - Else → eligible
-        $oldEligibility = $current ? ($current->eligibility_status ?? 'eligible') : 'eligible';
+        $oldEligibility = $current
+            ? ($current->eligibility_status ?? StudentAcademic::ELIG_ELIGIBLE)
+            : StudentAcademic::ELIG_ELIGIBLE; // CHANGED: use StudentAcademic constants instead of hardcoded 'eligible'
+
+        $programChanged = $current && $data['program_id'] && (int) $current->program_id !== (int) $data['program_id'];
+        $majorChanged   = $current && array_key_exists('major_id', $data) && $data['major_id'] !== $current->major_id;
 
         if ($exceeded || $programChanged || $majorChanged) {
-            $newEligibility = 'under_review';
+            $newEligibility = StudentAcademic::ELIG_UNDER_REVIEW; // CHANGED: use StudentAcademic::ELIG_UNDER_REVIEW instead of raw string
         } else {
-            $newEligibility = 'eligible';
+            $newEligibility = StudentAcademic::ELIG_ELIGIBLE; // CHANGED: use StudentAcademic::ELIG_ELIGIBLE instead of raw string
         }
 
         // Build payload (fall back to current values when fields are omitted)
         $payload = [
             'user_id'            => $user->id,
             'student_number'     => $data['student_number'] ?? ($current->student_number ?? null),
+            'year_level'         => $data['year_level'] ?? ($current->year_level ?? null),
+            'expected_grad_year' => $expectedGradYear ?? $oldExpected,
             'college_id'         => $data['college_id'] ?? ($current->college_id ?? null),
             'program_id'         => $data['program_id'] ?? ($current->program_id ?? null),
-            'major_id'           => $data['major_id'] ?? ($current->major_id ?? null),
-            'year_level'         => $data['year_level'] ?? ($current->year_level ?? null),
-            'graduate_prior'     => $current->graduate_prior ?? null,
-            'expected_grad_year' => $baseExpected,
+            'major_id'           => array_key_exists('major_id', $data)
+                ? $data['major_id']
+                : ($current->major_id ?? null),
             'eligibility_status' => $newEligibility,
-            // Keep revalidated_at as-is here; you probably have a separate flow to set it.
-            'revalidated_at'     => $current->revalidated_at ?? null,
         ];
 
         if ($current) {
-            $current->fill($payload);
-            $current->save();
-            $academic = $current;
+            $current->update($payload);
         } else {
-            $academic = StudentAcademic::create($payload);
+            $current = StudentAcademic::create($payload);
         }
 
         // Messaging hint for UX
-        $msg = $newEligibility === 'under_review'
+        $msg = $newEligibility === StudentAcademic::ELIG_UNDER_REVIEW // CHANGED: compare using constant, not string
             ? 'Academic information saved. Your eligibility is now under review.'
             : 'Academic information saved.';
 
         // If you’re saving via AJAX, you can return JSON; otherwise redirect back
         if ($request->wantsJson()) {
             return response()->json([
-                'message'  => $msg,
-                'academic' => $academic->load(['college', 'program', 'major']),
+                'message'       => $msg,
+                'academic'      => $current,
+                'eligibility'   => $newEligibility,
+                'old_eligibility' => $oldEligibility,
             ]);
         }
 
         return back()->with('status', $msg);
     }
 
-    // POST /student/update-leadership
-    public function updateLeadership(Request $request)
-    {
-        /** @var User $user */
-        $user = Auth::user();
-
-        if (! Schema::hasTable('student_leaderships')) {
-            return back()->withErrors(['leadership' => 'Leadership table not found.']);
-        }
-
-        $request->validate([
-            'leadership'                            => ['required', 'array'],
-            'leadership.*.id'                       => ['nullable', 'integer'],
-            'leadership.*.leadership_type_id'       => ['required', 'integer', 'exists:leadership_types,id'],
-            'leadership.*.cluster_id'               => ['nullable', 'integer', 'exists:clusters,id'],
-            'leadership.*.organization_id'          => ['nullable', 'integer', 'exists:organizations,id'],
-            'leadership.*.position_id'              => ['required', 'integer', 'exists:positions,id'],
-            'leadership.*.leadership_status'        => ['required', 'in:Active,Inactive'],
-            'leadership.*.term'                     => ['required', 'string', 'max:25'],
-            'leadership.*.issued_by'                => ['required', 'string', 'max:150'],
-            // Optional extra fields (you already had these)
-            'leadership.*.scope'                    => ['nullable', 'string', 'max:32'],
-            'leadership.*.from'                     => ['nullable', 'date'],
-            'leadership.*.to'                       => ['nullable', 'date', 'after_or_equal:leadership.*.from'],
-        ]);
-
-        foreach ($request->input('leadership') as $row) {
-            $base = [
-                'user_id'            => $user->id,
-                'leadership_type_id' => (int) $row['leadership_type_id'],
-                'cluster_id'         => $row['cluster_id'] ?? null,
-                'organization_id'    => $row['organization_id'] ?? null,
-                'position_id'        => (int) $row['position_id'],
-                'term'               => $row['term'] ?? null,
-                'issued_by'          => $row['issued_by'] ?? null,
-                'leadership_status'  => $row['leadership_status'] ?? 'Active',
-                'scope'              => $row['scope'] ?? null,
-                'from'               => $row['from'] ?? null,
-                'to'                 => $row['to'] ?? null,
-                'updated_at'         => now(),
-            ];
-
-            if (!empty($row['id'])) {
-                DB::table('student_leaderships')
-                    ->where('id', $row['id'])
-                    ->where('user_id', $user->id)
-                    ->update($base);
-            } else {
-                $base['created_at'] = now();
-                DB::table('student_leaderships')->insert($base);
-            }
-        }
-
-        return back()->with('status', 'Leadership records saved.');
-    }
-
+    /* =========================
+     | REVALIDATION & COR
+     * ========================= */
 
     // GET /student/revalidation
     public function revalidation()
@@ -299,77 +289,38 @@ class StudentController extends Controller
         /** @var User $user */
         $user = Auth::user();
 
-        // If this student is NOT locked anymore, send them to profile (or submit page)
-        if (! $user->awardLocked()) {
-            return redirect()->route('student.profile'); // or route('student.submissions.create')
-        }
-
-        $academic = Schema::hasTable('student_academic')
-            ? DB::table('student_academic')->where('user_id', $user->id)->first()
-            : null;
+        $academic = DB::table('student_academic')
+            ->where('user_id', $user->id)
+            ->first();
 
         return view('student.revalidation', compact('user', 'academic'));
     }
 
     // POST /student/upload-cor
-    // POST /student/upload-cor
     public function uploadCOR(Request $request)
     {
         $request->validate([
-            'cor' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:6144'], // 6 MB
+            'cor' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:6144'],
         ]);
 
         /** @var User $user */
         $user = Auth::user();
 
-        if (! Schema::hasTable('student_academic')) {
-            // If AJAX, send JSON error; otherwise redirect with errors
-            if ($request->expectsJson() || $request->ajax()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Academic table not found.',
-                ], 500);
-            }
+        $file = $request->file('cor');
+        $path = $file->store('cor', 'public');
 
-            return back()->withErrors(['cor' => 'Academic table not found.']);
-        }
-
-        // Store file
-        $path = $request->file('cor')->store('cor', 'student_docs');
-        $now  = now();
-
-        // Upsert into student_academic
-        $data = [
-            'user_id'                          => $user->id,
-            'certificate_of_registration_path' => $path,
-            'updated_at'                       => $now,
-        ];
-
-        $exists = DB::table('student_academic')->where('user_id', $user->id)->first();
-
-        if ($exists) {
-            DB::table('student_academic')
-                ->where('user_id', $user->id)
-                ->update($data);
-        } else {
-            $data['created_at'] = $now;
-            DB::table('student_academic')->insert($data);
-        }
-
-        // Optional: log to user_documents with NEW column names
-        if (Schema::hasTable('user_documents')) {
-            DB::table('user_documents')->insert([
-                'user_id'      => $user->id,
-                'doc_type'     => 'cor',
-                'storage_path' => $path,
-                'meta'         => json_encode([
-                    'uploaded_via' => 'profile_page',
-                    'uploaded_at'  => $now->toDateTimeString(),
-                ]),
-                'created_at'   => $now,
-                'updated_at'   => $now,
-            ]);
-        }
+        // Save COR path on the user (or a dedicated table if needed)
+        DB::table('user_documents')->updateOrInsert(
+            [
+                'user_id' => $user->id,
+                'type'    => 'cor',
+            ],
+            [
+                'path'       => $path,
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
 
         // Recalculate eligibility ONLY for this user
         $academic = DB::table('student_academic')->where('user_id', $user->id)->first();
@@ -378,25 +329,22 @@ class StudentController extends Controller
 
         if ($academic) {
             $nowYear = (int) now()->year;
-            $status  = 'eligible';
+            $status  = StudentAcademic::ELIG_ELIGIBLE; // CHANGED: use constant for default eligibility
 
             if (!empty($academic->expected_grad_year) && $nowYear > (int) $academic->expected_grad_year) {
-                $status = 'needs_revalidation';
+                $status = StudentAcademic::ELIG_NEEDS_REVALIDATION; // CHANGED: use constant when marking as needs revalidation
             }
 
             DB::table('student_academic')
                 ->where('user_id', $user->id)
                 ->update([
                     'eligibility_status' => $status,
-                    'updated_at'         => $now,
+                    'updated_at'         => now(),
                 ]);
         }
 
-
-        // If AJAX (used by student_profile.js) → JSON
-        if ($request->expectsJson() || $request->ajax()) {
+        if ($request->expectsJson()) {
             return response()->json([
-                'success'            => true,
                 'message'            => 'Certificate of Registration uploaded.',
                 'cor_path'           => $path,
                 'cor_url'            => route('student.cor.view'),
@@ -417,28 +365,6 @@ class StudentController extends Controller
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        abort_unless($user->isStudent(), 403);
-
-        // Refresh the relationship to get the latest status
-        /** @var \App\Models\User $user */
-        $user->load('studentAcademic');
-        $academic = $user->studentAcademic;
-
-        // If academic record doesn't exist, create a basic one
-        if (!$academic) {
-            $academic = \App\Models\StudentAcademic::firstOrCreate(
-                ['user_id' => $user->id],
-                [
-                    'slea_application_status' => null,
-                    'ready_for_rating' => false,
-                ]
-            );
-            // Reload to get the fresh record
-            $academic->refresh();
-        } else {
-            // Refresh to get latest data from database
-            $academic->refresh();
-        }
 
         // 1) Load rubric categories in display order
         $categories = RubricCategory::orderBy('order_no')->get();
@@ -446,155 +372,86 @@ class StudentController extends Controller
         // 2) Get all reviews for this student's APPROVED submissions (from all assessors)
         // We need to aggregate scores across all assessors for the same submission
         $reviews = SubmissionReview::query()
+            ->select(
+                'submission_id',
+                'rubric_category_id',
+                DB::raw('AVG(total_score) as avg_score'),
+                DB::raw('MAX(max_score)   as max_score')
+            )
             ->whereHas('submission', function ($q) use ($user) {
-                $q->where('user_id', $user->id)
-                    ->where('status', 'approved'); // ✅ only approved submissions count
+                $q->where('student_id', $user->id)
+                    ->where('status', 'approved'); // status of submission (APPROVED)
             })
-            ->with(['submission.category'])
+            ->groupBy('submission_id', 'rubric_category_id')
             ->get();
 
-        // 3) Sum scores per category key
-        // Group by submission_id first to get the latest review per submission (in case multiple assessors reviewed)
-        $scoresByCategoryKey = [];
-        $reviewsBySubmission = $reviews->groupBy('submission_id');
-
-        foreach ($reviewsBySubmission as $submissionId => $submissionReviews) {
-            // Get the latest review for this submission (most recent)
-            $review = $submissionReviews->sortByDesc('reviewed_at')->first();
-
-            // Skip if no score (null), but allow 0 scores as they might be valid
-            if (!isset($review->score) || $review->score === null) {
-                continue;
+        // 3) Aggregate per category
+        $categoryScores = [];
+        foreach ($reviews as $r) {
+            if (!isset($categoryScores[$r->rubric_category_id])) {
+                $categoryScores[$r->rubric_category_id] = [
+                    'total_score' => 0,
+                    'max_score'   => 0,
+                ];
             }
-
-            $submission = $review->submission;
-            if (!$submission) {
-                continue;
-            }
-
-            // Try to get category from submission first, then from review's rubric_category_id
-            $category = $submission->category;
-            if (!$category && $review->rubric_category_id) {
-                $category = RubricCategory::find($review->rubric_category_id);
-            }
-
-            if (!$category) {
-                continue;
-            }
-
-            $key = $category->key; // e.g. leadership, academic, awards, community, conduct
-
-            if (!isset($scoresByCategoryKey[$key])) {
-                $scoresByCategoryKey[$key] = 0.0;
-            }
-
-            $scoresByCategoryKey[$key] += (float) $review->score;
+            $categoryScores[$r->rubric_category_id]['total_score'] += $r->avg_score;
+            $categoryScores[$r->rubric_category_id]['max_score']   += $r->max_score;
         }
 
-        // 4) Build perfData
-        $roman = [1 => 'I', 2 => 'II', 3 => 'III', 4 => 'IV', 5 => 'V', 6 => 'VI'];
-        $perfCategories = [];
-        $totalEarned = 0.0;
-        $totalMax    = 0.0;
-        $index       = 1;
+        // 4) Build performance data array for the view
+        $perfData = $categories->map(function ($cat) use ($categoryScores) {
+            $scores = $categoryScores[$cat->id] ?? ['total_score' => 0, 'max_score' => 0];
 
-        foreach ($categories as $cat) {
-            $key       = $cat->key;
-            $max       = (float) ($cat->max_points ?? 0);
-            $rawEarned = (float) ($scoresByCategoryKey[$key] ?? 0);
-
-            // ❌ Old: $earned = $max > 0 ? min($rawEarned, $max) : $rawEarned;
-            // ✅ New: show full earned points
-            $earned = $rawEarned;
-
-            $labelPrefix = $roman[$index] ?? ($index . '.');
-            $label       = "{$labelPrefix}. {$cat->title}";
-
-            $perfCategories[] = [
-                'key'    => $key,
-                'label'  => $label,
-                'earned' => round($earned, 2),
-                'max'    => $max,
+            return [
+                'category'    => $cat->name,
+                'description' => $cat->description,
+                'total_score' => $scores['total_score'],
+                'max_score'   => $scores['max_score'],
+                'percentage'  => $scores['max_score'] > 0
+                    ? round(($scores['total_score'] / $scores['max_score']) * 100, 2)
+                    : 0,
             ];
+        });
 
-            $totalEarned += $earned;
-            $totalMax    += $max;
-            $index++;
-        }
-
-
-        $perfData = [
-            'totals' => [
-                'earned' => round($totalEarned, 2),
-                'max'    => round($totalMax, 2),
-            ],
-            'categories' => $perfCategories,
-        ];
-
-        // Get the status directly from database to ensure we have the latest value
-        $status = $academic ? \App\Models\StudentAcademic::where('user_id', $user->id)
-            ->value('slea_application_status') : null;
-
-        // Log for debugging
-        Log::info('Student performance page loaded', [
-            'user_id' => $user->id,
-            'status_from_relationship' => $academic?->slea_application_status,
-            'status_from_db' => $status,
-            'ready_for_rating' => (bool) ($academic->ready_for_rating ?? false),
-        ]);
+        // Extra: get the student's SLEA application status & ready_for_rating flag
+        $academic = StudentAcademic::where('user_id', $user->id)->first();
 
         return view('student.performance', [
-            'perfData'               => $perfData,
-            'slea_application_status' => $status ?? $academic?->slea_application_status,
-            'ready_for_rating'       => (bool) ($academic->ready_for_rating ?? false),
+            'perfData'                => $perfData,
+            'slea_application_status' => $academic?->slea_application_status,
+            'ready_for_rating'        => (bool) ($academic->ready_for_rating ?? false),
         ]);
     }
 
     // GET /student/criteria
-
     public function criteria()
     {
-        // If rubric tables are missing (dev / migration issue), avoid crashing
-        if (!Schema::hasTable('rubric_categories')) {
-            return view('student.criteria', [
-                'categories' => collect(),
-            ]);
-        }
-
-        // Load the full rubric: category → sections → subsections → options
-        $categories = RubricCategory::with([
-            'sections.subsections.options',
-        ])
+        $categories = RubricCategory::with(['sections.subsections.options'])
             ->orderBy('order_no')
             ->get();
 
-        return view('student.criteria', [
-            'categories' => $categories,
-        ]);
+        return view('student.criteria', compact('categories'));
     }
-
 
     // GET /student/history
     public function history()
     {
-        if (! Schema::hasTable('submissions')) {
-            $submissions = collect();
-        } else {
-            $submissions = Submission::with([
-                'category',
-                'leadership',
-                'latestHistory', // from Submission model
+        /** @var User $user */
+        $user = Auth::user();
+
+        // Only show submissions from the logged-in student
+        $submissions = Submission::query()
+            ->where('student_id', $user->id)
+            ->with([
+                'rubricCategory',
                 'reviews' => function ($q) {
-                    $q->latest('reviewed_at');
+                    $q->orderByDesc('reviewed_at');
                 },
             ])
-                ->where('user_id', Auth::id())
-                ->orderByDesc('submitted_at')
-                ->orderByDesc('created_at')
-                ->paginate(5);
-        }
+            ->orderByDesc('submitted_at')
+            ->orderByDesc('created_at')
+            ->paginate(5); // still hardcoded page size (view-specific UX choice)
 
-        // resources/views/student/history.blade.php
         return view('student.history', [
             'submissions' => $submissions,
         ]);

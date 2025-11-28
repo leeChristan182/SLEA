@@ -14,12 +14,12 @@ return new class extends Migration
             $table->string('action', 20)->nullable();
             $table->dateTime('request_date');
             $table->string('status', 20)->nullable();
-            $table->string('remarks', 255)->nullable();
+            $table->string('remarks', 191)->nullable();
             $table->timestamps();
 
             $table->foreign('submission_id')
-                  ->references('submission_id')->on('submissions')
-                  ->onDelete('cascade');
+                ->references('submission_id')->on('submissions')
+                ->onDelete('cascade');
         });
     }
 

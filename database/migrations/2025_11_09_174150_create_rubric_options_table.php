@@ -14,7 +14,7 @@ return new class extends Migration {
             $table->foreign('sub_section_id')->references('sub_section_id')->on('rubric_subsections')->onDelete('cascade');
 
             $table->string('code', 100)->nullable();
-            $table->string('label', 255);
+            $table->string('label', 191);
             $table->decimal('points', 8, 2);   // can be negative
             $table->unsignedSmallInteger('order_no')->default(1);
 

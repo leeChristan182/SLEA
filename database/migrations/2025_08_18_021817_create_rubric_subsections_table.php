@@ -14,7 +14,7 @@ return new class extends Migration {
             $table->foreign('section_id')->references('section_id')->on('rubric_sections')->onDelete('cascade');
 
             $table->string('key', 150)->nullable()->unique();
-            $table->string('sub_section', 255);
+            $table->string('sub_section', 191);
             $table->text('evidence_needed')->nullable();
             $table->decimal('max_points', 8, 2)->nullable();
             $table->decimal('cap_points', 8, 2)->nullable();

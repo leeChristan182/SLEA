@@ -18,20 +18,20 @@ return new class extends Migration {
             $table->unsignedBigInteger('leadership_id')->nullable(); // FK to rubric_subsection_leadership.id
 
             // === Submission Info ===
-            $table->string('activity_title', 255);
-            $table->string('activity_type', 255);
-            $table->string('activity_role', 255);
+            $table->string('activity_title', 191);
+            $table->string('activity_type', 191);
+            $table->string('activity_role', 191);
             $table->date('activity_date');
 
-            $table->string('organizing_body', 255);
+            $table->string('organizing_body', 191);
             $table->string('term', 50)->nullable();
             $table->string('issued_by', 50)->nullable();
             $table->string('note', 100)->nullable();
 
             // === Document Info ===
-            $table->string('document_type', 255)->nullable();
-            $table->string('document_title', 255)->nullable();
-            $table->string('document_title_path', 255)->nullable();
+            $table->string('document_type', 191)->nullable();
+            $table->string('document_title', 191)->nullable();
+            $table->string('document_title_path', 191)->nullable();
 
             $table->dateTime('datedocu_submitted')->nullable();
 

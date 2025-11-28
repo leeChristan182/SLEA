@@ -10,7 +10,7 @@ return new class extends Migration {
         Schema::create('leadership_types', function (Blueprint $table) {
             $table->id();
             $table->string('key', 120)->unique();   // elective, appointive, designation, training
-            $table->string('name', 255)->unique();
+            $table->string('name', 191)->unique();
             $table->text('description')->nullable();
             $table->timestamps();
         });

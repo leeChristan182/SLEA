@@ -10,7 +10,7 @@ return new class extends Migration {
         Schema::create('rubric_sections', function (Blueprint $table) {
             $table->bigIncrements('section_id');
             $table->unsignedBigInteger('category_id');
-            $table->string('title', 255);
+            $table->string('title', 191);
             $table->text('evidence')->nullable();
             $table->decimal('max_points', 5, 2)->nullable();
             $table->text('notes')->nullable();

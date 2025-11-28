@@ -9,10 +9,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('college_programs', function (Blueprint $table) {
-            
-            $table->string('college_name', 255);
-            $table->string('program_name', 255);
-            $table->string('major_name', 255)->nullable();
+
+            $table->string('college_name', 191);
+            $table->string('program_name', 191);
+            $table->string('major_name', 191)->nullable();
             $table->timestamps();
         });
     }

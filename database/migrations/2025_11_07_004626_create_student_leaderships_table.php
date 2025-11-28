@@ -19,7 +19,7 @@ return new class extends Migration {
                 ->constrained('leadership_types')
                 ->nullOnDelete();
 
-            // For CCO club orgs
+            // For CCO / club org groupings
             $table->foreignId('cluster_id')
                 ->nullable()
                 ->constrained('clusters')
@@ -35,21 +35,21 @@ return new class extends Migration {
                 ->constrained('positions')
                 ->nullOnDelete();
 
-            // Term string instead of start/end dates (e.g., "2023-2024")
-            $table->string('term', 25)->nullable();
+            // e.g. "AY 2024–2025", "1st Sem 2023–2024"
+            $table->string('term', 100)->nullable();
 
-            // Leadership status (Active / Inactive) referencing enum table
-            $table->string('leadership_status', 20)->nullable();
-            $table->foreign('leadership_status')
-                ->references('key')
-                ->on('student_leadership_statuses');
+            // Matches your enum codes: "Active", "Inactive"
+            $table->string('leadership_status', 50)->default('Active');
 
-            $table->string('issued_by', 255)->nullable();
+            // e.g. "OSAS", "Department Chair", etc.
+            $table->string('issued_by', 191)->nullable();
+
+            // If you attach COR / appointment letter, etc.
             $table->json('attachments')->nullable();
 
             $table->timestamps();
 
-            $table->index(['user_id', 'organization_id', 'position_id']);
+            $table->index(['user_id', 'organization_id', 'position_id'], 'student_leaderships_main_idx');
         });
     }
 

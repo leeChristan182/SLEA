@@ -13,7 +13,7 @@ return new class extends Migration {
                 ->constrained('rubric_categories')->onDelete('cascade');
 
             $table->string('key', 150)->nullable()->unique();
-            $table->string('title', 255);
+            $table->string('title', 191);
             $table->text('evidence')->nullable();
 
             // Optional aggregation config (but no max points here)

@@ -21,7 +21,7 @@ return new class extends Migration {
             $table->unsignedBigInteger('rubric_subsection_id')->nullable();
             $table->foreign('rubric_subsection_id')->references('sub_section_id')->on('rubric_subsections')->nullOnDelete();
 
-            $table->string('activity_title', 255);
+            $table->string('activity_title', 191);
             $table->text('description')->nullable();
             $table->json('attachments')->nullable();
             $table->json('meta')->nullable();
@@ -33,7 +33,10 @@ return new class extends Migration {
             $table->timestamp('submitted_at')->useCurrent();
             $table->timestamps();
 
-            $table->index(['rubric_category_id', 'rubric_section_id', 'rubric_subsection_id']);
+            $table->index(
+                ['rubric_category_id', 'rubric_section_id', 'rubric_subsection_id'],
+                'submissions_rubric_combo_idx'
+            );
             $table->index(['status', 'submitted_at']);
         });
     }

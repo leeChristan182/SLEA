@@ -14,7 +14,7 @@ return new class extends Migration {
             $table->string('middle_name', 50)->nullable();
 
             $table->string('email', 100)->unique();
-            $table->string('password', 255);            // ensure length
+            $table->string('password', 191);            // ensure length
             $table->string('contact', 20)->nullable();
 
             $table->date('birth_date')->nullable();     // enforce “student ⇒ required” in validation or trigger
@@ -32,11 +32,11 @@ return new class extends Migration {
         Schema::create('password_changes', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->string('previous_password_hash', 255);
+            $table->string('previous_password_hash', 191);
             $table->timestamp('changed_at')->useCurrent();
             $table->string('changed_by')->nullable();  // 'self' or admin id/email
             $table->ipAddress('ip')->nullable();
-            $table->string('user_agent', 255)->nullable();
+            $table->string('user_agent', 191)->nullable();
             $table->timestamps();
         });
 
@@ -44,8 +44,8 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('created_by_admin_id')->nullable()->constrained('users')->nullOnDelete();
-            // $table->string('default_password', 255);   // REMOVE
-            $table->string('temporary_password_hash', 255)->nullable(); // if you insist on temp passwords
+            // $table->string('default_password', 191);   // REMOVE
+            $table->string('temporary_password_hash', 191)->nullable(); // if you insist on temp passwords
             $table->boolean('must_change_password')->default(true);
             $table->dateTime('date_created');
             $table->timestamps();

@@ -11,8 +11,8 @@ return new class extends Migration {
             $table->bigIncrements('sub_items'); // Primary Key
             $table->unsignedBigInteger('section_id'); // FK -> rubric_sections.section_id
 
-            $table->string('sub_section', 255);
-            $table->text('evidence_needed')->nullable(); // allow longer text than 255
+            $table->string('sub_section', 191);
+            $table->text('evidence_needed')->nullable(); // allow longer text than 191
             $table->decimal('max_points', 5, 2)->nullable(); // supports positive/negative values
             $table->text('notes')->nullable(); // allows full paragraph notes
             $table->unsignedTinyInteger('order_no')->default(1);

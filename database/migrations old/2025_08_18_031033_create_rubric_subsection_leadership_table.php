@@ -11,7 +11,7 @@ return new class extends Migration {
             $table->id();
             $table->unsignedBigInteger('section_id');
             $table->unsignedBigInteger('sub_section_id')->nullable(); // 🔹 New column
-            $table->string('position', 255);
+            $table->string('position', 191);
             $table->decimal('points', 4, 2);
             $table->unsignedTinyInteger('position_order')->default(1);
             $table->timestamps();

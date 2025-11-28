@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('award_reports', function (Blueprint $table) {
-            $table->string('award_type', 255)->after('action');
+            $table->string('award_type', 191)->after('action');
             $table->timestamp('award_date')->nullable()->after('award_type');
             $table->text('remarks')->nullable()->after('award_date');
         });

@@ -9,8 +9,8 @@ return new class extends Migration {
     {
         Schema::create('organizations', function (Blueprint $table) {
             $table->id();
-            $table->string('name', 255);
-            $table->string('slug', 255)->unique();
+            $table->string('name', 191);
+            $table->string('slug', 191)->unique();
             $table->foreignId('cluster_id')->nullable()->constrained('clusters')->nullOnDelete();
 
             $table->unsignedBigInteger('parent_id')->nullable();

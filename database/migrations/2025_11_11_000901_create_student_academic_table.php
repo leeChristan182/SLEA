@@ -16,7 +16,7 @@ return new class extends Migration {
                 ->onDelete('cascade');
 
             // Student no. and program affiliation
-            $table->string('student_number', 20)->unique();
+            $table->string('student_number', 15)->unique();
 
             $table->foreignId('college_id')
                 ->nullable()
@@ -34,7 +34,7 @@ return new class extends Migration {
                 ->nullOnDelete();
 
             // Misc
-            $table->string('year_level', 20);
+            $table->string('year_level', 10);
             $table->unsignedSmallInteger('graduate_prior')->nullable();
 
             // Extra fields used in your app (optional but consistent)

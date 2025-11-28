@@ -10,7 +10,7 @@ return new class extends Migration {
         Schema::create('positions', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('leadership_type_id'); // linked to leadership_types
-            $table->string('name', 255); // Position name, e.g., President, Treasurer, etc.
+            $table->string('name', 191); // Position name, e.g., President, Treasurer, etc.
             $table->timestamps();
 
             $table->foreign('leadership_type_id')

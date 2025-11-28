@@ -10,7 +10,7 @@ return new class extends Migration {
         Schema::create('rubric_categories', function (Blueprint $table) {
             $table->id();
             $table->string('key', 100)->unique();
-            $table->string('title', 255);
+            $table->string('title', 191);
             $table->text('description')->nullable();
             $table->decimal('max_points', 8, 2)->default(0);
             $table->decimal('min_required_points', 8, 2)->default(0);

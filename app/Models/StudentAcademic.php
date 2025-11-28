@@ -3,11 +3,26 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class StudentAcademic extends Model
 {
+
     use HasFactory;
+    public const ELIG_NEEDS_REVALIDATION = 'needs_revalidation';
+    public const ELIG_UNDER_REVIEW       = 'under_review';
+    public const ELIG_ELIGIBLE           = 'eligible';
+    public const ELIG_INELIGIBLE         = 'ineligible';
+
+    // SLEA application statuses (slea_application_status column)
+    const SLEA_STATUS_INCOMPLETE                     = 'incomplete';
+    const SLEA_STATUS_PENDING_ASSESSOR_EVAL          = 'pending_assessor_evaluation';
+    const SLEA_STATUS_PENDING_ADMIN_VALIDATION       = 'pending_administrative_validation';
+    const SLEA_STATUS_QUALIFIED                      = 'qualified';
+    const SLEA_STATUS_NOT_QUALIFIED                  = 'not_qualified';
 
     protected $table = 'student_academic';
 
@@ -116,28 +131,33 @@ class StudentAcademic extends Model
     {
         $this->ready_for_rating        = true;
         $this->ready_for_rating_at     = now();
-        $this->slea_application_status = 'pending_assessor_evaluation';
+        // BEFORE: 'pending_assessor_evaluation'
+        $this->slea_application_status = self::SLEA_STATUS_PENDING_ASSESSOR_EVAL;
         $this->save();
     }
+
     public function markReadyForAdminReview(): void
     {
         // enum from slea_application_statuses table
-        $this->slea_application_status = 'pending_administrative_validation';
-        $this->save();
-    }
-    // in StudentAcademic.php
-
-    public function markAwarded()
-    {
-        $this->slea_application_status = 'qualified';
+        // BEFORE: 'pending_administrative_validation'
+        $this->slea_application_status = self::SLEA_STATUS_PENDING_ADMIN_VALIDATION;
         $this->save();
     }
 
-    public function markNotQualified()
+    public function markAwarded(): void
     {
-        $this->slea_application_status = 'not_qualified';
+        // BEFORE: 'qualified'
+        $this->slea_application_status = self::SLEA_STATUS_QUALIFIED;
         $this->save();
     }
+
+    public function markNotQualified(): void
+    {
+        // BEFORE: 'not_qualified'
+        $this->slea_application_status = self::SLEA_STATUS_NOT_QUALIFIED;
+        $this->save();
+    }
+
     /**
      * Check if this student has a COR uploaded.
      */

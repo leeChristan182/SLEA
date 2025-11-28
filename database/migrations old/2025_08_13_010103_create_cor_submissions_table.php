@@ -10,7 +10,7 @@ return new class extends Migration {
         Schema::create('cor_submissions', function (Blueprint $table) {
             $table->increments('cor_id');                 // AI PK
             $table->string('student_id', 20)->index();    // string FK (no constraint for SQLite safety)
-            $table->string('file_name', 255);
+            $table->string('file_name', 191);
             $table->string('file_type', 10);
             $table->unsignedBigInteger('file_size');
             $table->dateTime('upload_date');

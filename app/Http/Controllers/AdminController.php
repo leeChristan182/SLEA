@@ -44,12 +44,12 @@ class AdminController extends Controller
         $user = Auth::user();
 
         $data = $request->validate([
-            'first_name' => ['required', 'string', 'max:50'],
-            'last_name'  => ['required', 'string', 'max:50'],
+            'first_name'  => ['required', 'string', 'max:50'],
+            'last_name'   => ['required', 'string', 'max:50'],
             'middle_name' => ['nullable', 'string', 'max:50'],
-            'email'      => ['required', 'email', 'max:100', Rule::unique('users', 'email')->ignore($user->id)],
-            'contact'    => ['nullable', 'string', 'max:20'],
-            'birth_date' => ['nullable', 'date'],
+            'email'       => ['required', 'email', 'max:100', Rule::unique('users', 'email')->ignore($user->id)],
+            'contact'     => ['nullable', 'string', 'max:20'],
+            'birth_date'  => ['nullable', 'date'],
         ]);
 
         $user->update($data);
@@ -65,7 +65,7 @@ class AdminController extends Controller
             $request->validate([
                 'avatar' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) { // CHANGED: imported class alias used directly
             if ($request->ajax() || $request->expectsJson()) {
                 return response()->json([
                     'success' => false,
@@ -118,15 +118,15 @@ class AdminController extends Controller
 
         $data = $request->validate([
             'current_password'      => ['required'],
-            'password'              => ['required', 'confirmed', \Illuminate\Validation\Rules\Password::defaults()],
+            'password'              => ['required', 'confirmed', PasswordRule::defaults()], // CHANGED: use aliased PasswordRule
             'password_confirmation' => ['required'],
         ]);
 
-        if (!Hash::check($data['current_password'], $user->password)) {
+        if (! Hash::check($data['current_password'], $user->password)) {
             return back()->withErrors(['current_password' => 'Current password is incorrect.']);
         }
 
-        // Store previous hash in password_changes table (if you already do this)
+        // Store previous hash in password_changes table
         DB::table('password_changes')->insert([
             'user_id'                => $user->id,
             'previous_password_hash' => $user->password,
@@ -163,7 +163,10 @@ class AdminController extends Controller
     // GET /admin/manage  (filters: ?role=assessor&status=approved&q=lee)
     public function manageAccount(Request $request)
     {
+        $perPage = config('slea.pagination.manage_accounts', 5);
+
         $users = User::query()
+            // still filtering by raw request->role/status, which is fine because UI sends valid codes
             ->when($request->filled('role'),   fn($q) => $q->where('role', $request->role))
             ->when($request->filled('status'), fn($q) => $q->where('status', $request->status))
             ->when($request->filled('q'),      fn($q) => $q->where(function ($x) use ($request) {
@@ -173,7 +176,7 @@ class AdminController extends Controller
                     ->orWhere('email', 'like', $like);
             }))
             ->orderBy('last_name')
-            ->paginate(5)
+            ->paginate($perPage)
             ->withQueryString();
 
         return view('admin.manage-account', compact('users'));
@@ -182,50 +185,49 @@ class AdminController extends Controller
     // GET /admin/create_assessor
     public function createUser()
     {
-        $limit     = (int) config('slea.max_admin_accounts', 3); // change in .env via SLEA_MAX_ADMINS
-        $adminCnt  = User::where('role', 'admin')->count();
+        $limit     = (int) config('slea.max_admin_accounts', 3);
+        $adminCnt  = User::where('role', User::ROLE_ADMIN)->count(); // CHANGED: role constant
         $remaining = max($limit - $adminCnt, 0);
 
-        // points to resources/views/admin/create_user.blade.php
-        return view('admin.create_user', [
-            'limit'     => $limit,
-            'adminCnt'  => $adminCnt,
-            'remaining' => $remaining,
-        ]);
+        return view('admin.create_user', compact('limit', 'adminCnt', 'remaining'));
     }
-
-    // app/Http/Controllers/AdminController.php
 
     public function storeUser(Request $request)
     {
         $data = $request->validate([
-            'first_name' => ['required', 'string', 'max:50'],
-            'last_name'  => ['required', 'string', 'max:50'],
+            'first_name'  => ['required', 'string', 'max:50'],
+            'last_name'   => ['required', 'string', 'max:50'],
             'middle_name' => ['nullable', 'string', 'max:50'],
-            'email'      => ['required', 'email', 'max:100', 'unique:users,email'],
-            'role'       => ['nullable', 'string', 'in:admin,assessor,student'],
-            'contact'    => ['nullable', 'string', 'max:50'],
-            // other fields...
+            'email'       => ['required', 'email', 'max:100', 'unique:users,email'],
+            'role'        => [
+                'nullable',
+                'string',
+                Rule::in([
+                    User::ROLE_ADMIN,
+                    User::ROLE_ASSESSOR,
+                    User::ROLE_STUDENT,
+                ]),
+            ],
+            'contact'     => ['nullable', 'string', 'max:50'],
         ]);
 
-        // Default to 'assessor' if role is not provided
-        $data['role'] = $data['role'] ?? 'assessor';
+        // Default to assessor if role is not provided
+        $data['role'] = $data['role'] ?? User::ROLE_ASSESSOR; // CHANGED: constant
 
         // Default status to 'approved' for new assessor/admin accounts
-        $status = User::STATUS_APPROVED;
+        $status = User::STATUS_APPROVED; // CHANGED: constant
 
         $password = Str::random(10);
 
         $user = User::create([
-            'first_name' => $data['first_name'],
-            'last_name'  => $data['last_name'],
+            'first_name'  => $data['first_name'],
+            'last_name'   => $data['last_name'],
             'middle_name' => $data['middle_name'] ?? null,
-            'email'      => $data['email'],
-            'password'   => Hash::make($password),
-            'role'       => $data['role'],
-            'status'     => $status,
-            'contact'    => $data['contact'] ?? null,
-            // contact / birth_date / etc.
+            'email'       => $data['email'],
+            'password'    => Hash::make($password),
+            'role'        => $data['role'],
+            'status'      => $status,
+            'contact'     => $data['contact'] ?? null,
         ]);
 
         $admin = Auth::user();
@@ -235,25 +237,27 @@ class AdminController extends Controller
         $userName  = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
 
         SystemMonitoringAndLog::record(
-            $admin->role,                                       // 'admin'
+            $admin->role,
             $adminName ?: $admin->email,
             'Create',
             "Created {$user->role} account for {$userName} ({$user->email})."
         );
 
-        return redirect()->route('admin.manage-account')->with('status', 'User account created successfully.');
+        return redirect()
+            ->route('admin.manage-account')
+            ->with('status', 'User account created successfully.');
     }
-
-
 
     // GET /admin/approve-reject
     public function approveReject(Request $request)
     {
         $search = $request->input('q');
 
+        $perPage = config('slea.pagination.approve_reject', 5); // CHANGED: config-based pagination
+
         $students = User::query()
-            ->where('role', User::ROLE_STUDENT)
-            ->where('status', User::STATUS_PENDING) // Only show pending students
+            ->where('role', User::ROLE_STUDENT)         // CHANGED: role constant
+            ->where('status', User::STATUS_PENDING)     // CHANGED: status constant
             ->when($search, function ($q) use ($search) {
                 $like = '%' . $search . '%';
 
@@ -264,14 +268,13 @@ class AdminController extends Controller
                         });
                 });
             })
-            ->with(['studentAcademic.program']) // eager load
+            ->with(['studentAcademic.program'])
             ->orderByDesc('created_at')
-            ->paginate(5)
+            ->paginate($perPage)
             ->withQueryString();
 
         return view('admin.approve-reject', compact('students', 'search'));
     }
-
 
     // POST /admin/approve/{student_id}
     public function approveUser($student_id)
@@ -279,7 +282,7 @@ class AdminController extends Controller
         $admin = Auth::user();
 
         $student = User::where('id', $student_id)->firstOrFail();
-        $student->status = 'approved';
+        $student->status = User::STATUS_APPROVED; // CHANGED
         $student->save();
 
         $adminName   = trim($admin->first_name . ' ' . ($admin->middle_name ? $admin->middle_name . ' ' : '') . $admin->last_name);
@@ -296,19 +299,17 @@ class AdminController extends Controller
         return redirect()->back()->with('status', 'Student account approved successfully.');
     }
 
-
     // POST /admin/reject/{user}
     public function rejectUser($student_id)
     {
         $admin = Auth::user();
 
         $student = User::where('id', $student_id)->firstOrFail();
-        $studentName = trim($student->first_name . ' ' . ($student->middle_name ? $student->middle_name . ' ' : '') . $student->last_name);
-
-        $student->status = 'rejected';
+        $student->status = User::STATUS_REJECTED; // CHANGED
         $student->save();
 
-        $adminName = trim($admin->first_name . ' ' . ($admin->middle_name ? $admin->middle_name . ' ' : '') . $admin->last_name);
+        $adminName   = trim($admin->first_name . ' ' . ($admin->middle_name ? $admin->middle_name . ' ' : '') . $admin->last_name);
+        $studentName = trim($student->first_name . ' ' . ($student->middle_name ? $student->middle_name . ' ' : '') . $student->last_name); // CHANGED: added studentName
 
         // 🔹 SYSTEM LOG: REJECTION
         SystemMonitoringAndLog::record(
@@ -321,8 +322,6 @@ class AdminController extends Controller
         return redirect()->back()->with('status', 'Student account rejected.');
     }
 
-
-
     // PATCH /admin/manage/{user}/toggle   (approved <-> disabled)
     public function toggleUser(User $user)
     {
@@ -333,13 +332,13 @@ class AdminController extends Controller
 
         // Safety: don’t leave zero active admins
         if ($user->isAdmin()) {
-            $activeAdmins = User::role(User::ROLE_ADMIN)->approved()->count();
+            $activeAdmins = User::role(User::ROLE_ADMIN)->approved()->count(); // CHANGED: constant
             if ($activeAdmins <= 1 && $user->isApproved()) {
                 return back()->withErrors(['email' => 'You cannot disable the last active admin.']);
             }
         }
 
-        $user->toggle(); // model handles approved <-> disabled
+        $user->toggle();
 
         return back()->with('status', 'User status toggled.');
     }
@@ -354,7 +353,7 @@ class AdminController extends Controller
 
         // Safety: don’t delete the last admin
         if ($user->isAdmin()) {
-            $adminCount = User::role(User::ROLE_ADMIN)->count();
+            $adminCount = User::role(User::ROLE_ADMIN)->count(); // CHANGED: constant
             if ($adminCount <= 1) {
                 return back()->withErrors(['email' => 'You cannot delete the last admin.']);
             }
@@ -369,15 +368,19 @@ class AdminController extends Controller
 
         return back()->with('status', 'User deleted.');
     }
-    // GET /admin/revalidation
+
     // GET /admin/revalidation
     public function revalidationQueue()
     {
-        // Use Eloquent so we can show more info and re-use relationships
+        $perPage = config('slea.pagination.revalidation_queue', 20);
+
         $rows = StudentAcademic::with(['user'])
-            ->whereIn('eligibility_status', ['needs_revalidation', 'under_review'])
+            ->whereIn('eligibility_status', [
+                StudentAcademic::ELIG_NEEDS_REVALIDATION,
+                StudentAcademic::ELIG_UNDER_REVIEW,
+            ])
             ->orderByDesc('updated_at')
-            ->paginate(20)
+            ->paginate($perPage)
             ->withQueryString();
 
         return view('admin.revalidation', compact('rows'));
@@ -390,24 +393,29 @@ class AdminController extends Controller
             abort(403);
         }
 
-        $academic = \App\Models\StudentAcademic::where('user_id', $user->id)->firstOrFail();
+        /** @var StudentAcademic $academic */
+        $academic = StudentAcademic::where('user_id', $user->id)->firstOrFail();
 
         // Must be in revalidation-required state
-        if (! in_array($academic->eligibility_status, ['needs_revalidation', 'under_review'], true)) {
+        if (! in_array(
+            $academic->eligibility_status,
+            [StudentAcademic::ELIG_NEEDS_REVALIDATION, StudentAcademic::ELIG_UNDER_REVIEW],
+            true
+        )) { // CHANGED: added braces and error response
             return back()->withErrors([
                 'revalidation' => 'This student is not marked for revalidation.',
             ]);
         }
 
         // Must have COR
-        if (!$academic->hasCor()) {
+        if (! $academic->hasCor()) {
             return back()->withErrors([
                 'cor' => 'Student has no Certificate of Registration (COR) uploaded. Cannot approve.',
             ]);
         }
 
         // (Optional future rule) Must have complete academic info
-        if (!$academic->expected_grad_year || !$academic->program_id || !$academic->year_level) {
+        if (! $academic->expected_grad_year || ! $academic->program_id || ! $academic->year_level) {
             return back()->withErrors([
                 'academic' => 'Academic details incomplete. Require student to update before revalidation.',
             ]);
@@ -415,13 +423,12 @@ class AdminController extends Controller
 
         // Approve revalidation
         $academic->update([
-            'eligibility_status' => 'eligible',
+            'eligibility_status' => StudentAcademic::ELIG_ELIGIBLE,
             'revalidated_at'     => now(),
         ]);
 
         return back()->with('status', 'Revalidation approved. Student is now eligible.');
     }
-
 
     // POST /admin/revalidation/{user}/reject
     public function rejectRevalidation(User $user)
@@ -433,7 +440,12 @@ class AdminController extends Controller
         /** @var StudentAcademic $academic */
         $academic = StudentAcademic::where('user_id', $user->id)->firstOrFail();
 
-        if (! in_array((string) $academic->eligibility_status, ['needs_revalidation', 'under_review'], true)) {
+        // Must be in revalidation-required state
+        if (! in_array(
+            (string) $academic->eligibility_status,
+            [StudentAcademic::ELIG_NEEDS_REVALIDATION, StudentAcademic::ELIG_UNDER_REVIEW],
+            true
+        )) { // CHANGED: added braces & message
             return back()->withErrors([
                 'revalidation' => 'Only students flagged for revalidation can be rejected.',
             ]);
@@ -441,16 +453,12 @@ class AdminController extends Controller
 
         // Simple: mark fully ineligible
         $academic->update([
-            'eligibility_status' => 'ineligible',
+            'eligibility_status' => StudentAcademic::ELIG_INELIGIBLE,
         ]);
 
         return back()->with('status', 'Revalidation rejected. Student marked ineligible.');
     }
 
-
-    /* =========================
-     | SYSTEM PAGES (stubs)
-     * ========================= */
     /* =========================
      | SYSTEM PAGES (AWARDS REPORT)
      * ========================= */
@@ -470,7 +478,7 @@ class AdminController extends Controller
 
         // Manual pagination on the already-computed collection
         $page    = LengthAwarePaginator::resolveCurrentPage();
-        $perPage = 20;
+        $perPage = config('slea.pagination.award_report_list', 20);
 
         $pageItems = $rows
             ->slice(($page - 1) * $perPage, $perPage)
@@ -488,12 +496,12 @@ class AdminController extends Controller
         );
 
         // For dropdown filters
-        $colleges = class_exists(\App\Models\College::class)
-            ? \App\Models\College::orderBy('name')->get()
+        $colleges = class_exists(College::class)
+            ? College::orderBy('name')->get()
             : collect();
 
-        $programs = class_exists(\App\Models\Program::class)
-            ? \App\Models\Program::orderBy('name')->get()
+        $programs = class_exists(Program::class)
+            ? Program::orderBy('name')->get()
             : collect();
 
         // Placeholder if you later add a "batch" column
@@ -516,7 +524,6 @@ class AdminController extends Controller
 
         $students = $rows;
 
-        // 👇 use the actual view path: resources/views/admin/pdf/admin-report.blade.php
         $pdf = Pdf::loadView('admin.pdf.award-report', [
             'students'    => $students,
             'generatedAt' => now(),
@@ -527,13 +534,6 @@ class AdminController extends Controller
 
     /**
      * Build the base dataset for the awards report.
-     *
-     * Returns a collection of stdClass objects:
-     *  - user (stdClass with full_name, studentAcademic, etc.)
-     *  - total_points (percentage 0–100)
-     *  - award_level (gold/silver/qualified/tracking/not_qualified)
-     *  - slea_status (e.g. "SLEA Qualified")
-     *  - program_code, program_name, student_number, college_name, etc.
      */
     protected function buildAwardReportRows(Request $request): \Illuminate\Support\Collection
     {
@@ -548,8 +548,9 @@ class AdminController extends Controller
         // Check if slea_application_status column exists
         $hasSleaStatus = Schema::hasColumn('student_academic', 'slea_application_status');
 
-        // Use assessor_final_reviews as the source of truth for final scores
-        // This ensures consistency with Final Review page
+        // Statuses from assessor_final_reviews to include in the report
+        $statusForReport = ['queued_for_admin', 'finalized'];
+
         // Build select fields
         $selectFields = [
             'sa.user_id',
@@ -562,10 +563,9 @@ class AdminController extends Controller
             'c.name  as college_name',
             'c.code  as college_code',
             'afr.total_score',
-            'afr.max_possible as max_points'
+            'afr.max_possible as max_points',
         ];
 
-        // Add slea_application_status only if column exists
         if ($hasSleaStatus) {
             $selectFields[] = 'sa.slea_application_status';
         }
@@ -574,24 +574,21 @@ class AdminController extends Controller
         $query = DB::table('student_academic as sa')
             ->select($selectFields)
             ->join('users as u', 'u.id', '=', 'sa.user_id')
-            ->leftJoin('assessor_final_reviews as afr', function ($join) {
+            ->leftJoin('assessor_final_reviews as afr', function ($join) use ($statusForReport) {
                 $join->on('afr.student_id', '=', 'sa.user_id')
-                    ->whereIn('afr.status', ['queued_for_admin', 'finalized']);
+                    ->whereIn('afr.status', $statusForReport);
             })
             ->leftJoin('programs as p', 'p.id', '=', 'sa.program_id')
             ->leftJoin('colleges as c', 'c.id', '=', 'sa.college_id')
-            ->where('u.role', 'student')
+            ->where('u.role', User::ROLE_STUDENT) // CHANGED: constant
             ->whereNotNull('afr.total_score')
             ->whereNotNull('afr.max_possible');
 
-        // Only filter by slea_application_status if column exists
         if ($hasSleaStatus) {
-            // Only SLEA applications that are already qualified by admin
-            $query->where('sa.slea_application_status', 'qualified');
+            $query->where('sa.slea_application_status', StudentAcademic::SLEA_STATUS_QUALIFIED); // CHANGED: constant
         }
 
         // --- filters from the list page (SEARCH) ---
-        // Support both 'q' (from INCOMING) and 'search' (from HEAD view)
         $searchTerm = trim((string) ($request->input('q') ?: $request->input('search', '')));
         if ($searchTerm) {
             $query->where(function ($sub) use ($searchTerm) {
@@ -611,32 +608,34 @@ class AdminController extends Controller
             $query->where('sa.program_id', $programId);
         }
 
-        // If you later add AY/batch, plug it here.
-        // if ($batch = $request->input('batch')) {
-        //     $query->where('sa.batch', $batch);
-        // }
-
         $rows = $query->get();
 
-        // Map raw DB rows into richer objects for Blade
-        $mapped = $rows->map(function ($row) use ($hasSleaStatus) {
-            // Use the same calculation as Final Review
-            $totalScore = (float) ($row->total_score ?? 0);
-            $maxPoints = (float) ($row->max_points ?? 0);
+        // Get award thresholds from config once
+        $thresholds = config('slea.award_thresholds', [
+            'gold'          => 90,
+            'silver'        => 85,
+            'qualified'     => 80,
+            'tracking'      => 70,
+            'not_qualified' => 0,
+        ]);
 
-            // Calculate percentage for display
+        // Map raw DB rows into richer objects for Blade
+        $mapped = $rows->map(function ($row) use ($hasSleaStatus, $thresholds) {
+            $totalScore = (float) ($row->total_score ?? 0);
+            $maxPoints  = (float) ($row->max_points ?? 0);
+
             $percent = $maxPoints > 0
                 ? round(($totalScore / $maxPoints) * 100, 2)
                 : 0.0;
 
-            // Simple award-level rules – adjust thresholds as needed
-            if ($percent >= 90) {
+            // CHANGED: use injected $thresholds instead of re-calling config()
+            if ($percent >= $thresholds['gold']) {
                 $awardLevel = 'gold';
-            } elseif ($percent >= 85) {
+            } elseif ($percent >= $thresholds['silver']) {
                 $awardLevel = 'silver';
-            } elseif ($percent >= 80) {
+            } elseif ($percent >= $thresholds['qualified']) {
                 $awardLevel = 'qualified';
-            } elseif ($percent >= 70) {
+            } elseif ($percent >= $thresholds['tracking']) {
                 $awardLevel = 'tracking';
             } else {
                 $awardLevel = 'not_qualified';
@@ -644,11 +643,12 @@ class AdminController extends Controller
 
             // Map slea_application_status to display label
             $sleaStatus = $hasSleaStatus ? ($row->slea_application_status ?? null) : null;
+
             switch ($sleaStatus) {
-                case 'qualified':
+                case StudentAcademic::SLEA_STATUS_QUALIFIED:
                     $statusLabel = 'SLEA Qualified';
                     break;
-                case 'pending_administrative_validation':
+                case StudentAcademic::SLEA_STATUS_PENDING_ADMIN_VALIDATION:
                     $statusLabel = 'For Final Review';
                     break;
                 default:
@@ -656,8 +656,7 @@ class AdminController extends Controller
                     break;
             }
 
-            // Build pseudo-relationship objects so Blade can still do:
-            // $row->user->studentAcademic->program->code, etc.
+            // Build pseudo-relationship objects
             $college = new \stdClass();
             $college->name = $row->college_name;
             $college->code = $row->college_code;
@@ -687,15 +686,15 @@ class AdminController extends Controller
 
             $record = new \stdClass();
             $record->user          = $user;
-            $record->total_points  = $percent;      // percentage (keep, we still use this for filters)
+            $record->total_points  = $percent;
             $record->award_level   = $awardLevel;
             $record->slea_status   = $statusLabel;
 
-            // RAW scores – used by web table + PDF (same as Final Review)
+            // RAW scores
             $record->raw_total_score = $totalScore;
             $record->raw_max_points  = $maxPoints;
 
-            // extras used by some views
+            // extras
             $record->program_code   = $row->program_code;
             $record->program_name   = $row->program_name;
             $record->college_name   = $row->college_name;
@@ -726,30 +725,25 @@ class AdminController extends Controller
 
     public function awardReport(Request $request)
     {
-        // Get filter parameters from view (college/program are names, not IDs)
         $college = $request->query('college');
         $program = $request->query('program');
-        $search = $request->query('search');
+        $search  = $request->query('search');
 
-        // Use buildAwardReportRows to get real data
-        // buildAwardReportRows now supports both 'q' and 'search' parameters
         $allRows = $this->buildAwardReportRows($request);
 
-        // Convert to array format compatible with existing view
-        // Use raw_total_score and raw_max_points to match Final Review display
         $allStudents = $allRows->map(function ($row) {
-            // Display as "score/max" format to match Final Review
             $score = $row->raw_total_score ?? 0;
-            $max = $row->raw_max_points ?? 0;
+            $max   = $row->raw_max_points ?? 0;
+
             return [
-                'id' => $row->user->id ?? 0,
-                'name' => $row->user->full_name ?? 'N/A',
-                'student_id' => $row->student_number ?? 'N/A',
-                'college' => $row->college_name ?? 'N/A',
-                'program' => $row->program_name ?? 'N/A',
-                'points' => round($score, 2), // Use raw score, not percentage
-                'max_points' => round($max, 2), // Include max for display
-                'points_display' => number_format($score, 2) . '/' . number_format($max, 2), // Format: 23.70/60.00
+                'id'             => $row->user->id ?? 0,
+                'name'           => $row->user->full_name ?? 'N/A',
+                'student_id'     => $row->student_number ?? 'N/A',
+                'college'        => $row->college_name ?? 'N/A',
+                'program'        => $row->program_name ?? 'N/A',
+                'points'         => round($score, 2),
+                'max_points'     => round($max, 2),
+                'points_display' => number_format($score, 2) . '/' . number_format($max, 2),
             ];
         })->toArray();
 
@@ -781,21 +775,20 @@ class AdminController extends Controller
 
         // Get current page from request
         $currentPage = $request->get('page', 1);
-        $perPage = 10;
+        $perPage     = config('slea.pagination.award_report_page', 10);
 
         // Create paginator manually
-        $total = count($filteredStudents);
+        $total  = count($filteredStudents);
         $offset = ($currentPage - 1) * $perPage;
-        $items = array_slice($filteredStudents, $offset, $perPage);
+        $items  = array_slice($filteredStudents, $offset, $perPage);
 
-        // Create paginator instance
-        $students = new \Illuminate\Pagination\LengthAwarePaginator(
+        $students = new LengthAwarePaginator(
             $items,
             $total,
             $perPage,
             $currentPage,
             [
-                'path' => $request->url(),
+                'path'  => $request->url(),
                 'query' => $request->query(),
             ]
         );
@@ -805,32 +798,28 @@ class AdminController extends Controller
 
     public function exportAwardReport(Request $request)
     {
-        // Get filter parameters
         $college = $request->query('college');
         $program = $request->query('program');
-        $search = $request->query('search');
+        $search  = $request->query('search');
 
-        // Use buildAwardReportRows to get real data
         $allRows = $this->buildAwardReportRows($request);
 
-        // Convert to array format compatible with existing PDF view
-        // Use raw_total_score and raw_max_points to match Final Review display
         $filteredStudents = $allRows->map(function ($row) {
             $score = $row->raw_total_score ?? 0;
-            $max = $row->raw_max_points ?? 0;
+            $max   = $row->raw_max_points ?? 0;
+
             return [
-                'id' => $row->user->id ?? 0,
-                'name' => $row->user->full_name ?? 'N/A',
-                'student_id' => $row->student_number ?? 'N/A',
-                'college' => $row->college_name ?? 'N/A',
-                'program' => $row->program_name ?? 'N/A',
-                'points' => round($score, 2), // Use raw score to match Final Review
-                'max_points' => round($max, 2),
+                'id'             => $row->user->id ?? 0,
+                'name'           => $row->user->full_name ?? 'N/A',
+                'student_id'     => $row->student_number ?? 'N/A',
+                'college'        => $row->college_name ?? 'N/A',
+                'program'        => $row->program_name ?? 'N/A',
+                'points'         => round($score, 2),
+                'max_points'     => round($max, 2),
                 'points_display' => number_format($score, 2) . '/' . number_format($max, 2),
             ];
         })->toArray();
 
-        // Apply additional filters
         if ($college) {
             $filteredStudents = array_filter($filteredStudents, function ($student) use ($college) {
                 return $student['college'] === $college;
@@ -851,17 +840,15 @@ class AdminController extends Controller
             });
         }
 
-        // Re-index array after filtering
         $filteredStudents = array_values($filteredStudents);
 
-        // Generate PDF or CSV export
         return view('admin.pdf.award-report', [
             'students' => $filteredStudents,
-            'filters' => [
+            'filters'  => [
                 'college' => $college,
                 'program' => $program,
-                'search' => $search,
-            ]
+                'search'  => $search,
+            ],
         ]);
     }
 

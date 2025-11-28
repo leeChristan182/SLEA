@@ -15,7 +15,7 @@ return new class extends Migration {
 
             $table->string('action', 20)->default('Queued');
             $table->decimal('score_points', 4, 2)->nullable();
-            $table->string('remarks', 255)->nullable();
+            $table->string('remarks', 191)->nullable();
 
             $table->dateTime('pending_queued_date')->nullable();
             $table->dateTime('assessed_date')->nullable();
@@ -27,9 +27,9 @@ return new class extends Migration {
 
             // Safe FK to submission_records (make sure that table exists first)
             $table->foreign('subrec_id')
-                  ->references('subrec_id')
-                  ->on('submission_records')
-                  ->onDelete('cascade');
+                ->references('subrec_id')
+                ->on('submission_records')
+                ->onDelete('cascade');
         });
     }
 

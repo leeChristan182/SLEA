@@ -13,9 +13,9 @@ return new class extends Migration
     {
         Schema::create('change_passwords', function (Blueprint $table) {
             $table->id('change_pass_id');
-            $table->string('email_address', 255);
-            $table->string('old_password', 255);
-            $table->string('new_password', 255);
+            $table->string('email_address', 191);
+            $table->string('old_password', 191);
+            $table->string('new_password', 191);
             $table->timestamp('date_changed')->nullable();
             $table->timestamps();
         });

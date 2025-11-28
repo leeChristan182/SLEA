@@ -22,7 +22,7 @@ return new class extends Migration {
             $table->string('first_name', 50);
             $table->string('middle_name', 50)->nullable();
             $table->string('position', 50);
-            $table->string('default_password', 255);
+            $table->string('default_password', 191);
             $table->dateTime('dateacc_created');
             $table->timestamps();
         });
