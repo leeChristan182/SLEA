@@ -10,6 +10,9 @@ class UsersAdminSeeder extends Seeder
 {
     public function run(): void
     {
+        // ===============================
+        // ADMIN ACCOUNT
+        // ===============================
         DB::table('users')->updateOrInsert(
             ['email' => 'admin@usep.edu.ph'],
             [
@@ -19,6 +22,26 @@ class UsersAdminSeeder extends Seeder
                 'contact'    => '09123456789',
                 'password'   => Hash::make('password123'),
                 'role'       => 'admin',
+                'status'     => 'approved',
+                'birth_date' => null,
+                'profile_picture_path' => null,
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
+
+        // ===============================
+        // ASSESSOR ACCOUNT
+        // ===============================
+        DB::table('users')->updateOrInsert(
+            ['email' => 'assessor@usep.edu.ph'],
+            [
+                'first_name' => 'Default',
+                'last_name'  => 'Assessor',
+                'middle_name' => null,
+                'contact'    => '09999999999',
+                'password'   => Hash::make('password123'),
+                'role'       => 'assessor',
                 'status'     => 'approved',
                 'birth_date' => null,
                 'profile_picture_path' => null,

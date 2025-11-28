@@ -8,15 +8,17 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            // Add remember_token for "Remember me" to work
+
+            // Add remember_token for "remember me"
             if (!Schema::hasColumn('users', 'remember_token')) {
                 $table->rememberToken()->after('password');
             }
 
-            // (Optional) if you also want this column for your OTP logic,
-            // since your AuthController is checking otp_last_verified_at
+            // Add OTP freshness column (if not existing)
             if (!Schema::hasColumn('users', 'otp_last_verified_at')) {
-                $table->timestamp('otp_last_verified_at')->nullable()->after('remember_token');
+                $table->timestamp('otp_last_verified_at')
+                    ->nullable()
+                    ->after('remember_token');
             }
         });
     }
@@ -24,9 +26,11 @@ return new class extends Migration {
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
+
             if (Schema::hasColumn('users', 'otp_last_verified_at')) {
                 $table->dropColumn('otp_last_verified_at');
             }
+
             if (Schema::hasColumn('users', 'remember_token')) {
                 $table->dropColumn('remember_token');
             }

@@ -44,7 +44,6 @@ class User extends Authenticatable
     ];
 
     protected $casts = [
-        'email_verified_at'    => 'datetime',
         'birth_date'           => 'date',
         'otp_last_verified_at' => 'datetime', // IMPORTANT for OTP freshness
     ];
