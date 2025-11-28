@@ -76,7 +76,7 @@ class SubmissionRecordController extends Controller
 
         // Check if application_status column exists
         $hasApplicationStatusColumn = Schema::hasColumn('submissions', 'application_status');
-        
+
         $validationRules = [
             'rubric_category_id'   => ['required', 'exists:rubric_categories,id'],
             'rubric_section_id'    => ['nullable', 'exists:rubric_sections,section_id'],
@@ -97,12 +97,12 @@ class SubmissionRecordController extends Controller
             'attachments'          => ['required'],
             'attachments.*'        => ['file', 'max:5120', 'mimes:jpeg,jpg,png,pdf'],
         ];
-        
+
         // Only require application_status if column exists
         if ($hasApplicationStatusColumn) {
             $validationRules['application_status'] = ['required', 'in:for_final_application,for_tracking'];
         }
-        
+
         $data = $request->validate($validationRules);
 
         // ---- upload files ----
@@ -111,7 +111,7 @@ class SubmissionRecordController extends Controller
             foreach ($request->file('attachments') as $file) {
                 if (! $file) continue;
 
-                $path = $file->store('submissions', 'public');
+                $path = $file->store('submissions', 'student_docs');
 
                 $filesMeta[] = [
                     'original' => $file->getClientOriginalName(),
@@ -124,7 +124,7 @@ class SubmissionRecordController extends Controller
 
         // Check if application_status column exists
         $hasApplicationStatusColumn = Schema::hasColumn('submissions', 'application_status');
-        
+
         // ---- create submission ----
         $submissionData = [
             'user_id'              => $user->id,
@@ -153,12 +153,12 @@ class SubmissionRecordController extends Controller
             'remarks'           => null,
             'submitted_at'      => now(),
         ];
-        
+
         // Only add application_status if column exists
         if ($hasApplicationStatusColumn) {
             $submissionData['application_status'] = $data['application_status'];
         }
-        
+
         $submission = Submission::create($submissionData);
 
         // ---- REVERT RULE (safe) ----
@@ -221,11 +221,10 @@ class SubmissionRecordController extends Controller
         }
 
         // Make sure it exists on the public disk
-        if (! Storage::disk('public')->exists($path)) {
+        if (! Storage::disk('student_docs')->exists($path)) {
             abort(404, 'File not found on disk.');
         }
 
-        // Inline preview in browser (perfect for the iframe)
-        return Storage::disk('public')->response($path);
+        return Storage::disk('student_docs')->response($path);
     }
 }

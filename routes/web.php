@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use App\Http\Middleware\NoCache;
+use App\Http\Middleware\SessionTimeout;
 
 use App\Http\Controllers\AuthController;
 use App\Http\Middleware\SecurityHeaders;
@@ -24,7 +26,7 @@ use App\Http\Controllers\SystemMonitoringAndLogController;
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['guest'])->group(function () {
+Route::middleware(['guest', NoCache::class])->group(function () {
     Route::get('/', [AuthController::class, 'showLogin'])->name('login.show');
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'authenticate'])->name('login.auth')
@@ -34,17 +36,7 @@ Route::middleware(['guest'])->group(function () {
     Route::post('/register', [AuthController::class, 'register'])->name('register.store')
         ->middleware('throttle:10,10');
 
-    Route::prefix('api')->name('ajax.')->group(function () {
-        Route::get('/programs',      [AuthController::class, 'getPrograms'])->name('programs');
-        Route::get('/majors',        [AuthController::class, 'getMajors'])->name('majors');
-        Route::get('/clusters',      [AuthController::class, 'getClusters'])->name('clusters');
-        Route::get('/organizations', [AuthController::class, 'getOrganizations'])->name('organizations');
-        Route::get('/positions',     [AuthController::class, 'getPositions'])->name('positions');
 
-        Route::get('/academics-map',     [AuthController::class, 'getAcademicsMap'])->name('academics.map');
-        Route::get('/council-positions', [AuthController::class, 'getCouncilPositions'])->name('council.positions');
-        Route::get('/council-orgs',      [AuthController::class, 'getCouncilOrgs'])->name('council_orgs');
-    });
 
     Route::get('/otp', [AuthController::class, 'showOtpForm'])->name('otp.show');
     Route::post('/otp', [AuthController::class, 'verifyOtp'])->name('otp.verify');
@@ -61,17 +53,42 @@ Route::middleware(['guest'])->group(function () {
         ->name('password.update');
 });
 
+
 // logout still just needs auth
+
 Route::post('/logout', [AuthController::class, 'logout'])
     ->middleware('auth')
     ->name('logout');
+
+// Used by SessionTimeout.js to detect if the session is still valid
+Route::get('/check-session', function () {
+    return response()->json([
+        'authenticated' => Auth::check(),
+    ]);
+})->middleware('auth');
+/*
+|--------------------------------------------------------------------------
+| AJAX API ROUTES (accessible to both guest and authenticated)
+|--------------------------------------------------------------------------
+*/
+Route::prefix('api')->name('ajax.')->group(function () {
+    Route::get('/programs',      [AuthController::class, 'getPrograms'])->name('programs');
+    Route::get('/majors',        [AuthController::class, 'getMajors'])->name('majors');
+    Route::get('/clusters',      [AuthController::class, 'getClusters'])->name('clusters');
+    Route::get('/organizations', [AuthController::class, 'getOrganizations'])->name('organizations');
+    Route::get('/positions',     [AuthController::class, 'getPositions'])->name('positions');
+
+    Route::get('/academics-map',     [AuthController::class, 'getAcademicsMap'])->name('academics.map');
+    Route::get('/council-positions', [AuthController::class, 'getCouncilPositions'])->name('council.positions');
+    Route::get('/council-orgs',      [AuthController::class, 'getCouncilOrgs'])->name('council_orgs');
+});
 /*
 |--------------------------------------------------------------------------
 | STUDENT ROUTES
 |--------------------------------------------------------------------------
 */
 Route::prefix('student')
-    ->middleware(['auth', 'role:student'])
+    ->middleware(['auth', SessionTimeout::class, NoCache::class, 'role:student'])
     ->name('student.')
     ->controller(StudentController::class)
     ->group(function () {
@@ -115,7 +132,7 @@ Route::prefix('student')
 */
 
 Route::prefix('admin')
-    ->middleware(['auth', 'role:admin'])
+    ->middleware(['auth', SessionTimeout::class, NoCache::class, 'role:admin'])
     ->name('admin.')
     ->group(function () {
         Route::get('/profile', [AdminController::class, 'profile'])->name('profile');
@@ -197,7 +214,7 @@ Route::prefix('admin')
 |--------------------------------------------------------------------------
 */
 Route::prefix('assessor')
-    ->middleware(['auth', 'role:assessor,admin'])
+    ->middleware(['auth', SessionTimeout::class, NoCache::class, 'role:assessor,admin'])
     ->name('assessor.')
     ->group(function () {
 

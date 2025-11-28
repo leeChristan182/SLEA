@@ -1,27 +1,27 @@
 @php
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Route;
+    use Illuminate\Support\Facades\Auth;
+    use Illuminate\Support\Facades\Route;
 
-$user = Auth::user();
-$role = $user->role ?? null; // 'admin', 'assessor', 'student' or null
+    $user = Auth::user();
+    $role = $user->role ?? null; // 'admin', 'assessor', 'student' or null
 
-// Default landing route based on role
-switch ($role) {
-case 'admin':
-$routeName = 'admin.profile';
-break;
-case 'assessor':
-$routeName = 'assessor.profile';
-break;
-case 'student':
-$routeName = 'student.profile';
-break;
-default:
-$routeName = 'login.show';
-break;
-}
+    // Default landing route based on role
+    switch ($role) {
+        case 'admin':
+            $routeName = 'admin.profile';
+            break;
+        case 'assessor':
+            $routeName = 'assessor.profile';
+            break;
+        case 'student':
+            $routeName = 'student.profile';
+            break;
+        default:
+            $routeName = 'login.show';
+            break;
+    }
 
-$link = Route::has($routeName) ? route($routeName) : route('login.show');
+    $link = Route::has($routeName) ? route($routeName) : route('login.show');
 @endphp
 
 <div class="header-container">
@@ -43,10 +43,7 @@ $link = Route::has($routeName) ? route($routeName) : route('login.show');
         </div>
 
         <div class="header-right d-flex align-items-center gap-3">
-            <div class="text-end d-none d-sm-block">
-                <small>Having Trouble?</small><br>
-                <a href="#">Send us a message</a>
-            </div>
+
 
             <!-- Dark Mode Toggle -->
             <button id="darkModeToggle" class="dark-toggle-btn" title="Toggle Dark Mode">
@@ -54,14 +51,14 @@ $link = Route::has($routeName) ? route($routeName) : route('login.show');
             </button>
 
             @if ($user)
-            {{-- ✅ Single, canonical logout form using POST /logout --}}
-            <form id="logoutForm" action="{{ route('logout') }}" method="POST" style="margin:0;">
-                @csrf
-                <button type="submit" class="logout-btn" title="Logout">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span class="d-none d-md-inline">Logout</span>
-                </button>
-            </form>
+                {{-- ✅ Single, canonical logout form using POST /logout --}}
+                <form id="logoutForm" action="{{ route('logout') }}" method="POST" style="margin:0;">
+                    @csrf
+                    <button type="submit" class="logout-btn" title="Logout">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span class="d-none d-md-inline">Logout</span>
+                    </button>
+                </form>
             @endif
         </div>
     </div>
@@ -75,7 +72,7 @@ $link = Route::has($routeName) ? route($routeName) : route('login.show');
         const logoutForm = document.getElementById('logoutForm');
         if (!logoutForm) return;
 
-        logoutForm.addEventListener('submit', function(e) {
+        logoutForm.addEventListener('submit', function (e) {
             e.preventDefault();
 
             Swal.fire({

@@ -29,15 +29,12 @@ class StudentController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        // Academic info with relations (if table exists)
         $academic = Schema::hasTable('student_academic')
             ? StudentAcademic::with(['college', 'program', 'major'])
             ->where('user_id', $user->id)
             ->first()
             : null;
 
-        // Leadership info from the new student_leaderships table if present,
-        // otherwise fall back to legacy leadership_information (if it still exists).
         if (Schema::hasTable('student_leaderships')) {
             $leaderships = DB::table('student_leaderships as sl')
                 ->leftJoin('leadership_types as lt', 'sl.leadership_type_id', '=', 'lt.id')
@@ -48,24 +45,44 @@ class StudentController extends Controller
                 ->select(
                     'sl.*',
                     'lt.name as leadership_type_name',
+                    'lt.key as leadership_type_key',
                     'c.name as cluster_name',
                     'o.name as organization_name',
                     'p.name as position_name'
                 )
                 ->get();
         } elseif (Schema::hasTable('leadership_information')) {
-            // Legacy fallback
             $leaderships = \App\Models\LeadershipInformation::where('student_id', $user->id)->get();
         } else {
             $leaderships = collect();
         }
 
+        // 👇 New: for the modal dropdown
+        $leadershipTypes = Schema::hasTable('leadership_types')
+            ? DB::table('leadership_types')
+            ->select('id', 'name', 'key', 'requires_org')
+            ->orderByRaw("CASE `key`
+                WHEN 'usg' THEN 1
+                WHEN 'osc' THEN 2
+                WHEN 'lc'  THEN 3
+                WHEN 'cco' THEN 4
+                WHEN 'sco' THEN 5
+                WHEN 'lgu' THEN 6
+                WHEN 'lcm' THEN 7
+                WHEN 'eap' THEN 8
+                ELSE 99
+            END")
+            ->get()
+            : collect();
+
         return view('student.profile', [
-            'user'        => $user,
-            'academic'    => $academic,
-            'leaderships' => $leaderships,
+            'user'           => $user,
+            'academic'       => $academic,
+            'leaderships'    => $leaderships,
+            'leadershipTypes' => $leadershipTypes,
         ]);
     }
+
 
 
     // POST /student/update-avatar
@@ -87,7 +104,7 @@ class StudentController extends Controller
         // Update database with new path
         $user->profile_picture_path = $path;
         $user->save();
-        
+
         // Refresh user model to ensure we have the latest data
         $user->refresh();
 
@@ -222,17 +239,6 @@ class StudentController extends Controller
     // POST /student/update-leadership
     public function updateLeadership(Request $request)
     {
-        // Expect an array of leadership entries (id for update, else create)
-        $request->validate([
-            'leadership'               => ['required', 'array'],
-            'leadership.*.id'          => ['nullable', 'integer'],
-            'leadership.*.org_id'      => ['required', 'integer'],
-            'leadership.*.position_id' => ['required', 'integer'],
-            'leadership.*.scope'       => ['nullable', 'string', 'max:32'], // must match scope_levels.key if enforced
-            'leadership.*.from'        => ['nullable', 'date'],
-            'leadership.*.to'          => ['nullable', 'date', 'after_or_equal:leadership.*.from'],
-        ]);
-
         /** @var User $user */
         $user = Auth::user();
 
@@ -240,16 +246,36 @@ class StudentController extends Controller
             return back()->withErrors(['leadership' => 'Leadership table not found.']);
         }
 
+        $request->validate([
+            'leadership'                            => ['required', 'array'],
+            'leadership.*.id'                       => ['nullable', 'integer'],
+            'leadership.*.leadership_type_id'       => ['required', 'integer', 'exists:leadership_types,id'],
+            'leadership.*.cluster_id'               => ['nullable', 'integer', 'exists:clusters,id'],
+            'leadership.*.organization_id'          => ['nullable', 'integer', 'exists:organizations,id'],
+            'leadership.*.position_id'              => ['required', 'integer', 'exists:positions,id'],
+            'leadership.*.leadership_status'        => ['required', 'in:Active,Inactive'],
+            'leadership.*.term'                     => ['required', 'string', 'max:25'],
+            'leadership.*.issued_by'                => ['required', 'string', 'max:150'],
+            // Optional extra fields (you already had these)
+            'leadership.*.scope'                    => ['nullable', 'string', 'max:32'],
+            'leadership.*.from'                     => ['nullable', 'date'],
+            'leadership.*.to'                       => ['nullable', 'date', 'after_or_equal:leadership.*.from'],
+        ]);
+
         foreach ($request->input('leadership') as $row) {
             $base = [
-                'user_id'     => $user->id,
-                'org_id'      => $row['org_id'],
-                'position_id' => $row['position_id'],
-                'scope'       => $row['scope'] ?? null,
-                'from'        => $row['from'] ?? null,
-                'to'          => $row['to'] ?? null,
-                'status'      => 'pending', // default; admin/assessor can approve later
-                'updated_at'  => now(),
+                'user_id'            => $user->id,
+                'leadership_type_id' => (int) $row['leadership_type_id'],
+                'cluster_id'         => $row['cluster_id'] ?? null,
+                'organization_id'    => $row['organization_id'] ?? null,
+                'position_id'        => (int) $row['position_id'],
+                'term'               => $row['term'] ?? null,
+                'issued_by'          => $row['issued_by'] ?? null,
+                'leadership_status'  => $row['leadership_status'] ?? 'Active',
+                'scope'              => $row['scope'] ?? null,
+                'from'               => $row['from'] ?? null,
+                'to'                 => $row['to'] ?? null,
+                'updated_at'         => now(),
             ];
 
             if (!empty($row['id'])) {
@@ -265,6 +291,7 @@ class StudentController extends Controller
 
         return back()->with('status', 'Leadership records saved.');
     }
+
 
     // GET /student/revalidation
     public function revalidation()
@@ -308,7 +335,7 @@ class StudentController extends Controller
         }
 
         // Store file
-        $path = $request->file('cor')->store('cor', 'public');
+        $path = $request->file('cor')->store('cor', 'student_docs');
         $now  = now();
 
         // Upsert into student_academic
@@ -347,12 +374,13 @@ class StudentController extends Controller
         // Recalculate eligibility ONLY for this user
         $academic = DB::table('student_academic')->where('user_id', $user->id)->first();
 
+        $status = null;
+
         if ($academic) {
             $nowYear = (int) now()->year;
             $status  = 'eligible';
 
             if (!empty($academic->expected_grad_year) && $nowYear > (int) $academic->expected_grad_year) {
-                // Past expected graduation year → needs revalidation
                 $status = 'needs_revalidation';
             }
 
@@ -364,15 +392,15 @@ class StudentController extends Controller
                 ]);
         }
 
+
         // If AJAX (used by student_profile.js) → JSON
         if ($request->expectsJson() || $request->ajax()) {
-            $corUrl = asset('storage/' . $path);
             return response()->json([
-                'success'   => true,
-                'message'   => 'Certificate of Registration uploaded.',
-                'cor_path'  => $path,
-                'cor_url'   => $corUrl,
-                'eligibility_status' => $academic->eligibility_status ?? $status ?? null,
+                'success'            => true,
+                'message'            => 'Certificate of Registration uploaded.',
+                'cor_path'           => $path,
+                'cor_url'            => route('student.cor.view'),
+                'eligibility_status' => $status,
             ]);
         }
 
@@ -395,7 +423,7 @@ class StudentController extends Controller
         /** @var \App\Models\User $user */
         $user->load('studentAcademic');
         $academic = $user->studentAcademic;
-        
+
         // If academic record doesn't exist, create a basic one
         if (!$academic) {
             $academic = \App\Models\StudentAcademic::firstOrCreate(
@@ -433,7 +461,7 @@ class StudentController extends Controller
         foreach ($reviewsBySubmission as $submissionId => $submissionReviews) {
             // Get the latest review for this submission (most recent)
             $review = $submissionReviews->sortByDesc('reviewed_at')->first();
-            
+
             // Skip if no score (null), but allow 0 scores as they might be valid
             if (!isset($review->score) || $review->score === null) {
                 continue;
@@ -475,8 +503,9 @@ class StudentController extends Controller
             $max       = (float) ($cat->max_points ?? 0);
             $rawEarned = (float) ($scoresByCategoryKey[$key] ?? 0);
 
-            // Clamp earned to the category max
-            $earned = $max > 0 ? min($rawEarned, $max) : $rawEarned;
+            // ❌ Old: $earned = $max > 0 ? min($rawEarned, $max) : $rawEarned;
+            // ✅ New: show full earned points
+            $earned = $rawEarned;
 
             $labelPrefix = $roman[$index] ?? ($index . '.');
             $label       = "{$labelPrefix}. {$cat->title}";
@@ -493,6 +522,7 @@ class StudentController extends Controller
             $index++;
         }
 
+
         $perfData = [
             'totals' => [
                 'earned' => round($totalEarned, 2),
@@ -504,7 +534,7 @@ class StudentController extends Controller
         // Get the status directly from database to ensure we have the latest value
         $status = $academic ? \App\Models\StudentAcademic::where('user_id', $user->id)
             ->value('slea_application_status') : null;
-        
+
         // Log for debugging
         Log::info('Student performance page loaded', [
             'user_id' => $user->id,

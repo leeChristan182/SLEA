@@ -90,7 +90,7 @@ class AdminController extends Controller
         // Update database with new path
         $user->profile_picture_path = $path;
         $user->save();
-        
+
         // Refresh user model to ensure we have the latest data
         $user->refresh();
 
@@ -241,7 +241,7 @@ class AdminController extends Controller
             "Created {$user->role} account for {$userName} ({$user->email})."
         );
 
-        return redirect()->route('admin.manage')->with('status', 'User account created successfully.');
+        return redirect()->route('admin.manage-account')->with('status', 'User account created successfully.');
     }
 
 
@@ -574,9 +574,9 @@ class AdminController extends Controller
         $query = DB::table('student_academic as sa')
             ->select($selectFields)
             ->join('users as u', 'u.id', '=', 'sa.user_id')
-            ->leftJoin('assessor_final_reviews as afr', function($join) {
+            ->leftJoin('assessor_final_reviews as afr', function ($join) {
                 $join->on('afr.student_id', '=', 'sa.user_id')
-                     ->whereIn('afr.status', ['queued_for_admin', 'finalized']);
+                    ->whereIn('afr.status', ['queued_for_admin', 'finalized']);
             })
             ->leftJoin('programs as p', 'p.id', '=', 'sa.program_id')
             ->leftJoin('colleges as c', 'c.id', '=', 'sa.college_id')
@@ -623,7 +623,7 @@ class AdminController extends Controller
             // Use the same calculation as Final Review
             $totalScore = (float) ($row->total_score ?? 0);
             $maxPoints = (float) ($row->max_points ?? 0);
-            
+
             // Calculate percentage for display
             $percent = $maxPoints > 0
                 ? round(($totalScore / $maxPoints) * 100, 2)
@@ -755,39 +755,39 @@ class AdminController extends Controller
 
         // Apply additional filters (college, program, search)
         $filteredStudents = $allStudents;
-        
+
         if ($college) {
-            $filteredStudents = array_filter($filteredStudents, function($student) use ($college) {
+            $filteredStudents = array_filter($filteredStudents, function ($student) use ($college) {
                 return $student['college'] === $college;
             });
         }
-        
+
         if ($program) {
-            $filteredStudents = array_filter($filteredStudents, function($student) use ($program) {
+            $filteredStudents = array_filter($filteredStudents, function ($student) use ($program) {
                 return $student['program'] === $program;
             });
         }
-        
+
         if ($search) {
             $searchTerm = strtolower($search);
-            $filteredStudents = array_filter($filteredStudents, function($student) use ($searchTerm) {
-                return strpos(strtolower($student['name']), $searchTerm) !== false 
+            $filteredStudents = array_filter($filteredStudents, function ($student) use ($searchTerm) {
+                return strpos(strtolower($student['name']), $searchTerm) !== false
                     || strpos(strtolower($student['student_id']), $searchTerm) !== false;
             });
         }
-        
+
         // Re-index array after filtering
         $filteredStudents = array_values($filteredStudents);
 
         // Get current page from request
         $currentPage = $request->get('page', 1);
         $perPage = 10;
-        
+
         // Create paginator manually
         $total = count($filteredStudents);
         $offset = ($currentPage - 1) * $perPage;
         $items = array_slice($filteredStudents, $offset, $perPage);
-        
+
         // Create paginator instance
         $students = new \Illuminate\Pagination\LengthAwarePaginator(
             $items,
@@ -832,25 +832,25 @@ class AdminController extends Controller
 
         // Apply additional filters
         if ($college) {
-            $filteredStudents = array_filter($filteredStudents, function($student) use ($college) {
+            $filteredStudents = array_filter($filteredStudents, function ($student) use ($college) {
                 return $student['college'] === $college;
             });
         }
-        
+
         if ($program) {
-            $filteredStudents = array_filter($filteredStudents, function($student) use ($program) {
+            $filteredStudents = array_filter($filteredStudents, function ($student) use ($program) {
                 return $student['program'] === $program;
             });
         }
-        
+
         if ($search) {
             $searchTerm = strtolower($search);
-            $filteredStudents = array_filter($filteredStudents, function($student) use ($searchTerm) {
-                return strpos(strtolower($student['name']), $searchTerm) !== false 
+            $filteredStudents = array_filter($filteredStudents, function ($student) use ($searchTerm) {
+                return strpos(strtolower($student['name']), $searchTerm) !== false
                     || strpos(strtolower($student['student_id']), $searchTerm) !== false;
             });
         }
-        
+
         // Re-index array after filtering
         $filteredStudents = array_values($filteredStudents);
 

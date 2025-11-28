@@ -37,7 +37,7 @@ class AuthController extends Controller
             'password' => $data['password'],
         ];
 
-        // First: validate credentials only (no login yet)
+        // 1) Validate credentials (no login yet)
         if (!Auth::validate($credentials)) {
             return back()
                 ->withErrors(['email' => 'Invalid credentials.'])
@@ -47,22 +47,58 @@ class AuthController extends Controller
         /** @var \App\Models\User $user */
         $user = User::where('email', $data['email'])->firstOrFail();
 
-        // Check if account is disabled
-        if ($user->status === User::STATUS_DISABLED) {
-            return back()
-                ->with('show_disabled_modal', true)
-                ->withInput($request->only('email'));
-        }
-
-        // Optional: additional checks on status, role, etc.
+        // 2) Account status check
         if ($user->status !== 'approved') {
             return back()
                 ->withErrors(['email' => 'Your account is not approved yet.'])
                 ->withInput($request->only('email'));
         }
 
-        // Now actually log the user in
+        // 3) Optional: SLEA eligibility check for students (same logic as in verifyOtp)
+        if (
+            method_exists($user, 'isStudent')
+            && method_exists($user, 'canLoginToSlea')
+            && $user->isStudent()
+            && !$user->canLoginToSlea()
+        ) {
+            return back()
+                ->withErrors(['email' => $user->loginBlockReason()])
+                ->withInput($request->only('email'));
+        }
+
+        // 4) Decide if OTP is required (first login or forced by making this column null)
+        $otpRequired = false;
+
+        if (Schema::hasColumn('users', 'otp_last_verified_at')) {
+            // First-ever login OR you manually reset otp_last_verified_at to null
+            if (is_null($user->otp_last_verified_at)) {
+                $otpRequired = true;
+            }
+        }
+
+        if ($otpRequired) {
+            // --- OTP FLOW (do NOT log in yet) ---
+
+            // Store who is pending OTP
+            session([
+                'otp_pending_user_id' => $user->id,
+                'otp_context'         => 'login',
+                'otp_remember_me'     => $request->boolean('remember'),
+                'otp_display_email'   => $user->email,
+            ]);
+
+            // Generate + email OTP
+            $this->sendOtp($user, 'login');
+
+            return redirect()
+                ->route('login.show')
+                ->with('status', 'We sent a one-time password (OTP) to your email.')
+                ->with('show_otp_modal', true);
+        }
+
+        // 5) No OTP required → proceed with normal login
         Auth::login($user, $request->boolean('remember'));
+        $request->session()->regenerate();
 
         // 🔹 SYSTEM LOG: LOGIN
         $displayName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
@@ -74,24 +110,18 @@ class AuthController extends Controller
             'User logged in.'
         );
 
-        // Redirect based on role...
-        if ($user->role === 'admin') {
-            return redirect()->route('admin.profile');
-        } elseif ($user->role === 'assessor') {
-            return redirect()->route('assessor.profile');
-        }
-
-        return redirect()->route('student.profile');
+        return $this->redirectAfterLogin($user);
     }
+
 
     protected function redirectAfterLogin(User $user)
     {
         return match ($user->role) {
-                User::ROLE_ADMIN    => redirect()->route('admin.profile'),
-                User::ROLE_ASSESSOR => redirect()->route('assessor.profile'),
-                default             => redirect()->route('student.profile'),
-            };
-        }
+            User::ROLE_ADMIN    => redirect()->route('admin.profile'),
+            User::ROLE_ASSESSOR => redirect()->route('assessor.profile'),
+            default             => redirect()->route('student.profile'),
+        };
+    }
     public function logout(Request $request)
     {
         /** @var \App\Models\User|null $user */
@@ -149,6 +179,7 @@ class AuthController extends Controller
                 'required',
                 'string',
                 'max:30',
+                // NOTE: this targets the table/column you used before the merge
                 Rule::unique('student_academic', 'student_number'),
             ],
             'college_id'    => ['required', 'integer', 'exists:colleges,id'],
@@ -169,9 +200,9 @@ class AuthController extends Controller
         ];
 
         $messages = [
-            'email_address.regex' => 'Please use a valid @usep.edu.ph email address.',
+            'email_address.regex'  => 'Please use a valid @usep.edu.ph email address.',
             'email_address.unique' => 'This email address is already registered. Please use a different email or try logging in.',
-            'student_id.unique' => 'This student ID is already registered. Please check your student ID or contact support if you believe this is an error.',
+            'student_id.unique'    => 'This student ID is already registered. Please check your student ID or contact support if you believe this is an error.',
         ];
 
         $validated = $request->validate($rules, $messages);
@@ -269,16 +300,15 @@ class AuthController extends Controller
             DB::rollBack();
             report($e);
 
-            // Check for specific database constraint violations
-            $errorCode = $e->getCode();
             $errorMessage = $e->getMessage();
 
-            // Check if it's a unique constraint violation
-            if (str_contains($errorMessage, 'UNIQUE constraint failed') || 
+            // Unique constraint handling
+            if (
+                str_contains($errorMessage, 'UNIQUE constraint failed') ||
                 str_contains($errorMessage, 'Duplicate entry') ||
-                str_contains($errorMessage, 'unique constraint')) {
-                
-                // Check which field caused the violation
+                str_contains($errorMessage, 'unique constraint')
+            ) {
+
                 if (str_contains($errorMessage, 'email') || str_contains($errorMessage, 'users.email')) {
                     return back()
                         ->withErrors(['email_address' => 'This email address is already registered. Please use a different email or try logging in.'])
@@ -294,7 +324,7 @@ class AuthController extends Controller
                 }
             }
 
-            // Generic database error
+            // Generic DB error
             return back()
                 ->withErrors(['register' => 'Could not complete registration. Please try again.'])
                 ->withInput();
@@ -392,7 +422,7 @@ class AuthController extends Controller
                 ->route('login.show')
                 ->withErrors(['email' => $user->loginBlockReason()])
                 ->with('show_otp_modal', false);
-    }
+        }
 
         /** @var UserOtp|null $otpRecord */
         $otpRecord = UserOtp::where('user_id', $user->id)
@@ -443,6 +473,16 @@ class AuthController extends Controller
 
             Auth::login($user, $remember);
             $request->session()->regenerate();
+
+            // 🔹 SYSTEM LOG: LOGIN (after successful OTP)
+            $displayName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+
+            SystemMonitoringAndLog::record(
+                $user->role,
+                $displayName ?: $user->email,
+                'Login',
+                'User logged in (OTP verified).'
+            );
 
             return $this->redirectAfterLogin($user);
         }
@@ -631,17 +671,17 @@ class AuthController extends Controller
                 ->orderBy('rank_order')
                 ->orderBy('name')
                 ->select('id', 'name')
-                        ->get()
-                        ->map(fn($r) => [
-                            'id'   => $r->id,
+                ->get()
+                ->map(fn($r) => [
+                    'id'   => $r->id,
                     'name' => $r->name,
-                        ]);
+                ]);
 
-                    return response()->json($rows);
-                }
-
-            return response()->json([]);
+            return response()->json($rows);
         }
+
+        return response()->json([]);
+    }
 
     protected function councilOrgNames(): array
     {
@@ -716,17 +756,15 @@ class AuthController extends Controller
 
         $clusterId = $request->input('cluster_id');
 
-        $rows = DB::table('organizations')
-            ->when($clusterId, fn($q) => $q->where('cluster_id', $clusterId))
-            ->orderBy('name')
-            ->select('id', 'name')
-            ->get()
-            ->map(fn($r) => [
-                'id' => $r->id,
-                'name' => $r->name,
-            ]);
+        $q = DB::table('organizations')->orderBy('name');
 
-        return response()->json($rows);
+        if ($clusterId) {
+            $q->where('cluster_id', $clusterId);
+        }
+
+        $organizations = $q->pluck('name', 'id'); // { id: "Org Name", ... }
+
+        return response()->json($organizations);
     }
 
     public function getLeadershipTypes()
@@ -807,16 +845,16 @@ class AuthController extends Controller
         // Order by the same sequence as defined in LeadershipTypeSeeder
         return DB::table('leadership_types')
             ->select('id', 'name', 'key', 'requires_org')
-            ->orderByRaw("CASE `key` 
-                WHEN 'usg' THEN 1 
-                WHEN 'osc' THEN 2 
-                WHEN 'lc' THEN 3 
-                WHEN 'cco' THEN 4 
-                WHEN 'sco' THEN 5 
-                WHEN 'lgu' THEN 6 
-                WHEN 'lcm' THEN 7 
-                WHEN 'eap' THEN 8 
-                ELSE 99 
+            ->orderByRaw("CASE `key`
+                WHEN 'usg' THEN 1
+                WHEN 'osc' THEN 2
+                WHEN 'lc' THEN 3
+                WHEN 'cco' THEN 4
+                WHEN 'sco' THEN 5
+                WHEN 'lgu' THEN 6
+                WHEN 'lcm' THEN 7
+                WHEN 'eap' THEN 8
+                ELSE 99
             END")
             ->get();
     }
