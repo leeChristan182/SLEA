@@ -6,6 +6,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Middleware\AwardEligibilityMiddleware;
 use App\Http\Middleware\RedirectIfAuthenticated;
+use App\Http\Middleware\CheckUserStatus;
 
 return Illuminate\Foundation\Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -20,7 +21,11 @@ return Illuminate\Foundation\Application::configure(basePath: dirname(__DIR__))
             'eligible' => AwardEligibilityMiddleware::class,
             'role' => RoleMiddleware::class,
             'guest' => RedirectIfAuthenticated::class,
+            'check.status' => CheckUserStatus::class,
         ]);
+
+        // Add CheckUserStatus to web middleware group for all authenticated routes
+        $middleware->appendToGroup('web', [CheckUserStatus::class]);
 
         // (optional) add something to groups
         // $middleware->appendToGroup('web', [ ... ]);

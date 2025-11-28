@@ -9,6 +9,8 @@ use App\Models\RubricCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 
 class FinalReviewController extends Controller
 {
@@ -87,7 +89,24 @@ class FinalReviewController extends Controller
             return $item->student !== null;
         });
 
-        return view('admin.final-review', compact('items'));
+        // Paginate the collection (5 items per page)
+        $currentPage = request()->get('page', 1);
+        $perPage = 5;
+        $total = $items->count();
+        $items = $items->slice(($currentPage - 1) * $perPage, $perPage)->values();
+        
+        $paginator = new LengthAwarePaginator(
+            $items,
+            $total,
+            $perPage,
+            $currentPage,
+            [
+                'path' => request()->url(),
+                'query' => request()->query(),
+            ]
+        );
+
+        return view('admin.final-review', ['items' => $paginator]);
     }
 
     /**

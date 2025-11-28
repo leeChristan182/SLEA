@@ -307,6 +307,14 @@ function resetModalState() {
 }
 
 // Ensure function is available globally
+// Helper function to open modal from button with data attribute
+window.openSubmissionModalFromButton = function(button) {
+    const submissionId = button.getAttribute('data-submission-id');
+    if (submissionId) {
+        window.openSubmissionModal(parseInt(submissionId));
+    }
+};
+
 window.openSubmissionModal = window.openSubmissionModal || async function (submissionId) {
     try {
         resetModalState();

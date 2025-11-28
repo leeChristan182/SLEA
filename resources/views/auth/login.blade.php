@@ -361,6 +361,40 @@
         </div>
     </div>
 
+    {{-- =============== ACCOUNT DISABLED MODAL =============== --}}
+    <div class="modal fade" id="accountDisabledModal" tabindex="-1" aria-labelledby="accountDisabledModalLabel"
+        aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0">
+                <div class="modal-header bg-danger text-white border-0">
+                    <h5 class="modal-title d-flex align-items-center gap-2" id="accountDisabledModalLabel">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Account Disabled
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <div class="alert alert-danger d-flex align-items-start gap-3 mb-0" role="alert">
+                        <i class="fas fa-ban fa-2x mt-1"></i>
+                        <div>
+                            <h6 class="alert-heading fw-bold mb-2">Your account has been disabled by the administrator.</h6>
+                            <p class="mb-0">
+                                Please go to the OSAS office to discuss this problem. 
+                                For further assistance, you may contact the Office of Student Affairs and Services.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- Scripts --}}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ asset('js/login.js') }}"></script>
@@ -383,6 +417,14 @@
                 @if (session('show_reset_modal'))
                     var resetModal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
                     resetModal.show();
+                @endif
+
+                @if (session('show_disabled_modal'))
+                    var disabledModal = new bootstrap.Modal(document.getElementById('accountDisabledModal'), {
+                        backdrop: 'static',
+                        keyboard: false
+                    });
+                    disabledModal.show();
                 @endif
 
         });

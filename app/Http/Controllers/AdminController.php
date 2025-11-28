@@ -83,8 +83,8 @@ class AdminController extends Controller
         $path = $request->file('avatar')->store('avatars', 'public');
 
         // Delete old avatar if present
-        if ($user->profile_picture_path && \Storage::disk('public')->exists($user->profile_picture_path)) {
-            \Storage::disk('public')->delete($user->profile_picture_path);
+        if ($user->profile_picture_path && Storage::disk('public')->exists($user->profile_picture_path)) {
+            Storage::disk('public')->delete($user->profile_picture_path);
         }
 
         // Update database with new path
@@ -122,12 +122,12 @@ class AdminController extends Controller
             'password_confirmation' => ['required'],
         ]);
 
-        if (!\Hash::check($data['current_password'], $user->password)) {
+        if (!Hash::check($data['current_password'], $user->password)) {
             return back()->withErrors(['current_password' => 'Current password is incorrect.']);
         }
 
         // Store previous hash in password_changes table (if you already do this)
-        \DB::table('password_changes')->insert([
+        DB::table('password_changes')->insert([
             'user_id'                => $user->id,
             'previous_password_hash' => $user->password,
             'changed_at'             => now(),
@@ -139,7 +139,7 @@ class AdminController extends Controller
         ]);
 
         // Actually change the password
-        $user->password = \Hash::make($data['password']);
+        $user->password = Hash::make($data['password']);
         $user->save();
 
         // 🔹 SYSTEM LOG: PASSWORD CHANGE
@@ -221,7 +221,7 @@ class AdminController extends Controller
             'last_name'  => $data['last_name'],
             'middle_name' => $data['middle_name'] ?? null,
             'email'      => $data['email'],
-            'password'   => \Hash::make($password),
+            'password'   => Hash::make($password),
             'role'       => $data['role'],
             'status'     => $status,
             'contact'    => $data['contact'] ?? null,

@@ -470,6 +470,22 @@
         form.submit();
     }
 
+    // Auto-dismiss alerts after 1 second
+    document.addEventListener('DOMContentLoaded', function() {
+        // Find all alert elements
+        const alerts = document.querySelectorAll('.alert');
+        alerts.forEach(function(alert) {
+            // Set timeout to fade out and remove alert after 1 second
+            setTimeout(function() {
+                alert.style.transition = 'opacity 0.5s ease-out';
+                alert.style.opacity = '0';
+                setTimeout(function() {
+                    alert.remove();
+                }, 500); // Remove after fade animation completes
+            }, 1000); // 1 second
+        });
+    });
+
     // Toggle/Delete confirmation modals
     document.addEventListener('DOMContentLoaded', function() {
         // Toggle button handlers

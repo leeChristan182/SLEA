@@ -235,7 +235,7 @@ class RubricController extends Controller
     public function subsectionUpdate(Request $request, RubricSubsection $subsection)
     {
         $data = $request->validate([
-            'section_id'      => ['required', 'exists:rubric_sections,id'],
+            'section_id'      => ['required', 'exists:rubric_sections,section_id'],
             'sub_section'     => ['required', 'string', 'max:255'],
             'evidence_needed' => ['nullable', 'string'],
             'max_points'      => ['nullable', 'numeric'],
@@ -245,18 +245,26 @@ class RubricController extends Controller
 
         $subsection->update($data);
 
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['message' => 'Subsection updated successfully.']);
+        }
+
         return redirect()
-            ->route('rubrics.subsections.index')
+            ->route('rubrics.index')
             ->with('success', 'Subsection updated.');
     }
 
     // DELETE /admin/rubrics/subsections/{subsection}
-    public function subsectionDestroy(RubricSubsection $subsection)
+    public function subsectionDestroy(RubricSubsection $subsection, Request $request)
     {
         $subsection->delete();
 
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['message' => 'Subsection deleted successfully.']);
+        }
+
         return redirect()
-            ->route('rubrics.subsections.index')
+            ->route('rubrics.index')
             ->with('success', 'Subsection deleted.');
     }
 
@@ -284,11 +292,17 @@ class RubricController extends Controller
     public function optionStore(Request $request)
     {
         $data = $request->validate([
-            'subsection_id' => ['required', 'exists:rubric_subsections,id'],
+            'subsection_id' => ['required', 'exists:rubric_subsections,sub_section_id'],
             'label'         => ['required', 'string', 'max:255'], // e.g. President, VP, etc.
             'points'        => ['required', 'numeric'],
             'order_no'      => ['nullable', 'integer'],
         ]);
+
+        // Map subsection_id to sub_section_id for the model
+        if (isset($data['subsection_id'])) {
+            $data['sub_section_id'] = $data['subsection_id'];
+            unset($data['subsection_id']);
+        }
 
         RubricOption::create($data);
 
@@ -307,11 +321,17 @@ class RubricController extends Controller
     public function optionUpdate(Request $request, RubricOption $option)
     {
         $data = $request->validate([
-            'subsection_id' => ['required', 'exists:rubric_subsections,id'],
+            'subsection_id' => ['required', 'exists:rubric_subsections,sub_section_id'],
             'label'         => ['required', 'string', 'max:255'],
             'points'        => ['required', 'numeric'],
             'order_no'      => ['nullable', 'integer'],
         ]);
+
+        // Map subsection_id to sub_section_id for the model
+        if (isset($data['subsection_id'])) {
+            $data['sub_section_id'] = $data['subsection_id'];
+            unset($data['subsection_id']);
+        }
 
         $option->update($data);
 

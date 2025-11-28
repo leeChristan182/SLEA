@@ -14,24 +14,18 @@
 
             {{-- Flash messages --}}
             @if (session('status'))
-                <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
-                    {{ session('status') }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
+                <div class="alert alert-success">{{ session('status') }}</div>
             @endif
 
             @if (session('error'))
-                <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
-                    {{ session('error') }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
+                <div class="alert alert-danger">{{ session('error') }}</div>
             @endif
 
-            {{-- Filter + search --}}
-            <div class="filter-bar mb-3">
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-3">
-                        <label for="statusFilter" class="filter-label">Filter by Decision</label>
+            {{-- Controls Section --}}
+            <div class="controls-section">
+                <div class="filter-controls">
+                    <div class="filter-group">
+                        <label for="statusFilter">Filter by Decision</label>
                         <select id="statusFilter" class="form-select">
                             <option value="">All</option>
                             <option value="pending">Pending decision</option>
@@ -40,8 +34,8 @@
                         </select>
                     </div>
 
-                    <div class="col-md-3">
-                        <label for="sortSelect" class="filter-label">Sort by</label>
+                    <div class="filter-group">
+                        <label for="sortSelect">Sort by</label>
                         <select id="sortSelect" class="form-select">
                             <option value="">None</option>
                             <option value="name">Student Name</option>
@@ -50,21 +44,23 @@
                             <option value="score-asc">Lowest Score</option>
                         </select>
                     </div>
+                </div>
 
-                    <div class="col-md-6">
-                        <label for="searchInput" class="search-label">Search</label>
-                        <div class="search-wrapper">
-                            <i class="fas fa-search search-icon"></i>
-                            <input type="text" id="searchInput" class="form-control"
-                                   placeholder="Search by ID, name, college, program, or major...">
-                        </div>
+                <div class="search-controls">
+                    <div class="search-group">
+                        <input
+                            type="text"
+                            id="searchInput"
+                            class="form-control"
+                            placeholder="Search by ID, name, college, program, or major..."
+                        >
                     </div>
                 </div>
             </div>
 
             {{-- Table --}}
-            <div class="table-container">
-                <table class="table table-hover graduating-table" id="adminFinalReviewTable">
+            <div class="submissions-table-container">
+                <table class="table submissions-table" id="adminFinalReviewTable">
                     <thead>
                     <tr>
                         <th>Student ID</th>
@@ -166,22 +162,25 @@
                                 </span>
                             </td>
                             <td>
-                                <button type="button"
-                                        class="btn btn-view btn-action"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#adminViewSummaryModal"
-                                        data-afr-id="{{ $afr->id }}"
-                                        data-student-number="{{ $studentNumber }}"
-                                        data-student-name="{{ $studentName }}"
-                                        data-college="{{ $collegeName }}"
-                                        data-program="{{ $programName }}"
-                                        data-major="{{ $majorName }}"
-                                        data-year-level="{{ $yearLevel }}"
-                                        data-score="{{ number_format($afr->total_score ?? 0, 2) }}"
-                                        data-decision="{{ $decisionKey ?? 'pending' }}"
-                                        data-breakdown='@json($breakdown)'>
-                                    <i class="fas fa-eye"></i>
-                                </button>
+                                <div class="action-buttons-group">
+                                    <button type="button"
+                                            class="btn-view btn-action"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#adminViewSummaryModal"
+                                            data-afr-id="{{ $afr->id }}"
+                                            data-student-number="{{ $studentNumber }}"
+                                            data-student-name="{{ $studentName }}"
+                                            data-college="{{ $collegeName }}"
+                                            data-program="{{ $programName }}"
+                                            data-major="{{ $majorName }}"
+                                            data-year-level="{{ $yearLevel }}"
+                                            data-score="{{ number_format($afr->total_score ?? 0, 2) }}"
+                                            data-decision="{{ $decisionKey ?? 'pending' }}"
+                                            data-breakdown='@json($breakdown)'
+                                            title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     @empty
@@ -194,6 +193,69 @@
                     </tbody>
                 </table>
             </div>
+
+            {{-- Pagination --}}
+            @if($items->hasPages())
+                <div class="pagination-container" data-pagination-container>
+                    <div class="pagination-info">
+                        Showing {{ $items->firstItem() ?? 0 }} – {{ $items->lastItem() ?? 0 }}
+                        of {{ $items->total() }} entries
+                    </div>
+
+                    <div class="unified-pagination">
+                        @if($items->onFirstPage())
+                            <button class="btn-nav" disabled>
+                                <i class="fas fa-chevron-left"></i> Previous
+                            </button>
+                        @else
+                            <a href="{{ $items->previousPageUrl() }}" class="btn-nav">
+                                <i class="fas fa-chevron-left"></i> Previous
+                            </a>
+                        @endif
+
+                        <span class="pagination-pages">
+                            @php
+                                $currentPage = $items->currentPage();
+                                $lastPage = $items->lastPage();
+                                $start = max(1, $currentPage - 2);
+                                $end = min($lastPage, $currentPage + 2);
+                            @endphp
+
+                            @if($start > 1)
+                                <a href="{{ $items->url(1) }}" class="page-btn">1</a>
+                                @if($start > 2)
+                                    <span class="page-btn disabled">...</span>
+                                @endif
+                            @endif
+
+                            @for($i = $start; $i <= $end; $i++)
+                                @if($i == $currentPage)
+                                    <span class="page-btn active">{{ $i }}</span>
+                                @else
+                                    <a href="{{ $items->url($i) }}" class="page-btn">{{ $i }}</a>
+                                @endif
+                            @endfor
+
+                            @if($end < $lastPage)
+                                @if($end < $lastPage - 1)
+                                    <span class="page-btn disabled">...</span>
+                                @endif
+                                <a href="{{ $items->url($lastPage) }}" class="page-btn">{{ $lastPage }}</a>
+                            @endif
+                        </span>
+
+                        @if($items->hasMorePages())
+                            <a href="{{ $items->nextPageUrl() }}" class="btn-nav">
+                                Next <i class="fas fa-chevron-right"></i>
+                            </a>
+                        @else
+                            <button class="btn-nav" disabled>
+                                Next <i class="fas fa-chevron-right"></i>
+                            </button>
+                        @endif
+                    </div>
+                </div>
+            @endif
         </main>
     </div>
 
@@ -202,6 +264,9 @@
         @csrf
         <input type="hidden" name="decision" value="">
     </form>
+
+    <link rel="stylesheet" href="{{ asset('css/pending-submissions.css') }}">
+    <script src="{{ asset('js/admin_pagination.js') }}"></script>
 
     {{-- Admin View Summary Modal --}}
     <div class="modal fade admin-final-modal"  {{-- <== extra class to scope overrides --}}
@@ -546,88 +611,35 @@
             overflow-y: auto;
         }
 
-        /* ---- Page header ---- */
-        .page-header {
-            margin-bottom: 1.5rem;
-        }
-
+        /* Final Review Specific Styles */
         .page-header h1 {
-            color: #8B0000;
+            color: #7E0308;
             font-size: 2rem;
-            margin-bottom: 0;
             font-weight: 700;
         }
 
         body.dark-mode .page-header h1 {
-            color: #f9bd3d !important;
+            color: #F9BD3D;
         }
 
-        /* ---- Filter bar ---- */
-        .filter-bar {
-            background: #fff;
-            border-radius: 12px;
-            padding: 1rem 1.25rem;
-            margin-bottom: 1.25rem;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+        /* Filter group width adjustments */
+        .filter-group select {
+            width: 200px;
+            max-width: 200px;
+            min-width: 150px;
         }
 
-        body.dark-mode .filter-bar {
-            background: #2b2b2b;
+        /* Search input width */
+        .search-group .form-control {
+            max-width: 400px;
         }
 
-        .filter-label,
-        .search-label {
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 0.25rem;
-            color: #555;
-        }
-
-        body.dark-mode .filter-label,
-        body.dark-mode .search-label {
-            color: #ddd;
-        }
-
-        .search-wrapper {
-            position: relative;
-        }
-
-        .search-icon {
-            position: absolute;
-            left: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 0.85rem;
-            color: #999;
-        }
-
-        .search-wrapper input {
-            padding-left: 2rem;
-        }
-
-        /* ---- Table container ---- */
-        .table-container {
-            background: #fff;
-            border-radius: 12px;
-            padding: 1rem 1.25rem;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
-        }
-
-        body.dark-mode .table-container {
-            background: #2b2b2b;
-        }
-
-        .graduating-table thead th {
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            color: #666;
-            border-bottom: 2px solid #eee;
-        }
-
-        .graduating-table tbody td {
-            vertical-align: middle;
-            font-size: 0.92rem;
+        /* Action buttons group */
+        .action-buttons-group {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            align-items: center;
         }
 
         .btn-action {
@@ -635,19 +647,22 @@
             align-items: center;
             justify-content: center;
             padding: 0.35rem 0.6rem;
-            border-radius: 999px;
+            border-radius: 6px;
             border: none;
             font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
 
         .btn-view {
-            background: #8B0000;
+            background: #7E0308;
             color: #fff;
         }
 
         .btn-view:hover {
-            background: #a00000;
+            background: #5a0206;
             color: #fff;
+            transform: translateY(-1px);
         }
 
         .decision-badge {

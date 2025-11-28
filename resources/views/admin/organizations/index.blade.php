@@ -3,14 +3,16 @@
 @section('title', 'Organizations Management')
 
 @section('content')
-<div class="page-wrapper">
+<div class="container">
+    @include('partials.sidebar')
 
-
-    <div class="manage-container orgs-box">
-        <h2 class="manage-title">Organizations Management</h2>
+    <main class="main-content">
+        <div class="page-header">
+            <h1>Organizations Management</h1>
+        </div>
 
         @if ($errors->any())
-        <div class="alert alert-danger mt-2">
+        <div class="alert alert-danger">
             <ul class="mb-0">
                 @foreach ($errors->all() as $error)
                 <li>{{ $error }}</li>
@@ -18,15 +20,8 @@
             </ul>
         </div>
         @endif
-
-        <!-- Back button -->
-        <div class="rubric-header-nav mb-2">
-            <a href="{{ route('admin.profile') }}" class="btn-back-maroon">
-                <i class="fas fa-arrow-left"></i> Back to Dashboard
-            </a>
-        </div>
         <!-- Filter Section -->
-        <div class="filter-section mb-3">
+        <div class="filter-section mb-4">
             <form method="GET" action="{{ route('admin.organizations.index') }}" id="filterForm">
                 <div class="filter-row d-flex justify-content-between align-items-end flex-wrap gap-2">
                     <div class="d-flex align-items-end gap-2 flex-wrap">
@@ -66,8 +61,8 @@
         </div>
 
         <!-- Table -->
-        <div class="table-wrap compact-table">
-            <table class="manage-table">
+        <div class="submissions-table-container">
+            <table class="table submissions-table">
                 <thead>
                     <tr>
                         <th>Organization Name</th>
@@ -80,13 +75,18 @@
                     <tr>
                         <td>{{ $org->name }}</td>
                         <td>{{ $org->cluster->name ?? '—' }}</td>
-                        <td class="action-cell">
-                            <div class="action-buttons">
-                                <button class="action-btn btn-edit" title="Edit" data-org-id="{{ $org->id }}" onclick="openOrgModal(parseInt(this.getAttribute('data-org-id')))">
+                        <td>
+                            <div class="action-buttons-group">
+                                <button class="btn-edit" title="Edit" 
+                                    data-org-id="{{ $org->id }}"
+                                    data-org-name="{{ $org->name }}"
+                                    data-org-cluster-id="{{ $org->cluster_id }}"
+                                    data-org-description="{{ $org->description ?? '' }}"
+                                    onclick="openOrgModalFromButton(this)">
                                     <i class="fas fa-edit"></i>
                                 </button>
 
-                                <button type="button" class="action-btn btn-delete" title="Delete" 
+                                <button type="button" class="btn-delete" title="Delete" 
                                     data-org-id="{{ $org->id }}"
                                     data-org-name="{{ $org->name }}"
                                     data-org-cluster-id="{{ $org->cluster_id }}"
@@ -151,7 +151,7 @@
         </div>
         @endif
 
-    </div>
+    </main>
 </div>
 
 <!-- Delete Confirmation Modal -->
@@ -301,6 +301,17 @@
             form.reset();
             document.getElementById('org_id').value = '';
         }
+    }
+
+    // Helper function to open org modal from button data attributes
+    function openOrgModalFromButton(button) {
+        const org = {
+            id: button.getAttribute('data-org-id'),
+            name: button.getAttribute('data-org-name'),
+            cluster_id: button.getAttribute('data-org-cluster-id'),
+            description: button.getAttribute('data-org-description') || ''
+        };
+        openOrgModal(org);
     }
 
     function closeOrgModal() {
@@ -453,27 +464,59 @@
 </script>
 
 <style>
-    .page-wrapper {
-        padding-top: 60px;
+    /* Organizations Management Styling */
+    .main-content {
+        padding: 20px;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
     }
 
-    .orgs-box {
-        width: 80%;
-        margin: 0 auto 40px;
-        margin-top: 20px;
-        background: var(--card-bg, #fff);
-        border-radius: 14px;
-        padding: 30px;
-        transition: background 0.3s, color 0.3s;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    .page-header {
+        margin-bottom: 24px;
     }
 
-    .orgs-box .manage-title {
-        margin-bottom: 10px;
+    .page-header h1 {
+        font-size: 28px;
+        font-weight: 700;
+        color: #7b0000;
+        margin: 0;
     }
 
-    .orgs-box .rubric-header-nav {
-        margin-bottom: 10px;
+    body.dark-mode .page-header h1 {
+        color: #f9bd3d;
+    }
+
+    /* Filter Section - Adjusted for sidebar layout */
+    .filter-section {
+        background: var(--card-bg, #f9fafb);
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid var(--border-color, #e5e7eb);
+        margin-bottom: 20px;
+    }
+
+    body.dark-mode .filter-section {
+        background: #2a2a2a;
+        border-color: #444;
+    }
+
+    /* Responsive adjustments for sidebar layout */
+    @media (max-width: 768px) {
+        .filter-section .filter-row {
+            flex-direction: column;
+            align-items: stretch !important;
+        }
+
+        .filter-section .filter-actions {
+            width: 100%;
+            justify-content: stretch;
+        }
+
+        .filter-section .filter-actions button,
+        .filter-section .filter-actions a {
+            flex: 1;
+        }
     }
 
 
@@ -518,11 +561,158 @@
         cursor: not-allowed;
     }
 
-    /* Dark-mode adjustments if you use body.dark-mode */
-    body.dark-mode .orgs-box {
-        background: #1f1f1f;
+    /* Table Styling - Match other admin tables */
+    .submissions-table-container {
+        background: #fff;
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+        overflow-x: auto;
+    }
+
+    .submissions-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin: 0;
+    }
+
+    .submissions-table thead {
+        background: #7b0000;
+    }
+
+    .submissions-table thead th {
+        background: #7b0000;
+        color: #fff;
+        font-weight: 600;
+        padding: 15px 12px;
+        text-align: left;
+        border-right: 1px solid rgba(255, 255, 255, 0.2);
+        border-bottom: 2px solid #fff;
+        font-size: 14px;
+    }
+
+    .submissions-table thead th:last-child {
+        border-right: none;
+        text-align: center;
+    }
+
+    .submissions-table tbody td {
+        padding: 12px;
+        border-right: 1px solid #dee2e6;
+        border-bottom: 1px solid #dee2e6;
+        background: #fff;
+        vertical-align: middle;
+    }
+
+    .submissions-table tbody td:last-child {
+        border-right: none;
+        text-align: center;
+    }
+
+    .submissions-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .submissions-table tbody tr:nth-child(even) td {
+        background: #f8f9fa;
+    }
+
+    .submissions-table tbody tr:hover td {
+        background: #e3f2fd;
+    }
+
+    /* Action buttons styling */
+    .action-buttons-group {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .btn-edit,
+    .btn-delete {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 14px;
+    }
+
+    .btn-edit {
+        background: #0d6efd;
+        color: #fff;
+    }
+
+    .btn-edit:hover {
+        background: #0b5ed7;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(13, 110, 253, 0.3);
+    }
+
+    .btn-delete {
+        background: #dc3545;
+        color: #fff;
+    }
+
+    .btn-delete:hover {
+        background: #bb2d3b;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+    }
+
+    /* Dark mode support */
+    body.dark-mode .submissions-table-container {
+        background: #2b2b2b;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    body.dark-mode .submissions-table {
         color: #f0f0f0;
-        box-shadow: 0 0 12px rgba(255, 255, 255, 0.03);
+    }
+
+    body.dark-mode .submissions-table thead {
+        background: #5c0000;
+    }
+
+    body.dark-mode .submissions-table thead th {
+        background: #5c0000;
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    body.dark-mode .submissions-table tbody td {
+        background: #3a3a3a;
+        border-color: #555;
+        color: #f0f0f0;
+    }
+
+    body.dark-mode .submissions-table tbody tr:nth-child(even) td {
+        background: #333;
+    }
+
+    body.dark-mode .submissions-table tbody tr:hover td {
+        background: #404040;
+    }
+
+    body.dark-mode .btn-edit {
+        background: #0d6efd;
+    }
+
+    body.dark-mode .btn-edit:hover {
+        background: #0b5ed7;
+    }
+
+    body.dark-mode .btn-delete {
+        background: #dc3545;
+    }
+
+    body.dark-mode .btn-delete:hover {
+        background: #bb2d3b;
     }
 
     body.dark-mode .page-btn {
@@ -542,48 +732,6 @@
         border-color: #7E0308;
     }
 
-    .btn-back-maroon {
-        background-color: #7E0308;
-        color: #fff;
-        border: 1px solid #7E0308;
-        border-radius: 6px;
-        padding: 8px 16px;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        transition: all 0.3s ease;
-        font-size: 14px;
-        font-weight: 500;
-    }
-
-    .btn-back-maroon:hover {
-        background-color: #5a0206;
-        border-color: #5a0206;
-        color: #fff;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(126, 3, 8, 0.3);
-        text-decoration: none;
-    }
-
-    .btn-back-maroon:active {
-        transform: translateY(0);
-        box-shadow: 0 1px 2px rgba(126, 3, 8, 0.3);
-    }
-
-    .btn-back-maroon i {
-        font-size: 14px;
-    }
-
-    body.dark-mode .btn-back-maroon {
-        background-color: #7E0308;
-        border-color: #7E0308;
-    }
-
-    body.dark-mode .btn-back-maroon:hover {
-        background-color: #9a040a;
-        border-color: #9a040a;
-    }
 
     .btn-search-maroon {
         background-color: #7E0308;
@@ -627,18 +775,6 @@
         border-color: #9a040a;
     }
 
-    /* Filter Section Styling */
-    .filter-section {
-        background: var(--card-bg, #f9fafb);
-        padding: 20px;
-        border-radius: 8px;
-        border: 1px solid var(--border-color, #e5e7eb);
-    }
-
-    body.dark-mode .filter-section {
-        background: #2a2a2a;
-        border-color: #444;
-    }
 
     .filter-section .filter-item {
         display: flex;

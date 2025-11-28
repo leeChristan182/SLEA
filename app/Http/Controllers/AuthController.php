@@ -47,6 +47,13 @@ class AuthController extends Controller
         /** @var \App\Models\User $user */
         $user = User::where('email', $data['email'])->firstOrFail();
 
+        // Check if account is disabled
+        if ($user->status === User::STATUS_DISABLED) {
+            return back()
+                ->with('show_disabled_modal', true)
+                ->withInput($request->only('email'));
+        }
+
         // Optional: additional checks on status, role, etc.
         if ($user->status !== 'approved') {
             return back()

@@ -77,7 +77,8 @@
                             <td>
                                 <button
                                     class="btn btn-view"
-                                    onclick="openSubmissionModal({{ $submission->id }})"
+                                    data-submission-id="{{ $submission->id }}"
+                                    onclick="openSubmissionModalFromButton(this)"
                                     title="View Submission"
                                 >
                                     <i class="fas fa-eye"></i>

@@ -47,7 +47,7 @@ class SystemMonitoringAndLogController extends Controller
 
         $logs = $query
             ->orderByDesc('created_at')
-            ->paginate(25)
+            ->paginate(10)
             ->appends($request->query());
 
         return view('admin.system-monitoring', compact('logs'));

@@ -366,11 +366,12 @@ class StudentController extends Controller
 
         // If AJAX (used by student_profile.js) → JSON
         if ($request->expectsJson() || $request->ajax()) {
+            $corUrl = asset('storage/' . $path);
             return response()->json([
                 'success'   => true,
                 'message'   => 'Certificate of Registration uploaded.',
                 'cor_path'  => $path,
-                'cor_url'   => Storage::disk('public')->url($path),
+                'cor_url'   => $corUrl,
                 'eligibility_status' => $academic->eligibility_status ?? $status ?? null,
             ]);
         }
@@ -386,10 +387,12 @@ class StudentController extends Controller
     // GET /student/performance
     public function performance()
     {
+        /** @var \App\Models\User $user */
         $user = Auth::user();
         abort_unless($user->isStudent(), 403);
 
         // Refresh the relationship to get the latest status
+        /** @var \App\Models\User $user */
         $user->load('studentAcademic');
         $academic = $user->studentAcademic;
         
