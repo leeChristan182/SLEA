@@ -25,6 +25,11 @@
                     <label for="editOrderNo">Order No (optional)</label>
                     <input type="number" id="editOrderNo" name="order_no" class="form-control" min="0">
                 </div>
+                <div class="form-group">
+                    <label for="editNotes">Notes (optional)</label>
+                    <textarea id="editNotes" name="notes" class="form-control" rows="3" placeholder="Enter notes for this subsection..."></textarea>
+                    <small class="text-muted">These notes will be applied to the subsection.</small>
+                </div>
             </form>
         </div>
         <div class="modal-footer">
@@ -260,20 +265,151 @@
     }
 
     /* Dark Mode */
-    @media (prefers-color-scheme: dark) {
-        .modal-content {
-            background: #2b2b2b;
-            color: #eee;
-        }
+    body.dark-mode .modal {
+        background: rgba(0, 0, 0, 0.8);
+    }
 
-        .btn-secondary {
-            background: #444;
-            color: #eee;
-        }
+    body.dark-mode .modal-content {
+        background: #3a3a3a;
+        color: #f0f0f0;
+        border: 1px solid #555;
+    }
 
-        .btn-secondary:hover {
-            background: #555;
-        }
+    body.dark-mode .modal-header h3 {
+        color: #f0f0f0;
+    }
+
+    body.dark-mode .modal-header .close {
+        color: #ccc;
+    }
+
+    body.dark-mode .modal-header .close:hover {
+        color: #fff;
+    }
+
+    body.dark-mode .modal-body {
+        color: #f0f0f0;
+    }
+
+    body.dark-mode .modal-body p {
+        color: #f0f0f0;
+    }
+
+    /* Form controls in dark mode */
+    body.dark-mode .form-group label {
+        color: #f0f0f0;
+    }
+
+    body.dark-mode .form-control {
+        background: #4a4a4a;
+        color: #f0f0f0;
+        border-color: #555;
+    }
+
+    body.dark-mode .form-control:focus {
+        background: #4a4a4a;
+        color: #f0f0f0;
+        border-color: #f9bd3d;
+        box-shadow: 0 0 0 2px rgba(249, 189, 61, 0.2);
+    }
+
+    body.dark-mode .form-control::placeholder {
+        color: #999;
+    }
+
+    /* Textarea specific dark mode styles */
+    body.dark-mode textarea.form-control {
+        background: #4a4a4a;
+        color: #f0f0f0;
+        border-color: #555;
+    }
+
+    body.dark-mode textarea.form-control:focus {
+        background: #4a4a4a;
+        color: #f0f0f0;
+        border-color: #f9bd3d;
+        box-shadow: 0 0 0 2px rgba(249, 189, 61, 0.2);
+    }
+
+    /* Select element dark mode styles */
+    body.dark-mode select.form-control {
+        background: #4a4a4a;
+        color: #f0f0f0;
+        border-color: #555;
+    }
+
+    body.dark-mode select.form-control:focus {
+        background: #4a4a4a;
+        color: #f0f0f0;
+        border-color: #f9bd3d;
+        box-shadow: 0 0 0 2px rgba(249, 189, 61, 0.2);
+    }
+
+    /* Number input dark mode */
+    body.dark-mode input[type="number"].form-control {
+        background: #4a4a4a;
+        color: #f0f0f0;
+        border-color: #555;
+    }
+
+    body.dark-mode input[type="number"].form-control:focus {
+        background: #4a4a4a;
+        color: #f0f0f0;
+        border-color: #f9bd3d;
+        box-shadow: 0 0 0 2px rgba(249, 189, 61, 0.2);
+    }
+
+    /* Buttons in dark mode */
+    body.dark-mode .btn-primary {
+        background: #f9bd3d;
+        color: #000;
+        border-color: #f9bd3d;
+    }
+
+    body.dark-mode .btn-primary:hover {
+        background: #e0992a;
+        color: #000;
+    }
+
+    body.dark-mode .btn-secondary {
+        background: #6c757d;
+        color: #fff;
+        border-color: #6c757d;
+    }
+
+    body.dark-mode .btn-secondary:hover {
+        background: #5a6268;
+        color: #fff;
+    }
+
+    body.dark-mode .btn-danger {
+        background: #dc3545;
+        color: #fff;
+        border-color: #dc3545;
+    }
+
+    body.dark-mode .btn-danger:hover {
+        background: #c82333;
+        color: #fff;
+    }
+
+    /* Success modal in dark mode */
+    body.dark-mode .modal-content.success {
+        background: #3a3a3a;
+        color: #f0f0f0;
+    }
+
+    body.dark-mode .success-icon {
+        color: #28a745;
+    }
+
+    body.dark-mode .modal-content.success h3 {
+        color: #f0f0f0;
+    }
+
+    /* Text danger color in dark mode */
+    body.dark-mode .text-danger {
+        color: #ff6b6b !important;
     }
 </style>
 
@@ -282,9 +418,11 @@
 ========================================================= --}}
 <script>
     let currentRubricId = null;
+    let currentSubsectionId = null;
 
-    function openEditRubricModal(rubricId, subsectionId, position, points, orderNo) {
+    function openEditRubricModal(rubricId, subsectionId, position, points, orderNo, notes) {
         currentRubricId = rubricId;
+        currentSubsectionId = subsectionId;
         const form = document.getElementById('editRubricForm');
         
         // Set form action
@@ -292,10 +430,10 @@
         
         // Fill form fields
         document.getElementById('editSubsectionId').value = subsectionId || '';
-        
         document.getElementById('editPosition').value = position || '';
         document.getElementById('editPoints').value = points || '';
         document.getElementById('editOrderNo').value = orderNo || '';
+        document.getElementById('editNotes').value = notes || '';
         
         const modal = document.getElementById('editRubricModal');
         modal.style.display = 'flex';
@@ -306,17 +444,26 @@
         document.getElementById('editRubricModal').style.display = 'none';
         document.body.style.overflow = 'auto';
         currentRubricId = null;
+        currentSubsectionId = null;
     }
 
     function submitEditRubricForm() {
         const form = document.getElementById('editRubricForm');
         if (!form || !currentRubricId) {
             console.error('Form or rubric ID missing');
+            alert('Error: Missing form or ID. Please refresh the page and try again.');
             return;
         }
 
         const formData = new FormData(form);
         formData.append('_method', 'PUT');
+        
+        // Get notes value and add to form data for subsection update
+        const notes = document.getElementById('editNotes').value;
+        if (notes !== null && notes !== '' && currentSubsectionId) {
+            formData.append('subsection_notes', notes);
+            formData.append('subsection_id_for_notes', currentSubsectionId);
+        }
         
         const submitBtn = document.querySelector('#editRubricModal .btn-primary');
         const originalText = submitBtn.textContent;
@@ -335,7 +482,10 @@
             })
             .then(res => {
                 if (!res.ok) {
-                    return res.text().then(text => { throw new Error(text); });
+                    return res.text().then(text => { 
+                        console.error('Server error:', text);
+                        throw new Error(text); 
+                    });
                 }
                 return res.json();
             })
@@ -346,7 +496,7 @@
             })
             .catch(err => {
                 console.error('Error:', err);
-                alert('Error saving rubric item. Please try again.');
+                alert('Error saving rubric item: ' + (err.message || 'Please try again.'));
             })
             .finally(() => {
                 submitBtn.textContent = originalText;
@@ -373,10 +523,13 @@
         const form = document.getElementById('deleteRubricForm');
         if (!form || !currentRubricId) {
             console.error('Form or rubric ID missing');
+            alert('Error: Missing form or ID. Please refresh the page and try again.');
             return;
         }
 
         const formData = new FormData(form);
+        formData.append('_method', 'DELETE'); // Ensure DELETE method is set
+        
         const btn = document.querySelector('#deleteRubricModal .btn-danger');
         const text = btn.textContent;
         btn.textContent = 'Deleting...';
@@ -392,9 +545,19 @@
             })
             .then(res => {
                 if (!res.ok) {
-                    return res.text().then(text => { throw new Error(text); });
+                    return res.text().then(text => { 
+                        console.error('Server error:', text);
+                        throw new Error(text); 
+                    });
                 }
-                return res.json();
+                // Check if response is JSON or HTML redirect
+                const contentType = res.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return res.json();
+                } else {
+                    // If it's a redirect, just return success
+                    return { message: 'Deleted successfully!' };
+                }
             })
             .then(data => {
                 closeDeleteRubricModal();
@@ -403,7 +566,7 @@
             })
             .catch(err => {
                 console.error('Error:', err);
-                alert('Error deleting rubric item. Please try again.');
+                alert('Error deleting rubric item: ' + (err.message || 'Please try again.'));
             })
             .finally(() => {
                 btn.textContent = text;
@@ -455,6 +618,7 @@
         const form = document.getElementById('editSubsectionForm');
         if (!form || !currentSubsectionId) {
             console.error('Form or subsection ID missing');
+            alert('Error: Missing form or ID. Please refresh the page and try again.');
             return;
         }
 
@@ -476,7 +640,10 @@
             })
             .then(res => {
                 if (!res.ok) {
-                    return res.text().then(text => { throw new Error(text); });
+                    return res.text().then(text => { 
+                        console.error('Server error:', text);
+                        throw new Error(text); 
+                    });
                 }
                 return res.json();
             })
@@ -487,7 +654,7 @@
             })
             .catch(err => {
                 console.error('Error:', err);
-                alert('Error saving subsection. Please try again.');
+                alert('Error saving subsection: ' + (err.message || 'Please try again.'));
             })
             .finally(() => {
                 submitBtn.textContent = originalText;
@@ -514,10 +681,13 @@
         const form = document.getElementById('deleteSubsectionForm');
         if (!form || !currentSubsectionId) {
             console.error('Form or subsection ID missing');
+            alert('Error: Missing form or ID. Please refresh the page and try again.');
             return;
         }
 
         const formData = new FormData(form);
+        formData.append('_method', 'DELETE'); // Ensure DELETE method is set
+        
         const btn = document.querySelector('#deleteSubsectionModal .btn-danger');
         const text = btn.textContent;
         btn.textContent = 'Deleting...';
@@ -533,9 +703,18 @@
             })
             .then(res => {
                 if (!res.ok) {
-                    return res.text().then(text => { throw new Error(text); });
+                    return res.text().then(text => { 
+                        console.error('Server error:', text);
+                        throw new Error(text); 
+                    });
                 }
-                return res.json();
+                // Check if response is JSON or HTML redirect
+                const contentType = res.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return res.json();
+                } else {
+                    return { message: 'Deleted successfully!' };
+                }
             })
             .then(data => {
                 closeDeleteSubsectionModal();
@@ -544,7 +723,7 @@
             })
             .catch(err => {
                 console.error('Error:', err);
-                alert('Error deleting subsection. Please try again.');
+                alert('Error deleting subsection: ' + (err.message || 'Please try again.'));
             })
             .finally(() => {
                 btn.textContent = text;

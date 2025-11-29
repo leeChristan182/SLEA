@@ -13,6 +13,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
+  // Handle password change required modal (for assessors)
+  const passwordChangeModal = document.getElementById('passwordChangeRequiredModal');
+  const okPasswordChangeBtn = document.getElementById('okPasswordChangeModal');
+  
+  if (passwordChangeModal && okPasswordChangeBtn) {
+    // Check if data attribute is set (from server)
+    const mustChangePassword = passwordChangeModal.getAttribute('data-must-change') === 'true';
+    
+    if (mustChangePassword) {
+      passwordChangeModal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+
+    okPasswordChangeBtn.addEventListener('click', () => {
+      passwordChangeModal.style.display = 'none';
+      document.body.style.overflow = 'auto';
+      
+      // Scroll to password section
+      const passwordDisplayMode = document.getElementById('passwordDisplayMode');
+      const passwordCard = passwordDisplayMode ? passwordDisplayMode.closest('.profile-card') : null;
+      if (passwordCard) {
+        passwordCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Auto-open password edit mode after a short delay
+        setTimeout(() => {
+          const editPasswordBtn = document.getElementById('editPasswordBtn');
+          if (editPasswordBtn) {
+            editPasswordBtn.click();
+          }
+        }, 500);
+      }
+    });
+  }
+
 // Detect which profile we're on (ADMIN or ASSESSOR only)
 const adminIdInput    = document.querySelector('input[name="admin_id"]');
 const assessorIdInput = document.querySelector('input[name="assessor_id"]');
@@ -340,6 +374,16 @@ const primaryIdFieldName = isAdmin ? 'admin_id' : 'assessor_id';
           showToast(data.message || 'Password changed');
           cancelPasswordEdit();
           passwordForm.reset();
+          
+          // If password was changed (first time), hide the modal and allow navigation
+          if (data.password_changed) {
+            const passwordChangeModal = document.getElementById('passwordChangeRequiredModal');
+            if (passwordChangeModal) {
+              passwordChangeModal.style.display = 'none';
+              passwordChangeModal.setAttribute('data-must-change', 'false');
+            }
+            document.body.style.overflow = 'auto';
+          }
         } else {
           const msg = data.message || (data.errors ? Object.values(data.errors).flat().join(', ') : 'Password update failed');
           showToast(msg, true);

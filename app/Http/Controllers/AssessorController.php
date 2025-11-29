@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\AssessorInfo;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password as PasswordRule;
@@ -108,15 +109,25 @@ class AssessorController extends Controller
         $user->password = $request->password; // model mutator will hash
         $user->save();
 
+        // Update assessor_info to mark password as changed
+        if ($user->isAssessor()) {
+            $assessorInfo = $user->assessorInfo;
+            if ($assessorInfo) {
+                $assessorInfo->must_change_password = false;
+                $assessorInfo->save();
+            }
+        }
+
         // Return JSON response for AJAX requests
         if ($request->ajax() || $request->expectsJson()) {
             return response()->json([
                 'success' => true,
                 'message' => 'Password updated successfully.',
+                'password_changed' => true, // Flag to indicate password was changed
             ]);
         }
 
-        return back()->with('status', 'Password updated.');
+        return back()->with('status', 'Password updated successfully. You can now access all sections.');
     }
 
     // POST /assessor/profile/picture

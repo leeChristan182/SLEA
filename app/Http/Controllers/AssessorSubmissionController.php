@@ -62,8 +62,8 @@ class AssessorSubmissionController extends Controller
                 'file_size'         => $this->humanFileSize($att['size'] ?? null),
                 'is_pdf'            => $isPdf,
                 'is_image'          => $isImage,
-                'view_url'          => route('assessor.submissions.viewDocument', $documentId),
-                'download_url'      => route('assessor.submissions.downloadDocument', $documentId),
+                'view_url'          => route('assessor.documents.view', $documentId),
+                'download_url'      => route('assessor.documents.download', $documentId),
             ];
         })->values();
 

@@ -332,6 +332,11 @@ class User extends Authenticatable
     {
         return $this->hasMany(\App\Models\UserDocument::class);
     }
+
+    public function assessorInfo()
+    {
+        return $this->hasOne(\App\Models\AssessorInfo::class);
+    }
     /**
      * Get the student’s latest Certificate of Registration (COR).
      */

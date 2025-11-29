@@ -54,6 +54,9 @@
                             class="form-control"
                             placeholder="Search by ID, name, college, program, or major..."
                         >
+                        <button type="button" class="btn-search-maroon search-btn-attached" id="searchBtn" title="Search">
+                            <i class="fas fa-search"></i>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -280,7 +283,9 @@
                     <h5 class="modal-title" id="adminViewSummaryModalLabel">
                         Graduating Student - Final Review
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close-modal" data-bs-dismiss="modal" aria-label="Close" title="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
 
                 <div class="modal-body">
@@ -348,7 +353,7 @@
                     </div>
                 </div>
 
-                <div class="modal-footer">
+                <div class="modal-footer admin-final-modal-footer">
                     <div class="decision-buttons-group">
                         <button type="button"
                                 class="btn btn-success admin-decision-btn"
@@ -440,7 +445,27 @@
                 rows.forEach(r => tbody.appendChild(r));
             }
 
-            if (searchInput)  searchInput.addEventListener('input', applyFilters);
+            // Search functionality
+            if (searchInput) {
+                searchInput.addEventListener('input', applyFilters);
+                // Also trigger on Enter key
+                searchInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        applyFilters();
+                    }
+                });
+            }
+
+            // Search button click
+            const searchBtn = document.getElementById('searchBtn');
+            if (searchBtn) {
+                searchBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    applyFilters();
+                });
+            }
+
             if (statusFilter) statusFilter.addEventListener('change', applyFilters);
             if (sortSelect)   sortSelect.addEventListener('change', applySort);
 
@@ -769,22 +794,33 @@
         }
 
         /* ---- Buttons in footer ---- */
-        .modal-footer {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 0;
-            padding: 1rem 1.5rem;
-            border-top: 1px solid #dee2e6;
+        .admin-final-modal .modal-footer,
+        .admin-final-modal-footer {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            justify-content: center !important;
+            align-items: center !important;
+            gap: 0 !important;
+            padding: 1rem 1.5rem !important;
+            border-top: 1px solid #dee2e6 !important;
+        }
+
+        .admin-final-modal .modal-footer > *,
+        .admin-final-modal-footer > * {
+            flex-shrink: 0 !important;
+            flex-grow: 0 !important;
         }
 
         .decision-buttons-group {
-            display: flex;
-            flex-direction: row;
-            gap: 1rem;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 1rem !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 100% !important;
+            margin: 0 !important;
         }
 
         .admin-decision-btn {
@@ -794,12 +830,13 @@
             font-weight: 600;
             white-space: nowrap;
             text-align: center;
-            display: inline-flex;
+            display: inline-flex !important;
             justify-content: center;
             align-items: center;
             gap: 0.5rem;
             border-radius: 6px;
             transition: all 0.2s ease;
+            flex-shrink: 0;
         }
 
         .admin-decision-btn:hover {
@@ -830,22 +867,27 @@
         }
 
         @media (max-width: 768px) {
-            .modal-footer {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 1rem;
+            .admin-final-modal .modal-footer,
+            .admin-final-modal-footer {
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                align-items: center !important;
+                gap: 1rem !important;
             }
 
             .decision-buttons-group {
-                flex-direction: row;
-                width: 100%;
-                justify-content: space-between;
-                gap: 1rem;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                width: 100% !important;
+                justify-content: center !important;
+                gap: 0.75rem !important;
             }
 
             .admin-decision-btn {
                 flex: 1;
                 min-width: 0;
+                padding: 0.5rem 1rem;
+                font-size: 0.9rem;
             }
         }
 
@@ -863,6 +905,57 @@
             .summary-score-pill {
                 align-self: flex-end;
             }
+        }
+
+        /* Close button styling for modals - matching system style */
+        .admin-final-modal .btn-close-modal {
+            background: #dc3545 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 4px !important;
+            width: 32px !important;
+            height: 32px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 16px !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+            opacity: 1 !important;
+            padding: 0 !important;
+            background-image: none !important;
+            position: relative !important;
+            z-index: 1 !important;
+        }
+
+        /* Hide Bootstrap's default btn-close if it appears */
+        .admin-final-modal .btn-close:not(.btn-close-modal) {
+            display: none !important;
+        }
+
+        .admin-final-modal .btn-close-modal:hover {
+            background: #c82333 !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3) !important;
+            opacity: 1 !important;
+        }
+
+        .admin-final-modal .btn-close-modal:focus {
+            outline: none !important;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+        }
+
+        .admin-final-modal .btn-close-modal i {
+            font-size: 14px !important;
+            color: white !important;
+        }
+
+        body.dark-mode .admin-final-modal .btn-close-modal {
+            background: #dc3545 !important;
+        }
+
+        body.dark-mode .admin-final-modal .btn-close-modal:hover {
+            background: #c82333 !important;
         }
     </style>
 @endpush

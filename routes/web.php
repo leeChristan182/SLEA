@@ -214,7 +214,7 @@ Route::prefix('admin')
 |--------------------------------------------------------------------------
 */
 Route::prefix('assessor')
-    ->middleware(['auth', SessionTimeout::class, NoCache::class, 'role:assessor,admin'])
+    ->middleware(['auth', SessionTimeout::class, NoCache::class, 'role:assessor,admin', 'require.password.change'])
     ->name('assessor.')
     ->group(function () {
 

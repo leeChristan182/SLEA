@@ -61,20 +61,7 @@
                     Please login to get started.
                 </p>
 
-                {{-- Validation --}}
-                @if ($errors->any())
-                    <div class="alert alert-danger">
-                        <ul class="mb-0">
-                            @foreach ($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                @endif
-
-                @if (session('status'))
-                    <div class="alert alert-success">{{ session('status') }}</div>
-                @endif
+                {{-- Alerts will be shown in modal --}}
 
                 {{-- Login Form --}}
                 <form id="loginForm" method="POST" action="{{ route('login.auth') }}" autocomplete="off"
@@ -366,6 +353,21 @@
         </div>
     </div>
 
+    {{-- =============== ALERT MODAL =============== --}}
+    <div class="modal fade" id="alertModal" tabindex="-1" aria-labelledby="alertModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header" id="alertModalHeader">
+                    <h5 class="modal-title" id="alertModalLabel">Notification</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="alertModalBody">
+                    {{-- Content will be populated by JavaScript --}}
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- =============== ACCOUNT DISABLED MODAL =============== --}}
     <div class="modal fade" id="accountDisabledModal" tabindex="-1" aria-labelledby="accountDisabledModalLabel"
         aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
@@ -446,6 +448,65 @@
     <!-- prettier-ignore-start -->
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            // Alert Modal functionality
+            const alertModal = document.getElementById('alertModal');
+            const alertModalBody = document.getElementById('alertModalBody');
+            const alertModalHeader = document.getElementById('alertModalHeader');
+            const alertModalLabel = document.getElementById('alertModalLabel');
+            let autoCloseTimeout;
+
+            function showAlertModal(message, type = 'info') {
+                if (!alertModal) return;
+
+                // Clear any existing timeout
+                if (autoCloseTimeout) {
+                    clearTimeout(autoCloseTimeout);
+                }
+
+                // Set modal content
+                if (typeof message === 'string') {
+                    alertModalBody.innerHTML = '<p class="mb-0">' + message + '</p>';
+                } else {
+                    // Handle array of messages (errors)
+                    alertModalBody.innerHTML = '<ul class="mb-0"><li>' + message.join('</li><li>') + '</li></ul>';
+                }
+
+                // Set modal styling based on type
+                if (type === 'success') {
+                    alertModalHeader.className = 'modal-header bg-success text-white';
+                    alertModalLabel.textContent = 'Success';
+                } else if (type === 'danger' || type === 'error') {
+                    alertModalHeader.className = 'modal-header bg-danger text-white';
+                    alertModalLabel.textContent = 'Error';
+                } else {
+                    alertModalHeader.className = 'modal-header bg-info text-white';
+                    alertModalLabel.textContent = 'Notification';
+                }
+
+                // Show modal
+                const bsModal = new bootstrap.Modal(alertModal);
+                bsModal.show();
+
+                // Auto-close after 1 second
+                autoCloseTimeout = setTimeout(function() {
+                    bsModal.hide();
+                }, 1000);
+            }
+
+            // Check for session status
+            @if (session('status'))
+                showAlertModal('{{ addslashes(session('status')) }}', 'success');
+            @endif
+
+            // Check for validation errors
+            @if ($errors->any())
+                var errorMessages = [];
+                @foreach ($errors->all() as $error)
+                    errorMessages.push('{{ addslashes($error) }}');
+                @endforeach
+                showAlertModal(errorMessages, 'danger');
+            @endif
+
             @if (session('show_forgot_modal'))
                 var forgotModal = new bootstrap.Modal(document.getElementById('forgotPasswordModal'));
                 forgotModal.show();

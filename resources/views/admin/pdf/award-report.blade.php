@@ -75,6 +75,19 @@
     <div class="meta">
         Generated on: {{ $generatedAt->format('F j, Y g:i A') }} <br>
         Total students: {{ $students->count() }}
+        @if(isset($filters) && ($filters['college'] || $filters['program'] || $filters['search']))
+            <br>
+            <strong>Filters Applied:</strong>
+            @if($filters['college'])
+                College: {{ $filters['college'] }}
+            @endif
+            @if($filters['program'])
+                {{ $filters['college'] ? ' | ' : '' }}Program: {{ $filters['program'] }}
+            @endif
+            @if($filters['search'])
+                {{ ($filters['college'] || $filters['program']) ? ' | ' : '' }}Search: {{ $filters['search'] }}
+            @endif
+        @endif
     </div>
 
     <table>
@@ -88,39 +101,23 @@
             </tr>
         </thead>
         <tbody>
-            @forelse ($students as $row)
+            @forelse ($students as $student)
                     <tr>
                         {{-- Student ID --}}
-                        <td>
-                            {{ $row->student_number
-                ?? ($row->user->studentAcademic->student_id ?? 'N/A') }}
-                        </td>
+                        <td>{{ $student['student_id'] ?? 'N/A' }}</td>
 
                         {{-- Full Name --}}
-                        <td>{{ $row->user->full_name ?? 'N/A' }}</td>
+                        <td>{{ $student['name'] ?? 'N/A' }}</td>
 
                         {{-- College --}}
-                        <td>
-                            {{ $row->college_name
-                ?? optional(optional($row->user->studentAcademic)->college)->name
-                ?? 'N/A' }}
-                        </td>
+                        <td>{{ $student['college'] ?? 'N/A' }}</td>
 
                         {{-- Program --}}
-                        <td>
-                            {{ $row->program_code
-                ?? optional(optional($row->user->studentAcademic)->program)->code
-                ?? 'N/A' }}
-                        </td>
+                        <td>{{ $student['program'] ?? 'N/A' }}</td>
 
-                        {{-- RAW SCORE: total_score / max_points --}}
+                        {{-- Total Points: points / max_points --}}
                         <td class="text-right">
-                            @php
-                                $score = $row->raw_total_score ?? ($row->total_score ?? 0);
-                                $max = $row->raw_max_points ?? ($row->max_points ?? 0);
-                            @endphp
-
-                            {{ $score }} / {{ $max }}
+                            {{ $student['points_display'] ?? (number_format($student['points'] ?? 0, 2) . '/' . number_format($student['max_points'] ?? 0, 2)) }}
                         </td>
                     </tr>
             @empty

@@ -16,8 +16,8 @@ class RubricController extends Controller
      *  STUDENT VIEW (READ ONLY)
      * ----------------------------- */
 
-    // /student/criteria
-    public function index()
+    // /admin/rubrics
+    public function index(Request $request)
     {
         $categories = \App\Models\RubricCategory::with([
             'sections.subsections.options'
@@ -232,8 +232,20 @@ class RubricController extends Controller
     }
 
     // PUT /admin/rubrics/subsections/{subsection}
-    public function subsectionUpdate(Request $request, RubricSubsection $subsection)
+    public function subsectionUpdate(Request $request, $subsection)
     {
+        // Handle route model binding - find by sub_section_id (primary key)
+        $rubricSubsection = RubricSubsection::find($subsection);
+        
+        if (!$rubricSubsection) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['error' => 'Subsection not found.'], 404);
+            }
+            return redirect()
+                ->route('rubrics.index')
+                ->with('error', 'Subsection not found.');
+        }
+
         $data = $request->validate([
             'section_id'      => ['required', 'exists:rubric_sections,section_id'],
             'sub_section'     => ['required', 'string', 'max:255'],
@@ -243,7 +255,7 @@ class RubricController extends Controller
             'order_no'        => ['nullable', 'integer'],
         ]);
 
-        $subsection->update($data);
+        $rubricSubsection->update($data);
 
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json(['message' => 'Subsection updated successfully.']);
@@ -255,9 +267,21 @@ class RubricController extends Controller
     }
 
     // DELETE /admin/rubrics/subsections/{subsection}
-    public function subsectionDestroy(RubricSubsection $subsection, Request $request)
+    public function subsectionDestroy($subsection, Request $request)
     {
-        $subsection->delete();
+        // Handle route model binding - find by sub_section_id (primary key)
+        $rubricSubsection = RubricSubsection::find($subsection);
+        
+        if (!$rubricSubsection) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['error' => 'Subsection not found.'], 404);
+            }
+            return redirect()
+                ->route('rubrics.index')
+                ->with('error', 'Subsection not found.');
+        }
+
+        $rubricSubsection->delete();
 
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json(['message' => 'Subsection deleted successfully.']);
@@ -318,13 +342,27 @@ class RubricController extends Controller
         return view('rubrics.options.edit', compact('option', 'subsections'));
     }
 
-    public function optionUpdate(Request $request, RubricOption $option)
+    public function optionUpdate(Request $request, $option)
     {
+        // Handle route model binding - try to find by ID
+        $rubricOption = RubricOption::find($option);
+        
+        if (!$rubricOption) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['error' => 'Rubric option not found.'], 404);
+            }
+            return redirect()
+                ->route('rubrics.index')
+                ->with('error', 'Rubric option not found.');
+        }
+
         $data = $request->validate([
             'subsection_id' => ['required', 'exists:rubric_subsections,sub_section_id'],
             'label'         => ['required', 'string', 'max:255'],
             'points'        => ['required', 'numeric'],
             'order_no'      => ['nullable', 'integer'],
+            'subsection_notes' => ['nullable', 'string'], // Notes for the subsection
+            'subsection_id_for_notes' => ['nullable', 'exists:rubric_subsections,sub_section_id'],
         ]);
 
         // Map subsection_id to sub_section_id for the model
@@ -333,19 +371,49 @@ class RubricController extends Controller
             unset($data['subsection_id']);
         }
 
-        $option->update($data);
+        // Update the option
+        $rubricOption->update($data);
+
+        // Update subsection notes if provided
+        if ($request->has('subsection_notes') && $request->has('subsection_id_for_notes')) {
+            $subsection = RubricSubsection::find($request->subsection_id_for_notes);
+            if ($subsection) {
+                $subsection->notes = $request->subsection_notes;
+                $subsection->save();
+            }
+        }
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['message' => 'Option updated successfully.']);
+        }
 
         return redirect()
-            ->route('rubrics.options.index')
+            ->route('rubrics.index')
             ->with('success', 'Option updated.');
     }
 
-    public function optionDestroy(RubricOption $option)
+    public function optionDestroy($option, Request $request)
     {
-        $option->delete();
+        // Handle route model binding - try to find by ID
+        $rubricOption = RubricOption::find($option);
+        
+        if (!$rubricOption) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['error' => 'Rubric option not found.'], 404);
+            }
+            return redirect()
+                ->route('rubrics.index')
+                ->with('error', 'Rubric option not found.');
+        }
+
+        $rubricOption->delete();
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['message' => 'Option deleted successfully.']);
+        }
 
         return redirect()
-            ->route('rubrics.options.index')
+            ->route('rubrics.index')
             ->with('success', 'Option deleted.');
     }
 

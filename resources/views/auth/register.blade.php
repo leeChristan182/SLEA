@@ -66,22 +66,7 @@
                     Already have an account? <a href="{{ route('login.show') }}">Login here</a>
                 </p>
 
-                    @if ($errors->any())
-                <div class="alert alert-danger" role="alert">
-                        <strong>Please fix the following errors:</strong>
-                        <ul class="mb-0 mt-2">
-                            @foreach ($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                    @endif
-
-                    @if (session('status'))
-                <div class="alert alert-success" role="status">
-                    {{ session('status') }}
-                </div>
-                @endif
+                    {{-- Alerts will be shown in modal --}}
 
                 <form method="POST" action="{{ route('register.store') }}" novalidate>
                     @csrf
@@ -457,16 +442,20 @@
                                 <label class="form-label" for="password">
                                     Password <span class="required">*</span>
                                 </label>
-                                <input
-                                    id="password"
-                                    type="password"
-                                    name="password"
-                                    class="form-control @error('password') is-invalid @enderror"
-                                    required
-                                    aria-describedby="passwordHelp">
-                                @error('password') <div class="invalid-feedback">{{ $message }}</div> @enderror
-
-                                    <ul id="passwordHelp" class="password-requirements list-unstyled mt-1 small">
+                                <div class="input-group">
+                                    <input
+                                        id="password"
+                                        type="password"
+                                        name="password"
+                                        class="form-control @error('password') is-invalid @enderror"
+                                        required
+                                        aria-describedby="passwordHelp">
+                                    <button class="btn btn-outline-secondary toggle-password" type="button" title="Show/Hide Password" data-target="password">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    @error('password') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                </div>
+                                <ul id="passwordHelp" class="password-requirements list-unstyled mt-1 small">
                                     <li id="length" class="text-danger">
                                         <i class="fa-regular fa-circle-xmark me-1"></i> At least 8 characters
                                     </li>
@@ -489,13 +478,18 @@
                                 <label class="form-label" for="password_confirmation">
                                     Confirm Password <span class="required">*</span>
                                 </label>
-                            <input
-                                    id="password_confirmation"
-                                type="password"
-                                name="password_confirmation"
-                                class="form-control @error('password_confirmation') is-invalid @enderror"
-                                    required>
-                            @error('password_confirmation') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                <div class="input-group">
+                                    <input
+                                        id="password_confirmation"
+                                        type="password"
+                                        name="password_confirmation"
+                                        class="form-control @error('password_confirmation') is-invalid @enderror"
+                                        required>
+                                    <button class="btn btn-outline-secondary toggle-password" type="button" title="Show/Hide Password" data-target="password_confirmation">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    @error('password_confirmation') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                </div>
                             </div>
                         </div>
 
@@ -564,8 +558,101 @@
         <a href="https://www.usep.edu.ph/usep-data-privacy-statement/" target="_blank">Privacy Policy</a>
     </footer>
 
+    {{-- Alert Modal --}}
+    <div class="modal fade" id="alertModal" tabindex="-1" aria-labelledby="alertModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header" id="alertModalHeader">
+                    <h5 class="modal-title" id="alertModalLabel">Notification</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="alertModalBody">
+                    {{-- Content will be populated by JavaScript --}}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     {{-- main behaviour --}}
     <script src="{{ asset('js/register.js') }}"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Password toggle functionality
+            document.querySelectorAll('.toggle-password').forEach(function(button) {
+                button.addEventListener('click', function() {
+                    const targetId = this.getAttribute('data-target');
+                    const passwordInput = document.getElementById(targetId);
+                    const icon = this.querySelector('i');
+                    
+                    if (passwordInput.type === 'password') {
+                        passwordInput.type = 'text';
+                        icon.classList.remove('fa-eye');
+                        icon.classList.add('fa-eye-slash');
+                    } else {
+                        passwordInput.type = 'password';
+                        icon.classList.remove('fa-eye-slash');
+                        icon.classList.add('fa-eye');
+                    }
+                });
+            });
+
+            // Alert Modal functionality
+            const alertModal = document.getElementById('alertModal');
+            const alertModalBody = document.getElementById('alertModalBody');
+            const alertModalHeader = document.getElementById('alertModalHeader');
+            const alertModalLabel = document.getElementById('alertModalLabel');
+            let autoCloseTimeout;
+
+            function showAlertModal(message, type = 'info') {
+                if (!alertModal) return;
+
+                // Clear any existing timeout
+                if (autoCloseTimeout) {
+                    clearTimeout(autoCloseTimeout);
+                }
+
+                // Set modal content
+                alertModalBody.innerHTML = '<p class="mb-0">' + message + '</p>';
+
+                // Set modal styling based on type
+                if (type === 'success') {
+                    alertModalHeader.className = 'modal-header bg-success text-white';
+                    alertModalLabel.textContent = 'Success';
+                } else if (type === 'danger' || type === 'error') {
+                    alertModalHeader.className = 'modal-header bg-danger text-white';
+                    alertModalLabel.textContent = 'Error';
+                } else {
+                    alertModalHeader.className = 'modal-header bg-info text-white';
+                    alertModalLabel.textContent = 'Notification';
+                }
+
+                // Show modal
+                const bsModal = new bootstrap.Modal(alertModal);
+                bsModal.show();
+
+                // Auto-close after 1 second
+                autoCloseTimeout = setTimeout(function() {
+                    bsModal.hide();
+                }, 1000);
+            }
+
+            // Check for session status
+            @if (session('status'))
+                showAlertModal('{{ addslashes(session('status')) }}', 'success');
+            @endif
+
+            // Check for validation errors
+            @if ($errors->any())
+                var errorMessages = [];
+                @foreach ($errors->all() as $error)
+                    errorMessages.push('{{ addslashes($error) }}');
+                @endforeach
+                showAlertModal(errorMessages.join('<br>'), 'danger');
+            @endif
+        });
+    </script>
 </body>
 
 </html>

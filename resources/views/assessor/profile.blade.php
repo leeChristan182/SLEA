@@ -219,6 +219,34 @@
     </main>
 </div>
 
+<!-- Password Change Required Modal -->
+<div id="passwordChangeRequiredModal" class="modal" style="display:none;" data-must-change="{{ session('must_change_password') ? 'true' : 'false' }}">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header" style="background-color: #7E0308; color: white; padding: 1.5rem;">
+            <h3 style="margin: 0; font-size: 1.5rem;">
+                <i class="fas fa-lock" style="margin-right: 10px;"></i>
+                Password Change Required
+            </h3>
+        </div>
+        <div class="modal-body" style="padding: 2rem;">
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                <i class="fas fa-shield-alt" style="font-size: 3rem; color: #7E0308; margin-bottom: 1rem;"></i>
+            </div>
+            <p style="font-size: 1.1rem; line-height: 1.6; color: #333; margin-bottom: 1rem;">
+                For security purposes, you are required to change your password before accessing other sections of the system.
+            </p>
+            <p style="font-size: 1rem; line-height: 1.6; color: #666;">
+                Please click "OK" to proceed to the Change Password section.
+            </p>
+        </div>
+        <div class="modal-footer" style="padding: 1rem 1.5rem; border-top: 1px solid #ddd; text-align: right;">
+            <button type="button" class="btn btn-primary" id="okPasswordChangeModal" style="background-color: #7E0308; border-color: #7E0308; padding: 0.6rem 2rem; font-size: 1rem;">
+                OK
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Success Modal -->
 <div id="successModal" class="modal" style="display:none;">
     <div class="modal-content">

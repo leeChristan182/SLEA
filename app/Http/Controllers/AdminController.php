@@ -23,6 +23,7 @@ use App\Models\Program;
 use App\Models\StudentAcademic;
 use App\Models\UserDocument;
 use App\Models\SystemMonitoringAndLog;
+use App\Models\AssessorInfo;
 
 class AdminController extends Controller
 {
@@ -214,7 +215,16 @@ class AdminController extends Controller
         // Default status to 'approved' for new assessor/admin accounts
         $status = User::STATUS_APPROVED;
 
-        $password = Str::random(10);
+        // Generate sequential password format (password_1, password_2, etc.) for assessors
+        if ($data['role'] === 'assessor') {
+            // Count existing assessors to determine next sequential number
+            $assessorCount = User::where('role', User::ROLE_ASSESSOR)->count();
+            $nextNumber = $assessorCount + 1;
+            $password = 'password_' . $nextNumber;
+        } else {
+            // For non-assessors (admins), use random password
+            $password = Str::random(10);
+        }
 
         $user = User::create([
             'first_name' => $data['first_name'],
@@ -227,6 +237,16 @@ class AdminController extends Controller
             'contact'    => $data['contact'] ?? null,
             // contact / birth_date / etc.
         ]);
+
+        // Create assessor_info record if role is assessor
+        if ($data['role'] === 'assessor') {
+            AssessorInfo::create([
+                'user_id' => $user->id,
+                'created_by_admin_id' => Auth::id(),
+                'must_change_password' => true,
+                'date_created' => now(),
+            ]);
+        }
 
         $admin = Auth::user();
 
@@ -241,7 +261,10 @@ class AdminController extends Controller
             "Created {$user->role} account for {$userName} ({$user->email})."
         );
 
-        return redirect()->route('admin.manage-account')->with('status', 'User account created successfully.');
+        return redirect()
+            ->route('admin.create_user')
+            ->with('success', 'Assessor account created successfully!')
+            ->with('generated_password', $password);
     }
 
 
@@ -854,15 +877,21 @@ class AdminController extends Controller
         // Re-index array after filtering
         $filteredStudents = array_values($filteredStudents);
 
-        // Generate PDF or CSV export
-        return view('admin.pdf.award-report', [
-            'students' => $filteredStudents,
+        // Convert array to collection for PDF view
+        $studentsCollection = collect($filteredStudents);
+
+        // Generate PDF export
+        $pdf = Pdf::loadView('admin.pdf.award-report', [
+            'students' => $studentsCollection,
+            'generatedAt' => now(),
             'filters' => [
                 'college' => $college,
                 'program' => $program,
                 'search' => $search,
             ]
-        ]);
+        ])->setPaper('A4', 'portrait');
+
+        return $pdf->download('slea-awards-report.pdf');
     }
 
     public function systemMonitoring()

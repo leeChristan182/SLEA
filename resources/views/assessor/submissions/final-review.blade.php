@@ -222,7 +222,9 @@
             <div class="modal-content final-modal">
                 <div class="modal-header">
                     <h5 class="modal-title" id="viewSummaryModalLabel">View Summary</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close-modal" data-bs-dismiss="modal" aria-label="Close" title="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
 
                 <div class="modal-body">
@@ -1434,5 +1436,47 @@
     }
 
     /* Remove Verified – already handled in JS */
+
+    /* Close button styling for modals */
+    .btn-close-modal {
+        background: #dc3545 !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 4px !important;
+        width: 32px !important;
+        height: 32px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 16px !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease !important;
+        opacity: 1 !important;
+        padding: 0 !important;
+    }
+
+    .btn-close-modal:hover {
+        background: #c82333 !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3) !important;
+    }
+
+    .btn-close-modal:focus {
+        outline: none !important;
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+    }
+
+    .btn-close-modal i {
+        font-size: 14px !important;
+        color: white !important;
+    }
+
+    body.dark-mode .btn-close-modal {
+        background: #dc3545 !important;
+    }
+
+    body.dark-mode .btn-close-modal:hover {
+        background: #c82333 !important;
+    }
 </style>
 @endpush

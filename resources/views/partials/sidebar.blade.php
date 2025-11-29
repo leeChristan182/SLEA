@@ -118,7 +118,7 @@ $role = $user?->role; // 'admin' | 'assessor' | 'student'
 
         <li class="{{ request()->routeIs('admin.organizations.index') ? 'active' : '' }}">
             <a href="{{ route('admin.organizations.index') }}" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
-                <i class="fas fa-building"></i><span>Organization Management</span>
+                <i class="fas fa-building"></i><span>Organizations Management</span>
             </a>
         </li>
 

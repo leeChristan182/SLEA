@@ -102,8 +102,10 @@
                                                     <h5 class="modal-title" id="approveRevalLabel{{ $row->id }}">
                                                         Approve Student Revalidation
                                                     </h5>
-                                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                                                        aria-label="Close"></button>
+                                                    <button type="button" class="btn-close-modal btn-close-white" data-bs-dismiss="modal"
+                                                        aria-label="Close" title="Close">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
                                                 </div>
 
                                                 <div class="modal-body">
@@ -142,8 +144,10 @@
                                                     <h5 class="modal-title" id="rejectRevalLabel{{ $row->id }}">
                                                         Reject Student Revalidation
                                                     </h5>
-                                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                                                        aria-label="Close"></button>
+                                                    <button type="button" class="btn-close-modal btn-close-white" data-bs-dismiss="modal"
+                                                        aria-label="Close" title="Close">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
                                                 </div>
 
                                                 <div class="modal-body">
@@ -188,4 +192,48 @@
 
         </main>
     </div>
+
+<style>
+    /* Close button styling for modals */
+    .btn-close-modal {
+        background: rgba(255, 255, 255, 0.2) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 4px !important;
+        width: 32px !important;
+        height: 32px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 16px !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease !important;
+        opacity: 1 !important;
+        padding: 0 !important;
+    }
+
+    .btn-close-modal:hover {
+        background: rgba(255, 255, 255, 0.3) !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    .btn-close-modal:focus {
+        outline: none !important;
+        box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25) !important;
+    }
+
+    .btn-close-modal i {
+        font-size: 14px !important;
+        color: white !important;
+    }
+
+    .btn-close-modal.btn-close-white {
+        background: rgba(255, 255, 255, 0.2) !important;
+    }
+
+    .btn-close-modal.btn-close-white:hover {
+        background: rgba(255, 255, 255, 0.3) !important;
+    }
+</style>
 @endsection

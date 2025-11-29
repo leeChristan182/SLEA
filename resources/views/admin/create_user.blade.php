@@ -13,24 +13,39 @@
 
         {{-- Messages --}}
         @if (session('success'))
-            <div class="alert alert-success">{{ session('success') }}</div>
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <strong>Success!</strong> {{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
         @endif
 
         @if ($errors->any())
-            <div class="alert alert-danger">
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
                 <ul class="mb-0">
                     @foreach ($errors->all() as $error)
                         <li>{{ $error }}</li>
                     @endforeach
                 </ul>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         @endif
 
         @if (session('generated_password'))
-            <div class="alert alert-warning">
-                <strong>Temporary password (copy now):</strong>
-                <code>{{ session('generated_password') }}</code>
-                <div class="small text-muted">For security, this will not be shown again.</div>
+            <div class="alert alert-info alert-dismissible fade show password-alert" role="alert">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <i class="fas fa-key"></i>
+                    <strong>System Generated Password:</strong>
+                </div>
+                <div class="password-display">
+                    <code id="generatedPassword" class="password-code">{{ session('generated_password') }}</code>
+                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" onclick="copyPassword()" title="Copy password">
+                        <i class="fas fa-copy"></i> Copy
+                    </button>
+                </div>
+                <div class="small text-muted mt-2">
+                    <i class="fas fa-exclamation-triangle"></i> Please save this password. The assessor will need it to log in. This will not be shown again after you close this alert.
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         @endif
 
@@ -265,22 +280,89 @@
     /* Alerts */
     .alert {
         margin-bottom: 0.5rem;
-        padding: 0.5rem;
+        padding: 0.75rem 1rem;
         border-radius: 6px;
         flex-shrink: 0;
-        font-size: 0.8rem;
+        font-size: 0.85rem;
+        position: relative;
     }
 
-    .alert code {
+    .alert-success {
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+    }
+
+    body.dark-mode .alert-success {
+        background-color: #1e4620;
+        border-color: #2d5a31;
+        color: #90ee90;
+    }
+
+    .alert-danger {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+    }
+
+    body.dark-mode .alert-danger {
+        background-color: #4a1e1e;
+        border-color: #5a2a2a;
+        color: #ff6b6b;
+    }
+
+    .alert-info {
+        background-color: #d1ecf1;
+        border-color: #bee5eb;
+        color: #0c5460;
+    }
+
+    body.dark-mode .alert-info {
+        background-color: #1e3a3f;
+        border-color: #2d4a50;
+        color: #7dd3fc;
+    }
+
+    .password-alert {
+        border-left: 4px solid #0dcaf0;
+    }
+
+    body.dark-mode .password-alert {
+        border-left-color: #7dd3fc;
+    }
+
+    .password-display {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0.5rem 0;
+    }
+
+    .password-code {
         background: #f8f9fa;
-        padding: 0.25rem 0.5rem;
+        padding: 0.5rem 1rem;
         border-radius: 4px;
-        font-family: monospace;
+        font-family: 'Courier New', monospace;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #7E0308;
+        letter-spacing: 1px;
+        border: 2px solid #dee2e6;
     }
 
-    body.dark-mode .alert code {
+    body.dark-mode .password-code {
         background: #1a1a1a;
-        color: #f0f0f0;
+        color: #f9bd3d;
+        border-color: #444;
+    }
+
+    .btn-close {
+        opacity: 0.5;
+        cursor: pointer;
+    }
+
+    .btn-close:hover {
+        opacity: 1;
     }
 
     /* Responsive */
@@ -310,12 +392,41 @@
 </style>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Auto-hide success alert after 5 seconds (but not password alert)
         const successAlert = document.querySelector('.alert-success');
-        if (successAlert) {
+        if (successAlert && !successAlert.closest('.password-alert')) {
             setTimeout(() => {
                 successAlert.style.display = 'none';
             }, 5000);
         }
+
+        // Don't auto-hide password alert - user needs to see it
     });
+
+    function copyPassword() {
+        const passwordElement = document.getElementById('generatedPassword');
+        if (passwordElement) {
+            const password = passwordElement.textContent.trim();
+            
+            // Copy to clipboard
+            navigator.clipboard.writeText(password).then(function() {
+                // Show feedback
+                const btn = event.target.closest('button');
+                const originalHTML = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                btn.classList.remove('btn-outline-secondary');
+                btn.classList.add('btn-success');
+                
+                setTimeout(function() {
+                    btn.innerHTML = originalHTML;
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-outline-secondary');
+                }, 2000);
+            }).catch(function(err) {
+                console.error('Failed to copy password:', err);
+                alert('Failed to copy password. Please copy it manually: ' + password);
+            });
+        }
+    }
 </script>
 @endsection

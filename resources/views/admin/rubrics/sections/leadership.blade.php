@@ -10,7 +10,7 @@
     }
 @endphp
 
-<div class="rubric-section">
+<div class="rubric-section" data-category="leadership">
     <h4 class="rubric-heading">I. LEADERSHIP EXCELLENCE</h4>
 
     <p class="rubric-category-description">
@@ -40,7 +40,7 @@
                     @if($isTrainingSection)
                         {{-- Special handling for D. Training section - show all subsections in one table --}}
                         <div class="table-wrap">
-                            <table class="manage-table">
+                            <table class="manage-table training-table">
                                 <thead>
                                     <tr>
                                         <th>Category</th>
@@ -48,6 +48,7 @@
                                         <th>Points</th>
                                         <th>Evidence Needed</th>
                                         <th>Notes</th>
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -61,43 +62,79 @@
                                             $notesLines = preg_split("/\r\n|\n|\r/", $subsection->notes ?? '');
                                         @endphp
                                         <tr>
-                                            <td><strong>{{ $subsection->sub_section }}</strong></td>
-                                            <td>{{ $subsection->sub_section }}</td>
-                                            <td>
+                                            <td class="training-category"><strong>{{ $subsection->sub_section }}</strong></td>
+                                            <td class="training-position">{{ $subsection->sub_section }}</td>
+                                            <td class="training-points">
                                                 @if($rate)
-                                                    {{ rtrim(rtrim(number_format($rate, 1), '0'), '.') }}/day
+                                                    <span class="points-line">{{ rtrim(rtrim(number_format($rate, 1), '0'), '.') }}/day</span>
                                                     @if($capPoints)
-                                                        (max {{ $capPoints }} points)
+                                                        <br><span class="points-line">(max {{ $capPoints }} points)</span>
                                                     @endif
                                                 @else
                                                     —
                                                 @endif
                                             </td>
-                                            <td>
+                                            <td class="training-evidence">
                                                 @if(!empty($subsection->evidence_needed))
-                                                    <ul class="mb-0">
-                                                        @foreach ($evidenceLines as $line)
+                                                    <div class="evidence-notes-content">
+                                                        @foreach ($evidenceLines as $index => $line)
                                                             @if(trim($line) !== '')
-                                                                <li>{{ $line }}</li>
+                                                                @if($index > 0)
+                                                                    <br><br>
+                                                                @endif
+                                                                {{ $line }}
                                                             @endif
                                                         @endforeach
-                                                    </ul>
+                                                    </div>
                                                 @else
                                                     Certificate of Attendance/Appreciation/Participation
                                                 @endif
                                             </td>
-                                            <td>
+                                            <td class="training-notes">
                                                 @if(!empty($subsection->notes))
-                                                    <ul class="mb-0">
-                                                        @foreach ($notesLines as $line)
+                                                    <div class="evidence-notes-content">
+                                                        @foreach ($notesLines as $index => $line)
                                                             @if(trim($line) !== '')
-                                                                <li>{{ $line }}</li>
+                                                                @if($index > 0)
+                                                                    <br><br>
+                                                                @endif
+                                                                {{ $line }}
                                                             @endif
                                                         @endforeach
-                                                    </ul>
+                                                    </div>
                                                 @else
                                                     —
                                                 @endif
+                                            </td>
+                                            <td>
+                                                <div class="action-buttons-group">
+                                                    <button
+                                                        class="btn-edit"
+                                                        title="Edit"
+                                                        onclick="openEditSubsectionModal(
+                                                            {{ $subsection->sub_section_id }},
+                                                            {{ $subsection->section_id }},
+                                                            '{{ addslashes($subsection->sub_section) }}',
+                                                            {{ $subsection->max_points ?? '' }},
+                                                            '{{ addslashes($subsection->evidence_needed ?? '') }}',
+                                                            '{{ addslashes($subsection->notes ?? '') }}',
+                                                            {{ $subsection->order_no ?? '' }}
+                                                        )"
+                                                    >
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+
+                                                    <button
+                                                        class="btn-delete"
+                                                        title="Delete"
+                                                        onclick="openDeleteSubsectionModal(
+                                                            {{ $subsection->sub_section_id }},
+                                                            '{{ addslashes($subsection->sub_section) }}'
+                                                        )"
+                                                    >
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -175,26 +212,32 @@
                                                 @if($index === 0)
                                                     <td rowspan="{{ $rowCount }}">
                                                         @if(!empty($subsection->evidence_needed))
-                                                            <ul class="mb-0">
-                                                                @foreach ($evidenceLines as $line)
+                                                            <div class="evidence-notes-content">
+                                                                @foreach ($evidenceLines as $idx => $line)
                                                                     @if(trim($line) !== '')
-                                                                        <li>{{ $line }}</li>
+                                                                        @if($idx > 0)
+                                                                            <br><br>
+                                                                        @endif
+                                                                        {{ $line }}
                                                                     @endif
                                                                 @endforeach
-                                                            </ul>
+                                                            </div>
                                                         @else
                                                             —
                                                         @endif
                                                     </td>
                                                     <td rowspan="{{ $rowCount }}">
                                                         @if(!empty($subsection->notes))
-                                                            <ul class="mb-0">
-                                                                @foreach ($notesLines as $line)
+                                                            <div class="evidence-notes-content">
+                                                                @foreach ($notesLines as $idx => $line)
                                                                     @if(trim($line) !== '')
-                                                                        <li>{{ $line }}</li>
+                                                                        @if($idx > 0)
+                                                                            <br><br>
+                                                                        @endif
+                                                                        {{ $line }}
                                                                     @endif
                                                                 @endforeach
-                                                            </ul>
+                                                            </div>
                                                         @else
                                                             —
                                                         @endif
@@ -211,7 +254,8 @@
                                                                 {{ $subsection->sub_section_id }},
                                                                 '{{ addslashes($pos->label) }}',
                                                                 {{ $pos->points ?? 0 }},
-                                                                {{ $pos->order_no ?? '' }}
+                                                                {{ $pos->order_no ?? '' }},
+                                                                '{{ addslashes($subsection->notes ?? '') }}'
                                                             )"
                                                         >
                                                             <i class="fas fa-edit"></i>
