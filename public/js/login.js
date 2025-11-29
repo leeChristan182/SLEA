@@ -54,14 +54,14 @@ document.addEventListener('DOMContentLoaded', function () {
     // Use more specific selector to avoid duplicates - select only the one in the password input group
     const passwordInputGroup = passwordInput?.closest('.input-group');
     const togglePasswordBtn = passwordInputGroup?.querySelector('.toggle-password');
-    
+
     if (togglePasswordBtn && passwordInput) {
         // Ensure button is clickable and visible
         togglePasswordBtn.style.pointerEvents = 'auto';
         togglePasswordBtn.style.cursor = 'pointer';
         togglePasswordBtn.style.zIndex = '10';
         togglePasswordBtn.setAttribute('tabindex', '0');
-        
+
         // Simple toggle function - directly uses the button and input
         const handlePasswordToggle = function(e) {
             if (e) {
@@ -69,10 +69,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 e.stopPropagation();
                 e.stopImmediatePropagation();
             }
-            
+
             // Get icon directly from the button
             const icon = togglePasswordBtn.querySelector('i');
-            
+
             if (!icon || !passwordInput) {
                 console.warn('Password toggle elements not found');
                 return false;
@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 togglePasswordBtn.setAttribute('title', 'Show password');
                 togglePasswordBtn.setAttribute('aria-label', 'Show password');
             }
-            
+
             // Only restore focus if input was focused before, and preserve cursor position
             if (wasFocused) {
                 setTimeout(() => {
@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     passwordInput.setSelectionRange(newPos, newPos);
                 }, 0);
             }
-            
+
             return false;
         };
 
@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', function () {
             e.stopPropagation();
             this.blur();
         }, true);
-        
+
         // Main click handler - use capture phase to ensure it fires first
         togglePasswordBtn.addEventListener('click', function(e) {
             e.preventDefault();
@@ -128,7 +128,7 @@ document.addEventListener('DOMContentLoaded', function () {
             handlePasswordToggle(e);
             return false;
         }, true);
-        
+
         // Backup onclick handler (fires after addEventListener)
         togglePasswordBtn.onclick = function(e) {
             e.preventDefault();
@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', function () {
             handlePasswordToggle(e);
             return false;
         };
-        
+
         // Keyboard support (Enter/Space)
         togglePasswordBtn.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' || e.key === ' ') {

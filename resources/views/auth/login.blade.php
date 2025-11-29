@@ -61,16 +61,12 @@
                     Please login to get started.
                 </p>
 
-                {{-- Validation --}}
-                @if ($errors->any())
-                    <div class="alert alert-danger">
-                        <ul class="mb-0">
-                            @foreach ($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                @endif
+                {{-- Validation (used for modals, not inline alerts) --}}
+                @php
+                    $loginErrors = $errors->any() ? $errors->all() : [];
+                    $loginStatus = session('status');
+                @endphp
+
 
                 @if (session('status'))
                     <div class="alert alert-success">{{ session('status') }}</div>
@@ -121,18 +117,21 @@
                             </span>
 
                             <input type="password" id="passwordInput"
-                                class="form-control @error('password') is-invalid @enderror" required autocomplete="off"
-                                data-custom-toggle="true">
+                                class="form-control @error('password') is-invalid @enderror" required
+                                autocomplete="off">
 
-                            @error('password')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-
-                            <button class="input-group-text toggle-password" type="button" title="Show/Hide">
+                            <button class="input-group-text toggle-password" type="button" id="loginPasswordToggle"
+                                title="Show/Hide">
                                 <i class="fa-solid fa-eye"></i>
                             </button>
                         </div>
+
+                        {{-- move the error OUTSIDE the input-group so it doesn't break layout --}}
+                        @error('password')
+                            <div class="invalid-feedback d-block">{{ $message }}</div>
+                        @enderror
                     </div>
+
 
                     {{-- REMEMBER ME + FORGOT PASSWORD (modal trigger) --}}
                     <div class="d-flex align-items-center justify-content-between mb-3">
@@ -365,6 +364,66 @@
             </div>
         </div>
     </div>
+    {{-- =============== LOGIN ERROR MODAL =============== --}}
+    @if (!empty($loginErrors))
+        <div class="modal fade" id="loginErrorModal" tabindex="-1" aria-labelledby="loginErrorModalLabel"
+            aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0">
+                    <div class="modal-header bg-danger text-white border-0">
+                        <h5 class="modal-title d-flex align-items-center gap-2" id="loginErrorModalLabel">
+                            <i class="fas fa-exclamation-circle"></i>
+                            Login Error
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-2">Please check the following:</p>
+                        <ul class="mb-0">
+                            @foreach ($loginErrors as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                    <div class="modal-footer border-0">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- =============== LOGIN SUCCESS MODAL =============== --}}
+    @if (!empty($loginStatus))
+        <div class="modal fade" id="loginSuccessModal" tabindex="-1" aria-labelledby="loginSuccessModalLabel"
+            aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0">
+                    <div class="modal-header bg-success text-white border-0">
+                        <h5 class="modal-title d-flex align-items-center gap-2" id="loginSuccessModalLabel">
+                            <i class="fas fa-check-circle"></i>
+                            Success
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-0">
+                            {{ $loginStatus }}
+                        </p>
+                    </div>
+                    <div class="modal-footer border-0">
+                        <button type="button" class="btn btn-success" data-bs-dismiss="modal">
+                            OK
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 
     {{-- =============== ACCOUNT DISABLED MODAL =============== --}}
     <div class="modal fade" id="accountDisabledModal" tabindex="-1" aria-labelledby="accountDisabledModalLabel"
@@ -446,6 +505,8 @@
     <!-- prettier-ignore-start -->
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+
+            // === EXISTING MODALS ===
             @if (session('show_forgot_modal'))
                 var forgotModal = new bootstrap.Modal(document.getElementById('forgotPasswordModal'));
                 forgotModal.show();
@@ -468,10 +529,63 @@
                     });
                     disabledModal.show();
                 @endif
-        });
-    </script>
-    <!-- prettier-ignore-end -->
 
+
+                // === NEW: LOGIN ERROR MODAL ===
+                @if ($errors->any())
+                    var errorModalEl = document.getElementById('loginErrorModal');
+                    if (errorModalEl) {
+                        var errorModal = new bootstrap.Modal(errorModalEl);
+                        errorModal.show();
+                    }
+                @endif
+
+                // === NEW: LOGIN SUCCESS MODAL ===
+                @if (session('status'))
+                    var successModalEl = document.getElementById('loginSuccessModal');
+                    if (successModalEl) {
+                        var successModal = new bootstrap.Modal(successModalEl);
+                        successModal.show();
+                    }
+                @endif
+
+});
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const passwordInput = document.getElementById('passwordInput');
+            const toggleBtn = document.getElementById('loginPasswordToggle');
+
+            if (!passwordInput || !toggleBtn) return;
+
+            toggleBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+
+                const isHidden = passwordInput.type === 'password';
+                passwordInput.type = isHidden ? 'text' : 'password';
+
+                const icon = toggleBtn.querySelector('i');
+                if (icon) {
+                    if (isHidden) {
+                        icon.classList.remove('fa-eye');
+                        icon.classList.add('fa-eye-slash');
+                        toggleBtn.setAttribute('title', 'Hide password');
+                    } else {
+                        icon.classList.remove('fa-eye-slash');
+                        icon.classList.add('fa-eye');
+                        toggleBtn.setAttribute('title', 'Show password');
+                    }
+                }
+
+                // keep focus & move cursor to end
+                passwordInput.focus();
+                const len = passwordInput.value.length;
+                passwordInput.setSelectionRange(len, len);
+            });
+        });
+
+    </script>
     <script>
         window.addEventListener('pageshow', function (event) {
             // Detect back/forward navigation (works even when event.persisted is false)
