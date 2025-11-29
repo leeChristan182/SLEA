@@ -24,6 +24,7 @@ use App\Models\Program;
 use App\Models\StudentAcademic;
 use App\Models\UserDocument;
 use App\Models\SystemMonitoringAndLog;
+use App\Mail\AccountCreatedMail;
 
 class AdminController extends Controller
 {
@@ -199,15 +200,25 @@ class AdminController extends Controller
 
     public function storeUser(Request $request)
     {
-        $data = $request->validate([
-            'first_name' => ['required', 'string', 'max:50'],
-            'last_name'  => ['required', 'string', 'max:50'],
-            'middle_name' => ['nullable', 'string', 'max:50'],
-            'email'      => ['required', 'email', 'max:100', 'unique:users,email'],
-            'role'       => ['nullable', 'string', 'in:admin,assessor,student'],
-            'contact'    => ['nullable', 'string', 'max:50'],
-            // other fields...
-        ]);
+        $data = $request->validate(
+            [
+                'first_name'  => ['required', 'string', 'max:50'],
+                'last_name'   => ['required', 'string', 'max:50'],
+                'middle_name' => ['nullable', 'string', 'max:50'],
+                'email'       => [
+                    'required',
+                    'email',
+                    'max:100',
+                    'unique:users,email',
+                    'regex:/^[^@]+@usep\.edu\.ph$/i',
+                ],
+                'role'    => ['nullable', 'string', 'in:admin,assessor,student'],
+                'contact' => ['nullable', 'string', 'max:50'],
+            ],
+            [
+                'email.regex' => 'The email must be a USEP address (ending in @usep.edu.ph).',
+            ]
+        );
 
         // Default to 'assessor' if role is not provided
         $data['role'] = $data['role'] ?? 'assessor';
@@ -215,28 +226,31 @@ class AdminController extends Controller
         // Default status to 'approved' for new assessor/admin accounts
         $status = User::STATUS_APPROVED;
 
-        $password = Str::random(10);
+        // ✅ strong random default password
+        $password = Str::random(12); // you can bump from 10 to 12 if you like
 
         $user = User::create([
-            'first_name' => $data['first_name'],
-            'last_name'  => $data['last_name'],
+            'first_name'  => $data['first_name'],
+            'last_name'   => $data['last_name'],
             'middle_name' => $data['middle_name'] ?? null,
-            'email'      => $data['email'],
-            'password'   => Hash::make($password),
-            'role'       => $data['role'],
-            'status'     => $status,
-            'contact'    => $data['contact'] ?? null,
-            // contact / birth_date / etc.
+            'email'       => $data['email'],
+            'password'    => Hash::make($password),
+            'role'        => $data['role'],
+            'status'      => $status,
+            'contact'     => $data['contact'] ?? null,
         ]);
 
         $admin = Auth::user();
+
+        // 🔹 Send account creation email with initial password
+        Mail::to($user->email)->send(new AccountCreatedMail($user, $password));
 
         // 🔹 SYSTEM LOG: ACCOUNT CREATION
         $adminName = trim($admin->first_name . ' ' . ($admin->middle_name ? $admin->middle_name . ' ' : '') . $admin->last_name);
         $userName  = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
 
         SystemMonitoringAndLog::record(
-            $admin->role,                                       // 'admin'
+            $admin->role,
             $adminName ?: $admin->email,
             'Create',
             "Created {$user->role} account for {$userName} ({$user->email})."
@@ -244,7 +258,6 @@ class AdminController extends Controller
 
         return redirect()->route('admin.manage-account')->with('status', 'User account created successfully.');
     }
-
 
 
     // GET /admin/approve-reject
