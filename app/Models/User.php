@@ -44,6 +44,7 @@ class User extends Authenticatable
     ];
 
     protected $casts = [
+        'email_verified_at'    => 'datetime',
         'birth_date'           => 'date',
         'otp_last_verified_at' => 'datetime', // IMPORTANT for OTP freshness
     ];
@@ -331,6 +332,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(\App\Models\UserDocument::class);
     }
+
+    public function assessorInfo()
+    {
+        return $this->hasOne(\App\Models\AssessorInfo::class);
+    }
+
     /**
      * Get the student’s latest Certificate of Registration (COR).
      */

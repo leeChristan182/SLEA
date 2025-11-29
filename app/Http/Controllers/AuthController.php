@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use App\Models\SystemMonitoringAndLog;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -172,7 +173,7 @@ class AuthController extends Controller
                 'regex:/^[a-zA-Z0-9._%+\-]+@usep\.edu\.ph$/',
                 Rule::unique('users', 'email'),
             ],
-            'contact'       => ['required', 'string', 'max:20'],
+            'contact'       => ['required', 'string', 'regex:/^09\d{9}$/'],
 
             // Step 2
             'student_id'    => [
@@ -203,9 +204,30 @@ class AuthController extends Controller
             'email_address.regex'  => 'Please use a valid @usep.edu.ph email address.',
             'email_address.unique' => 'This email address is already registered. Please use a different email or try logging in.',
             'student_id.unique'    => 'This student ID is already registered. Please check your student ID or contact support if you believe this is an error.',
+            'contact.regex'        => 'Please enter a valid Philippine mobile number in the format 09XXXXXXXXX.',
         ];
 
+
         $validated = $request->validate($rules, $messages);
+        // Normalize names to "Proper Case"
+        $validated['first_name']  = Str::title(Str::lower(trim($validated['first_name'])));
+        $validated['last_name']   = Str::title(Str::lower(trim($validated['last_name'])));
+        if (!empty($validated['middle_name'])) {
+            $validated['middle_name'] = Str::title(Str::lower(trim($validated['middle_name'])));
+        }
+
+        // Normalize contact (strip spaces/dashes but keep 09 format)
+        $digits = preg_replace('/\D/', '', $validated['contact']); // keep only numbers
+
+        // If user typed 9XXXXXXXXX or +639XXXXXXXXX, convert to 09XXXXXXXXX
+        if (Str::startsWith($digits, '63') && strlen($digits) === 12) {
+            // 63 + 10 digits -> 0 + 10 digits
+            $digits = '0' . substr($digits, 2);
+        } elseif (Str::startsWith($digits, '9') && strlen($digits) === 10) {
+            $digits = '0' . $digits;
+        }
+
+        $validated['contact'] = $digits;
 
         // Cluster/org enforcement for CCO etc.
         $needsOrg = $this->leadershipRequiresOrg((int) $validated['leadership_type_id']);
@@ -253,8 +275,8 @@ class AuthController extends Controller
                 'last_name'            => $validated['last_name'],
                 'middle_name'          => $validated['middle_name'] ?? null,
                 'email'                => $validated['email_address'],
-                'password'             => $validated['password'], // hashed by mutator
-                'contact'              => $validated['contact'],
+                'password'             => $validated['password'],
+                'contact'              => $validated['contact'],    // now normalized 09XXXXXXXXX
                 'birth_date'           => $validated['birth_date'],
                 'profile_picture_path' => null,
                 'role'                 => User::ROLE_STUDENT,

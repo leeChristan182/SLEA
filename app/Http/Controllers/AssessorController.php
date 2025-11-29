@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use App\Models\AssessorInfo;
 
 class AssessorController extends Controller
 {
@@ -107,7 +108,10 @@ class AssessorController extends Controller
 
         $user->password = $request->password; // model mutator will hash
         $user->save();
-
+        AssessorInfo::where('user_id', $user->id)->update([
+            'temporary_password_hash' => null,
+            'must_change_password'    => false,
+        ]);
         // Return JSON response for AJAX requests
         if ($request->ajax() || $request->expectsJson()) {
             return response()->json([
@@ -152,7 +156,7 @@ class AssessorController extends Controller
         // Update database with new path
         $user->profile_picture_path = $path;
         $user->save();
-        
+
         // Refresh user model to ensure we have the latest data
         $user->refresh();
 

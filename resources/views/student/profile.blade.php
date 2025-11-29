@@ -577,27 +577,11 @@
                         </div>
 
                         {{-- Optional: scope/from/to --}}
-                        <div class="row g-3 mb-2">
-                            <div class="col-md-4">
-                                <label class="form-label" for="modal_scope">Scope (optional)</label>
-                                <input id="modal_scope" type="text" name="leadership[0][scope]" class="form-control"
-                                    placeholder="e.g., University-wide">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label" for="modal_from">From</label>
-                                <input id="modal_from" type="date" name="leadership[0][from]" class="form-control">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label" for="modal_to">To</label>
-                                <input id="modal_to" type="date" name="leadership[0][to]" class="form-control">
-                            </div>
-                        </div>
-                    </div>
 
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Leadership Info</button>
-                    </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save Leadership Info</button>
+                        </div>
                 </form>
             </div>
         </div>

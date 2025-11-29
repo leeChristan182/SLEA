@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 
 class StudentController extends Controller
@@ -105,8 +106,16 @@ class StudentController extends Controller
         $user->profile_picture_path = $path;
         $user->save();
 
-        // Refresh user model to ensure we have the latest data
-        $user->refresh();
+        // Build public URL for JS
+        $avatarUrl = asset('storage/' . $path);
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success'    => true,
+                'message'    => 'Profile picture updated.',
+                'avatar_url' => $avatarUrl,
+            ]);
+        }
 
         return back()->with('status', 'Profile picture updated.');
     }
@@ -123,14 +132,29 @@ class StudentController extends Controller
         $user = Auth::user();
 
         if (! Hash::check($request->current_password, $user->password)) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Your current password is incorrect.',
+                ], 422);
+            }
+
             return back()->withErrors(['current_password' => 'Your current password is incorrect.']);
         }
 
-        $user->password = $request->password; // model mutator will hash
+        $user->password = $request->password; // mutator hashes
         $user->save();
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Password updated.',
+            ]);
+        }
 
         return back()->with('status', 'Password updated.');
     }
+
 
     /* =========================
      | ACADEMIC INFO & LEADERSHIP
@@ -225,9 +249,9 @@ class StudentController extends Controller
             ? 'Academic information saved. Your eligibility is now under review.'
             : 'Academic information saved.';
 
-        // If you’re saving via AJAX, you can return JSON; otherwise redirect back
-        if ($request->wantsJson()) {
+        if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
+                'success'  => true,
                 'message'  => $msg,
                 'academic' => $academic->load(['college', 'program', 'major']),
             ]);
@@ -243,26 +267,29 @@ class StudentController extends Controller
         $user = Auth::user();
 
         if (! Schema::hasTable('student_leaderships')) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Leadership table not found.',
+                ], 500);
+            }
+
             return back()->withErrors(['leadership' => 'Leadership table not found.']);
         }
 
-        $request->validate([
-            'leadership'                            => ['required', 'array'],
-            'leadership.*.id'                       => ['nullable', 'integer'],
-            'leadership.*.leadership_type_id'       => ['required', 'integer', 'exists:leadership_types,id'],
-            'leadership.*.cluster_id'               => ['nullable', 'integer', 'exists:clusters,id'],
-            'leadership.*.organization_id'          => ['nullable', 'integer', 'exists:organizations,id'],
-            'leadership.*.position_id'              => ['required', 'integer', 'exists:positions,id'],
-            'leadership.*.leadership_status'        => ['required', 'in:Active,Inactive'],
-            'leadership.*.term'                     => ['required', 'string', 'max:25'],
-            'leadership.*.issued_by'                => ['required', 'string', 'max:150'],
-            // Optional extra fields (you already had these)
-            'leadership.*.scope'                    => ['nullable', 'string', 'max:32'],
-            'leadership.*.from'                     => ['nullable', 'date'],
-            'leadership.*.to'                       => ['nullable', 'date', 'after_or_equal:leadership.*.from'],
+        $validated = $request->validate([
+            'leadership'                      => ['required', 'array'],
+            'leadership.*.id'                 => ['nullable', 'integer'],
+            'leadership.*.leadership_type_id' => ['required', 'integer', 'exists:leadership_types,id'],
+            'leadership.*.cluster_id'         => ['nullable', 'integer', 'exists:clusters,id'],
+            'leadership.*.organization_id'    => ['nullable', 'integer', 'exists:organizations,id'],
+            'leadership.*.position_id'        => ['required', 'integer', 'exists:positions,id'],
+            'leadership.*.leadership_status'  => ['required', 'in:Active,Inactive'],
+            'leadership.*.term'               => ['required', 'string', 'max:25'],
+            'leadership.*.issued_by'          => ['required', 'string', 'max:150'],
         ]);
 
-        foreach ($request->input('leadership') as $row) {
+        foreach ($validated['leadership'] as $row) {
             $base = [
                 'user_id'            => $user->id,
                 'leadership_type_id' => (int) $row['leadership_type_id'],
@@ -272,9 +299,6 @@ class StudentController extends Controller
                 'term'               => $row['term'] ?? null,
                 'issued_by'          => $row['issued_by'] ?? null,
                 'leadership_status'  => $row['leadership_status'] ?? 'Active',
-                'scope'              => $row['scope'] ?? null,
-                'from'               => $row['from'] ?? null,
-                'to'                 => $row['to'] ?? null,
                 'updated_at'         => now(),
             ];
 
@@ -289,8 +313,18 @@ class StudentController extends Controller
             }
         }
 
-        return back()->with('status', 'Leadership records saved.');
+        $msg = 'Leadership information saved.';
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+            ]);
+        }
+
+        return back()->with('status', $msg);
     }
+
 
 
     // GET /student/revalidation
@@ -312,7 +346,6 @@ class StudentController extends Controller
     }
 
     // POST /student/upload-cor
-    // POST /student/upload-cor
     public function uploadCOR(Request $request)
     {
         $request->validate([
@@ -322,37 +355,41 @@ class StudentController extends Controller
         /** @var User $user */
         $user = Auth::user();
 
-        // Ensure academic row exists first (prevents invalid insert)
-        $academic = DB::table('student_academic')->where('user_id', $user->id)->first();
-        if (! $academic) {
-
-            // AJAX error response
+        if (! Schema::hasTable('student_academic')) {
+            // If AJAX, send JSON error; otherwise redirect with errors
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Please complete your academic information first before uploading your COR.',
-                ], 422);
+                    'message' => 'Academic table not found.',
+                ], 500);
             }
 
-            // Normal redirect error
-            return back()->withErrors([
-                'cor' => 'Please complete your academic information first before uploading your COR.',
-            ]);
+            return back()->withErrors(['cor' => 'Academic table not found.']);
         }
 
-        // Store file in your custom disk
+        // Store file
         $path = $request->file('cor')->store('cor', 'student_docs');
         $now  = now();
 
-        // Update COR path
-        DB::table('student_academic')
-            ->where('user_id', $user->id)
-            ->update([
-                'certificate_of_registration_path' => $path,
-                'updated_at'                       => $now,
-            ]);
+        // Upsert into student_academic
+        $data = [
+            'user_id'                          => $user->id,
+            'certificate_of_registration_path' => $path,
+            'updated_at'                       => $now,
+        ];
 
-        // Log to user_documents (optional)
+        $exists = DB::table('student_academic')->where('user_id', $user->id)->first();
+
+        if ($exists) {
+            DB::table('student_academic')
+                ->where('user_id', $user->id)
+                ->update($data);
+        } else {
+            $data['created_at'] = $now;
+            DB::table('student_academic')->insert($data);
+        }
+
+        // Optional: log to user_documents with NEW column names
         if (Schema::hasTable('user_documents')) {
             DB::table('user_documents')->insert([
                 'user_id'      => $user->id,
@@ -367,24 +404,29 @@ class StudentController extends Controller
             ]);
         }
 
-        // Recalculate eligibility
+        // Recalculate eligibility ONLY for this user
         $academic = DB::table('student_academic')->where('user_id', $user->id)->first();
 
-        $status = 'eligible';
-        $nowYear = (int) now()->year;
+        $status = null;
 
-        if (!empty($academic->expected_grad_year) && $nowYear > (int) $academic->expected_grad_year) {
-            $status = 'needs_revalidation';   // keep your own value
+        if ($academic) {
+            $nowYear = (int) now()->year;
+            $status  = 'eligible';
+
+            if (!empty($academic->expected_grad_year) && $nowYear > (int) $academic->expected_grad_year) {
+                $status = 'needs_revalidation';
+            }
+
+            DB::table('student_academic')
+                ->where('user_id', $user->id)
+                ->update([
+                    'eligibility_status' => $status,
+                    'updated_at'         => $now,
+                ]);
         }
 
-        DB::table('student_academic')
-            ->where('user_id', $user->id)
-            ->update([
-                'eligibility_status' => $status,
-                'updated_at'         => $now,
-            ]);
 
-        // AJAX
+        // If AJAX (used by student_profile.js) → JSON
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
                 'success'            => true,
@@ -395,7 +437,7 @@ class StudentController extends Controller
             ]);
         }
 
-        // Normal form POST redirect
+        // Fallback for normal form POST
         return back()->with('status', 'Certificate of Registration uploaded.');
     }
     public function viewCOR()
@@ -589,15 +631,16 @@ class StudentController extends Controller
 
 
     // GET /student/history
+
     public function history()
     {
         if (! Schema::hasTable('submissions')) {
-            $submissions = collect();
+            $submissions = new LengthAwarePaginator([], 0, 5);
         } else {
             $submissions = Submission::with([
                 'category',
                 'leadership',
-                'latestHistory', // from Submission model
+                'latestHistory',
                 'reviews' => function ($q) {
                     $q->latest('reviewed_at');
                 },
@@ -608,9 +651,6 @@ class StudentController extends Controller
                 ->paginate(5);
         }
 
-        // resources/views/student/history.blade.php
-        return view('student.history', [
-            'submissions' => $submissions,
-        ]);
+        return view('student.history', compact('submissions'));
     }
 }

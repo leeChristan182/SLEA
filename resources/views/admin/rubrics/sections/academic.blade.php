@@ -7,8 +7,8 @@ $category = App\Models\RubricCategory::with(['sections.subsections'])->where('ke
     <h4 class="rubric-heading">II. ACADEMIC EXCELLENCE</h4>
 
     <p class="rubric-category-description">
-        This criterion shows the academic standing of the candidate for the whole duration of their 
-        leadership. This shows that the student has managed its time efficiently to balance academics 
+        This criterion shows the academic standing of the candidate for the whole duration of their
+        leadership. This shows that the student has managed its time efficiently to balance academics
         and extracurricular activities.
     </p>
 
@@ -47,11 +47,16 @@ $category = App\Models\RubricCategory::with(['sections.subsections'])->where('ke
 
                     <td>
                         @if(!empty($sub->evidence_needed))
-                        <ul class="mb-0">
-                            @foreach(explode("\n", $sub->evidence_needed) as $line)
-                            <li>{{ $line }}</li>
+                        <div class="evidence-notes-content">
+                            @foreach(explode("\n", $sub->evidence_needed) as $index => $line)
+                                @if(trim($line) !== '')
+                                    @if($index > 0)
+                                        <br><br>
+                                    @endif
+                                    {{ $line }}
+                                @endif
                             @endforeach
-                        </ul>
+                        </div>
                         @else
                         —
                         @endif
@@ -59,11 +64,16 @@ $category = App\Models\RubricCategory::with(['sections.subsections'])->where('ke
 
                     <td>
                         @if(!empty($sub->notes))
-                        <ul class="mb-0">
-                            @foreach(explode("\n", $sub->notes) as $line)
-                            <li>{{ $line }}</li>
+                        <div class="evidence-notes-content">
+                            @foreach(explode("\n", $sub->notes) as $index => $line)
+                                @if(trim($line) !== '')
+                                    @if($index > 0)
+                                        <br><br>
+                                    @endif
+                                    {{ $line }}
+                                @endif
                             @endforeach
-                        </ul>
+                        </div>
                         @else
                         —
                         @endif

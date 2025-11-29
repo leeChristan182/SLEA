@@ -81,11 +81,16 @@ document.addEventListener('DOMContentLoaded', () => {
       fd.append('avatar', file);
 
       try {
-        const res = await fetch(avatarForm.action, {
-          method: 'POST',
-          headers: { 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
-          body: fd
-        });
+ const res = await fetch(avatarForm.action, {
+  method: 'POST',
+  headers: {
+    'X-CSRF-TOKEN': csrfToken,
+    'X-Requested-With': 'XMLHttpRequest',
+    'Accept': 'application/json',
+  },
+  body: fd
+});
+
         const data = await res.json();
         if (res.ok && data.success) {
           if (avatarPreview) avatarPreview.src = data.avatar_url + '?v=' + Date.now();
@@ -138,11 +143,16 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const fd = new FormData(form);
       try {
-        const res = await fetch(form.action, {
-          method: 'POST',
-          headers: { 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
-          body: fd
-        });
+const res = await fetch(form.action, {
+  method: 'POST',
+  headers: {
+    'X-CSRF-TOKEN': csrfToken,
+    'X-Requested-With': 'XMLHttpRequest',
+    'Accept': 'application/json',
+  },
+  body: fd
+});
+
         const data = await res.json();
         if (res.ok && data.success) {
           showToast(data.message || successMsg);

@@ -582,6 +582,7 @@ class AdminController extends Controller
         return $pdf->download('slea-awards-report.pdf');
     }
 
+
     /**
      * Build the base dataset for the awards report.
      *
@@ -911,15 +912,21 @@ class AdminController extends Controller
         // Re-index array after filtering
         $filteredStudents = array_values($filteredStudents);
 
-        // Generate PDF or CSV export
-        return view('admin.pdf.award-report', [
-            'students' => $filteredStudents,
+        // Convert array to collection for PDF view
+        $studentsCollection = collect($filteredStudents);
+
+        // Generate PDF export
+        $pdf = Pdf::loadView('admin.pdf.award-report', [
+            'students' => $studentsCollection,
+            'generatedAt' => now(),
             'filters' => [
                 'college' => $college,
                 'program' => $program,
                 'search' => $search,
             ]
-        ]);
+        ])->setPaper('A4', 'portrait');
+
+        return $pdf->download('slea-awards-report.pdf');
     }
 
     public function systemMonitoring()
