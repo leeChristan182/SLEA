@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\OtpCodeMail;
+use App\Mail\AccountApprovedMail;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\Paginator;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -278,14 +279,28 @@ class AdminController extends Controller
     {
         $admin = Auth::user();
 
-        $student = User::where('id', $student_id)->firstOrFail();
-        $student->status = 'approved';
+        // Only students
+        $student = User::where('id', $student_id)
+            ->where('role', User::ROLE_STUDENT)
+            ->firstOrFail();
+
+        // Optional: only allow approving pending accounts
+        if ($student->status !== User::STATUS_PENDING) {
+            return back()->withErrors([
+                'email' => 'Only pending student accounts can be approved.',
+            ]);
+        }
+
+        $student->status = User::STATUS_APPROVED;
         $student->save();
 
+        // ✅ Send approval email here
+        Mail::to($student->email)->send(new AccountApprovedMail($student));
+
+        // System log
         $adminName   = trim($admin->first_name . ' ' . ($admin->middle_name ? $admin->middle_name . ' ' : '') . $admin->last_name);
         $studentName = trim($student->first_name . ' ' . ($student->middle_name ? $student->middle_name . ' ' : '') . $student->last_name);
 
-        // 🔹 SYSTEM LOG: APPROVAL
         SystemMonitoringAndLog::record(
             $admin->role,
             $adminName ?: $admin->email,
