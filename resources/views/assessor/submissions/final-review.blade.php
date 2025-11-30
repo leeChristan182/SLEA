@@ -53,16 +53,13 @@
 
                 <div class="search-controls">
                     <div class="search-group">
-                        <input
-                            type="text"
-                            id="searchInput"
-                            class="form-control"
-                            placeholder="Search submissions..."
-                        >
-                        <button type="button" id="searchBtn" class="btn-search-maroon search-btn-attached" title="Search" onclick="handleSearchClick(event)">
+                        <input type="text" id="searchInput" class="form-control" placeholder="Search submissions...">
+                        <button type="button" id="searchBtn" class="btn-search-maroon search-btn-attached" title="Search"
+                            onclick="handleSearchClick(event)">
                             <i class="fas fa-search"></i>
                         </button>
-                        <button type="button" id="clearBtn" class="btn-clear" title="Clear search" onclick="handleClearClick(event)">
+                        <button type="button" id="clearBtn" class="btn-clear" title="Clear search"
+                            onclick="handleClearClick(event)">
                             Clear
                         </button>
                     </div>
@@ -152,25 +149,19 @@
                                 </td>
                                 <td>
                                     <div class="action-buttons-group">
-                                        <button type="button" class="btn btn-submit-admin" 
-                                            data-bs-toggle="modal"
-                                            data-bs-target="#viewSummaryModal" 
-                                            data-student-id="{{ $student->id ?? '' }}"
-                                            data-student-number="{{ $studentNumber }}" 
-                                            data-student-name="{{ $studentName }}"
-                                            data-program="{{ $programName }}" 
-                                            data-college="{{ $collegeName }}"
+                                        <button type="button" class="btn btn-submit-admin" data-bs-toggle="modal"
+                                            data-bs-target="#viewSummaryModal" data-student-id="{{ $student->id ?? '' }}"
+                                            data-student-number="{{ $studentNumber }}" data-student-name="{{ $studentName }}"
+                                            data-program="{{ $programName }}" data-college="{{ $collegeName }}"
                                             data-major="{{ $majorName }}"
                                             data-score="{{ number_format($item->total_score ?? 0, 2) }}"
                                             data-total-max="{{ $item->max_possible ?? $breakdown->sum('max_points') }}"
-                                            data-status="{{ $statusLabel }}" 
-                                            data-breakdown='@json($breakdown)'
+                                            data-status="{{ $statusLabel }}" data-breakdown='@json($breakdown)'
                                             title="Submit to Admin">
                                             <i class="fas fa-check-circle"></i>
                                         </button>
-                                        <button type="button" class="btn btn-reject-final" 
-                                            data-student-id="{{ $student->id ?? '' }}"
-                                            data-student-name="{{ $studentName }}"
+                                        <button type="button" class="btn btn-reject-final"
+                                            data-student-id="{{ $student->id ?? '' }}" data-student-name="{{ $studentName }}"
                                             title="Reject">
                                             <i class="fas fa-times-circle"></i>
                                         </button>
@@ -215,7 +206,10 @@
         <input type="hidden" name="action" value="submit">
         <input type="hidden" name="remarks" value="">
     </form>
-
+    <form id="finalReviewRejectForm" method="POST" class="d-none">
+        @csrf
+        <input type="hidden" name="remarks" value="">
+    </form>
     {{-- View Summary Modal --}}
     <div class="modal fade" id="viewSummaryModal" tabindex="-1" aria-labelledby="viewSummaryModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
@@ -302,12 +296,14 @@
 @push('scripts')
     @php
         $storeUrlTemplate = route('assessor.final-review.store', ['student' => '__STUDENT__']);
+        $rejectUrlTemplate = route('assessor.final-review.reject', ['student' => '__STUDENT__']);
+
     @endphp
     <script>
         // Global functions for search and clear buttons - will be updated after DOM loads
         window.applyFiltersFunction = null;
-        
-        window.handleSearchClick = function(event) {
+
+        window.handleSearchClick = function (event) {
             if (event) {
                 event.preventDefault();
                 event.stopPropagation();
@@ -327,7 +323,7 @@
             }
         };
 
-        window.handleClearClick = function(event) {
+        window.handleClearClick = function (event) {
             if (event) {
                 event.preventDefault();
                 event.stopPropagation();
@@ -361,6 +357,7 @@
             const submitForm = document.getElementById('finalReviewSubmitForm');
 
             const storeUrlTemplate = '{{ $storeUrlTemplate }}';
+            const rejectUrlTemplate = '{{ $rejectUrlTemplate }}';
 
             function applyFilters() {
                 if (!table) return;
@@ -389,7 +386,7 @@
                     row.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
                 });
             }
-            
+
             // Make applyFilters available globally for onclick handlers
             applyFiltersFunction = applyFilters;
 
@@ -431,7 +428,7 @@
             // Search button functionality
             const searchBtn = document.getElementById('searchBtn');
             if (searchBtn) {
-                searchBtn.addEventListener('click', function(e) {
+                searchBtn.addEventListener('click', function (e) {
                     e.preventDefault();
                     e.stopPropagation();
                     console.log('Search button clicked (event listener)');
@@ -444,7 +441,7 @@
             // Clear button functionality
             const clearBtn = document.getElementById('clearBtn');
             if (clearBtn) {
-                clearBtn.addEventListener('click', function(e) {
+                clearBtn.addEventListener('click', function (e) {
                     e.preventDefault();
                     e.stopPropagation();
                     console.log('Clear button clicked (event listener)');
@@ -525,11 +522,11 @@
 
                     if (!Array.isArray(breakdown) || breakdown.length === 0) {
                         tbody.innerHTML = `
-                                                                <tr class="text-muted">
-                                                                    <td colspan="5" class="text-center">
-                                                                        No category breakdown available for this student.
-                                                                    </td>
-                                                                </tr>`;
+                                                                                    <tr class="text-muted">
+                                                                                        <td colspan="5" class="text-center">
+                                                                                            No category breakdown available for this student.
+                                                                                        </td>
+                                                                                    </tr>`;
                     } else {
                         let totalScore = 0;
                         let totalMax = 0;
@@ -545,22 +542,22 @@
 
                             const tr = document.createElement('tr');
                             tr.innerHTML = `
-                                            <td>${catName}</td>
-                                            <td>${result || '—'}</td>
-                                            <td>${sc.toFixed(2)}</td>
-                                            <td>${maxPts.toFixed(2)}</td>
-                                        `;
+                                                                <td>${catName}</td>
+                                                                <td>${result || '—'}</td>
+                                                                <td>${sc.toFixed(2)}</td>
+                                                                <td>${maxPts.toFixed(2)}</td>
+                                                            `;
                             tbody.appendChild(tr);
                         });
 
                         const totalTr = document.createElement('tr');
                         totalTr.classList.add('summary-total-row');
                         totalTr.innerHTML = `
-                                <td><strong>Total Score</strong></td>
-                                <td></td>
-                                <td><strong>${totalScore.toFixed(2)}</strong></td>
-                                <td><strong>${totalMax.toFixed(2)}</strong></td>
-                            `;
+                                                    <td><strong>Total Score</strong></td>
+                                                    <td></td>
+                                                    <td><strong>${totalScore.toFixed(2)}</strong></td>
+                                                    <td><strong>${totalMax.toFixed(2)}</strong></td>
+                                                `;
                         tbody.appendChild(totalTr);
 
                     }
@@ -639,47 +636,67 @@
             }
 
             // Handle reject button clicks
+            // Handle reject button clicks
             const rejectButtons = document.querySelectorAll('.btn-reject-final');
-            rejectButtons.forEach(btn => {
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const studentId = this.getAttribute('data-student-id');
-                    const studentName = this.getAttribute('data-student-name');
-                    
-                    // Use SweetAlert2 instead of native confirm
-                    if (typeof Swal !== 'undefined') {
-                        Swal.fire({
-                            title: 'Reject Student?',
-                            text: `Are you sure you want to REJECT ${studentName}? This action cannot be undone.`,
-                            icon: 'warning',
-                            showCancelButton: true,
-                            confirmButtonColor: '#dc3545',
-                            cancelButtonColor: '#6c757d',
-                            confirmButtonText: 'Yes, reject',
-                            cancelButtonText: 'Cancel',
-                            reverseButtons: true
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                // TODO: Implement reject functionality
-                                console.log('Reject student:', studentId);
+            const rejectForm = document.getElementById('finalReviewRejectForm');
+
+            if (rejectButtons && rejectForm) {
+                rejectButtons.forEach(button => {
+                    button.addEventListener('click', function () {
+                        const studentId = this.getAttribute('data-student-id');
+                        const studentName = this.getAttribute('data-student-name') || 'this student';
+
+                        if (!studentId) {
+                            if (typeof Swal !== 'undefined') {
                                 Swal.fire({
-                                    title: 'Reject Functionality',
-                                    text: 'Reject functionality will be implemented here.',
-                                    icon: 'info'
+                                    title: 'Error',
+                                    text: 'Missing student ID for this action.',
+                                    icon: 'error',
+                                    confirmButtonColor: '#dc3545',
                                 });
+                            } else {
+                                alert('Missing student ID for this action.');
                             }
-                        });
-                    } else {
-                        // Fallback to native confirm if SweetAlert2 is not loaded
-                        if (confirm(`Are you sure you want to REJECT ${studentName}? This action cannot be undone.`)) {
-                            // TODO: Implement reject functionality
-                            console.log('Reject student:', studentId);
-                            alert('Reject functionality will be implemented here.');
+                            return;
                         }
-                    }
+
+                        const doSubmitReject = () => {
+                            const url = rejectUrlTemplate.replace('__STUDENT__', studentId);
+
+                            // copy remarks from the modal textarea (same as submit)
+                            const remarksHidden = rejectForm.querySelector('input[name="remarks"]');
+                            if (remarksHidden && remarksInput) {
+                                remarksHidden.value = remarksInput.value;
+                            }
+
+                            rejectForm.action = url;
+                            rejectForm.submit();
+                        };
+
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                title: 'Reject Student?',
+                                text: `Are you sure you want to reject ${studentName}? This will mark the student as not qualified and remove them from your final review list.`,
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonColor: '#dc3545',
+                                cancelButtonColor: '#6c757d',
+                                confirmButtonText: 'Yes, reject',
+                                cancelButtonText: 'Cancel',
+                                reverseButtons: true,
+                            }).then(result => {
+                                if (result.isConfirmed) {
+                                    doSubmitReject();
+                                }
+                            });
+                        } else {
+                            if (confirm(`Are you sure you want to reject ${studentName}?`)) {
+                                doSubmitReject();
+                            }
+                        }
+                    });
                 });
-            });
+            }
 
             // Initialize pagination
             if (typeof initializeAdminPagination !== 'undefined') {
@@ -691,748 +708,762 @@
 @endpush
 
 @push('styles')
-<style>
-    /* ============================================
-       FINAL REVIEW TABLE - CLEAN REBUILD
-       ============================================ */
-
-    /* Page Header */
-    .page-header {
-        margin-bottom: 1.5rem;
-    }
-
-    .page-header h1 {
-        color: #8B0000;
-        font-size: 2rem;
-        margin-bottom: 0;
-        font-weight: 700;
-    }
-
-    body.dark-mode .page-header h1 {
-        color: #f9bd3d !important;
-    }
-
-    .controls-section {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
-        margin-bottom: 2rem;
-        gap: 2rem;
-    }
-
-    .filter-controls {
-        display: flex;
-        gap: 1.5rem;
-    }
-
-    .filter-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-
-    .filter-group label {
-        font-weight: 600;
-        color: #333;
-        font-size: 0.9rem;
-    }
-
-    body.dark-mode .filter-group label {
-        color: #ddd;
-    }
-
-    .form-select {
-        min-width: 150px;
-        border: 1px solid #ddd;
-        border-radius: 6px;
-        padding: 0.5rem 0.75rem;
-        font-size: 0.9rem;
-    }
-
-    .search-controls {
-        flex: 1;
-        max-width: 500px;
-    }
-
-    .search-group {
-        position: relative;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    .search-group input {
-        flex: 1;
-        padding: 0.5rem 0.75rem;
-        border: 1px solid #ddd;
-        border-radius: 6px;
-        font-size: 0.9rem;
-    }
-
-    /* Search button - maroon with icon */
-    .btn-search-maroon {
-        background-color: #7E0308;
-        color: white;
-        border: 1px solid #7E0308;
-        border-radius: 6px;
-        padding: 0;
-        min-width: 38px;
-        height: 38px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        font-size: 16px;
-        line-height: 1;
-        pointer-events: auto;
-        z-index: 10;
-        position: relative;
-    }
-
-    .btn-search-maroon:hover {
-        background-color: #5a0206;
-        border-color: #5a0206;
-    }
-
-    .btn-search-maroon:active {
-        background-color: #4a0105;
-        border-color: #4a0105;
-    }
-
-    .btn-search-maroon i {
-        font-size: 16px;
-        line-height: 1;
-    }
-
-    /* Clear button */
-    .btn-clear {
-        background-color: #6c757d;
-        color: white;
-        border: 1px solid #6c757d;
-        border-radius: 6px;
-        padding: 0.5rem 1rem;
-        font-size: 0.9rem;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        height: 38px;
-        white-space: nowrap;
-        pointer-events: auto;
-        z-index: 10;
-        position: relative;
-    }
-
-    .btn-clear:hover {
-        background-color: #5a6268;
-        border-color: #5a6268;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
-    }
-
-    .btn-clear:active {
-        background-color: #545b62;
-        transform: translateY(0);
-        box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2);
-    }
-
-    body.dark-mode .btn-clear {
-        background-color: #495057;
-        border-color: #495057;
-    }
-
-    body.dark-mode .btn-clear:hover {
-        background-color: #3d4146;
-        border-color: #3d4146;
-    }
-
-    /* Main content centering - match submissions page */
-    .main-content {
-        max-width: 100%;
-        overflow-x: hidden;
-        box-sizing: border-box;
-    }
-
-    body {
-        overflow-x: hidden !important;
-    }
-
-    .container {
-        overflow-x: hidden !important;
-        max-width: 100vw;
-        box-sizing: border-box;
-    }
-
-    /* Table styling to match other tables */
-    .submissions-table-container {
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        overflow-x: hidden;
-        overflow-y: visible;
-        width: 100%;
-        max-width: 100%;
-        box-sizing: border-box;
-    }
-
-    body.dark-mode .submissions-table-container {
-        background: #2b2b2b;
-    }
-
-    .submissions-table {
-        margin: 0;
-        width: 100% !important;
-        max-width: 100% !important;
-        background: white;
-        table-layout: auto !important;
-        border-collapse: collapse;
-    }
-
-    body.dark-mode .submissions-table {
-        background: #2b2b2b;
-    }
-
-    .submissions-table thead {
-        background-color: #8B0000 !important;
-    }
-
-    .submissions-table thead th {
-        padding: 0.7rem 0.75rem;
-        font-weight: 600;
-        color: white !important;
-        border-bottom: 1px solid white !important;
-        border-right: 1px solid rgba(255, 255, 255, 0.2) !important;
-        font-size: 0.9rem;
-        background-color: #8B0000 !important;
-        text-align: left;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .submissions-table thead th:nth-child(7) {
-        text-align: center;
-        font-size: 0.85rem;
-        white-space: nowrap;
-        padding: 0.7rem 0.25rem;
-    }
-
-    .submissions-table thead th:last-child {
-        border-right: none !important;
-    }
-
-    .submissions-table tbody td {
-        padding: 0.65rem 0.5rem;
-        font-size: 0.85rem;
-        color: #333;
-        border-bottom: 1px solid #e9ecef;
-        border-right: 1px solid #e9ecef;
-        vertical-align: middle;
-        max-width: 0;
-    }
-
-    .submissions-table tbody td:last-child {
-        border-right: none;
-    }
-
-    .submissions-table tbody tr {
-        height: auto;
-        min-height: 45px;
-    }
-
-    /* Ensure Student ID displays properly in one line */
-    .submissions-table tbody td.student-id-cell {
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        font-family: 'Courier New', monospace;
-        font-weight: 500;
-    }
-
-    body.dark-mode .submissions-table tbody td {
-        color: #f0f0f0;
-        border-bottom-color: #444;
-    }
-
-    .submissions-table tbody tr:hover {
-        background-color: #f8f9fa;
-    }
-
-    body.dark-mode .submissions-table tbody tr:hover {
-        background-color: #333;
-    }
-
-    /* Column widths - optimized for compact Action column */
-    .submissions-table thead th:nth-child(1),
-    .submissions-table tbody td:nth-child(1) { 
-        width: 13% !important; 
-    } /* Student ID - increased from 10% */
-    
-    .submissions-table thead th:nth-child(2),
-    .submissions-table tbody td:nth-child(2) { 
-        width: 17% !important; 
-    } /* Student Name - increased from 14% */
-    
-    .submissions-table thead th:nth-child(3),
-    .submissions-table tbody td:nth-child(3) { 
-        width: 16% !important; 
-    } /* College */
-    
-    .submissions-table thead th:nth-child(4),
-    .submissions-table tbody td:nth-child(4) { 
-        width: 18% !important; 
-    } /* Program */
-    
-    .submissions-table thead th:nth-child(5),
-    .submissions-table tbody td:nth-child(5) { 
-        width: 13% !important; 
-    } /* Total Score - increased from 12% */
-    
-    .submissions-table thead th:nth-child(6),
-    .submissions-table tbody td:nth-child(6) { 
-        width: 14% !important; 
-    } /* Status */
-    
-    .submissions-table thead th:nth-child(7),
-    .submissions-table tbody td:nth-child(7) { 
-        width: 9% !important; 
-    } /* Action - reduced from 16% to 9% */
-
-    /* Student ID - single line, no wrapping, increased width */
-    .submissions-table tbody td:nth-child(1) {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        font-size: 0.9rem;
-        font-weight: 500;
-        padding: 0.65rem 0.75rem;
-    }
-
-    /* Student Name - allow wrapping if needed, increased width */
-    .submissions-table tbody td:nth-child(2) {
-        white-space: normal;
-        overflow: hidden;
-        text-overflow: clip;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        line-height: 1.4;
-        hyphens: auto;
-        padding: 0.65rem 0.75rem;
-    }
-
-    /* College - allow wrapping if needed */
-    .submissions-table tbody td:nth-child(3) {
-        white-space: normal;
-        overflow: hidden;
-        text-overflow: clip;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        line-height: 1.4;
-    }
-
-    /* Program - allow wrapping if needed */
-    .submissions-table tbody td:nth-child(4) {
-        white-space: normal;
-        overflow: hidden;
-        text-overflow: clip;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        line-height: 1.4;
-        hyphens: auto;
-    }
-
-    /* Total Score - single line, increased width */
-    .submissions-table tbody td:nth-child(5) {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: clip;
-        font-weight: 600;
-        font-size: 0.9rem;
-        padding: 0.65rem 0.75rem;
-    }
-
-    /* Status - allow wrapping for badge */
-    .submissions-table tbody td:nth-child(6) {
-        white-space: normal;
-        overflow: hidden;
-        text-overflow: clip;
-    }
-
-    /* Action - single line, centered, compact */
-    .submissions-table tbody td:nth-child(7) {
-        white-space: nowrap !important;
-        text-align: center !important;
-        padding: 0.5rem 0.25rem !important;
-        width: 9% !important;
-    }
-
-    /* Pagination styles */
-    .pagination-container {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-top: 1.5rem;
-        padding: 1rem 0;
-    }
-
-    .pagination-info {
-        color: #666;
-        font-size: 0.9rem;
-    }
-
-    body.dark-mode .pagination-info {
-        color: #ccc;
-    }
-
-    .unified-pagination {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    .btn-nav {
-        padding: 0.5rem 1rem;
-        border: 1px solid #ddd;
-        background: white;
-        border-radius: 6px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        color: #333;
-        font-size: 0.9rem;
-    }
-
-    .btn-nav:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .btn-nav:hover:not(:disabled) {
-        background: #7E0308;
-        color: white;
-        border-color: #7E0308;
-    }
-
-    body.dark-mode .btn-nav {
-        background: #2a2a2a;
-        border-color: #555;
-        color: #f0f0f0;
-    }
-
-    body.dark-mode .btn-nav:hover:not(:disabled) {
-        background: #7E0308;
-        color: white;
-        border-color: #7E0308;
-    }
-
-    .pagination-pages {
-        display: flex;
-        gap: 0.25rem;
-    }
-
-    .page-btn {
-        padding: 0.5rem 0.75rem;
-        border: 1px solid #ddd;
-        background: white;
-        border-radius: 6px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        color: #333;
-        font-size: 0.9rem;
-        min-width: 36px;
-        text-align: center;
-    }
-
-    .page-btn.active {
-        background: #7E0308;
-        color: white;
-        border-color: #7E0308;
-    }
-
-    .page-btn:hover:not(.active) {
-        background: #7E0308;
-        color: white;
-        border-color: #7E0308;
-    }
-
-    body.dark-mode .page-btn {
-        background: #2a2a2a;
-        border-color: #555;
-        color: #f0f0f0;
-    }
-
-    body.dark-mode .page-btn.active {
-        background: #7E0308;
-        color: white;
-        border-color: #7E0308;
-    }
-
-    body.dark-mode .page-btn:hover:not(.active) {
-        background: #7E0308;
-        color: white;
-        border-color: #7E0308;
-    }
-
-    /* Action buttons - compact icon-only buttons */
-    .action-buttons-group {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.4rem;
-        flex-wrap: nowrap;
-    }
-
-    .btn-submit-admin,
-    .btn-reject-final {
-        display: inline-flex !important;
-        align-items: center;
-        justify-content: center;
-        width: 26px !important;
-        height: 26px !important;
-        min-width: 26px !important;
-        min-height: 26px !important;
-        max-width: 26px !important;
-        max-height: 26px !important;
-        border-radius: 4px;
-        border: none;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        padding: 0 !important;
-        flex-shrink: 0;
-        position: relative;
-    }
-
-    .btn-submit-admin i,
-    .btn-reject-final i {
-        font-size: 0.8rem;
-        line-height: 1;
-    }
-
-    .btn-submit-admin {
-        background-color: #28a745;
-        color: white;
-    }
-
-    .btn-submit-admin:hover {
-        background-color: #218838;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
-    }
-
-    .btn-submit-admin:active {
-        background-color: #1e7e34;
-        transform: translateY(0);
-    }
-
-    .btn-submit-admin:focus {
-        outline: 2px solid rgba(40, 167, 69, 0.5);
-        outline-offset: 2px;
-    }
-
-    .btn-reject-final {
-        background-color: #dc3545;
-        color: white;
-    }
-
-    .btn-reject-final:hover {
-        background-color: #c82333;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
-    }
-
-    .btn-reject-final:active {
-        background-color: #bd2130;
-        transform: translateY(0);
-    }
-
-    .btn-reject-final:focus {
-        outline: 2px solid rgba(220, 53, 69, 0.5);
-        outline-offset: 2px;
-    }
-
-    .status-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0.25rem 0.6rem;
-        border-radius: 999px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-
-    .status-draft {
-        background: rgba(108, 117, 125, 0.15);
-        color: #6c757d;
-    }
-
-    .status-queued_for_admin {
-        background: rgba(255, 193, 7, 0.2);
-        color: #b58100;
-    }
-
-    .status-finalized {
-        background: rgba(40, 167, 69, 0.15);
-        color: #198754;
-    }
-
-    /* MODAL UI */
-
-    .final-modal {
-        border-radius: 18px;
-    }
-
-    .modal-student-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 1rem;
-    }
-
-    .summary-score-pill {
-        background: #8B0000;
-        color: #fff;
-        border-radius: 999px;
-        padding: 0.5rem 1.4rem;
-        text-align: right;
-    }
-
-    .summary-score-pill .label {
-        display: block;
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        opacity: 0.85;
-    }
-
-    .summary-score-pill .value {
-        font-size: 1.5rem;
-        font-weight: 700;
-    }
-
-    .summary-table th,
-    .summary-table td {
-        vertical-align: middle;
-        font-size: 0.9rem;
-    }
-
-    .summary-total-row td {
-        border-top: 2px solid #ccc !important;
-    }
-
-    .threshold-info {
-        margin-top: -0.5rem;
-    }
-
-    .good-conduct-section {
-        border-top: 1px solid #eee;
-        padding-top: 0.75rem;
-    }
-
-    .final-submit-btn {
-        border-radius: 999px;
-        padding-inline: 1.5rem;
-    }
-
-    /* FORCE SUPER-WIDE FINAL REVIEW MODAL
-   Completely overrides bootstrap + your style.css */
-    #viewSummaryModal .modal-dialog {
-        max-width: 1200px !important;
-        width: 95vw !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
-    }
-
-    #viewSummaryModal .modal-content.final-modal {
-        border-radius: 22px !important;
-        padding: 20px 28px !important;
-    }
-
-    /* Modal header refinements */
-    #viewSummaryModal .modal-header {
-        border-bottom: none !important;
-        padding-bottom: 0 !important;
-    }
-
-    /* Stretch student header spacing */
-    .modal-student-header {
-        margin-bottom: 1.8rem !important;
-    }
-
-    /* Bigger Final Score badge */
-    .summary-score-pill {
-        padding: 0.7rem 1.6rem !important;
-        border-radius: 50px !important;
-    }
-
-    .summary-score-pill .label {
-        font-size: 0.75rem !important;
-    }
-
-    .summary-score-pill .value {
-        font-size: 1.7rem !important;
-        font-weight: 800 !important;
-    }
-
-    /* Make the table look tight, clean, full width */
-    .summary-table {
-        width: 100% !important;
-        border-collapse: collapse !important;
-    }
-
-    .summary-table th,
-    .summary-table td {
-        padding: 10px 12px !important;
-        font-size: 0.95rem !important;
-        border-color: #ddd !important;
-    }
-
-    .summary-total-row td {
-        border-top: 2px solid #bbb !important;
-        font-weight: 700 !important;
-    }
-
-    /* Scrollable body when needed but with padding */
-    #viewSummaryModal .modal-dialog {
-        max-width: 95% !important;
-        width: 95% !important;
-        margin: 1.5rem auto;
-    }
-
-    #viewSummaryModal .modal-content {
-        max-width: 95% !important;
-        width: 95% !important;
-        margin: 1.5rem auto;
-    }
-
-    #viewSummaryModal .modal-body {
-        max-height: 70vh !important;
-        overflow-y: auto !important;
-        padding-right: 10px !important;
-    }
-
-    /* Adjust footer */
-    #viewSummaryModal .modal-footer {
-        border-top: none !important;
-        padding-top: 0 !important;
-    }
-
-    /* Make the submit button nicer */
-    .final-submit-btn {
-        padding: 10px 25px !important;
-        border-radius: 50px !important;
-        font-size: 1rem !important;
-        font-weight: 600 !important;
-    }
-
-    /* Remove unwanted shadows from style.css */
-    #viewSummaryModal * {
-        box-shadow: none !important;
-    }
-
-    /* Stretch table evenly */
-    .summary-table th:nth-child(1),
-    .summary-table td:nth-child(1) {
-        width: 35% !important;
-    }
-
-    /* Remove Verified – already handled in JS */
-</style>
+    <style>
+        /* ============================================
+                           FINAL REVIEW TABLE - CLEAN REBUILD
+                           ============================================ */
+
+        /* Page Header */
+        .page-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .page-header h1 {
+            color: #8B0000;
+            font-size: 2rem;
+            margin-bottom: 0;
+            font-weight: 700;
+        }
+
+        body.dark-mode .page-header h1 {
+            color: #f9bd3d !important;
+        }
+
+        .controls-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 2rem;
+            gap: 2rem;
+        }
+
+        .filter-controls {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .filter-group label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        body.dark-mode .filter-group label {
+            color: #ddd;
+        }
+
+        .form-select {
+            min-width: 150px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.9rem;
+        }
+
+        .search-controls {
+            flex: 1;
+            max-width: 500px;
+        }
+
+        .search-group {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .search-group input {
+            flex: 1;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        /* Search button - maroon with icon */
+        .btn-search-maroon {
+            background-color: #7E0308;
+            color: white;
+            border: 1px solid #7E0308;
+            border-radius: 6px;
+            padding: 0;
+            min-width: 38px;
+            height: 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 16px;
+            line-height: 1;
+            pointer-events: auto;
+            z-index: 10;
+            position: relative;
+        }
+
+        .btn-search-maroon:hover {
+            background-color: #5a0206;
+            border-color: #5a0206;
+        }
+
+        .btn-search-maroon:active {
+            background-color: #4a0105;
+            border-color: #4a0105;
+        }
+
+        .btn-search-maroon i {
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        /* Clear button */
+        .btn-clear {
+            background-color: #6c757d;
+            color: white;
+            border: 1px solid #6c757d;
+            border-radius: 6px;
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            height: 38px;
+            white-space: nowrap;
+            pointer-events: auto;
+            z-index: 10;
+            position: relative;
+        }
+
+        .btn-clear:hover {
+            background-color: #5a6268;
+            border-color: #5a6268;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
+        }
+
+        .btn-clear:active {
+            background-color: #545b62;
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2);
+        }
+
+        body.dark-mode .btn-clear {
+            background-color: #495057;
+            border-color: #495057;
+        }
+
+        body.dark-mode .btn-clear:hover {
+            background-color: #3d4146;
+            border-color: #3d4146;
+        }
+
+        /* Main content centering - match submissions page */
+        .main-content {
+            max-width: 100%;
+            overflow-x: hidden;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow-x: hidden !important;
+        }
+
+        .container {
+            overflow-x: hidden !important;
+            max-width: 100vw;
+            box-sizing: border-box;
+        }
+
+        /* Table styling to match other tables */
+        .submissions-table-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            overflow-x: hidden;
+            overflow-y: visible;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        body.dark-mode .submissions-table-container {
+            background: #2b2b2b;
+        }
+
+        .submissions-table {
+            margin: 0;
+            width: 100% !important;
+            max-width: 100% !important;
+            background: white;
+            table-layout: auto !important;
+            border-collapse: collapse;
+        }
+
+        body.dark-mode .submissions-table {
+            background: #2b2b2b;
+        }
+
+        .submissions-table thead {
+            background-color: #8B0000 !important;
+        }
+
+        .submissions-table thead th {
+            padding: 0.7rem 0.75rem;
+            font-weight: 600;
+            color: white !important;
+            border-bottom: 1px solid white !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.2) !important;
+            font-size: 0.9rem;
+            background-color: #8B0000 !important;
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .submissions-table thead th:nth-child(7) {
+            text-align: center;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            padding: 0.7rem 0.25rem;
+        }
+
+        .submissions-table thead th:last-child {
+            border-right: none !important;
+        }
+
+        .submissions-table tbody td {
+            padding: 0.65rem 0.5rem;
+            font-size: 0.85rem;
+            color: #333;
+            border-bottom: 1px solid #e9ecef;
+            border-right: 1px solid #e9ecef;
+            vertical-align: middle;
+            max-width: 0;
+        }
+
+        .submissions-table tbody td:last-child {
+            border-right: none;
+        }
+
+        .submissions-table tbody tr {
+            height: auto;
+            min-height: 45px;
+        }
+
+        /* Ensure Student ID displays properly in one line */
+        .submissions-table tbody td.student-id-cell {
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            font-family: 'Courier New', monospace;
+            font-weight: 500;
+        }
+
+        body.dark-mode .submissions-table tbody td {
+            color: #f0f0f0;
+            border-bottom-color: #444;
+        }
+
+        .submissions-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        body.dark-mode .submissions-table tbody tr:hover {
+            background-color: #333;
+        }
+
+        /* Column widths - optimized for compact Action column */
+        .submissions-table thead th:nth-child(1),
+        .submissions-table tbody td:nth-child(1) {
+            width: 13% !important;
+        }
+
+        /* Student ID - increased from 10% */
+
+        .submissions-table thead th:nth-child(2),
+        .submissions-table tbody td:nth-child(2) {
+            width: 17% !important;
+        }
+
+        /* Student Name - increased from 14% */
+
+        .submissions-table thead th:nth-child(3),
+        .submissions-table tbody td:nth-child(3) {
+            width: 16% !important;
+        }
+
+        /* College */
+
+        .submissions-table thead th:nth-child(4),
+        .submissions-table tbody td:nth-child(4) {
+            width: 18% !important;
+        }
+
+        /* Program */
+
+        .submissions-table thead th:nth-child(5),
+        .submissions-table tbody td:nth-child(5) {
+            width: 13% !important;
+        }
+
+        /* Total Score - increased from 12% */
+
+        .submissions-table thead th:nth-child(6),
+        .submissions-table tbody td:nth-child(6) {
+            width: 14% !important;
+        }
+
+        /* Status */
+
+        .submissions-table thead th:nth-child(7),
+        .submissions-table tbody td:nth-child(7) {
+            width: 9% !important;
+        }
+
+        /* Action - reduced from 16% to 9% */
+
+        /* Student ID - single line, no wrapping, increased width */
+        .submissions-table tbody td:nth-child(1) {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 0.9rem;
+            font-weight: 500;
+            padding: 0.65rem 0.75rem;
+        }
+
+        /* Student Name - allow wrapping if needed, increased width */
+        .submissions-table tbody td:nth-child(2) {
+            white-space: normal;
+            overflow: hidden;
+            text-overflow: clip;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.4;
+            hyphens: auto;
+            padding: 0.65rem 0.75rem;
+        }
+
+        /* College - allow wrapping if needed */
+        .submissions-table tbody td:nth-child(3) {
+            white-space: normal;
+            overflow: hidden;
+            text-overflow: clip;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.4;
+        }
+
+        /* Program - allow wrapping if needed */
+        .submissions-table tbody td:nth-child(4) {
+            white-space: normal;
+            overflow: hidden;
+            text-overflow: clip;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.4;
+            hyphens: auto;
+        }
+
+        /* Total Score - single line, increased width */
+        .submissions-table tbody td:nth-child(5) {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: clip;
+            font-weight: 600;
+            font-size: 0.9rem;
+            padding: 0.65rem 0.75rem;
+        }
+
+        /* Status - allow wrapping for badge */
+        .submissions-table tbody td:nth-child(6) {
+            white-space: normal;
+            overflow: hidden;
+            text-overflow: clip;
+        }
+
+        /* Action - single line, centered, compact */
+        .submissions-table tbody td:nth-child(7) {
+            white-space: nowrap !important;
+            text-align: center !important;
+            padding: 0.5rem 0.25rem !important;
+            width: 9% !important;
+        }
+
+        /* Pagination styles */
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1.5rem;
+            padding: 1rem 0;
+        }
+
+        .pagination-info {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        body.dark-mode .pagination-info {
+            color: #ccc;
+        }
+
+        .unified-pagination {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-nav {
+            padding: 0.5rem 1rem;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        .btn-nav:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-nav:hover:not(:disabled) {
+            background: #7E0308;
+            color: white;
+            border-color: #7E0308;
+        }
+
+        body.dark-mode .btn-nav {
+            background: #2a2a2a;
+            border-color: #555;
+            color: #f0f0f0;
+        }
+
+        body.dark-mode .btn-nav:hover:not(:disabled) {
+            background: #7E0308;
+            color: white;
+            border-color: #7E0308;
+        }
+
+        .pagination-pages {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .page-btn {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #333;
+            font-size: 0.9rem;
+            min-width: 36px;
+            text-align: center;
+        }
+
+        .page-btn.active {
+            background: #7E0308;
+            color: white;
+            border-color: #7E0308;
+        }
+
+        .page-btn:hover:not(.active) {
+            background: #7E0308;
+            color: white;
+            border-color: #7E0308;
+        }
+
+        body.dark-mode .page-btn {
+            background: #2a2a2a;
+            border-color: #555;
+            color: #f0f0f0;
+        }
+
+        body.dark-mode .page-btn.active {
+            background: #7E0308;
+            color: white;
+            border-color: #7E0308;
+        }
+
+        body.dark-mode .page-btn:hover:not(.active) {
+            background: #7E0308;
+            color: white;
+            border-color: #7E0308;
+        }
+
+        /* Action buttons - compact icon-only buttons */
+        .action-buttons-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            flex-wrap: nowrap;
+        }
+
+        .btn-submit-admin,
+        .btn-reject-final {
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            width: 26px !important;
+            height: 26px !important;
+            min-width: 26px !important;
+            min-height: 26px !important;
+            max-width: 26px !important;
+            max-height: 26px !important;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            padding: 0 !important;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .btn-submit-admin i,
+        .btn-reject-final i {
+            font-size: 0.8rem;
+            line-height: 1;
+        }
+
+        .btn-submit-admin {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn-submit-admin:hover {
+            background-color: #218838;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-submit-admin:active {
+            background-color: #1e7e34;
+            transform: translateY(0);
+        }
+
+        .btn-submit-admin:focus {
+            outline: 2px solid rgba(40, 167, 69, 0.5);
+            outline-offset: 2px;
+        }
+
+        .btn-reject-final {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-reject-final:hover {
+            background-color: #c82333;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-reject-final:active {
+            background-color: #bd2130;
+            transform: translateY(0);
+        }
+
+        .btn-reject-final:focus {
+            outline: 2px solid rgba(220, 53, 69, 0.5);
+            outline-offset: 2px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.25rem 0.6rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-draft {
+            background: rgba(108, 117, 125, 0.15);
+            color: #6c757d;
+        }
+
+        .status-queued_for_admin {
+            background: rgba(255, 193, 7, 0.2);
+            color: #b58100;
+        }
+
+        .status-finalized {
+            background: rgba(40, 167, 69, 0.15);
+            color: #198754;
+        }
+
+        /* MODAL UI */
+
+        .final-modal {
+            border-radius: 18px;
+        }
+
+        .modal-student-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .summary-score-pill {
+            background: #8B0000;
+            color: #fff;
+            border-radius: 999px;
+            padding: 0.5rem 1.4rem;
+            text-align: right;
+        }
+
+        .summary-score-pill .label {
+            display: block;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            opacity: 0.85;
+        }
+
+        .summary-score-pill .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .summary-table th,
+        .summary-table td {
+            vertical-align: middle;
+            font-size: 0.9rem;
+        }
+
+        .summary-total-row td {
+            border-top: 2px solid #ccc !important;
+        }
+
+        .threshold-info {
+            margin-top: -0.5rem;
+        }
+
+        .good-conduct-section {
+            border-top: 1px solid #eee;
+            padding-top: 0.75rem;
+        }
+
+        .final-submit-btn {
+            border-radius: 999px;
+            padding-inline: 1.5rem;
+        }
+
+        /* FORCE SUPER-WIDE FINAL REVIEW MODAL
+                       Completely overrides bootstrap + your style.css */
+        #viewSummaryModal .modal-dialog {
+            max-width: 1200px !important;
+            width: 95vw !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
+
+        #viewSummaryModal .modal-content.final-modal {
+            border-radius: 22px !important;
+            padding: 20px 28px !important;
+        }
+
+        /* Modal header refinements */
+        #viewSummaryModal .modal-header {
+            border-bottom: none !important;
+            padding-bottom: 0 !important;
+        }
+
+        /* Stretch student header spacing */
+        .modal-student-header {
+            margin-bottom: 1.8rem !important;
+        }
+
+        /* Bigger Final Score badge */
+        .summary-score-pill {
+            padding: 0.7rem 1.6rem !important;
+            border-radius: 50px !important;
+        }
+
+        .summary-score-pill .label {
+            font-size: 0.75rem !important;
+        }
+
+        .summary-score-pill .value {
+            font-size: 1.7rem !important;
+            font-weight: 800 !important;
+        }
+
+        /* Make the table look tight, clean, full width */
+        .summary-table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+        }
+
+        .summary-table th,
+        .summary-table td {
+            padding: 10px 12px !important;
+            font-size: 0.95rem !important;
+            border-color: #ddd !important;
+        }
+
+        .summary-total-row td {
+            border-top: 2px solid #bbb !important;
+            font-weight: 700 !important;
+        }
+
+        /* Scrollable body when needed but with padding */
+        #viewSummaryModal .modal-dialog {
+            max-width: 95% !important;
+            width: 95% !important;
+            margin: 1.5rem auto;
+        }
+
+        #viewSummaryModal .modal-content {
+            max-width: 95% !important;
+            width: 95% !important;
+            margin: 1.5rem auto;
+        }
+
+        #viewSummaryModal .modal-body {
+            max-height: 70vh !important;
+            overflow-y: auto !important;
+            padding-right: 10px !important;
+        }
+
+        /* Adjust footer */
+        #viewSummaryModal .modal-footer {
+            border-top: none !important;
+            padding-top: 0 !important;
+        }
+
+        /* Make the submit button nicer */
+        .final-submit-btn {
+            padding: 10px 25px !important;
+            border-radius: 50px !important;
+            font-size: 1rem !important;
+            font-weight: 600 !important;
+        }
+
+        /* Remove unwanted shadows from style.css */
+        #viewSummaryModal * {
+            box-shadow: none !important;
+        }
+
+        /* Stretch table evenly */
+        .summary-table th:nth-child(1),
+        .summary-table td:nth-child(1) {
+            width: 35% !important;
+        }
+
+        /* Remove Verified – already handled in JS */
+    </style>
 @endpush

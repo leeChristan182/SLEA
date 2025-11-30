@@ -275,5 +275,8 @@ Route::prefix('assessor')
             '/final-review/{student}',
             [\App\Http\Controllers\AssessorFinalReviewController::class, 'storeForStudent']
         )->name('final-review.store');   // ✅ final name: assessor.final-review.store
-
+        Route::post(
+            '/final-review/{student}/reject',
+            [\App\Http\Controllers\AssessorFinalReviewController::class, 'rejectForStudent']
+        )->name('final-review.reject');
     });

@@ -80,14 +80,12 @@
                                     <div class="action-buttons-group">
                                         <button class="btn-edit" title="Edit" data-org-id="{{ $org->id }}"
                                             data-org-name="{{ $org->name }}" data-org-cluster-id="{{ $org->cluster_id }}"
-                                            data-org-description="{{ $org->description ?? '' }}"
                                             onclick="openOrgModalFromButton(this)">
                                             <i class="fas fa-edit"></i>
                                         </button>
 
                                         <button type="button" class="btn-delete" title="Delete" data-org-id="{{ $org->id }}"
                                             data-org-name="{{ $org->name }}" data-org-cluster-id="{{ $org->cluster_id }}"
-                                            data-org-description="{{ $org->description ?? '' }}"
                                             onclick="openDeleteModalFromButton(this)">
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
@@ -230,6 +228,7 @@
                             @endforeach
                         </select>
                     </div>
+
                     <div class="button-group">
                         <button type="submit" class="save-btn btn btn-primary">Save</button>
                         <button type="button" class="cancel-btn btn btn-secondary" onclick="closeOrgModal()">Cancel</button>
@@ -268,6 +267,9 @@
             const existingMethod = form.querySelector('input[name="_method"]');
             if (existingMethod) existingMethod.remove();
 
+            const nameInput = document.getElementById('name');
+            const clusterSelect = document.getElementById('cluster_id');
+
             if (org) {
                 title.textContent = 'Edit Organization';
 
@@ -283,15 +285,15 @@
 
                 // fill form fields — note: org passed is a JS object
                 document.getElementById('org_id').value = org.id ?? '';
-                document.getElementById('name').value = org.name ?? '';
-                document.getElementById('cluster_id').value = org.cluster_id ?? '';
-                document.getElementById('description').value = org.description ?? '';
+                if (nameInput) nameInput.value = org.name ?? '';
+                if (clusterSelect) clusterSelect.value = org.cluster_id ?? '';
             } else {
                 title.textContent = 'Add Organization';
                 form.action = '{{ route("admin.organizations.store") }}';
                 // reset form fields
                 form.reset();
                 document.getElementById('org_id').value = '';
+                if (clusterSelect) clusterSelect.value = '';
             }
         }
 
@@ -301,7 +303,6 @@
                 id: button.getAttribute('data-org-id'),
                 name: button.getAttribute('data-org-name'),
                 cluster_id: button.getAttribute('data-org-cluster-id'),
-                description: button.getAttribute('data-org-description') || ''
             };
             openOrgModal(org);
         }
@@ -367,7 +368,6 @@
                 id: button.getAttribute('data-org-id'),
                 name: button.getAttribute('data-org-name'),
                 cluster_id: button.getAttribute('data-org-cluster-id'),
-                description: button.getAttribute('data-org-description')
             };
             openDeleteModal(org);
         }

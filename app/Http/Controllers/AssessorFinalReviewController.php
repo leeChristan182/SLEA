@@ -220,4 +220,54 @@ class AssessorFinalReviewController extends Controller
 
         return back()->with('status', 'Student final review has been submitted to Admin.');
     }
+    public function rejectForStudent(Request $request, User $student)
+    {
+        /** @var User $assessor */
+        $assessor = Auth::user();
+        abort_unless($assessor && $assessor->isAssessor(), 403);
+
+        // Optional remarks from modal textarea
+        $remarks = $request->input('remarks');
+
+        // We still use the compiled scores so the record is consistent
+        $scores = AssessorCompiledScore::where('assessor_id', $assessor->id)
+            ->where('student_id', $student->id)
+            ->get();
+
+        if ($scores->isEmpty()) {
+            return back()->with('error', 'No compiled scores found for this student.');
+        }
+
+        $totalScore  = $scores->sum('total_score');
+        $maxPossible = $scores->sum('max_points'); // conduct handled separately as deduction
+
+        // We’ll mark the final review as finalized + unqualified,
+        // and the SLEA application as not_qualified so the student
+        // drops out of the pending_administrative_validation list.
+        \DB::transaction(function () use ($assessor, $student, $totalScore, $maxPossible, $remarks) {
+            AssessorFinalReview::updateOrCreate(
+                [
+                    'student_id'  => $student->id,
+                    'assessor_id' => $assessor->id,
+                ],
+                [
+                    'total_score'   => $totalScore,
+                    'max_possible'  => $maxPossible,
+                    'status'        => 'finalized',   // from final_review_statuses enum
+                    'qualification' => 'unqualified', // from qualifications enum
+                    'remarks'       => $remarks,
+                    'reviewed_at'   => now(),
+                ]
+            );
+
+            $academic = \App\Models\StudentAcademic::where('user_id', $student->id)->first();
+            if ($academic) {
+                // from slea_application_statuses enum
+                $academic->slea_application_status = 'not_qualified';
+                $academic->save();
+            }
+        });
+
+        return back()->with('status', 'Student has been rejected and marked as not qualified.');
+    }
 }

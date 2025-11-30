@@ -18,8 +18,7 @@ class SubmissionRecordController extends Controller
      */
     public function index()
     {
-        // TODO: later this will show “history” page
-        // For now, just show the submit form like create()
+
         return $this->create();
     }
 

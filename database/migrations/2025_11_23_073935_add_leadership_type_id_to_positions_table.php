@@ -8,20 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('positions', function (Blueprint $table) {
-            $table->unsignedBigInteger('leadership_type_id')->nullable()->after('id');
-            $table->foreign('leadership_type_id')
-                ->references('id')
-                ->on('leadership_types')
-                ->onDelete('cascade');
+        Schema::table('organizations', function (Blueprint $table) {
+            // Avoid duplicate organizations with same name, cluster, and leadership type
+            $table->unique(
+                ['name', 'cluster_id', 'leadership_type_id'],
+                'org_name_cluster_type_unique'
+            );
         });
     }
 
     public function down(): void
     {
-        Schema::table('positions', function (Blueprint $table) {
-            $table->dropForeign(['leadership_type_id']);
-            $table->dropColumn('leadership_type_id');
+        Schema::table('organizations', function (Blueprint $table) {
+            $table->dropUnique('org_name_cluster_type_unique');
         });
     }
 };
