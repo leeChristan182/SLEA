@@ -1,4 +1,6 @@
 @php
+    /** @var \Illuminate\Support\Collection|\App\Models\RubricCategory[] $categories */
+
     $leadershipCategory = $categories->firstWhere('key', 'leadership');
 
     // If leadershipSections is null, show all sections (for single page display)
@@ -34,7 +36,10 @@
 
                     @php
                         // For section D (Training), combine all subsections into one table
-                        $isTrainingSection = strpos($section->title, 'Training') !== false || strpos($section->title, 'Seminars') !== false || strpos($section->title, 'Conferences') !== false;
+                        $isTrainingSection =
+                            strpos($section->title, 'Training') !== false ||
+                            strpos($section->title, 'Seminars') !== false ||
+                            strpos($section->title, 'Conferences') !== false;
                     @endphp
 
                     @if($isTrainingSection)
@@ -43,7 +48,7 @@
                             <table class="manage-table training-table">
                                 <thead>
                                     <tr>
-                                        <th>Category</th>
+                                        <th>Subsection</th>
                                         <th>Position / Title</th>
                                         <th>Points</th>
                                         <th>Evidence Needed</th>
@@ -58,24 +63,34 @@
                                             $scoreParams = $subsection->score_params ?? [];
                                             $rate = $scoreParams['rate'] ?? null;
                                             $capPoints = $subsection->cap_points ?? null;
-                                            $evidenceLines = preg_split("/\r\n|\n|\r/", $subsection->evidence_needed ?? '');
-                                            $notesLines = preg_split("/\r\n|\n|\r/", $subsection->notes ?? '');
+
+                                            // Prefer subsection-specific evidence/notes; fallback to section-level
+                                            $rawEvidence = $subsection->evidence_needed ?: $section->evidence;
+                                            $rawNotes = $subsection->notes ?: $section->notes;
+
+                                            $evidenceLines = preg_split("/\r\n|\n|\r/", $rawEvidence ?? '');
+                                            $notesLines = preg_split("/\r\n|\n|\r/", $rawNotes ?? '');
                                         @endphp
                                         <tr>
                                             <td class="training-category"><strong>{{ $subsection->sub_section }}</strong></td>
                                             <td class="training-position">{{ $subsection->sub_section }}</td>
                                             <td class="training-points">
                                                 @if($rate)
-                                                    <span class="points-line">{{ rtrim(rtrim(number_format($rate, 1), '0'), '.') }}/day</span>
+                                                    <span class="points-line">
+                                                        {{ rtrim(rtrim(number_format($rate, 1), '0'), '.') }}/day
+                                                    </span>
                                                     @if($capPoints)
-                                                        <br><span class="points-line">(max {{ $capPoints }} points)</span>
+                                                        <br>
+                                                        <span class="points-line">
+                                                            (max {{ rtrim(rtrim(number_format($capPoints, 2), '0'), '.') }} points)
+                                                        </span>
                                                     @endif
                                                 @else
                                                     —
                                                 @endif
                                             </td>
                                             <td class="training-evidence">
-                                                @if(!empty($subsection->evidence_needed))
+                                                @if(!empty($rawEvidence))
                                                     <div class="evidence-notes-content">
                                                         @foreach ($evidenceLines as $index => $line)
                                                             @if(trim($line) !== '')
@@ -91,7 +106,7 @@
                                                 @endif
                                             </td>
                                             <td class="training-notes">
-                                                @if(!empty($subsection->notes))
+                                                @if(!empty($rawNotes))
                                                     <div class="evidence-notes-content">
                                                         @foreach ($notesLines as $index => $line)
                                                             @if(trim($line) !== '')
@@ -109,21 +124,21 @@
                                             <td>
                                                 <div class="action-buttons-group">
                                                     <button class="btn-edit" title="Edit" onclick="openEditSubsectionModal(
-                                                                                {{ $subsection->sub_section_id }},
-                                                                                {{ $subsection->section_id }},
-                                                                                '{{ addslashes($subsection->sub_section) }}',
-                                                                                {{ $subsection->max_points ?? '' }},
-                                                                                '{{ addslashes($subsection->evidence_needed ?? '') }}',
-                                                                                '{{ addslashes($subsection->notes ?? '') }}',
-                                                                                {{ $subsection->order_no ?? '' }}
-                                                                            )">
+                                                                                                                                            {{ $subsection->sub_section_id }},
+                                                                                                                                            {{ $subsection->section_id }},
+                                                                                                                                            '{{ addslashes($subsection->sub_section) }}',
+                                                                                                                                            {{ $subsection->max_points ?? '' }},
+                                                                                                                                            '{{ addslashes($subsection->evidence_needed ?? '') }}',
+                                                                                                                                            '{{ addslashes($subsection->notes ?? '') }}',
+                                                                                                                                            {{ $subsection->order_no ?? '' }}
+                                                                                                                                        )">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
 
                                                     <button class="btn-delete" title="Delete" onclick="openDeleteSubsectionModal(
-                                                                                {{ $subsection->sub_section_id }},
-                                                                                '{{ addslashes($subsection->sub_section) }}'
-                                                                            )">
+                                                                                                                                            {{ $subsection->sub_section_id }},
+                                                                                                                                            '{{ addslashes($subsection->sub_section) }}'
+                                                                                                                                        )">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
                                                 </div>
@@ -138,12 +153,16 @@
                         @foreach ($subsections as $subsection)
                             @php
                                 $positions = $subsection->options ?? collect();
-                                $evidenceLines = preg_split("/\r\n|\n|\r/", $subsection->evidence_needed ?? '');
-                                $notesLines = preg_split("/\r\n|\n|\r/", $subsection->notes ?? '');
 
-                                // For rate-based subsections (like D. Training), show the subsection itself
+                                // Prefer subsection evidence/notes; fallback to section-level
+                                $rawEvidence = $subsection->evidence_needed ?: $section->evidence;
+                                $rawNotes = $subsection->notes ?: $section->notes;
+
+                                $evidenceLines = preg_split("/\r\n|\n|\r/", $rawEvidence ?? '');
+                                $notesLines = preg_split("/\r\n|\n|\r/", $rawNotes ?? '');
+
+                                // For rate-based subsections, show the subsection itself
                                 $isRateBased = $subsection->scoring_method === 'rate';
-                                // score_params is already cast to array in the model
                                 $scoreParams = $subsection->score_params ?? [];
                                 $rate = $scoreParams['rate'] ?? null;
                                 $capPoints = $subsection->cap_points ?? null;
@@ -155,8 +174,8 @@
                                             'id' => null,
                                             'label' => $subsection->sub_section,
                                             'points' => $rate,
-                                            'order_no' => null
-                                        ]
+                                            'order_no' => null,
+                                        ],
                                     ]);
                                 }
 
@@ -168,7 +187,7 @@
                                     <table class="manage-table">
                                         <thead>
                                             <tr>
-                                                <th>Category</th>
+                                                <th>Subsection</th>
                                                 <th>Position / Title</th>
                                                 <th>Points</th>
                                                 <th>Evidence Needed</th>
@@ -182,7 +201,9 @@
                                             @foreach ($positions as $index => $pos)
                                                 <tr>
                                                     @if($index === 0)
-                                                        <td rowspan="{{ $rowCount }}"><strong>{{ $subsection->sub_section }}</strong></td>
+                                                        <td rowspan="{{ $rowCount }}">
+                                                            <strong>{{ $subsection->sub_section }}</strong>
+                                                        </td>
                                                     @endif
                                                     <td>
                                                         @if($isRateBased && $index === 0)
@@ -196,7 +217,8 @@
                                                             @if($rate)
                                                                 {{ rtrim(rtrim(number_format($rate, 1), '0'), '.') }}/day
                                                                 @if($capPoints)
-                                                                    (max {{ $capPoints }} points)
+                                                                    (max {{ rtrim(rtrim(number_format($capPoints, 2), '0'), '.') }}
+                                                                    points)
                                                                 @endif
                                                             @endif
                                                         @else
@@ -205,7 +227,7 @@
                                                     </td>
                                                     @if($index === 0)
                                                         <td rowspan="{{ $rowCount }}">
-                                                            @if(!empty($subsection->evidence_needed))
+                                                            @if(!empty($rawEvidence))
                                                                 <div class="evidence-notes-content">
                                                                     @foreach ($evidenceLines as $idx => $line)
                                                                         @if(trim($line) !== '')
@@ -221,7 +243,7 @@
                                                             @endif
                                                         </td>
                                                         <td rowspan="{{ $rowCount }}">
-                                                            @if(!empty($subsection->notes))
+                                                            @if(!empty($rawNotes))
                                                                 <div class="evidence-notes-content">
                                                                     @foreach ($notesLines as $idx => $line)
                                                                         @if(trim($line) !== '')
@@ -240,22 +262,24 @@
                                                     @if(!$isRateBased)
                                                         <td>
                                                             <div class="action-buttons-group">
-                                                                <button class="btn-edit" title="Edit" onclick="openEditRubricModal(
-                                                                                                {{ $pos->id }},
-                                                                                                {{ $subsection->sub_section_id }},
-                                                                                                '{{ addslashes($pos->label) }}',
-                                                                                                {{ $pos->points ?? 0 }},
-                                                                                                {{ $pos->order_no ?? '' }},
-                                                                                                '{{ addslashes($subsection->notes ?? '') }}'
-                                                                                            )">
+                                                                <button class="btn-edit" title="Edit"
+                                                                    onclick="openEditRubricModal(
+                                                                                                                                                                                                        {{ $pos->id }},
+                                                                                                                                                                                                        {{ $subsection->sub_section_id }},
+                                                                                                                                                                                                        '{{ addslashes($pos->label) }}',
+                                                                                                                                                                                                        {{ $pos->points ?? 0 }},
+                                                                                                                                                                                                        {{ $pos->order_no ?? '' }},
+                                                                                                                                                                                                        '{{ addslashes($subsection->notes ?? '') }}'
+                                                                                                                                                                                                    )">
                                                                     <i class="fas fa-edit"></i>
                                                                 </button>
 
-                                                                <button class="btn-delete" title="Delete" onclick="openDeleteRubricModal(
-                                                                                                {{ $pos->id }},
-                                                                                                'Leadership',
-                                                                                                '{{ addslashes($pos->label) }}'
-                                                                                            )">
+                                                                <button class="btn-delete" title="Delete"
+                                                                    onclick="openDeleteRubricModal(
+                                                                                                                                                                                                        {{ $pos->id }},
+                                                                                                                                                                                                        'Leadership',
+                                                                                                                                                                                                        '{{ addslashes($pos->label) }}'
+                                                                                                                                                                                                    )">
                                                                     <i class="fas fa-trash"></i>
                                                                 </button>
                                                             </div>

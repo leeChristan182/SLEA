@@ -97,18 +97,41 @@
     }
 
     // -------- Auto Age / Expected Grad --------
-    function updateExpectedGrad() {
-      if (!expectedGradInput || !studentIdInput || !yearLevelSelect) return;
-      const m = (studentIdInput.value.trim()).match(/^(\d{4})/);
-      const entryYear = m ? parseInt(m[1], 10) : null;
-      if (!entryYear) { expectedGradInput.value = ''; return; }
-      const totalYears = 4;
-      expectedGradInput.value = entryYear + totalYears;
+function updateExpectedGrad() {
+  if (!expectedGradInput || !studentIdInput || !yearLevelSelect) return;
 
-      const currentYear = new Date().getFullYear();
-      const inferred = Math.min(currentYear - entryYear + 1, totalYears).toString();
-      [...yearLevelSelect.options].forEach(o => { if (o.value === inferred) o.selected = true; });
-    }
+  const m = (studentIdInput.value.trim()).match(/^(\d{4})/);
+  const entryYear = m ? parseInt(m[1], 10) : null;
+  if (!entryYear) {
+    expectedGradInput.value = '';
+    return;
+  }
+
+  // ✅ Support 4-year and 5th+ year programs
+  const numericOptions = [...yearLevelSelect.options]
+    .map(o => parseInt(o.value, 10))
+    .filter(n => !Number.isNaN(n));
+
+  const totalYears = numericOptions.length ? Math.max(...numericOptions) : 4;
+
+  expectedGradInput.value = entryYear + totalYears;
+
+  const currentYear = new Date().getFullYear();
+  let inferredYearLevel = currentYear - entryYear + 1;
+
+  if (numericOptions.length) {
+    const minLevel = Math.min(...numericOptions);
+    const maxLevel = Math.max(...numericOptions);
+    if (inferredYearLevel < minLevel) inferredYearLevel = minLevel;
+    if (inferredYearLevel > maxLevel) inferredYearLevel = maxLevel;
+  }
+
+  const inferred = String(inferredYearLevel);
+  [...yearLevelSelect.options].forEach(o => {
+    o.selected = (o.value === inferred);
+  });
+}
+
 
     function updateAge() {
       if (!ageInput || !birthDateInput?.value) { if (ageInput) ageInput.value = ''; return; }
@@ -290,33 +313,33 @@
     // Load positions by leadership_type_id
     async function loadPositionsByLeadershipType(typeId, selectedPos = '') {
       if (!positionSelect) return;
-      
+
       resetDropdown(positionSelect, 'Select Leadership Type first');
       if (!typeId) {
         resetDropdown(positionSelect, 'Select Leadership Type first');
         return;
       }
-      
+
       resetDropdown(positionSelect, 'Loading positions...');
-      
+
       // Use councilPositions route if available, otherwise fallback to positions route
       const positionsUrl = URL_COUNCIL_POS || URLS.positions || '';
       if (!positionsUrl) {
         resetDropdown(positionSelect, 'Select Position');
         return;
       }
-      
+
       // Build URL with leadership_type_id parameter
       const url = `${positionsUrl}?leadership_type_id=${encodeURIComponent(typeId)}&_=${Date.now()}`;
-      
+
       const rows = await safeFetchJson(url);
       resetDropdown(positionSelect, 'Select Position');
-      
+
       if (!rows || !Array.isArray(rows) || rows.length === 0) {
         resetDropdown(positionSelect, 'No positions available');
         return;
       }
-      
+
       setOptionsFromArray(positionSelect, rows, selectedPos);
     }
 
@@ -381,20 +404,20 @@
       setVisible(orgWrap, false);
       setRequired(clusterSelect, false, clusterStar);
       setRequired(organizationSelect, false, orgStar);
-      
+
       // Set values to N/A for backend (fields are hidden but values are submitted)
       resetDropdown(clusterSelect, 'Select Cluster');
       clusterSelect.innerHTML = '<option value="N/A" selected>N/A</option>';
       resetDropdown(organizationSelect, 'Select Organization');
       organizationSelect.innerHTML = '<option value="N/A" selected>N/A</option>';
-      
+
       // Ensure fields are not disabled so values are submitted
       setDisabled(clusterSelect, false);
       setDisabled(organizationSelect, false);
-      
+
       // Disable scrolling for CCO (non-SCO layout - 5 fields)
       toggleScrollableForm(false);
-      
+
       // Load CCO positions
       const typeId = leadershipTypeSelect.value;
       loadPositionsByLeadershipType(typeId, oldPosition || '');
@@ -405,20 +428,20 @@
       // Re-enable Cluster and Organization
       setDisabled(clusterSelect, false);
       setDisabled(organizationSelect, false);
-      
+
       // Show Cluster and Organization fields for SCO
         setVisible(clusterWrap, true);
         setVisible(orgWrap, true);
         setRequired(clusterSelect, true, clusterStar);
         setRequired(organizationSelect, true, orgStar);
       if (orgOptHint) orgOptHint.style.display = 'none';
-      
+
       // Enable scrolling for SCO (7 fields layout)
       toggleScrollableForm(true);
 
       // Load clusters
         loadClusters();
-      
+
       // Load positions for the selected leadership type (SCO positions)
       const typeId = leadershipTypeSelect.value;
       loadPositionsByLeadershipType(typeId, oldPosition || '');
@@ -436,14 +459,14 @@
       // Clear values (fields won't be submitted for non-SCO, non-CCO)
       resetDropdown(clusterSelect, 'Select Cluster');
       resetDropdown(organizationSelect, 'Select Organization');
-      
+
       // Re-enable fields (in case they were disabled)
       setDisabled(clusterSelect, false);
       setDisabled(organizationSelect, false);
-      
+
       // Disable scrolling for non-SCO (5 fields layout - single viewport)
       toggleScrollableForm(false);
-      
+
       // Load positions for the selected leadership type
       const typeId = leadershipTypeSelect.value;
       loadPositionsByLeadershipType(typeId, oldPosition || '');
@@ -453,9 +476,9 @@
     function toggleScrollableForm(enableScroll) {
       const scrollableContent = document.querySelector('.step-3-scrollable-content');
       const formStep = document.querySelector('.form-step-scrollable');
-      
+
       if (!scrollableContent || !formStep) return;
-      
+
       if (enableScroll) {
         // SCO: Enable scrolling
         scrollableContent.style.overflowY = 'auto';

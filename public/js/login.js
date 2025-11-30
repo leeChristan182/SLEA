@@ -246,4 +246,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
             privacyModal.show();
     }, 100);
+
+    document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('loginForm');
+    const submitBtn = document.getElementById('loginSubmitBtn');
+
+    if (!form || !submitBtn) return;
+
+    form.addEventListener('submit', function () {
+        // DO NOT call e.preventDefault() here – let Laravel handle the POST.
+
+        // Disable button & show spinner text while submitting
+        if (!submitBtn.dataset.originalHtml) {
+            submitBtn.dataset.originalHtml = submitBtn.innerHTML;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML =
+            '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>' +
+            'Logging in...';
+    });
+});
+
 });

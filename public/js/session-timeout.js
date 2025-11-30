@@ -360,22 +360,27 @@ showWarning() {
 
     async performLogout() {
         try {
-            const response = await fetch('/logout', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-                },
-                body: JSON.stringify({})
-            });
+// public/js/session-timeout.js, inside performLogout()
 
-            let data = {};
-            try {
-                data = await response.json();
-            } catch (e) {
-                // Non-JSON response is fine
-            }
+const response = await fetch('/logout', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',           // ✅ explicitly ask for JSON
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute('content') || ''
+    },
+    body: JSON.stringify({})
+});
+
+let data = {};
+try {
+    data = await response.json();
+} catch (e) {
+    // Non-JSON response is fine; handled by fallback below
+}
 
             if (data.success && data.redirect_url) {
                 window.location.href = data.redirect_url;

@@ -6,6 +6,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Support\Str;
 
 class User extends Authenticatable
 {
@@ -23,6 +24,7 @@ class User extends Authenticatable
     public const STATUS_DISABLED = 'disabled';
 
     protected $fillable = [
+        'user_code',
         'first_name',
         'last_name',
         'middle_name',
@@ -34,6 +36,7 @@ class User extends Authenticatable
         'role',
         'status',
     ];
+
 
     // Keep contact & birth_date hidden (from your unmerged version)
     protected $hidden = [
@@ -162,6 +165,36 @@ class User extends Authenticatable
     public function scopeStudents($q)
     {
         return $q->where('role', self::ROLE_STUDENT);
+    }
+    /**
+     * Automatically assign a role-based user_code when creating users.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function (User $user) {
+            if (empty($user->user_code)) {
+                $user->user_code = static::makeUserCode($user->role);
+            }
+        });
+    }
+
+    public static function makeUserCode(?string $role): string
+    {
+        $prefix = match ($role) {
+            self::ROLE_ADMIN    => 'ADM',
+            self::ROLE_ASSESSOR => 'ASC',
+            self::ROLE_STUDENT  => 'STU',
+            default             => 'USR',
+        };
+
+        $year = now()->format('Y');
+
+        // 6-char random alphanumeric suffix, uppercase
+        $suffix = strtoupper(Str::random(6));
+
+        return "{$prefix}-{$year}-{$suffix}";
     }
 
     // --- Transitions ---

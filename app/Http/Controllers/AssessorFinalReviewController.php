@@ -32,6 +32,7 @@ class AssessorFinalReviewController extends Controller
             ->pluck('user_id');
 
         // Group compiled scores for those students only
+        // Group compiled scores for those students only
         $compiledByStudent = AssessorCompiledScore::with(['student'])
             ->where('assessor_id', $assessor->id)
             ->whereIn('student_id', $eligibleStudentIds)
@@ -39,18 +40,27 @@ class AssessorFinalReviewController extends Controller
             ->get()
             ->groupBy('student_id');
 
+        // Simple caches to avoid N+1 queries
+        $studentExistsCache = [];
+        $statusExistsCache  = [];
+
+        // Verify assessor exists once
+        if (!$assessor || !$assessor->exists || !User::where('id', $assessor->id)->exists()) {
+            Log::warning("Assessor ID {$assessor->id} does not exist in users table, aborting assessor_final_reviews sync");
+            return view('assessor.final-review', [
+                // ... existing view data ...
+            ]);
+        }
+
         // Sync/update AssessorFinalReview rows
         foreach ($compiledByStudent as $studentId => $rows) {
-            // Verify student exists in users table
-            $studentExists = User::where('id', $studentId)->exists();
-            if (!$studentExists) {
-                Log::warning("Student ID {$studentId} does not exist in users table, skipping assessor_final_reviews sync");
-                continue;
+            // ✅ Cache student existence
+            if (!array_key_exists($studentId, $studentExistsCache)) {
+                $studentExistsCache[$studentId] = User::where('id', $studentId)->exists();
             }
 
-            // Verify assessor exists in users table
-            if (!$assessor || !$assessor->exists || !User::where('id', $assessor->id)->exists()) {
-                Log::warning("Assessor ID {$assessor->id} does not exist in users table, skipping assessor_final_reviews sync");
+            if (!$studentExistsCache[$studentId]) {
+                Log::warning("Student ID {$studentId} does not exist in users table, skipping assessor_final_reviews sync");
                 continue;
             }
 
@@ -63,17 +73,26 @@ class AssessorFinalReviewController extends Controller
 
             $status = $existing?->status ?? 'draft'; // enum from final_review_statuses
 
-            // Verify status exists in enum table
-            $statusExists = DB::table('final_review_statuses')->where('key', $status)->exists();
-            if (!$statusExists) {
-                Log::warning("Invalid status '{$status}' for assessor_final_reviews, using 'draft'");
-                $status = 'draft';
-                // Ensure draft exists
-                if (!DB::table('final_review_statuses')->where('key', 'draft')->exists()) {
-                    DB::table('final_review_statuses')->insert(['key' => 'draft']);
-                }
+            // ✅ Cache status existence
+            if (!isset($statusExistsCache[$status])) {
+                $statusExistsCache[$status] = DB::table('final_review_statuses')
+                    ->where('key', $status)
+                    ->exists();
             }
 
+            if (!$statusExistsCache[$status]) {
+                Log::warning("Invalid status '{$status}' for assessor_final_reviews, using 'draft'");
+                $status = 'draft';
+                if (
+                    !isset($statusExistsCache['draft']) ||
+                    $statusExistsCache['draft'] === false
+                ) {
+                    if (!DB::table('final_review_statuses')->where('key', 'draft')->exists()) {
+                        DB::table('final_review_statuses')->insert(['key' => 'draft']);
+                    }
+                    $statusExistsCache['draft'] = true;
+                }
+            }
             // Build update data, excluding qualification if it's null to avoid FK constraint issues
             $updateData = [
                 'total_score' => $totalScore,

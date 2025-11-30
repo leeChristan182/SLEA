@@ -51,7 +51,13 @@ class AdminController extends Controller
             'middle_name' => ['nullable', 'string', 'max:50'],
             'email'      => ['required', 'email', 'max:100', Rule::unique('users', 'email')->ignore($user->id)],
             'contact'    => ['nullable', 'string', 'max:20'],
-            'birth_date' => ['nullable', 'date'],
+            'birth_date' => [
+                'nullable',
+                'date',
+                'before:today',
+                'after_or_equal:' . now()->subYears(100)->toDateString(),
+                'before_or_equal:' . now()->subYears(15)->toDateString(),
+            ],
         ]);
 
         $user->update($data);
@@ -213,7 +219,7 @@ class AdminController extends Controller
                     'regex:/^[^@]+@usep\.edu\.ph$/i',
                 ],
                 'role'    => ['nullable', 'string', 'in:admin,assessor,student'],
-                'contact' => ['nullable', 'string', 'max:50'],
+                'contact' => ['nullable', 'string', 'regex:/^09\d{9}$/', 'max:15'],
             ],
             [
                 'email.regex' => 'The email must be a USEP address (ending in @usep.edu.ph).',

@@ -15,7 +15,6 @@ use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\RubricController;
 use App\Http\Controllers\AssessorSubmissionController;
 use App\Http\Controllers\AssessorCompiledScoreController;
-use App\Http\Controllers\AssessorStudentSubmissionsController;
 use App\Http\Controllers\AssessorFinalReviewController;
 use App\Http\Controllers\FinalReviewController;
 use App\Http\Controllers\AssessorStudentSubmissionController;

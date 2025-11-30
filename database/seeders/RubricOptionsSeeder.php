@@ -168,8 +168,8 @@ class RubricOptionsSeeder extends Seeder
         // ---------------- Conduct: infractions (negative points) ----------------
         if (!empty($subId['conduct.good_conduct.offense'])) {
             $conduct = [
-                ['Minor Infraction', -1.0],
-                ['Major Infraction', -2.0],
+                ['Spot Reports Recorded', -1.0],
+                ['Disciplinary Concerns Documented', -2.0],
             ];
             $order = 1;
             foreach ($conduct as [$label, $points]) {

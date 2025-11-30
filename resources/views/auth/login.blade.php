@@ -42,7 +42,6 @@
             </div>
 
             <div class="header-right d-flex align-items-center gap-3">
-
                 <button id="darkModeToggle" class="dark-toggle-btn" title="Toggle Dark Mode" type="button">
                     <i class="fas fa-moon"></i>
                 </button>
@@ -67,7 +66,6 @@
                     $loginStatus = session('status');
                 @endphp
 
-
                 @if (session('status'))
                     <div class="alert alert-success">{{ session('status') }}</div>
                 @endif
@@ -81,11 +79,12 @@
                     <input type="text" name="fake_username" autocomplete="username" style="display:none;">
                     <input type="password" name="fake_password" autocomplete="current-password" style="display:none;">
 
-                    {{-- Real fields actually submitted --}}
-                    <input type="hidden" name="email" id="email_real" value="{{ old('email') }}">
+                    {{-- Real fields actually submitted (HIDDEN) --}}
+                    <input type="hidden" name="email" id="email_real"
+                        value="{{ old('email', $rememberedEmail ?? '') }}">
                     <input type="hidden" name="password" id="password_real">
 
-                    {{-- EMAIL (visible, no name so browser won't bind credentials) --}}
+                    {{-- EMAIL (visible, NO name so browser won't bind credentials) --}}
                     <div class="mb-3">
                         <label class="form-label fs-5 fw-normal text-light">USeP Email</label>
                         <div class="input-group input-group-lg">
@@ -95,7 +94,8 @@
 
                             <input type="email" id="email_display"
                                 class="form-control @error('email') is-invalid @enderror"
-                                placeholder="e.g. juandelacruz001@usep.edu.ph" value="" required inputmode="email"
+                                placeholder="e.g. juandelacruz001@usep.edu.ph"
+                                value="{{ old('email', $rememberedEmail ?? '') }}" required inputmode="email"
                                 autocomplete="off" spellcheck="false" pattern="^[a-zA-Z0-9._%+\-]+@usep\.edu\.ph$">
 
                             @error('email')
@@ -108,7 +108,7 @@
                         </small>
                     </div>
 
-                    {{-- PASSWORD (visible, no name; real one is hidden) --}}
+                    {{-- PASSWORD (visible, NO name; real one is hidden) --}}
                     <div class="mb-3">
                         <label class="form-label fs-5 fw-normal text-light">Password</label>
                         <div class="input-group input-group-lg">
@@ -132,8 +132,7 @@
                         @enderror
                     </div>
 
-
-                    {{-- REMEMBER ME + FORGOT PASSWORD (modal trigger) --}}
+                    {{-- REMEMBER ME + FORGOT PASSWORD (unchanged) --}}
                     <div class="d-flex align-items-center justify-content-between mb-3">
                         <div class="form-check">
                             <input class="form-check-input me-2" type="checkbox" id="remember" name="remember" value="1"
@@ -364,6 +363,7 @@
             </div>
         </div>
     </div>
+
     {{-- =============== LOGIN ERROR MODAL =============== --}}
     @if (!empty($loginErrors))
         <div class="modal fade" id="loginErrorModal" tabindex="-1" aria-labelledby="loginErrorModalLabel"
@@ -460,24 +460,19 @@
             </div>
         </div>
     </div>
+
     {{-- Handle Privacy Modal with localStorage --}}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const modalEl = document.getElementById('privacyModal');
 
-            // Simple debug log – you can check this in the browser console
-            console.log('Privacy modal init. Element found?', !!modalEl, 'Bootstrap available?', typeof bootstrap !== 'undefined');
-
             if (!modalEl || typeof bootstrap === 'undefined') {
                 return;
             }
 
-            // Bump version so you bypass any old stored value
             const STORAGE_KEY = 'slea_privacy_ack_v2';
 
-            // If you want it to ALWAYS show (for testing), comment this block out:
             if (localStorage.getItem(STORAGE_KEY) === '1') {
-                console.log('Privacy already acknowledged, not showing modal.');
                 return;
             }
 
@@ -486,13 +481,10 @@
                 keyboard: false
             });
 
-            // When user closes it, remember their choice
             modalEl.addEventListener('hidden.bs.modal', function () {
                 localStorage.setItem(STORAGE_KEY, '1');
-                console.log('Privacy modal hidden, flag stored in localStorage.');
             }, { once: true });
 
-            console.log('Showing privacy modal now.');
             privacyModal.show();
         });
     </script>
@@ -502,11 +494,9 @@
     <script src="{{ asset('js/login.js') }}"></script>
 
     {{-- Auto-open modals based on session flags --}}
-    <!-- prettier-ignore-start -->
     <script>
         document.addEventListener('DOMContentLoaded', function () {
 
-            // === EXISTING MODALS ===
             @if (session('show_forgot_modal'))
                 var forgotModal = new bootstrap.Modal(document.getElementById('forgotPasswordModal'));
                 forgotModal.show();
@@ -530,8 +520,6 @@
                     disabledModal.show();
                 @endif
 
-
-                // === NEW: LOGIN ERROR MODAL ===
                 @if ($errors->any())
                     var errorModalEl = document.getElementById('loginErrorModal');
                     if (errorModalEl) {
@@ -540,7 +528,6 @@
                     }
                 @endif
 
-                // === NEW: LOGIN SUCCESS MODAL ===
                 @if (session('status'))
                     var successModalEl = document.getElementById('loginSuccessModal');
                     if (successModalEl) {
@@ -549,9 +536,10 @@
                     }
                 @endif
 
-});
+        });
     </script>
 
+    {{-- Password show/hide --}}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const passwordInput = document.getElementById('passwordInput');
@@ -578,17 +566,16 @@
                     }
                 }
 
-                // keep focus & move cursor to end
                 passwordInput.focus();
                 const len = passwordInput.value.length;
                 passwordInput.setSelectionRange(len, len);
             });
         });
-
     </script>
+
+    {{-- Handle browser back/forward to avoid stale state --}}
     <script>
         window.addEventListener('pageshow', function (event) {
-            // Detect back/forward navigation (works even when event.persisted is false)
             let navType = null;
             if (performance && performance.getEntriesByType) {
                 const entries = performance.getEntriesByType('navigation');
@@ -600,14 +587,10 @@
             const cameFromHistory = event.persisted || navType === 'back_forward';
 
             if (cameFromHistory) {
-                // Force a full reload so:
-                //  - if STILL authenticated → guest middleware redirects to profile
-                //  - if LOGGED OUT          → we get a fresh, clean login page
                 window.location.reload();
                 return;
             }
 
-            // Also reset UI state (for normal loads / soft refreshes)
             const submitBtn = document.getElementById('loginSubmitBtn');
             if (submitBtn) {
                 submitBtn.disabled = false;
@@ -618,10 +601,7 @@
                 }
             }
 
-            // Optional: also clear password and validation state
             const form = document.getElementById('loginForm');
-            const emailDisplay = document.getElementById('email_display');
-            const emailReal = document.getElementById('email_real');
             const passwordInput = document.getElementById('passwordInput');
 
             if (form) {
@@ -631,10 +611,58 @@
             if (passwordInput) {
                 passwordInput.value = '';
             }
+        });
 
-            // Keep visible email in sync with hidden one if needed
-            if (emailDisplay && emailReal) {
-                emailDisplay.value = emailReal.value || '';
+
+
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('loginForm');
+            const emailDisplay = document.getElementById('email_display');
+            const emailReal = document.getElementById('email_real');
+            const passwordInput = document.getElementById('passwordInput');
+            const passwordReal = document.getElementById('password_real');
+
+            if (!form) return;
+
+            form.addEventListener('submit', function () {
+                if (emailDisplay && emailReal) {
+                    emailReal.value = emailDisplay.value.trim();
+                }
+
+                if (passwordInput && passwordReal) {
+                    passwordReal.value = passwordInput.value;
+                }
+            });
+
+            // Show/hide password (your existing logic)
+            const toggleBtn = document.getElementById('loginPasswordToggle');
+            if (passwordInput && toggleBtn) {
+                toggleBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+
+                    const isHidden = passwordInput.type === 'password';
+                    passwordInput.type = isHidden ? 'text' : 'password';
+
+                    const icon = toggleBtn.querySelector('i');
+                    if (icon) {
+                        if (isHidden) {
+                            icon.classList.remove('fa-eye');
+                            icon.classList.add('fa-eye-slash');
+                            toggleBtn.setAttribute('title', 'Hide password');
+                        } else {
+                            icon.classList.remove('fa-eye-slash');
+                            icon.classList.add('fa-eye');
+                            toggleBtn.setAttribute('title', 'Show password');
+                        }
+                    }
+
+                    // keep focus & move cursor to end
+                    passwordInput.focus();
+                    const len = passwordInput.value.length;
+                    passwordInput.setSelectionRange(len, len);
+                });
             }
         });
     </script>

@@ -15,15 +15,21 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use App\Models\SystemMonitoringAndLog;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cookie; // ⭐ NEW
 
 class AuthController extends Controller
 {
     /* =========================
      |  LOGIN
      * ========================= */
-    public function showLogin()
+    public function showLogin(Request $request) // ⭐ changed to accept Request
     {
-        return view('auth.login');
+        // ⭐ NEW: read remembered email from cookie (if any)
+        $rememberedEmail = $request->cookie('slea_remembered_email');
+
+        return view('auth.login', [
+            'rememberedEmail' => $rememberedEmail,
+        ]);
     }
 
     public function authenticate(Request $request)
@@ -84,7 +90,7 @@ class AuthController extends Controller
             session([
                 'otp_pending_user_id' => $user->id,
                 'otp_context'         => 'login',
-                'otp_remember_me'     => $request->boolean('remember'),
+                'otp_remember_me'     => $request->boolean('remember'), // already there
                 'otp_display_email'   => $user->email,
             ]);
 
@@ -98,8 +104,18 @@ class AuthController extends Controller
         }
 
         // 5) No OTP required → proceed with normal login
-        Auth::login($user, $request->boolean('remember'));
+        $remember = $request->boolean('remember');  // ⭐ NEW: store once
+
+        Auth::login($user, $remember);
         $request->session()->regenerate();
+
+        // ⭐ NEW: tie email "autofill" to remember-me only
+        if ($remember) {
+            // store for 30 days (60 min * 24 hours * 30 days)
+            Cookie::queue('slea_remembered_email', $user->email, 60 * 24 * 30);
+        } else {
+            Cookie::queue(Cookie::forget('slea_remembered_email'));
+        }
 
         // 🔹 SYSTEM LOG: LOGIN
         $displayName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
@@ -123,13 +139,18 @@ class AuthController extends Controller
             default             => redirect()->route('student.profile'),
         };
     }
+
     public function logout(Request $request)
     {
         /** @var \App\Models\User|null $user */
         $user = Auth::user();
 
         if ($user) {
-            $displayName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+            $displayName = trim(
+                $user->first_name . ' ' .
+                    ($user->middle_name ? $user->middle_name . ' ' : '') .
+                    $user->last_name
+            );
 
             // 🔹 SYSTEM LOG: LOGOUT
             SystemMonitoringAndLog::record(
@@ -144,6 +165,18 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
+        // (Optional) you *can* clear the remember-email cookie on manual logout if you want:
+        // Cookie::queue(Cookie::forget('slea_remembered_email'));
+
+        // ✅ JSON-friendly response for AJAX / fetch() calls
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success'      => true,
+                'redirect_url' => route('login'),
+            ]);
+        }
+
+        // Fallback for normal form POST
         return redirect()->route('login');
     }
 
@@ -165,7 +198,13 @@ class AuthController extends Controller
             'last_name'     => ['required', 'string', 'max:50'],
             'first_name'    => ['required', 'string', 'max:50'],
             'middle_name'   => ['nullable', 'string', 'max:50'],
-            'birth_date'    => ['required', 'date', 'before:today'],
+            'birth_date' => [
+                'nullable',
+                'date',
+                'before:today',
+                'after_or_equal:' . now()->subYears(100)->toDateString(),
+                'before_or_equal:' . now()->subYears(15)->toDateString(),
+            ],
             'email_address' => [
                 'required',
                 'email',
@@ -173,7 +212,7 @@ class AuthController extends Controller
                 'regex:/^[a-zA-Z0-9._%+\-]+@usep\.edu\.ph$/',
                 Rule::unique('users', 'email'),
             ],
-            'contact'       => ['required', 'string', 'regex:/^09\d{9}$/'],
+            'contact'       => ['required', 'string', 'regex:/^09\d{9}$/', 'max:15'],
 
             // Step 2
             'student_id'    => [
@@ -186,7 +225,7 @@ class AuthController extends Controller
             'college_id'    => ['required', 'integer', 'exists:colleges,id'],
             'program_id'    => ['required', 'integer', 'exists:programs,id'],
             'major_id'      => ['nullable', 'integer', 'exists:majors,id'],
-            'year_level'    => ['required', 'in:1,2,3,4,5'],
+            'year_level'    => ['required', 'in:1,2,3,4,5,6,7,8'],
 
             // Step 3
             'leadership_type_id' => ['required', 'integer', 'exists:leadership_types,id'],
@@ -495,6 +534,13 @@ class AuthController extends Controller
 
             Auth::login($user, $remember);
             $request->session()->regenerate();
+
+            // ⭐ NEW: sync email cookie with remember-me after OTP-login
+            if ($remember) {
+                Cookie::queue('slea_remembered_email', $user->email, 60 * 24 * 30);
+            } else {
+                Cookie::queue(Cookie::forget('slea_remembered_email'));
+            }
 
             // 🔹 SYSTEM LOG: LOGIN (after successful OTP)
             $displayName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);

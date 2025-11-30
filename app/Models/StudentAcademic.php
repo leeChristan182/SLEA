@@ -65,22 +65,10 @@ class StudentAcademic extends Model
 
     public function isGraduatingThisYear(): bool
     {
-        // Primary rule: based on year_level (4th year)
-        $level = strtolower(trim((string) $this->year_level));
-
-        $isFourthYear = in_array($level, [
-            '4th year',
-            '4th yr',
-            'fourth year',
-            '4',
-            'year 4',
-        ], true);
-
-        if ($isFourthYear) {
+        if ((int) $this->year_level === 4) {
             return true;
         }
 
-        // Fallback: based on expected graduation year (if you want to keep it)
         if ($this->expected_grad_year) {
             return (int) $this->expected_grad_year === (int) now()->year;
         }

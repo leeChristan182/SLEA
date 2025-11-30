@@ -171,13 +171,14 @@ class StudentController extends Controller
         }
 
         // Validate only real columns / foreign keys
+        // Validate only real columns / foreign keys
         $data = $request->validate([
             'student_number' => ['nullable', 'string', 'max:20'],
-            'year_level'     => ['nullable', 'string', 'max:20'],
+            'year_level' => ['nullable', 'integer', 'in:1,2,3,4,5,6,7,8'],
 
-            'college_id'     => ['nullable', 'exists:colleges,id'],
-            'program_id'     => ['nullable', 'exists:programs,id'],
-            'major_id'       => ['nullable', 'exists:majors,id'],
+            'college_id'     => ['nullable', 'integer', 'exists:colleges,id'],
+            'program_id'     => ['nullable', 'integer', 'exists:programs,id'],
+            'major_id'       => ['nullable', 'integer', 'exists:majors,id'],
         ]);
 
         // Current academic row if any
@@ -185,17 +186,31 @@ class StudentController extends Controller
         $current = StudentAcademic::where('user_id', $user->id)->first();
 
         // --- Compute expected graduation year ---
-        // Rule (same as before): take first 4 digits of student_number as entry year, add 4
+        // Take first 4 digits of student_number as entry year.
+        // Infer total years from year_level to support 4th, 5th+ year programs.
         $expectedGradYear = null;
         $numberForCalc = $data['student_number']
             ?? ($current->student_number ?? null);
 
+        // Default to 4 years if we can't infer better
+        $yearLevelRaw = $data['year_level'] ?? ($current->year_level ?? null);
+        $totalYears   = 4;
+
+        if (is_numeric($yearLevelRaw)) {
+            $level = (int) $yearLevelRaw;
+            // Trust reasonable levels only; clamp between 4 and 10
+            if ($level >= 4 && $level <= 10) {
+                $totalYears = $level;
+            }
+        }
+
         if (is_string($numberForCalc) && preg_match('/^\s*(\d{4})/', $numberForCalc, $m)) {
             $entry = (int) $m[1];
             if ($entry > 1900 && $entry < 3000) {
-                $expectedGradYear = $entry + 4; // adjust if you use 5-year programs
+                $expectedGradYear = $entry + $totalYears;
             }
         }
+
 
         // Determine if program/major changed (forces revalidation)
         $programChanged = isset($data['program_id']) && $current
