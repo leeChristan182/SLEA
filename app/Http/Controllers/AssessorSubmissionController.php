@@ -166,12 +166,15 @@ class AssessorSubmissionController extends Controller
 
         // Map assessor actions → submission_statuses keys
         // (aligned with your enum migration: pending, under_review, resubmit, flagged, qualified, unqualified, approved, rejected)
+        // App/Http/Controllers/AssessorSubmissionController.php
+
         $statusMap = [
-            'approve' => 'approved',
+            'approve' => 'accepted',  // was 'approved'
             'reject'  => 'rejected',
-            'return'  => 'resubmit',
+            'return'  => 'returned',  // was 'resubmit'
             'flag'    => 'flagged',
         ];
+
         $newStatus = $statusMap[$action];
 
         DB::transaction(function () use ($submission, $user, $newStatus, $remarks, $score, $data) {
@@ -235,8 +238,8 @@ class AssessorSubmissionController extends Controller
                 'remarks'       => $remarks,
             ]);
 
-            // 4) recompute compiled score if approved
-            if ($newStatus === 'approved') {
+            // 4) recompute compiled score if ACCEPTED
+            if ($newStatus === 'accepted') {
                 $this->recomputeCompiledScoreForStudentCategory($submission, $user);
 
                 // 5) Update SLEA application status based on application_status
@@ -258,8 +261,9 @@ class AssessorSubmissionController extends Controller
             ->whereHas('submission', function ($q) use ($basis, $categoryId) {
                 $q->where('user_id', $basis->user_id)
                     ->where('rubric_category_id', $categoryId)
-                    ->where('status', 'approved'); // 👈 aligned with new status
+                    ->where('status', 'accepted'); // 👈 match the new status
             })
+
             ->get();
 
         $rawTotal = $reviews->sum('score');
@@ -305,7 +309,7 @@ class AssessorSubmissionController extends Controller
             // Check if student has any approved submissions for final application
             $hasApprovedFinalSubmissions = Submission::where('user_id', $student->id)
                 ->where('application_status', 'for_final_application')
-                ->where('status', 'approved')
+                ->where('status', 'accepted')
                 ->exists();
 
             if ($hasApprovedFinalSubmissions) {

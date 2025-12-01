@@ -219,9 +219,10 @@ class AuthController extends Controller
                 'required',
                 'string',
                 'max:30',
-                // NOTE: this targets the table/column you used before the merge
+                'regex:/^\d{4}-\d{5}$/', // ✅ enforce YYYY-XXXXX format
                 Rule::unique('student_academic', 'student_number'),
             ],
+
             'college_id'    => ['required', 'integer', 'exists:colleges,id'],
             'program_id'    => ['required', 'integer', 'exists:programs,id'],
             'major_id'      => ['nullable', 'integer', 'exists:majors,id'],
@@ -244,6 +245,7 @@ class AuthController extends Controller
             'email_address.unique' => 'This email address is already registered. Please use a different email or try logging in.',
             'student_id.unique'    => 'This student ID is already registered. Please check your student ID or contact support if you believe this is an error.',
             'contact.regex'        => 'Please enter a valid Philippine mobile number in the format 09XXXXXXXXX.',
+            'student_id.regex'     => 'Please enter your Student ID in the format 20XX-12345.',
         ];
 
 
@@ -253,6 +255,17 @@ class AuthController extends Controller
         $validated['last_name']   = Str::title(Str::lower(trim($validated['last_name'])));
         if (!empty($validated['middle_name'])) {
             $validated['middle_name'] = Str::title(Str::lower(trim($validated['middle_name'])));
+        }
+        // Extra guard: entry year in student_id must not be in the future
+        if (preg_match('/^(\d{4})/', $validated['student_id'], $m)) {
+            $entryYear   = (int) $m[1];
+            $currentYear = (int) now()->year;
+
+            if ($entryYear > $currentYear) {
+                return back()
+                    ->withErrors(['student_id' => 'Student ID year cannot be in the future.'])
+                    ->withInput();
+            }
         }
 
         // Normalize contact (strip spaces/dashes but keep 09 format)

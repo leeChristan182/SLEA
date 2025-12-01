@@ -272,24 +272,28 @@
                             </div>
 
                             {{-- Year Level --}}
-                            <div class="col-md-4">
-                                <label class="form-label" for="year_level">
-                                    Year Level <span class="required">*</span>
-                                </label>
-                                <select
-                                    id="year_level"
-                                    name="year_level"
-                                    class="form-select @error('year_level') is-invalid @enderror"
-                                    required>
-                                    <option value="">--</option>
-                                    <option value="1" {{ old('year_level') == '1' ? 'selected' : '' }}>1st Year</option>
-                                    <option value="2" {{ old('year_level') == '2' ? 'selected' : '' }}>2nd Year</option>
-                                    <option value="3" {{ old('year_level') == '3' ? 'selected' : '' }}>3rd Year</option>
-                                    <option value="4" {{ old('year_level') == '4' ? 'selected' : '' }}>4th Year</option>
-                                    <option value="5" {{ old('year_level') == '5' ? 'selected' : '' }}>5th Year</option>
-                                </select>
-                                @error('year_level') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
+        <div class="col-md-4">
+    <label class="form-label" for="year_level">
+        Year Level <span class="required">*</span>
+    </label>
+    <select
+        id="year_level"
+        name="year_level"
+        class="form-select @error('year_level') is-invalid @enderror"
+        required>
+        <option value="">--</option>
+        <option value="1" {{ old('year_level') == '1' ? 'selected' : '' }}>1st Year</option>
+        <option value="2" {{ old('year_level') == '2' ? 'selected' : '' }}>2nd Year</option>
+        <option value="3" {{ old('year_level') == '3' ? 'selected' : '' }}>3rd Year</option>
+        <option value="4" {{ old('year_level') == '4' ? 'selected' : '' }}>4th Year</option>
+        <option value="5" {{ old('year_level') == '5' ? 'selected' : '' }}>5th Year</option>
+        <option value="6" {{ old('year_level') == '6' ? 'selected' : '' }}>6th Year</option>
+        <option value="7" {{ old('year_level') == '7' ? 'selected' : '' }}>7th Year</option>
+        <option value="8" {{ old('year_level') == '8' ? 'selected' : '' }}>8th Year</option>
+    </select>
+    @error('year_level') <div class="invalid-feedback">{{ $message }}</div> @enderror
+</div>
+
 
                             {{-- Expected Graduation (display only, computed via JS / helper) --}}
                             <div class="col-md-4">

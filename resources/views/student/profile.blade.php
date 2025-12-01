@@ -85,7 +85,7 @@
                     {{-- Academic Information --}}
                     <div class="profile-info">
                         <h3>Academic Information</h3>
-                        <p><strong>Student Number:</strong> <span>{{ $acad->student_number ?? 'N/A' }}</span></p>
+                        <p><strong>Student ID:</strong> <span>{{ $acad->student_number ?? 'N/A' }}</span></p>
                         <p><strong>College:</strong> <span>{{ $collegeName ?? 'N/A' }}</span></p>
                         <p><strong>Program:</strong> <span>{{ $programName ?? 'N/A' }}</span></p>
                         <p><strong>Major:</strong> <span>{{ $majorName ?? 'N/A' }}</span></p>

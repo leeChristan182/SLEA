@@ -65,8 +65,8 @@
                         <!-- Display Mode -->
                         <div id="displayMode" class="info-grid">
                             <div class="info-field">
-                                <label class="field-label">ASSIGNED ID</label>
-                                <input type="text" class="field-input" value="{{ $user->id ?? 'N/A' }}" readonly>
+                                <label class="field-label">Assessor ID</label>
+                                <input type="text" class="field-input" value="{{ $user->user_code ?? 'N/A' }}" readonly>
                             </div>
                             <div class="info-field">
                                 <label class="field-label">First Name</label>

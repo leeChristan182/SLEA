@@ -22,11 +22,16 @@
                 @endif
 
                 {{-- SLEA Award banner – shows ONLY for qualified students in performance section --}}
-                @if(isset($currentRole, $sleaAwarded) && $currentRole === 'student' && $sleaAwarded)
+                @php
+                    $user = auth()->user();
+                    $isStudent = $user && (method_exists($user, 'isStudent') ? $user->isStudent() : $user->role === 'student');
+                @endphp
+
+                @if($isStudent && ($slea_application_status ?? null) === 'qualified')
                     <div class="slea-performance-banner">
                         <div class="slea-performance-text">
                             <div class="slea-performance-heading">
-                                Congratulations, {{ auth()->user()->first_name ?? 'Student' }}!
+                                Congratulations, {{ $user->first_name ?? 'Student' }}!
                             </div>
                             <div class="slea-performance-sub">
                                 You have been awarded the
@@ -77,14 +82,27 @@
                         $ready = $ready_for_rating ?? false;
                     @endphp
 
-                    {{-- NOT YET APPLIED / INCOMPLETE --}}
-                    @if ((!$status || $status === 'incomplete') && !$ready)
+                    {{-- NO APPLICATION AT ALL --}}
+                    @if(!$status && !$ready)
                         <p class="po-slea-text">
                             You have not yet submitted any documents for the Student Leadership Excellence Award.
                         </p>
                         <p class="po-slea-note mt-2">
-                            Submit your documents in the Submit section and select "For Final Application" to apply for the award.
+                            Submit your documents in the Submit section and select "For Final Application" to apply for the
+                            award.
                         </p>
+
+                        {{-- INCOMPLETE / PENDING DOCUMENTS --}}
+                    @elseif($status === 'incomplete' && !$ready)
+                        <p class="po-slea-text">
+                            You have started your Student Leadership Excellence Award application, but your documents are still
+                            under initial review.
+                        </p>
+                        <p class="po-slea-note mt-2">
+                            Please wait for your assessor to review your submissions. You’ll see updates here once they are
+                            evaluated.
+                        </p>
+
 
                         {{-- PENDING ASSESSOR EVALUATION --}}
                     @elseif ($status === 'pending_assessor_evaluation')
@@ -227,20 +245,23 @@
     .performance-overview-title {
         margin-bottom: 24px;
         padding-bottom: 0;
-        border-bottom: none; /* Remove the line */
+        border-bottom: none;
+        /* Remove the line */
     }
 
     .performance-overview-title h2 {
         margin: 0;
         font-size: 28px;
         font-weight: 700;
-        color: #7b0000; /* Maroon color */
+        color: #7b0000;
+        /* Maroon color */
     }
 
     body.dark-mode .performance-overview-title h2 {
-        color: #f9bd3d; /* Gold color for dark mode */
+        color: #f9bd3d;
+        /* Gold color for dark mode */
     }
-    
+
     /* Match the width of assessor dashboard main content */
     .performance-page .main-content {
         max-width: 100%;

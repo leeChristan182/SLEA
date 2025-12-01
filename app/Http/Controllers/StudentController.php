@@ -484,56 +484,42 @@ class StudentController extends Controller
      * ========================= */
 
     // GET /student/performance
+    // GET /student/performance
     public function performance()
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
         abort_unless($user->isStudent(), 403);
 
-        // Refresh the relationship to get the latest status
-        /** @var \App\Models\User $user */
-        $user->load('studentAcademic');
-        $academic = $user->studentAcademic;
-
-        // If academic record doesn't exist, create a basic one
-        if (!$academic) {
-            $academic = \App\Models\StudentAcademic::firstOrCreate(
-                ['user_id' => $user->id],
-                [
-                    'slea_application_status' => null,
-                    'ready_for_rating' => false,
-                ]
-            );
-            // Reload to get the fresh record
-            $academic->refresh();
-        } else {
-            // Refresh to get latest data from database
-            $academic->refresh();
-        }
+        // Always get a fresh academic record
+        $academic = \App\Models\StudentAcademic::firstOrCreate(
+            ['user_id' => $user->id],
+            [
+                'slea_application_status' => null,
+                'ready_for_rating'        => false,
+            ]
+        );
+        $academic->refresh();
 
         // 1) Load rubric categories in display order
         $categories = RubricCategory::orderBy('order_no')->get();
 
         // 2) Get all reviews for this student's APPROVED submissions (from all assessors)
-        // We need to aggregate scores across all assessors for the same submission
         $reviews = SubmissionReview::query()
             ->whereHas('submission', function ($q) use ($user) {
                 $q->where('user_id', $user->id)
-                    ->where('status', 'approved'); // ✅ only approved submissions count
+                    ->where('status', 'approved'); // only approved submissions count
             })
             ->with(['submission.category'])
             ->get();
 
         // 3) Sum scores per category key
-        // Group by submission_id first to get the latest review per submission (in case multiple assessors reviewed)
         $scoresByCategoryKey = [];
         $reviewsBySubmission = $reviews->groupBy('submission_id');
 
-        foreach ($reviewsBySubmission as $submissionId => $submissionReviews) {
-            // Get the latest review for this submission (most recent)
+        foreach ($reviewsBySubmission as $submissionReviews) {
             $review = $submissionReviews->sortByDesc('reviewed_at')->first();
 
-            // Skip if no score (null), but allow 0 scores as they might be valid
             if (!isset($review->score) || $review->score === null) {
                 continue;
             }
@@ -543,17 +529,16 @@ class StudentController extends Controller
                 continue;
             }
 
-            // Try to get category from submission first, then from review's rubric_category_id
-            $category = $submission->category;
-            if (!$category && $review->rubric_category_id) {
-                $category = RubricCategory::find($review->rubric_category_id);
-            }
+            $category = $submission->category
+                ?: ($review->rubric_category_id
+                    ? RubricCategory::find($review->rubric_category_id)
+                    : null);
 
             if (!$category) {
                 continue;
             }
 
-            $key = $category->key; // e.g. leadership, academic, awards, community, conduct
+            $key = $category->key;
 
             if (!isset($scoresByCategoryKey[$key])) {
                 $scoresByCategoryKey[$key] = 0.0;
@@ -563,19 +548,18 @@ class StudentController extends Controller
         }
 
         // 4) Build perfData
-        $roman = [1 => 'I', 2 => 'II', 3 => 'III', 4 => 'IV', 5 => 'V', 6 => 'VI'];
+        $roman          = [1 => 'I', 2 => 'II', 3 => 'III', 4 => 'IV', 5 => 'V', 6 => 'VI'];
         $perfCategories = [];
-        $totalEarned = 0.0;
-        $totalMax    = 0.0;
-        $index       = 1;
+        $totalEarned    = 0.0;
+        $totalMax       = 0.0;
+        $index          = 1;
 
         foreach ($categories as $cat) {
             $key       = $cat->key;
             $max       = (float) ($cat->max_points ?? 0);
             $rawEarned = (float) ($scoresByCategoryKey[$key] ?? 0);
 
-            // ❌ Old: $earned = $max > 0 ? min($rawEarned, $max) : $rawEarned;
-            // ✅ New: show full earned points
+            // Show full earned points (no clamping)
             $earned = $rawEarned;
 
             $labelPrefix = $roman[$index] ?? ($index . '.');
@@ -593,7 +577,6 @@ class StudentController extends Controller
             $index++;
         }
 
-
         $perfData = [
             'totals' => [
                 'earned' => round($totalEarned, 2),
@@ -602,22 +585,32 @@ class StudentController extends Controller
             'categories' => $perfCategories,
         ];
 
-        // Get the status directly from database to ensure we have the latest value
-        $status = $academic ? \App\Models\StudentAcademic::where('user_id', $user->id)
-            ->value('slea_application_status') : null;
+        // Always read latest status from DB
+        $status = \App\Models\StudentAcademic::where('user_id', $user->id)
+            ->value('slea_application_status');
 
-        // Log for debugging
+        // Fallback to relationship value just in case
+        if ($status === null && $academic->slea_application_status !== null) {
+            $status = $academic->slea_application_status;
+        }
+
         Log::info('Student performance page loaded', [
-            'user_id' => $user->id,
-            'status_from_relationship' => $academic?->slea_application_status,
-            'status_from_db' => $status,
-            'ready_for_rating' => (bool) ($academic->ready_for_rating ?? false),
+            'user_id'                   => $user->id,
+            'status_from_relationship'  => $academic->slea_application_status,
+            'status_from_db'            => $status,
+            'ready_for_rating'          => (bool) $academic->ready_for_rating,
         ]);
 
+        // If you still want to use $currentRole / $sleaAwarded in Blade:
+        $currentRole = $user->role;
+        $sleaAwarded = ($status === 'qualified');
+
         return view('student.performance', [
-            'perfData'               => $perfData,
-            'slea_application_status' => $status ?? $academic?->slea_application_status,
-            'ready_for_rating'       => (bool) ($academic->ready_for_rating ?? false),
+            'perfData'                => $perfData,
+            'slea_application_status' => $status,
+            'ready_for_rating'        => (bool) $academic->ready_for_rating,
+            'currentRole'             => $currentRole,
+            'sleaAwarded'             => $sleaAwarded,
         ]);
     }
 

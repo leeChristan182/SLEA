@@ -71,12 +71,14 @@ class SubmissionRecordController extends Controller
             abort(404);
         }
 
+        /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        // Check if application_status column exists
+        // Does the submissions table have application_status?
         $hasApplicationStatusColumn = Schema::hasColumn('submissions', 'application_status');
 
-        $validationRules = [
+        // ------------ VALIDATION ------------
+        $rules = [
             'rubric_category_id'   => ['required', 'exists:rubric_categories,id'],
             'rubric_section_id'    => ['nullable', 'exists:rubric_sections,section_id'],
             'rubric_subsection_id' => ['nullable', 'exists:rubric_subsections,sub_section_id'],
@@ -89,26 +91,42 @@ class SubmissionRecordController extends Controller
             'date_of_activity'     => ['nullable', 'date'],
             'organizing_body'      => ['nullable', 'string', 'max:255'],
             'note'                 => ['nullable', 'string'],
-            'term'                 => ['nullable', 'string', 'max:50'],
+            'term' => [
+                'nullable',
+                'regex:/^20\d{2}\s-\s20\d{2}$/',
+                function ($attribute, $value, $fail) {
+                    if ($value) {
+                        [$start, $end] = explode(' - ', $value);
+                        if ((int)$end <= (int)$start) {
+                            $fail('The ending year must be greater than the starting year.');
+                        }
+                    }
+                },
+            ],
             'issued_by'            => ['nullable', 'string', 'max:255'],
             'document_type'        => ['nullable', 'string', 'max:50'],
 
-            'attachments'          => ['required'],
-            'attachments.*'        => ['file', 'max:5120', 'mimes:jpeg,jpg,png,pdf'],
+            'attachments'   => ['required'],
+            'attachments.*' => ['file', 'max:5120', 'mimes:jpeg,jpg,png,pdf'],
         ];
 
-        // Only require application_status if column exists
         if ($hasApplicationStatusColumn) {
-            $validationRules['application_status'] = ['required', 'in:for_final_application,for_tracking'];
+            $rules['application_status'] = [
+                'required',
+                'in:for_final_application,for_tracking',
+            ];
         }
 
-        $data = $request->validate($validationRules);
+        // ✅ From here on $data['application_status'] is always defined when column exists
+        $data = $request->validate($rules);
 
-        // ---- upload files ----
+        // ------------ FILE UPLOADS ------------
         $filesMeta = [];
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $file) {
-                if (! $file) continue;
+                if (! $file) {
+                    continue;
+                }
 
                 $path = $file->store('submissions', 'student_docs');
 
@@ -121,10 +139,7 @@ class SubmissionRecordController extends Controller
             }
         }
 
-        // Check if application_status column exists
-        $hasApplicationStatusColumn = Schema::hasColumn('submissions', 'application_status');
-
-        // ---- create submission ----
+        // ------------ CREATE SUBMISSION ROW ------------
         $submissionData = [
             'user_id'              => $user->id,
             'leadership_id'        => null,
@@ -148,19 +163,62 @@ class SubmissionRecordController extends Controller
                 'document_type'    => $data['document_type']    ?? null,
             ],
 
-            'status'            => 'pending',  // matches submission_statuses.key
-            'remarks'           => null,
-            'submitted_at'      => now(),
+            'status'       => 'pending',
+            'remarks'      => null,
+            'submitted_at' => now(),
         ];
 
-        // Only add application_status if column exists
         if ($hasApplicationStatusColumn) {
             $submissionData['application_status'] = $data['application_status'];
         }
 
         $submission = Submission::create($submissionData);
 
-        // ---- REVERT RULE (safe) ----
+        // ------------ UPDATE student_academic BASED ON application_status ------------
+        if ($hasApplicationStatusColumn) {
+            $appStatus = $data['application_status'];   // safe now
+
+            // Ensure an academic row exists
+            $academic = \App\Models\StudentAcademic::firstOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'eligibility_status'      => 'eligible',
+                    'slea_application_status' => null,
+                    'ready_for_rating'        => false,
+                ]
+            );
+
+            if ($appStatus === 'for_final_application') {
+                // Student is explicitly applying for SLEA
+                $academic->ready_for_rating    = true;
+                $academic->ready_for_rating_at = $academic->ready_for_rating_at ?? now();
+
+                // Only bump to assessor stage if not already further
+                if (!in_array($academic->slea_application_status, [
+                    'pending_administrative_validation',
+                    'qualified',
+                    'not_qualified',
+                ], true)) {
+                    $academic->slea_application_status = 'pending_assessor_evaluation';
+                }
+            } else { // for_tracking
+                // Treat as not ready
+                $academic->ready_for_rating    = false;
+                $academic->ready_for_rating_at = null;
+
+                if (in_array($academic->slea_application_status, [
+                    null,
+                    'pending_assessor_evaluation',
+                    'incomplete',
+                ], true)) {
+                    $academic->slea_application_status = null; // or 'incomplete' if you prefer
+                }
+            }
+
+            $academic->save();
+        }
+
+        // ------------ REVERT RULE (same as before) ------------
         if (Schema::hasTable('assessor_final_reviews')) {
             AssessorFinalReview::where('student_id', $user->id)
                 ->whereIn('status', ['finalized', 'submitted'])
@@ -183,6 +241,7 @@ class SubmissionRecordController extends Controller
             ->route('student.submit')
             ->with('status', 'Submission uploaded.');
     }
+
 
     public function preview(int $id)
     {

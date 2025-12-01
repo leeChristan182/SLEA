@@ -102,22 +102,24 @@ function updateExpectedGrad() {
 
   const m = (studentIdInput.value.trim()).match(/^(\d{4})/);
   const entryYear = m ? parseInt(m[1], 10) : null;
+
   if (!entryYear) {
     expectedGradInput.value = '';
     return;
   }
 
-  // ✅ Support 4-year and 5th+ year programs
+  // ✅ Match backend: default 4-year duration
+  const DEFAULT_DURATION = 4;
+  const expected = entryYear + DEFAULT_DURATION;
+  expectedGradInput.value = expected;
+
+  // Optional: still auto-infer Year Level from entry year
+  const currentYear = new Date().getFullYear();
+  let inferredYearLevel = currentYear - entryYear + 1;
+
   const numericOptions = [...yearLevelSelect.options]
     .map(o => parseInt(o.value, 10))
     .filter(n => !Number.isNaN(n));
-
-  const totalYears = numericOptions.length ? Math.max(...numericOptions) : 4;
-
-  expectedGradInput.value = entryYear + totalYears;
-
-  const currentYear = new Date().getFullYear();
-  let inferredYearLevel = currentYear - entryYear + 1;
 
   if (numericOptions.length) {
     const minLevel = Math.min(...numericOptions);

@@ -47,9 +47,9 @@ class FinalReviewController extends Controller
             ->get()
             ->map(function ($item) use ($allCategories) {
                 // Ensure all categories are included in compiledScores, even if score is 0
-                $compiledScores = $item->compiledScores ?? collect();
+                $compiledScores   = $item->compiledScores ?? collect();
                 $scoresByCategory = $compiledScores->keyBy('rubric_category_id');
-                
+
                 // Add missing categories with 0 scores
                 $allScores = collect();
                 foreach ($allCategories as $categoryId => $category) {
@@ -57,31 +57,36 @@ class FinalReviewController extends Controller
                         $allScores->push($scoresByCategory->get($categoryId));
                     } else {
                         // Create a placeholder compiled score with 0 values
-                        $placeholder = new \App\Models\AssessorCompiledScore();
-                        $placeholder->rubric_category_id = $categoryId;
-                        $placeholder->total_score = 0;
-                        $placeholder->max_points = $category->max_points ?? 0;
-                        $placeholder->min_required_points = $category->min_required_points ?? 0;
+                        $placeholder                          = new \App\Models\AssessorCompiledScore();
+                        $placeholder->rubric_category_id      = $categoryId;
+                        $placeholder->total_score             = 0;
+                        $placeholder->max_points              = $category->max_points ?? 0;
+                        $placeholder->min_required_points     = $category->min_required_points ?? 0;
                         $placeholder->setRelation('category', $category);
                         $allScores->push($placeholder);
                     }
                 }
-                
+
                 // Sort by category order_no
-                $item->setRelation('compiledScores', $allScores->sortBy(function($cs) use ($allCategories) {
-                    $catId = $cs->rubric_category_id;
-                    return $allCategories->get($catId)->order_no ?? 999;
-                })->values());
-                
+                $item->setRelation(
+                    'compiledScores',
+                    $allScores
+                        ->sortBy(function ($cs) use ($allCategories) {
+                            $catId = $cs->rubric_category_id;
+                            return $allCategories->get($catId)->order_no ?? 999;
+                        })
+                        ->values()
+                );
+
                 return $item;
             });
 
         // Debug: Log details for troubleshooting
         \Log::info('Admin final review query:', [
-            'total_items' => $items->count(),
-            'queued_count' => $items->where('status', 'queued_for_admin')->count(),
-            'finalized_count' => $items->where('status', 'finalized')->count(),
-            'sample_statuses' => $items->pluck('status')->unique()->toArray(),
+            'total_items'      => $items->count(),
+            'queued_count'     => $items->where('status', 'queued_for_admin')->count(),
+            'finalized_count'  => $items->where('status', 'finalized')->count(),
+            'sample_statuses'  => $items->pluck('status')->unique()->toArray(),
         ]);
 
         // Filter out items without valid student relationship
@@ -91,17 +96,17 @@ class FinalReviewController extends Controller
 
         // Paginate the collection (5 items per page)
         $currentPage = request()->get('page', 1);
-        $perPage = 5;
-        $total = $items->count();
-        $items = $items->slice(($currentPage - 1) * $perPage, $perPage)->values();
-        
+        $perPage     = 5;
+        $total       = $items->count();
+        $items       = $items->slice(($currentPage - 1) * $perPage, $perPage)->values();
+
         $paginator = new LengthAwarePaginator(
             $items,
             $total,
             $perPage,
             $currentPage,
             [
-                'path' => request()->url(),
+                'path'  => request()->url(),
                 'query' => request()->query(),
             ]
         );
@@ -155,7 +160,7 @@ class FinalReviewController extends Controller
                 $final = FinalReview::updateOrCreate(
                     [
                         'assessor_final_review_id' => $assessorFinalReview->id,
-                        'admin_id' => $admin->id,
+                        'admin_id'                 => $admin->id,
                     ],
                     [
                         'decision'    => $data['decision'],
@@ -164,7 +169,7 @@ class FinalReviewController extends Controller
                 );
 
                 // Update assessor_final_reviews
-                $assessorFinalReview->status = 'finalized';
+                $assessorFinalReview->status        = 'finalized';
                 $assessorFinalReview->qualification = $data['decision'] === 'approved'
                     ? 'qualified'
                     : 'unqualified';
@@ -175,53 +180,58 @@ class FinalReviewController extends Controller
                 if ($student) {
                     // Reload student to get fresh relationship
                     $student->load('studentAcademic');
-                    
-                    // Check if student has any submissions with 'for_final_application'
+
+                    // Check if student has any accepted submissions with 'for_final_application'
                     $hasFinalApplication = \App\Models\Submission::where('user_id', $student->id)
                         ->where('application_status', 'for_final_application')
-                        ->where('status', 'approved')
+                        ->where('status', 'accepted') // ✅ aligned with new enum
                         ->exists();
-                    
+
                     // Get or create student academic record
                     $studentAcademic = $student->studentAcademic;
+
                     if (!$studentAcademic) {
-                        // Only set to qualified if it's a final application
-                        $status = ($data['decision'] === 'approved' && $hasFinalApplication) 
-                            ? 'qualified' 
-                            : ($data['decision'] === 'approved' ? 'pending' : 'not_qualified');
+                        // If no record yet, set directly to final status based on decision
+                        $status = ($data['decision'] === 'approved' && $hasFinalApplication)
+                            ? 'qualified'
+                            : 'not_qualified';
+
                         $studentAcademic = \App\Models\StudentAcademic::create([
-                            'user_id' => $student->id,
+                            'user_id'                => $student->id,
                             'slea_application_status' => $status,
                         ]);
                     } else {
-                        // Only set to qualified if it's a final application and approved
+                        // We are at ADMIN FINAL REVIEW stage.
+                        // If admin APPROVES *and* it's truly a final application → qualified
                         if ($data['decision'] === 'approved' && $hasFinalApplication) {
                             $studentAcademic->slea_application_status = 'qualified';
                         } elseif ($data['decision'] === 'approved') {
-                            // If approved but not final application, keep as pending
-                            $studentAcademic->slea_application_status = $studentAcademic->slea_application_status ?? 'pending';
+                            // Approved but not final application: keep whatever status it currently has.
+                            // (Do not overwrite with an invalid enum like "pending".)
                         } else {
+                            // Admin marks NOT QUALIFIED
                             $studentAcademic->slea_application_status = 'not_qualified';
                         }
+
                         $studentAcademic->save();
-                        
+
                         // Clear any cached relationship
                         $student->unsetRelation('studentAcademic');
                     }
-                    
+
                     \Log::info('Updated student academic status', [
-                        'student_id' => $student->id,
-                        'status' => $studentAcademic->slea_application_status,
-                        'decision' => $data['decision'],
+                        'student_id'            => $student->id,
+                        'status'                => $studentAcademic->slea_application_status,
+                        'decision'              => $data['decision'],
                         'has_final_application' => $hasFinalApplication,
                     ]);
                 }
             });
         } catch (\Illuminate\Database\QueryException $e) {
             \Log::error("Database error in storeDecision: " . $e->getMessage(), [
-                'decision' => $data['decision'],
+                'decision'                => $data['decision'],
                 'assessor_final_review_id' => $assessorFinalReview->id,
-                'admin_id' => $admin->id ?? null,
+                'admin_id'                => $admin->id ?? null,
             ]);
             return back()->with('error', 'Failed to save decision. Please try again or contact system administrator.');
         } catch (\Exception $e) {
@@ -230,13 +240,14 @@ class FinalReviewController extends Controller
         }
 
         $msg = $data['decision'] === 'approved'
-                    ? 'Student marked as QUALIFIED for SLEA.'
+            ? 'Student marked as QUALIFIED for SLEA.'
             : 'Student marked as NOT QUALIFIED for SLEA.';
 
         return redirect()
             ->route('admin.final-review')
             ->with('status', $msg);
     }
+
     public function decide(Request $request, AssessorFinalReview $assessorFinalReview)
     {
         return $this->storeDecision($request, $assessorFinalReview);
