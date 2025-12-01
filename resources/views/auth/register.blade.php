@@ -35,6 +35,7 @@
 </head>
 
 <body class="d-flex flex-column min-vh-100 {{ session('dark_mode', false) ? 'dark-mode' : '' }}">
+
     <!-- Header -->
     <div class="header-container">
         <div class="header">

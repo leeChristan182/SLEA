@@ -631,22 +631,46 @@ function updateExpectedGrad() {
       });
     });
 
-    // -------- Dark mode --------
-    const body = document.body,
-      toggleBtn = document.getElementById('darkModeToggle'),
-      toggleBtn2 = document.getElementById('darkModeToggleFloating');
+// -------- Dark mode --------
+const body = document.body,
+  toggleBtn = document.getElementById('darkModeToggle'),
+  toggleBtn2 = document.getElementById('darkModeToggleFloating'),
+  headerContainer = document.querySelector('.header-container'),
+  registerContainer = document.querySelector('.register-container');
 
-    function applyTheme(mode) {
-      const d = mode === 'dark';
-      body.classList.toggle('dark-mode', d);
-      toggleBtn?.querySelector('i')?.classList.replace(d ? 'fa-moon' : 'fa-sun', d ? 'fa-sun' : 'fa-moon');
-      toggleBtn2?.querySelector('i')?.classList.replace(d ? 'fa-moon' : 'fa-sun', d ? 'fa-sun' : 'fa-moon');
-      localStorage.setItem('theme', mode);
-    }
+function applyTheme(mode) {
+  const d = mode === 'dark';
 
-    applyTheme(localStorage.getItem('theme') || 'light');
-    const flip = () => applyTheme(body.classList.contains('dark-mode') ? 'light' : 'dark');
-    toggleBtn?.addEventListener('click', flip);
-    toggleBtn2?.addEventListener('click', flip);
+  // main body
+  body.classList.toggle('dark-mode', d);
+
+  // make header + register wrapper follow dark mode
+  headerContainer?.classList.toggle('dark-mode', d);
+  registerContainer?.classList.toggle('dark-mode', d);
+
+  // swap icons (moon <-> sun)
+  const from = d ? 'fa-moon' : 'fa-sun';
+  const to   = d ? 'fa-sun' : 'fa-moon';
+
+  toggleBtn?.querySelector('i')?.classList.replace(from, to);
+  toggleBtn2?.querySelector('i')?.classList.replace(from, to);
+
+  // remember choice
+  localStorage.setItem('theme', mode);
+}
+
+// Initial theme: use stored theme if any, otherwise whatever body currently has
+const initialMode =
+  localStorage.getItem('theme') ||
+  (body.classList.contains('dark-mode') ? 'dark' : 'light');
+
+applyTheme(initialMode);
+
+const flip = () =>
+  applyTheme(body.classList.contains('dark-mode') ? 'light' : 'dark');
+
+toggleBtn?.addEventListener('click', flip);
+toggleBtn2?.addEventListener('click', flip);
+
   });
 })();
