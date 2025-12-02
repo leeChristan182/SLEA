@@ -126,19 +126,13 @@
 
 <!-- ✅ Success Modal -->
 <div id="rubricSuccessModal" class="modal" style="display: none;">
-    <div class="modal-content success">
-        <div class="modal-header">
-            <h3>Success</h3>
-            <span class="close" onclick="closeRubricSuccessModal()">&times;</span>
-        </div>
-        <div class="modal-body text-center">
+    <div class="modal-content success-modal-content">
+        <div class="success-modal-body">
             <div class="success-icon">
                 <i class="fas fa-check-circle"></i>
             </div>
-            <h3 id="rubricSuccessMessage">Operation completed successfully!</h3>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-primary" onclick="closeRubricSuccessModal()">OK</button>
+            <p id="rubricSuccessMessage" class="success-message">Operation completed successfully!</p>
+            <button class="btn btn-success" onclick="closeRubricSuccessModal()">OK</button>
         </div>
     </div>
 </div>
@@ -179,10 +173,6 @@
         color: #fff;
     }
 
-    .modal-content.success {
-        max-width: 380px;
-        text-align: center;
-    }
 
     .modal-header {
         display: flex;
@@ -292,10 +282,54 @@
         background: #b02a37;
     }
 
+    /* Success Modal Styles */
+    .success-modal-content {
+        max-width: 400px;
+        padding: 40px 30px;
+        text-align: center;
+    }
+
+    .success-modal-body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+    }
+
     .success-icon {
-        font-size: 48px;
+        font-size: 64px;
         color: #28a745;
-        margin-bottom: 15px;
+        margin: 0;
+    }
+
+    .success-message {
+        font-size: 16px;
+        color: #333;
+        margin: 0;
+        font-weight: 500;
+    }
+
+    body.dark-mode .success-message {
+        color: #fff;
+    }
+
+    .btn-success {
+        background: #28a745;
+        color: white;
+        border: none;
+        padding: 10px 30px;
+        border-radius: 6px;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        min-width: 100px;
+    }
+
+    .btn-success:hover {
+        background: #218838;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
     }
 
     @keyframes fadeIn {
@@ -666,6 +700,4 @@
             }
         });
     }
-</script>
-</script>
 </script>

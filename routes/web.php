@@ -103,6 +103,7 @@ Route::prefix('student')
 
         Route::middleware('eligible')->group(function () {
             Route::get('/profile', 'profile')->name('profile');
+            Route::get('/criteria', 'criteria')->name('criteria');
             Route::get('/performance', 'performance')->name('performance');
             Route::get('/history', 'history')->name('history');
 

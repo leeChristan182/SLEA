@@ -21,18 +21,13 @@
 <div class="container" style="margin-top: 0 !important;">
     @include('partials.sidebar')
 
-    <main class="main-content" style="padding-top: 0 !important; margin-top: 0 !important;">
+    <main class="main-content" style="padding-top: 100px !important;">
         @php
             // Determine initial page (default to 1 since no filter)
             $initialPage = 1;
         @endphp
 
         <div class="rubric-main-container" x-data="rubricPager(@json($pageTitles), {{ $initialPage }})">
-
-            {{-- Current rubric label (same style as student-side pages) --}}
-            <div class="current-page-label">
-                <span x-text="pageTitle"></span>
-            </div>
 
             {{-- Pages --}}
             <div class="rubric-pages">
@@ -122,7 +117,10 @@
     }
 
     .main-content {
-        padding: 0 !important;
+        padding-top: 100px !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        padding-bottom: 0 !important;
         margin-top: 0 !important;
         width: 100%;
         background: #fff !important;
@@ -137,8 +135,8 @@
     .rubric-main-container {
         width: 100%;
         margin-top: 0 !important;
-        padding-top: 24px !important; /* 1 inch gap from header */
-        padding: 24px 20px 20px 20px;
+        padding-top: 20px !important; /* Normal padding since main-content handles header spacing */
+        padding: 20px;
         background: transparent;
         color: inherit;
     }

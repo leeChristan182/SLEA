@@ -25,6 +25,19 @@ class StudentController extends Controller
      * ========================= */
 
 
+    /**
+     * Display Criteria and Points System page for students
+     * GET /student/criteria
+     */
+    public function criteria()
+    {
+        $categories = RubricCategory::with(['sections.subsections.options'])
+            ->orderBy('order_no')
+            ->get();
+
+        return view('student.criteria', compact('categories'));
+    }
+
     public function profile()
     {
         /** @var \App\Models\User $user */

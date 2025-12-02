@@ -32,6 +32,12 @@
                     <i class="fas fa-user"></i><span>Profile</span>
                 </a>
             </li>
+            <li class="{{ request()->routeIs('student.criteria') ? 'active' : '' }}">
+                <a href="{{ route('student.criteria') }}"
+                    style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                    <i class="fas fa-clipboard-list"></i><span>Criteria and Points System</span>
+                </a>
+            </li>
             <li class="{{ request()->routeIs('student.submit') ? 'active' : '' }}">
                 <a href="{{ route('student.submit') }}"
                     style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">

@@ -3012,6 +3012,11 @@ body.dark-mode .tab-nav .btn.btn-disable {
   border-bottom: 1px solid #dee2e6 !important;
 }
 
+/* Remove hover effect for rubric tables */
+.rubric-section .manage-table tbody tr:hover td {
+  background: inherit !important;
+}
+
 .rubric-section .manage-table tbody td {
   vertical-align: top !important;
   padding: 12px 8px !important;
@@ -3089,6 +3094,11 @@ body.dark-mode .rubric-section .manage-table tbody tr {
   vertical-align: top !important;
   height: auto !important;
   border-bottom: 1px solid #555 !important;
+}
+
+/* Remove hover effect for rubric tables in dark mode */
+body.dark-mode .rubric-section .manage-table tbody tr:hover td {
+  background: inherit !important;
 }
 
 body.dark-mode .rubric-section .manage-table tbody td {
@@ -3379,7 +3389,8 @@ body.dark-mode .category-description {
 
 .criteria-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   margin-top: 1rem;
   table-layout: fixed;
 }
@@ -3454,7 +3465,26 @@ body.dark-mode .criteria-table tbody tr:nth-child(even) td {
 /* Removed hover effects - table is static */
 /* No :hover selectors for table rows or cells */
 
-/* Ensure merged cells have proper borders - all four sides */
+/* With border-collapse: separate and border-spacing: 0, all cells need explicit borders on all sides */
+/* This ensures merged cells and adjacent cells all have visible, consistent borders */
+
+/* Base borders for all header cells - all four sides */
+.criteria-table thead th {
+  border-top: 1px solid #6b0000 !important;
+  border-right: 1px solid #6b0000 !important;
+  border-bottom: 1px solid #6b0000 !important;
+  border-left: 1px solid #6b0000 !important;
+}
+
+/* Base borders for all body cells - all four sides */
+.criteria-table tbody td {
+  border-top: 1px solid #ddd !important;
+  border-right: 1px solid #ddd !important;
+  border-bottom: 1px solid #ddd !important;
+  border-left: 1px solid #ddd !important;
+}
+
+/* Ensure merged cells have explicit borders on all four sides (override any conflicting rules) */
 .criteria-table tbody td[rowspan],
 .criteria-table tbody td[colspan] {
   border-top: 1px solid #ddd !important;
@@ -3463,29 +3493,29 @@ body.dark-mode .criteria-table tbody tr:nth-child(even) td {
   border-left: 1px solid #ddd !important;
 }
 
+/* Dark mode - header borders */
+body.dark-mode .criteria-table thead th {
+  border-top: 1px solid #4a0000 !important;
+  border-right: 1px solid #4a0000 !important;
+  border-bottom: 1px solid #4a0000 !important;
+  border-left: 1px solid #4a0000 !important;
+}
+
+/* Dark mode - body cell borders */
+body.dark-mode .criteria-table tbody td {
+  border-top: 1px solid #555 !important;
+  border-right: 1px solid #555 !important;
+  border-bottom: 1px solid #555 !important;
+  border-left: 1px solid #555 !important;
+}
+
+/* Dark mode - merged cells */
 body.dark-mode .criteria-table tbody td[rowspan],
 body.dark-mode .criteria-table tbody td[colspan] {
-  border-top-color: #555 !important;
-  border-right-color: #555 !important;
-  border-bottom-color: #555 !important;
-  border-left-color: #555 !important;
-}
-
-/* Ensure all table cells have consistent borders */
-.criteria-table tbody td,
-.criteria-table thead th {
-  border-top: 1px solid #ddd;
-  border-right: 1px solid #ddd;
-  border-bottom: 1px solid #ddd;
-  border-left: 1px solid #ddd;
-}
-
-body.dark-mode .criteria-table tbody td,
-body.dark-mode .criteria-table thead th {
-  border-top-color: #555;
-  border-right-color: #555;
-  border-bottom-color: #555;
-  border-left-color: #555;
+  border-top: 1px solid #555 !important;
+  border-right: 1px solid #555 !important;
+  border-bottom: 1px solid #555 !important;
+  border-left: 1px solid #555 !important;
 }
 
 /* Ensure vertical alignment for all cells */
