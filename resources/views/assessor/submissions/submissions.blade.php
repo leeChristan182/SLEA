@@ -628,7 +628,7 @@
         /* ==== Main table ==== */
         .submissions-table-container {
             background: white;
-            border-radius: 8px;
+            border-radius: 0;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             overflow-x: hidden; /* Remove horizontal scrollbar */
             overflow-y: auto; /* Keep vertical scrollbar if needed */

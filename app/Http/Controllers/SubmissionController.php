@@ -132,6 +132,16 @@ class SubmissionController extends Controller
             'submitted_at'        => now(),
         ]);
 
+        // 🔹 SYSTEM LOG: STUDENT SUBMISSION
+        $userName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+        $categoryName = \App\Models\RubricCategory::find($data['rubric_category_id'])->name ?? 'Unknown Category';
+        \App\Models\SystemMonitoringAndLog::record(
+            $user->role,
+            $userName ?: $user->email,
+            'Submit',
+            "Submitted {$categoryName} activity: {$data['activity_title']}."
+        );
+
         // Two flows: Proceed vs Submit Another
         $redirectRoute = $request->has('submit_another')
             ? 'student.submit'   // stay on form

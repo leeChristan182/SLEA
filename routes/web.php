@@ -104,7 +104,6 @@ Route::prefix('student')
         Route::middleware('eligible')->group(function () {
             Route::get('/profile', 'profile')->name('profile');
             Route::get('/performance', 'performance')->name('performance');
-            Route::get('/criteria', 'criteria')->name('criteria');
             Route::get('/history', 'history')->name('history');
 
             // *** ONLY ONE submit route ***

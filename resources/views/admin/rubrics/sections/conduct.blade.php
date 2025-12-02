@@ -99,6 +99,7 @@
                                                     '{{ addslashes($opt->label) }}',
                                                     {{ $opt->points }},
                                                     {{ $opt->order_no }},
+                                                    '{{ addslashes($sub->evidence_needed ?? '') }}',
                                                     '{{ addslashes($sub->notes ?? '') }}'
                                                 )">
                                                     <i class="fas fa-edit"></i>

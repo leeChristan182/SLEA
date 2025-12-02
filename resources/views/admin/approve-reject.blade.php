@@ -13,7 +13,7 @@
 
             {{-- Alerts --}}
             @if(session('status'))
-                <div class="alert alert-success">{{ session('status') }}</div>
+                <div class="alert alert-success" id="successAlert">{{ session('status') }}</div>
             @endif
 
             @if($errors->any())
@@ -28,15 +28,42 @@
 
             {{-- Controls Section --}}
             <div class="controls-section">
-                <div class="search-controls" style="flex: 0 1 auto; max-width: 500px;">
+                {{-- Filter Section --}}
+                <div class="filter-controls">
+                    <div class="filter-group">
+                        <label for="programFilter">Program:</label>
+                        <select id="programFilter" name="program_id" class="form-control">
+                            <option value="">All Programs</option>
+                            @foreach($programs as $program)
+                                <option value="{{ $program->id }}" {{ request('program_id') == $program->id ? 'selected' : '' }}>
+                                    {{ $program->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="yearLevelFilter">Year Level:</label>
+                        <select id="yearLevelFilter" name="year_level" class="form-control">
+                            <option value="">All Year Levels</option>
+                            @for($i = 1; $i <= 8; $i++)
+                                <option value="{{ $i }}" {{ request('year_level') == $i ? 'selected' : '' }}>
+                                    {{ $i }}{{ $i == 1 ? 'st' : ($i == 2 ? 'nd' : ($i == 3 ? 'rd' : 'th')) }} Year
+                                </option>
+                            @endfor
+                        </select>
+                    </div>
+                </div>
+
+                {{-- Search Section --}}
+                <div class="search-controls">
                     <div class="search-group">
                         <input type="text" id="searchInput" name="q" class="form-control" value="{{ request('q') }}"
-                            style="max-width: 300px;">
+                            placeholder="Search by Student ID or Email">
                         <button type="button" id="searchBtn" class="btn-search-maroon search-btn-attached" title="Search"
                             onclick="handleSearchClick(event)">
                             <i class="fas fa-search"></i>
                         </button>
-                        <button type="button" id="clearBtn" class="btn-clear" title="Clear search"
+                        <button type="button" id="clearBtn" class="btn-clear" title="Clear all filters"
                             onclick="handleClearClick(event)">
                             Clear
                         </button>
@@ -300,14 +327,120 @@
             background-color: #8b0000;
         }
 
-        /* Controls section - search only */
+        /* Controls section - filters and search */
         .controls-section {
-            justify-content: flex-end;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: flex-start;
+        }
+
+        .filter-controls {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .filter-group label {
+            font-weight: 600;
+            color: #333;
+            white-space: nowrap;
+            font-size: 14px;
+            margin-bottom: 0;
+        }
+
+        body.dark-mode .filter-group label {
+            color: #f0f0f0;
+        }
+
+        .filter-group .form-control {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+            background: #fff;
+            color: #333;
+            min-width: 200px;
+        }
+
+        body.dark-mode .filter-group .form-control {
+            background: #3a3a3a;
+            border-color: #555;
+            color: #f0f0f0;
+        }
+
+        .search-controls {
+            display: flex;
+            justify-content: flex-start;
+            width: 100%;
+        }
+
+        .search-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
         }
     </style>
     <script src="{{ asset('js/admin_pagination.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
+        // Filter functionality
+        document.getElementById('programFilter')?.addEventListener('change', function() {
+            applyFilters();
+        });
+
+        document.getElementById('yearLevelFilter')?.addEventListener('change', function() {
+            applyFilters();
+        });
+
+        function applyFilters() {
+            const form = document.createElement('form');
+            form.method = 'GET';
+            form.action = window.location.pathname;
+
+            // Add search query if exists
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput && searchInput.value.trim()) {
+                const qInput = document.createElement('input');
+                qInput.type = 'hidden';
+                qInput.name = 'q';
+                qInput.value = searchInput.value.trim();
+                form.appendChild(qInput);
+            }
+
+            // Add program filter
+            const programFilter = document.getElementById('programFilter');
+            if (programFilter && programFilter.value) {
+                const programInput = document.createElement('input');
+                programInput.type = 'hidden';
+                programInput.name = 'program_id';
+                programInput.value = programFilter.value;
+                form.appendChild(programInput);
+            }
+
+            // Add year level filter
+            const yearLevelFilter = document.getElementById('yearLevelFilter');
+            if (yearLevelFilter && yearLevelFilter.value) {
+                const yearLevelInput = document.createElement('input');
+                yearLevelInput.type = 'hidden';
+                yearLevelInput.name = 'year_level';
+                yearLevelInput.value = yearLevelFilter.value;
+                form.appendChild(yearLevelInput);
+            }
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+
         // Search and Clear functionality
         function handleSearchClick(event) {
             event.preventDefault();
@@ -324,13 +457,37 @@
                 form.appendChild(qInput);
             }
 
+            // Preserve filters when searching
+            const programFilter = document.getElementById('programFilter');
+            if (programFilter && programFilter.value) {
+                const programInput = document.createElement('input');
+                programInput.type = 'hidden';
+                programInput.name = 'program_id';
+                programInput.value = programFilter.value;
+                form.appendChild(programInput);
+            }
+
+            const yearLevelFilter = document.getElementById('yearLevelFilter');
+            if (yearLevelFilter && yearLevelFilter.value) {
+                const yearLevelInput = document.createElement('input');
+                yearLevelInput.type = 'hidden';
+                yearLevelInput.name = 'year_level';
+                yearLevelInput.value = yearLevelFilter.value;
+                form.appendChild(yearLevelInput);
+            }
+
             document.body.appendChild(form);
             form.submit();
         }
 
         function handleClearClick(event) {
             event.preventDefault();
+            // Clear all filter values
             document.getElementById('searchInput').value = '';
+            document.getElementById('programFilter').value = '';
+            document.getElementById('yearLevelFilter').value = '';
+            
+            // Submit form with no filters
             const form = document.createElement('form');
             form.method = 'GET';
             form.action = window.location.pathname;
@@ -391,6 +548,18 @@
                     });
                 });
             });
+
+            // Auto-fade success alert after 3 seconds
+            const successAlert = document.getElementById('successAlert');
+            if (successAlert) {
+                setTimeout(function() {
+                    successAlert.style.transition = 'opacity 0.5s ease-out';
+                    successAlert.style.opacity = '0';
+                    setTimeout(function() {
+                        successAlert.remove();
+                    }, 500); // Remove after fade animation completes
+                }, 3000); // Start fade after 3 seconds
+            }
         });
     </script>
 @endsection

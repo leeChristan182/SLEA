@@ -53,12 +53,14 @@
         <div class="login-left flex-shrink-0 flex-fill">
             <div style="max-width:640px;margin:0 auto;width:100%;">
 
-                <h3 class="text-center mb-2 display-5 fw-bold" style="font-family:'Quicksand','sans-serif';">
-                    Welcome, USePians!
-                </h3>
-                <p class="text-center mb-4 display-6 fw-normal" style="color:#F9BD3D">
-                    Please login to get started.
-                </p>
+                <div class="welcome-section">
+                    <h3 class="text-center mb-2 display-5 fw-bold" style="font-family:'Quicksand','sans-serif';">
+                        Welcome, USePians!
+                    </h3>
+                    <p class="text-center mb-0 display-6 fw-normal" style="color:#F9BD3D">
+                        Please login to get started.
+                    </p>
+                </div>
 
                 {{-- Validation (used for modals, not inline alerts) --}}
                 @php
@@ -66,11 +68,8 @@
                     $loginStatus = session('status');
                 @endphp
 
-                @if (session('status'))
-                    <div class="alert alert-success">{{ session('status') }}</div>
-                @endif
-
                 {{-- Login Form --}}
+                <div class="login-form-wrapper">
                 <form id="loginForm" method="POST" action="{{ route('login.auth') }}" autocomplete="off"
                     autocorrect="off" autocapitalize="none" novalidate>
                     @csrf
@@ -85,7 +84,7 @@
                     <input type="hidden" name="password" id="password_real">
 
                     {{-- EMAIL (visible, NO name so browser won't bind credentials) --}}
-                    <div class="mb-3">
+                    <div class="mb-2">
                         <label class="form-label fs-5 fw-normal text-light">USeP Email</label>
                         <div class="input-group input-group-lg">
                             <span class="input-group-text">
@@ -102,14 +101,10 @@
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
-
-                        <small class="text-light-50 d-block mt-1">
-                            Use your <strong>@usep.edu.ph</strong> email.
-                        </small>
                     </div>
 
                     {{-- PASSWORD (visible, NO name; real one is hidden) --}}
-                    <div class="mb-3">
+                    <div class="mb-2">
                         <label class="form-label fs-5 fw-normal text-light">Password</label>
                         <div class="input-group input-group-lg">
                             <span class="input-group-text">
@@ -133,7 +128,7 @@
                     </div>
 
                     {{-- REMEMBER ME + FORGOT PASSWORD (unchanged) --}}
-                    <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
                         <div class="form-check">
                             <input class="form-check-input me-2" type="checkbox" id="remember" name="remember" value="1"
                                 {{ old('remember') ? 'checked' : '' }}>
@@ -149,17 +144,20 @@
                     </div>
 
                     {{-- SUBMIT --}}
-                    <button type="submit" id="loginSubmitBtn" class="btn btn-primary btn-lg w-100 fw-bold">
-                        <i class="fas fa-sign-in-alt me-2"></i> Log In
-                    </button>
+                    <div class="text-center">
+                        <button type="submit" id="loginSubmitBtn" class="btn btn-primary btn-lg fw-bold login-submit-btn">
+                            <i class="fas fa-sign-in-alt me-2"></i> Log In
+                        </button>
+                    </div>
 
-                    <div class="text-center mt-2 fs-6 fw-bold">
-                        <small class="text-light">
+                    <div class="text-center mt-2">
+                        <small class="text-light signup-link-text">
                             Don't have an account?
                             <a href="{{ route('register.show') }}">Sign Up</a>
                         </small>
                     </div>
                 </form>
+                </div>
             </div>
 
             <div class="footer-wrapper text-center fs-6">
@@ -189,7 +187,7 @@
     {{-- =============== PRIVACY MODAL =============== --}}
     <div class="modal fade" id="privacyModal" tabindex="-1" aria-labelledby="privacyModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content text-center bg-dark text-light rounded-4 shadow-lg border-0 overflow-hidden">
+            <div class="modal-content text-center bg-dark text-light shadow-lg border-0 overflow-hidden" style="border-radius: 0 !important;">
                 <div class="modal-body px-5 py-5 d-flex flex-column align-items-center" style="min-height:460px;">
                     <img src="{{ asset('images/security-illustration.png') }}" alt="Security" class="mb-4"
                         style="max-width:230px;">
@@ -214,16 +212,16 @@
     <div class="modal fade" id="forgotPasswordModal" tabindex="-1" aria-labelledby="forgotPasswordModalLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content bg-dark text-light rounded-4 border-0">
-                <div class="modal-header border-0">
+            <div class="modal-content forgot-password-modal-content border-0" style="border-radius: 0 !important;">
+                <div class="modal-header forgot-password-modal-header border-0">
                     <h5 class="modal-title" id="forgotPasswordModalLabel">Forgot Password</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    <button type="button" class="btn-close forgot-password-modal-close" data-bs-dismiss="modal"
                         aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body forgot-password-modal-body">
                     <p class="mb-3">
                         Enter your registered <strong>@usep.edu.ph</strong> email.
-                        We’ll send you an OTP to reset your password.
+                        We'll send you an OTP to reset your password.
                     </p>
 
                     <form method="POST" action="{{ route('password.email') }}" id="forgotPasswordForm">
@@ -257,13 +255,13 @@
     {{-- =============== OTP MODAL (LOGIN & PASSWORD RESET) =============== --}}
     <div class="modal fade" id="otpModal" tabindex="-1" aria-labelledby="otpModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content bg-dark text-light rounded-4 border-0">
-                <div class="modal-header border-0">
+            <div class="modal-content otp-modal-content border-0" style="border-radius: 0 !important;">
+                <div class="modal-header border-0 otp-modal-header">
                     <h5 class="modal-title" id="otpModalLabel">One-Time Password</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    <button type="button" class="btn-close otp-modal-close" data-bs-dismiss="modal"
                         aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body otp-modal-body">
                     <p class="mb-3">
                         Enter the 6-digit code sent to
                         <strong>{{ session('otp_display_email') ?? 'your email' }}</strong>.
@@ -281,7 +279,7 @@
                                 <input type="text" name="otp" class="form-control" maxlength="6" required
                                     inputmode="numeric" pattern="\d{6}">
                             </div>
-                            <small class="text-light-50 d-block mt-1">
+                            <small class="otp-validity-text d-block mt-1">
                                 This code is valid for {{ config('auth.otp.lifetime_minutes', 10) }} minutes.
                             </small>
                         </div>
@@ -298,7 +296,7 @@
                     {{-- RESEND OTP --}}
                     <form method="POST" action="{{ route('otp.resend') }}" id="resendOtpForm" class="text-end mt-1">
                         @csrf
-                        <button type="submit" class="btn btn-link text-warning text-decoration-none p-0 small">
+                        <button type="submit" class="btn btn-link otp-resend-link text-decoration-none p-0 small">
                             Resend code
                         </button>
                     </form>
@@ -312,13 +310,13 @@
     <div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-labelledby="resetPasswordModalLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content bg-dark text-light rounded-4 border-0">
-                <div class="modal-header border-0">
+            <div class="modal-content reset-password-modal-content border-0" style="border-radius: 0 !important;">
+                <div class="modal-header reset-password-modal-header border-0">
                     <h5 class="modal-title" id="resetPasswordModalLabel">Set New Password</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    <button type="button" class="btn-close reset-password-modal-close" data-bs-dismiss="modal"
                         aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body reset-password-modal-body">
 
                     <p class="mb-3">
                         OTP verified. Set your new password below.
@@ -339,7 +337,7 @@
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
-                            <small class="text-light-50 d-block mt-1">
+                            <small class="reset-password-validity-text d-block mt-1">
                                 At least 8 characters with uppercase, lowercase, number, and symbol.
                             </small>
                         </div>
@@ -367,28 +365,25 @@
     {{-- =============== LOGIN ERROR MODAL =============== --}}
     @if (!empty($loginErrors))
         <div class="modal fade" id="loginErrorModal" tabindex="-1" aria-labelledby="loginErrorModalLabel"
-            aria-hidden="true">
+            aria-hidden="true" data-bs-backdrop="static">
             <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content border-0">
-                    <div class="modal-header bg-danger text-white border-0">
-                        <h5 class="modal-title d-flex align-items-center gap-2" id="loginErrorModalLabel">
-                            <i class="fas fa-exclamation-circle"></i>
-                            Login Error
-                        </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                            aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="mb-2">Please check the following:</p>
-                        <ul class="mb-0">
+                <div class="modal-content login-error-modal-content border-0">
+                    <button type="button" class="login-error-modal-close" data-bs-dismiss="modal" aria-label="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <div class="login-error-modal-body">
+                        <div class="login-error-icon">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <h3 class="login-error-title">Login Error!</h3>
+                        <p class="login-error-text">Please check the following:</p>
+                        <ul class="login-error-list">
                             @foreach ($loginErrors as $error)
                                 <li>{{ $error }}</li>
                             @endforeach
                         </ul>
-                    </div>
-                    <div class="modal-footer border-0">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                            Close
+                        <button type="button" class="btn login-error-ok-btn" data-bs-dismiss="modal">
+                            Okay
                         </button>
                     </div>
                 </div>
@@ -398,31 +393,38 @@
 
     {{-- =============== LOGIN SUCCESS MODAL =============== --}}
     @if (!empty($loginStatus))
-        <div class="modal fade" id="loginSuccessModal" tabindex="-1" aria-labelledby="loginSuccessModalLabel"
-            aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content border-0">
-                    <div class="modal-header bg-success text-white border-0">
-                        <h5 class="modal-title d-flex align-items-center gap-2" id="loginSuccessModalLabel">
-                            <i class="fas fa-check-circle"></i>
-                            Success
-                        </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                            aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="mb-0">
-                            {{ $loginStatus }}
-                        </p>
-                    </div>
-                    <div class="modal-footer border-0">
-                        <button type="button" class="btn btn-success" data-bs-dismiss="modal">
-                            OK
-                        </button>
+        @php
+            $isOtpMessage = str_contains(strtolower($loginStatus), 'otp') || str_contains(strtolower($loginStatus), 'one-time password');
+            $isRegistrationMessage = str_contains(strtolower($loginStatus), 'registration received') || 
+                                     str_contains(strtolower($loginStatus), 'account approval');
+        @endphp
+        @if (!$isRegistrationMessage)
+            <div class="modal fade" id="loginSuccessModal" tabindex="-1" aria-labelledby="loginSuccessModalLabel"
+                aria-hidden="true" data-otp-followup="{{ $isOtpMessage && (session('show_otp_modal') || session()->has('otp_pending_user_id')) ? 'true' : 'false' }}">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-0">
+                        <div class="modal-header bg-success text-white border-0">
+                            <h5 class="modal-title d-flex align-items-center gap-2" id="loginSuccessModalLabel">
+                                <i class="fas fa-check-circle"></i>
+                                Success
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="mb-0">
+                                {{ $loginStatus }}
+                            </p>
+                        </div>
+                        <div class="modal-footer border-0">
+                            <button type="button" class="btn btn-success" id="successModalOkBtn" data-bs-dismiss="modal">
+                                OK
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        @endif
     @endif
 
     {{-- =============== ACCOUNT DISABLED MODAL =============== --}}
@@ -502,11 +504,6 @@
                 forgotModal.show();
             @endif
 
-                @if (session('show_otp_modal') || session()->has('otp_pending_user_id'))
-                    var otpModal = new bootstrap.Modal(document.getElementById('otpModal'));
-                    otpModal.show();
-                @endif
-
                 @if (session('show_reset_modal'))
                     var resetModal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
                     resetModal.show();
@@ -523,17 +520,45 @@
                 @if ($errors->any())
                     var errorModalEl = document.getElementById('loginErrorModal');
                     if (errorModalEl) {
+                        // Add blur to backdrop when modal is shown
+                        errorModalEl.addEventListener('shown.bs.modal', function() {
+                            var backdrop = document.querySelector('.modal-backdrop');
+                            if (backdrop) {
+                                backdrop.style.backdropFilter = 'blur(5px)';
+                                backdrop.style.webkitBackdropFilter = 'blur(5px)';
+                                backdrop.classList.add('login-error-backdrop');
+                            }
+                        });
+                        
                         var errorModal = new bootstrap.Modal(errorModalEl);
                         errorModal.show();
                     }
                 @endif
 
+                // Show success modal first if status exists (but not for registration approval messages)
                 @if (session('status'))
                     var successModalEl = document.getElementById('loginSuccessModal');
                     if (successModalEl) {
                         var successModal = new bootstrap.Modal(successModalEl);
+                        var isOtpFollowup = successModalEl.getAttribute('data-otp-followup') === 'true';
+                        
+                        // If this is an OTP success message, set up handler to show OTP modal after success modal closes
+                        if (isOtpFollowup) {
+                            // Listen for when success modal is hidden, then show OTP modal
+                            successModalEl.addEventListener('hidden.bs.modal', function() {
+                                setTimeout(function() {
+                                    var otpModal = new bootstrap.Modal(document.getElementById('otpModal'));
+                                    otpModal.show();
+                                }, 100); // Small delay to ensure modal is fully closed
+                            }, { once: true });
+                        }
+                        
                         successModal.show();
                     }
+                @elseif (session('show_otp_modal') || session()->has('otp_pending_user_id'))
+                    // Only show OTP modal directly if there's no success message
+                    var otpModal = new bootstrap.Modal(document.getElementById('otpModal'));
+                    otpModal.show();
                 @endif
 
         });

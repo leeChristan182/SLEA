@@ -214,19 +214,21 @@
                     @csrf
                     <input type="hidden" id="org_id" name="id">
 
-                    <div class="form-group mb-3">
-                        <label for="name">Organization Name <span class="required">*</span></label>
-                        <input type="text" id="name" name="name" class="form-control" required>
-                    </div>
+                    <div class="form-fields-container">
+                        <div class="form-group">
+                            <label for="name">Organization Name <span class="required">*</span></label>
+                            <input type="text" id="name" name="name" class="form-control form-control-lg" required>
+                        </div>
 
-                    <div class="form-group mb-3">
-                        <label for="cluster_id">Cluster <span class="required">*</span></label>
-                        <select id="cluster_id" name="cluster_id" class="form-control" required>
-                            <option value="">-- Select Cluster --</option>
-                            @foreach ($clusters as $cluster)
-                                <option value="{{ $cluster->id }}">{{ $cluster->name }}</option>
-                            @endforeach
-                        </select>
+                        <div class="form-group">
+                            <label for="cluster_id">Cluster <span class="required">*</span></label>
+                            <select id="cluster_id" name="cluster_id" class="form-control form-control-lg" required>
+                                <option value="">-- Select Cluster --</option>
+                                @foreach ($clusters as $cluster)
+                                    <option value="{{ $cluster->id }}">{{ $cluster->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
 
                     <div class="button-group">
@@ -556,7 +558,7 @@
         /* Table Styling - Match other admin tables */
         .submissions-table-container {
             background: #fff;
-            border-radius: 12px;
+            border-radius: 0;
             padding: 1rem 1.25rem;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
             overflow-x: auto;
@@ -993,8 +995,8 @@
         }
 
         .org-modal-dialog {
-            max-width: 1000px !important;
-            width: 1000px !important;
+            max-width: 1200px !important;
+            width: 1200px !important;
             margin: auto !important;
             position: relative !important;
             padding: 20px;
@@ -1005,7 +1007,7 @@
             z-index: 10001 !important;
         }
 
-        @media (max-width: 1100px) {
+        @media (max-width: 1300px) {
             .org-modal-dialog {
                 max-width: 95% !important;
                 width: 95% !important;
@@ -1039,10 +1041,20 @@
             overflow: visible;
             flex: 1;
             min-height: 0;
+            align-items: center;
+        }
+
+        .org-modal-content .form-fields-container {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         .org-modal-content .form-group {
             flex-shrink: 0;
+            width: 100%;
         }
 
         .org-modal-content .button-group {
@@ -1105,31 +1117,58 @@
         }
 
         .org-modal-content .form-group {
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .org-modal-content .form-fields-container .form-group:last-child {
+            margin-bottom: 0;
         }
 
         .org-modal-content .form-group label {
-            font-weight: 600;
+            font-weight: bold;
             margin-bottom: 10px;
             color: var(--text-color, #333);
             font-size: 15px;
             display: block;
         }
 
+        body.dark-mode .org-modal-content .form-group label {
+            color: #f0f0f0;
+        }
+
         .org-modal-content .form-control {
             width: 100%;
-            padding: 12px 16px;
-            font-size: 15px;
+            padding: 14px 18px;
+            font-size: 16px;
             border: 1px solid #ced4da;
             border-radius: 6px;
             transition: border-color 0.3s ease, box-shadow 0.3s ease;
             background: var(--card-bg, #fff);
         }
 
+        .org-modal-content .form-control-lg {
+            padding: 14px 18px;
+            font-size: 17px;
+            line-height: 1.5;
+        }
+
         .org-modal-content .form-control:focus {
             outline: none;
             border-color: #7E0308;
             box-shadow: 0 0 0 3px rgba(126, 3, 8, 0.1);
+        }
+
+        body.dark-mode .org-modal-content .form-control {
+            background-color: #3a3a3a;
+            border-color: #555;
+            color: #f0f0f0;
+        }
+
+        body.dark-mode .org-modal-content .form-control:focus {
+            background-color: #3a3a3a;
+            border-color: #F9BD3D;
+            box-shadow: 0 0 0 3px rgba(249, 189, 61, 0.2);
+            color: #f0f0f0;
         }
 
         /* Disable textarea resizing */

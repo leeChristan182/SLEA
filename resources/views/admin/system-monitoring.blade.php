@@ -341,10 +341,20 @@
         margin-left: 260px !important;
         padding: 2rem !important;
         box-sizing: border-box !important;
+        transition: margin-left 0.3s ease;
+    }
+
+    /* Adjust when sidebar is collapsed */
+    body.collapsed .main-content {
+        margin-left: 60px !important;
     }
 
     @media (max-width: 768px) {
         .main-content {
+            margin-left: 0 !important;
+        }
+        
+        body.collapsed .main-content {
             margin-left: 0 !important;
         }
     }

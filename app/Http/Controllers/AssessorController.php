@@ -50,6 +50,15 @@ class AssessorController extends Controller
 
             $user->update($data);
 
+            // 🔹 SYSTEM LOG: PROFILE UPDATE
+            $userName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+            \App\Models\SystemMonitoringAndLog::record(
+                $user->role,
+                $userName ?: $user->email,
+                'Update',
+                "Updated profile information."
+            );
+
             // Return JSON response for AJAX requests
             if ($request->ajax() || $request->expectsJson()) {
                 return response()->json([
@@ -119,6 +128,16 @@ class AssessorController extends Controller
             'temporary_password_hash' => null,
             'must_change_password'    => false,
         ]);
+
+        // 🔹 SYSTEM LOG: PASSWORD CHANGE
+        $userName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+        \App\Models\SystemMonitoringAndLog::record(
+            $user->role,
+            $userName ?: $user->email,
+            'Update',
+            "Changed password."
+        );
+
         // Return JSON response for AJAX requests
         if ($request->ajax() || $request->expectsJson()) {
             return response()->json([

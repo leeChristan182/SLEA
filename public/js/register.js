@@ -592,7 +592,11 @@ function updateExpectedGrad() {
     window.nextPrev = function (n) {
       if (n === 1 && !validateStep()) return false;
       currentStep += n;
-      if (currentStep >= formSteps.length) { form.submit(); return false; }
+      if (currentStep >= formSteps.length) { 
+        // Intercept form submission and submit via AJAX
+        submitForm();
+        return false; 
+      }
       showStep(currentStep);
     };
 
@@ -631,6 +635,25 @@ function updateExpectedGrad() {
       });
     });
 
+    // -------- Password visibility toggle --------
+    document.querySelectorAll('.toggle-password').forEach(icon => {
+      icon.addEventListener('click', () => {
+        const targetId = icon.dataset.target;
+        const target = document.getElementById(targetId);
+        if (!target) return;
+        
+        const isPassword = target.type === 'password';
+        target.type = isPassword ? 'text' : 'password';
+        
+        // Toggle icon between eye and eye-slash
+        icon.classList.toggle('fa-eye', !isPassword);
+        icon.classList.toggle('fa-eye-slash', isPassword);
+        
+        // Update title attribute
+        icon.setAttribute('title', isPassword ? 'Hide password' : 'Show password');
+      });
+    });
+
     // -------- Dark mode --------
     const body = document.body,
       toggleBtn = document.getElementById('darkModeToggle'),
@@ -648,5 +671,169 @@ function updateExpectedGrad() {
     const flip = () => applyTheme(body.classList.contains('dark-mode') ? 'light' : 'dark');
     toggleBtn?.addEventListener('click', flip);
     toggleBtn2?.addEventListener('click', flip);
+
+    // -------- Form Submission with Modal --------
+    async function submitForm() {
+      if (!form) return;
+
+      // Disable submit button to prevent double submission
+      const submitBtn = nextBtn;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+      }
+
+      try {
+        const formData = new FormData(form);
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+
+        const response = await fetch(form.action, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrfToken,
+            'Accept': 'application/json'
+          },
+          redirect: 'manual'
+        });
+
+        // Check response status
+        if (response.status === 422) {
+          // Validation errors - Laravel returns JSON for validation failures
+          try {
+            const data = await response.json();
+            if (data.errors) {
+              handleFormErrors(data.errors);
+              // Scroll to first step with error
+              currentStep = 0;
+              formSteps.forEach((step, index) => {
+                if (step.querySelector('.is-invalid')) {
+                  currentStep = index;
+                }
+              });
+              showStep(currentStep);
+            }
+          } catch (e) {
+            alert('Please check your information and try again.');
+          }
+        } else if (response.status === 302 || response.status === 0 || response.ok) {
+          // Status 302 = redirect (success in Laravel)
+          // Status 0 = CORS redirect or successful redirect
+          // Status 200-299 = success
+          showSuccessModal();
+        } else {
+          // Other errors
+          try {
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+              const data = await response.json();
+              if (data.message) {
+                alert(data.message);
+              } else {
+                alert('Registration failed. Please try again.');
+              }
+            } else {
+              // If we get HTML, it might be an error page, but could also be a redirect
+              // In case of redirect, show success modal
+              if (response.status < 400) {
+                showSuccessModal();
+              } else {
+                alert('Registration failed. Please check your information and try again.');
+              }
+            }
+          } catch (e) {
+            // If parsing fails but status is not an error, assume success
+            if (response.status < 400) {
+              showSuccessModal();
+            } else {
+              alert('An error occurred. Please try again.');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Registration error:', error);
+        alert('An error occurred during registration. Please try again.');
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Submit';
+        }
+      }
+    }
+
+    function handleFormErrors(errors) {
+      // Remove previous error messages
+      form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+      form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+
+      // Display new error messages
+      Object.keys(errors).forEach(field => {
+        const input = form.querySelector(`[name="${field}"]`);
+        if (input) {
+          input.classList.add('is-invalid');
+          const errorDiv = document.createElement('div');
+          errorDiv.className = 'invalid-feedback';
+          errorDiv.textContent = errors[field][0];
+          input.parentNode.appendChild(errorDiv);
+        }
+      });
+
+      // Scroll to first error
+      const firstError = form.querySelector('.is-invalid');
+      if (firstError) {
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+    function showSuccessModal() {
+      const modal = document.getElementById('successModal');
+      if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+      }
+    }
+
+    function hideSuccessModal() {
+      const modal = document.getElementById('successModal');
+      if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = ''; // Restore scrolling
+      }
+    }
+
+    function redirectToLogin() {
+      // Get login URL from the "Login here" link in the page
+      const loginLink = document.querySelector('a[href*="login"]');
+      if (loginLink) {
+        window.location.href = loginLink.href;
+      } else {
+        // Fallback to common login route
+        window.location.href = '/login';
+      }
+    }
+
+    // Modal event listeners
+    const modalOkayBtn = document.getElementById('modalOkayBtn');
+    const modalCloseBtn = document.getElementById('modalCloseBtn');
+    const successModal = document.getElementById('successModal');
+
+    modalOkayBtn?.addEventListener('click', () => {
+      hideSuccessModal();
+      redirectToLogin();
+    });
+
+    modalCloseBtn?.addEventListener('click', () => {
+      hideSuccessModal();
+      redirectToLogin();
+    });
+
+    // Close modal when clicking outside
+    successModal?.addEventListener('click', (e) => {
+      if (e.target === successModal) {
+        hideSuccessModal();
+        redirectToLogin();
+      }
+    });
   });
 })();

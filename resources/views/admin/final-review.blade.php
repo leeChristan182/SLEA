@@ -579,7 +579,7 @@
         }
 
         .admin-final-modal .modal-dialog {
-            max-width: 960px !important;
+            max-width: 1200px !important;
             width: 95vw !important;
             margin: 1.5rem auto !important;
         }

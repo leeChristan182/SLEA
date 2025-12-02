@@ -62,6 +62,15 @@ class AdminController extends Controller
 
         $user->update($data);
 
+        // 🔹 SYSTEM LOG: PROFILE UPDATE
+        $adminName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+        SystemMonitoringAndLog::record(
+            $user->role,
+            $adminName ?: $user->email,
+            'Update',
+            "Updated profile information."
+        );
+
         return back()->with('status', 'Profile updated.');
     }
 
@@ -270,6 +279,14 @@ class AdminController extends Controller
     public function approveReject(Request $request)
     {
         $search = $request->input('q');
+        $programId = $request->input('program_id');
+        $yearLevel = $request->input('year_level');
+
+        // Fetch programs for filter dropdown
+        $programs = DB::table('programs')
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
 
         $students = User::query()
             ->where('role', User::ROLE_STUDENT)
@@ -284,12 +301,22 @@ class AdminController extends Controller
                         });
                 });
             })
+            ->when($programId, function ($q) use ($programId) {
+                $q->whereHas('studentAcademic', function ($qa) use ($programId) {
+                    $qa->where('program_id', $programId);
+                });
+            })
+            ->when($yearLevel, function ($q) use ($yearLevel) {
+                $q->whereHas('studentAcademic', function ($qa) use ($yearLevel) {
+                    $qa->where('year_level', $yearLevel);
+                });
+            })
             ->with(['studentAcademic.program']) // eager load
             ->orderByDesc('created_at')
             ->paginate(5)
             ->withQueryString();
 
-        return view('admin.approve-reject', compact('students', 'search'));
+        return view('admin.approve-reject', compact('students', 'search', 'programs', 'programId', 'yearLevel'));
     }
 
 
@@ -360,12 +387,12 @@ class AdminController extends Controller
     // PATCH /admin/manage/{user}/toggle   (approved <-> disabled)
     public function toggleUser(User $user)
     {
-        // Safety: don’t toggle yourself
+        // Safety: don't toggle yourself
         if (Auth::id() === $user->id) {
             return back()->withErrors(['email' => 'You cannot disable your own account.']);
         }
 
-        // Safety: don’t leave zero active admins
+        // Safety: don't leave zero active admins
         if ($user->isAdmin()) {
             $activeAdmins = User::role(User::ROLE_ADMIN)->approved()->count();
             if ($activeAdmins <= 1 && $user->isApproved()) {
@@ -373,7 +400,22 @@ class AdminController extends Controller
             }
         }
 
+        $oldStatus = $user->status;
         $user->toggle(); // model handles approved <-> disabled
+        $newStatus = $user->status;
+
+        // 🔹 SYSTEM LOG: ACCOUNT DISABLED/ENABLED
+        $admin = Auth::user();
+        $adminName = trim($admin->first_name . ' ' . ($admin->middle_name ? $admin->middle_name . ' ' : '') . $admin->last_name);
+        $userName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+        $action = $newStatus === 'disabled' ? 'Disabled' : 'Enabled';
+        
+        SystemMonitoringAndLog::record(
+            $admin->role,
+            $adminName ?: $admin->email,
+            'Update',
+            "{$action} account for {$userName} ({$user->email})."
+        );
 
         return back()->with('status', 'User status toggled.');
     }

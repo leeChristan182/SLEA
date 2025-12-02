@@ -127,7 +127,7 @@
                                     </div>
                                 </div>
                                 <div class="form-actions" style="display:none;">
-                                    <button type="submit" class="btn-save">Save Changes</button>
+                                    <button type="submit" class="btn-save">Save</button>
                                     <button type="button" class="btn-cancel" id="cancelPersonalBtn">Cancel</button>
                                 </div>
                             </form>

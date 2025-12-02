@@ -76,7 +76,7 @@
 
     .submissions-table-container {
         background: white;
-        border-radius: 8px;
+        border-radius: 0;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         overflow: hidden;
     }
@@ -361,7 +361,7 @@
     /* Success Modal Styles */
     .success-modal-content {
         border: none !important;
-        border-radius: 12px !important;
+        border-radius: 0 !important;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
     }
 
@@ -432,7 +432,7 @@
     /* Validation Modal Styles */
     .validation-modal-content {
         border: none !important;
-        border-radius: 12px !important;
+        border-radius: 0 !important;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
     }
 

@@ -15,21 +15,29 @@
                 <input type="hidden" id="editSubsectionId" name="subsection_id" required>
                 <div class="form-group">
                     <label for="editPosition">Position/Title (Label) <span class="text-danger">*</span></label>
-                    <input type="text" id="editPosition" name="label" class="form-control" required>
+                    <input type="text" id="editPosition" name="label" class="form-control form-control-lg" required>
                 </div>
                 <div class="form-group">
                     <label for="editPoints">Points <span class="text-danger">*</span></label>
-                    <input type="number" id="editPoints" name="points" class="form-control" step="0.1" min="0" max="5" required>
+                    <input type="number" id="editPoints" name="points" class="form-control form-control-lg" step="0.1" min="0" max="5" required>
+                </div>
+                <div class="form-group">
+                    <label for="editEvidenceNeeded">Evidence Needed</label>
+                    <textarea id="editEvidenceNeeded" name="evidence_needed" class="form-control form-control-lg" rows="3" placeholder="Enter evidence requirements..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="editNotes">Notes</label>
+                    <textarea id="editNotes" name="notes" class="form-control form-control-lg" rows="3" placeholder="Enter additional notes..."></textarea>
                 </div>
                 <div class="form-group">
                     <label for="editOrderNo">Order No (optional)</label>
-                    <input type="number" id="editOrderNo" name="order_no" class="form-control" min="0">
+                    <input type="number" id="editOrderNo" name="order_no" class="form-control form-control-lg" min="0">
                 </div>
             </form>
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeEditRubricModal()">Cancel</button>
-            <button type="button" class="btn btn-primary" onclick="submitEditRubricForm()">Save Changes</button>
+            <button type="button" class="btn btn-primary" onclick="submitEditRubricForm()">Save</button>
         </div>
     </div>
 </div>
@@ -68,29 +76,29 @@
                 <input type="hidden" id="editSubsectionSectionId" name="section_id">
                 <div class="form-group">
                     <label for="editSubsectionName">Subsection Name <span class="text-danger">*</span></label>
-                    <input type="text" id="editSubsectionName" name="sub_section" class="form-control" required>
+                    <input type="text" id="editSubsectionName" name="sub_section" class="form-control form-control-lg" required>
                 </div>
                 <div class="form-group">
                     <label for="editSubsectionMaxPoints">Max Points</label>
-                    <input type="number" id="editSubsectionMaxPoints" name="max_points" class="form-control" step="0.1" min="0">
+                    <input type="number" id="editSubsectionMaxPoints" name="max_points" class="form-control form-control-lg" step="0.1" min="0">
                 </div>
                 <div class="form-group">
                     <label for="editSubsectionEvidence">Evidence Needed</label>
-                    <textarea id="editSubsectionEvidence" name="evidence_needed" rows="3" class="form-control"></textarea>
+                    <textarea id="editSubsectionEvidence" name="evidence_needed" rows="3" class="form-control form-control-lg"></textarea>
                 </div>
                 <div class="form-group">
                     <label for="editSubsectionNotes">Notes</label>
-                    <textarea id="editSubsectionNotes" name="notes" rows="3" class="form-control"></textarea>
+                    <textarea id="editSubsectionNotes" name="notes" rows="3" class="form-control form-control-lg"></textarea>
                 </div>
                 <div class="form-group">
                     <label for="editSubsectionOrderNo">Order No</label>
-                    <input type="number" id="editSubsectionOrderNo" name="order_no" class="form-control" min="0">
+                    <input type="number" id="editSubsectionOrderNo" name="order_no" class="form-control form-control-lg" min="0">
                 </div>
             </form>
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeEditSubsectionModal()">Cancel</button>
-            <button type="button" class="btn btn-primary" onclick="submitEditSubsectionForm()">Save Changes</button>
+            <button type="button" class="btn btn-primary" onclick="submitEditSubsectionForm()">Save</button>
         </div>
     </div>
 </div>
@@ -156,13 +164,19 @@
     .modal-content {
         background: #fff;
         color: #333;
-        padding: 20px 25px;
-        border-radius: 12px;
+        padding: 20px 30px;
+        border-radius: 0 !important;
         width: 100%;
-        max-width: 480px;
+        max-width: 900px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
         position: relative;
         animation: fadeIn 0.3s ease-in-out;
+        transition: background-color 0.3s, color 0.3s;
+    }
+
+    body.dark-mode .modal-content {
+        background: #2b2b2b;
+        color: #fff;
     }
 
     .modal-content.success {
@@ -175,10 +189,26 @@
         justify-content: space-between;
         align-items: center;
         margin-bottom: 10px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #dee2e6;
+        background: #f8f9fa;
+        margin: -20px -30px 20px -30px;
+        padding: 15px 30px;
+    }
+
+    body.dark-mode .modal-header {
+        background: #1a1a1a;
+        border-bottom-color: #444;
     }
 
     .modal-header h3 {
         font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+
+    body.dark-mode .modal-header h3 {
+        color: #fff;
     }
 
     .modal-header .close {
@@ -192,8 +222,20 @@
         color: #000;
     }
 
+    body.dark-mode .modal-header .close {
+        color: #ccc;
+    }
+
+    body.dark-mode .modal-header .close:hover {
+        color: #fff;
+    }
+
     .modal-body {
         padding: 10px 0;
+    }
+
+    body.dark-mode .modal-body {
+        color: #fff;
     }
 
     .modal-footer {
@@ -231,6 +273,15 @@
         background: #ddd;
     }
 
+    body.dark-mode .btn-secondary {
+        background: #444;
+        color: #eee;
+    }
+
+    body.dark-mode .btn-secondary:hover {
+        background: #555;
+    }
+
     .btn-danger {
         background: #dc3545;
         color: white;
@@ -259,21 +310,73 @@
         }
     }
 
-    /* Dark Mode */
-    @media (prefers-color-scheme: dark) {
-        .modal-content {
-            background: #2b2b2b;
-            color: #eee;
-        }
+    /* Form elements dark mode */
+    body.dark-mode .form-group label {
+        color: #fff;
+    }
 
-        .btn-secondary {
-            background: #444;
-            color: #eee;
-        }
+    body.dark-mode .form-control {
+        background-color: #3a3a3a;
+        border-color: #555;
+        color: #fff;
+    }
 
-        .btn-secondary:hover {
-            background: #555;
-        }
+    body.dark-mode .form-control:focus {
+        background-color: #3a3a3a;
+        border-color: #F9BD3D;
+        color: #fff;
+    }
+
+    body.dark-mode .form-control::placeholder {
+        color: #999;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: bold;
+        color: #333;
+    }
+
+    body.dark-mode .form-group label {
+        color: #fff;
+        font-weight: bold;
+    }
+
+    .form-control-lg {
+        width: 100%;
+        padding: 12px 15px;
+        font-size: 1rem;
+        line-height: 1.5;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+
+    .form-control-lg:focus {
+        border-color: #80bdff;
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    body.dark-mode .form-control-lg {
+        background-color: #3a3a3a;
+        border-color: #555;
+        color: #fff;
+    }
+
+    body.dark-mode .form-control-lg:focus {
+        border-color: #F9BD3D;
+        box-shadow: 0 0 0 0.2rem rgba(249, 189, 61, 0.25);
+    }
+
+    textarea.form-control-lg {
+        resize: vertical;
+        min-height: 80px;
     }
 </style>
 
@@ -283,7 +386,7 @@
 <script>
     let currentRubricId = null;
 
-    function openEditRubricModal(rubricId, subsectionId, position, points, orderNo) {
+    function openEditRubricModal(rubricId, subsectionId, position, points, orderNo, evidenceNeeded, notes) {
         currentRubricId = rubricId;
         const form = document.getElementById('editRubricForm');
         
@@ -292,10 +395,11 @@
         
         // Fill form fields
         document.getElementById('editSubsectionId').value = subsectionId || '';
-        
         document.getElementById('editPosition').value = position || '';
         document.getElementById('editPoints').value = points || '';
         document.getElementById('editOrderNo').value = orderNo || '';
+        document.getElementById('editEvidenceNeeded').value = evidenceNeeded || '';
+        document.getElementById('editNotes').value = notes || '';
         
         const modal = document.getElementById('editRubricModal');
         modal.style.display = 'flex';

@@ -269,6 +269,7 @@
                                                                                                                                                                                                         '{{ addslashes($pos->label) }}',
                                                                                                                                                                                                         {{ $pos->points ?? 0 }},
                                                                                                                                                                                                         {{ $pos->order_no ?? '' }},
+                                                                                                                                                                                                        '{{ addslashes($subsection->evidence_needed ?? '') }}',
                                                                                                                                                                                                         '{{ addslashes($subsection->notes ?? '') }}'
                                                                                                                                                                                                     )">
                                                                     <i class="fas fa-edit"></i>

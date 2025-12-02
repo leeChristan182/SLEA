@@ -251,13 +251,13 @@
       width:8px; height:8px;
     }
 
-    .sidebar ul { list-style:none; padding:0; margin-top:5px; }
+    .sidebar ul { list-style:none; padding:0; margin-top:5px; padding-bottom: 10px; }
     .sidebar ul li {
       display:flex; align-items:center; gap:10px;
       padding:12px; border-radius:6px; cursor:pointer;
       transition: none;
       font-size: 16px;
-      margin-bottom: 8px;
+      margin-bottom: 4px;
     }
 /* Sidebar default state */
 .sidebar ul li {
@@ -741,8 +741,9 @@ body.dark-mode .search-btn {
 .table-wrap {
   margin-top: 10px;
   background: #fff;
-  border: 1px solid #E5E7EB; border-radius: 10px;
-  overflow: hidden; /* keeps rounded corners on the header */
+  border: 1px solid #E5E7EB;
+  border-radius: 0;
+  overflow: hidden;
 }
 
 /* ===== MANAGE ACCOUNT TABLE STYLES ===== */
@@ -2217,7 +2218,7 @@ body.dark-mode .review-actions {
 /* ===== Success Modal Styles (Matching Assessor Dashboard) ===== */
 .success-modal-content {
   border: none !important;
-  border-radius: 12px !important;
+  border-radius: 0 !important;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
 }
 
@@ -2346,6 +2347,17 @@ body.dark-mode .summary-value {
   justify-content: center;
 }
 
+/* Remove border-radius from all modals */
+.modal-content,
+.modal-dialog .modal-content,
+.success-modal-content,
+.validation-modal-content,
+.otp-modal-content,
+.modal-header,
+.modal-footer {
+  border-radius: 0 !important;
+}
+
 .modal[style*="flex"] {
   display: flex !important;
 }
@@ -2358,7 +2370,7 @@ body.dark-mode .summary-value {
   background-color: #fff;
   margin: 0;
   padding: 0;
-  border-radius: 15px;
+  border-radius: 0 !important;
   width: 90%;
   max-width: 800px;
   max-height: 90vh;
@@ -2390,7 +2402,7 @@ body.dark-mode .modal-content {
   padding: 20px 25px;
   border-bottom: 1px solid #dee2e6;
   background: #f8f9fa;
-  border-radius: 15px 15px 0 0;
+  border-radius: 0 !important;
 }
 
 body.dark-mode .modal-header {
@@ -2635,14 +2647,14 @@ body.dark-mode .modal-footer {
 
 /* ===== Rubric Styles ===== */
 .rubric-main-container {
-  padding-top: 80px; /* Balanced space to avoid header overlap */
+  padding-top: 20px; /* Reduced top margin */
   min-height: 100vh;
 }
 
 .rubric-content {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 15px;
+  padding: 0 15px 15px 15px;
 }
 
 /* Back Button Navigation */
@@ -2689,9 +2701,10 @@ body.dark-mode .btn-back:hover {
 .rubric-main-title {
   font-size: 24px;
   font-weight: 600;
+  margin-top: 0;
   margin-bottom: 30px;
   color: #7c0404;
-  text-align: center;
+  text-align: left;
 }
 
 body.dark-mode .rubric-main-title {
@@ -2798,7 +2811,7 @@ body.dark-mode .subsection-title {
   margin-top: 15px;
   background: #fff;
   border: 2px solid #dee2e6;
-  border-radius: 10px;
+  border-radius: 0;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
@@ -3126,6 +3139,528 @@ body.dark-mode .rubric-main-container {
 body.dark-mode .rubric-content {
   background: #2a2a2a !important;
   color: #f0f0f0 !important;
+}
+
+/* ===== Criteria Pagination Styles ===== */
+.criteria-controls {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border: 1px solid #dee2e6;
+}
+
+body.dark-mode .criteria-controls {
+  background: #3a3a3a;
+  border-color: #555;
+}
+
+.controls-row {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 200px;
+}
+
+.search-control-group {
+  flex: 2;
+  min-width: 300px;
+}
+
+.search-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.search-input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: #fff;
+  color: #495057;
+}
+
+.search-input:focus {
+  border-color: #8B0000;
+  box-shadow: 0 0 0 0.2rem rgba(139, 0, 0, 0.25);
+  outline: none;
+}
+
+body.dark-mode .search-input {
+  background: #2a2a2a;
+  border-color: #555;
+  color: #f0f0f0;
+}
+
+/* Search button - maroon with icon */
+.btn-search-maroon {
+  background-color: #7E0308;
+  color: white;
+  border: 1px solid #7E0308;
+  border-radius: 6px;
+  padding: 0;
+  min-width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.btn-search-maroon:hover {
+  background-color: #5a0206;
+  border-color: #5a0206;
+}
+
+.btn-search-maroon:active {
+  background-color: #4a0105;
+  border-color: #4a0105;
+}
+
+.btn-search-maroon i {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* Clear button */
+.btn-clear {
+  background-color: #6c757d;
+  color: white;
+  border: 1px solid #6c757d;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  height: 38px;
+  white-space: nowrap;
+}
+
+.btn-clear:hover {
+  background-color: #5a6268;
+  border-color: #5a6268;
+}
+
+.btn-clear:active {
+  background-color: #545b62;
+}
+
+body.dark-mode .btn-clear {
+  background-color: #495057;
+  border-color: #495057;
+}
+
+body.dark-mode .btn-clear:hover {
+  background-color: #5a6268;
+  border-color: #5a6268;
+}
+
+.control-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #495057;
+  margin: 0;
+}
+
+body.dark-mode .control-label {
+  color: #f0f0f0;
+}
+
+.control-input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: #fff;
+  color: #495057;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.control-input:focus {
+  border-color: #8B0000;
+  box-shadow: 0 0 0 0.2rem rgba(139, 0, 0, 0.25);
+  outline: none;
+}
+
+body.dark-mode .control-input {
+  background: #2a2a2a;
+  border-color: #555;
+  color: #f0f0f0;
+}
+
+body.dark-mode .control-input:focus {
+  border-color: #8B0000;
+  box-shadow: 0 0 0 0.2rem rgba(139, 0, 0, 0.3);
+}
+
+.category-indicator {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+body.dark-mode .category-indicator {
+  color: #ccc;
+}
+
+.category-page {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.category-page.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.category-page.hidden {
+  display: none !important;
+}
+
+.rubric-heading .category-number {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #8B0000;
+  margin-right: 0.5rem;
+}
+
+body.dark-mode .rubric-heading .category-number {
+  color: #F9BD3D;
+}
+
+.rubric-heading .category-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #8B0000;
+}
+
+body.dark-mode .rubric-heading .category-title {
+  color: #F9BD3D;
+}
+
+.category-description {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #495057;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border-left: 4px solid #8B0000;
+}
+
+body.dark-mode .category-description {
+  color: #f0f0f0;
+  background: #2a2a2a;
+  border-left-color: #F9BD3D;
+}
+
+.category-description p {
+  margin: 0;
+}
+
+.criteria-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  table-layout: fixed;
+}
+
+.criteria-table .section-cell,
+.criteria-table .subsection-cell,
+.criteria-table .position-cell,
+.criteria-table .points-cell,
+.criteria-table .evidence-cell,
+.criteria-table .notes-cell {
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.criteria-table thead th {
+  background: #8B0000;
+  color: #fff;
+  font-weight: 600;
+  padding: 12px;
+  text-align: left;
+  border-top: 1px solid #6b0000;
+  border-right: 1px solid #6b0000;
+  border-bottom: 1px solid #6b0000;
+  border-left: 1px solid #6b0000;
+  font-size: 0.9rem;
+}
+
+body.dark-mode .criteria-table thead th {
+  background: #5c0000;
+  border-top-color: #4a0000;
+  border-right-color: #4a0000;
+  border-bottom-color: #4a0000;
+  border-left-color: #4a0000;
+}
+
+.criteria-table tbody td {
+  padding: 10px 12px;
+  border-top: 1px solid #ddd;
+  border-right: 1px solid #ddd;
+  border-bottom: 1px solid #ddd;
+  border-left: 1px solid #ddd;
+  text-align: left;
+  vertical-align: top;
+  background: #fff;
+  font-size: 0.9rem;
+  color: #495057;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+body.dark-mode .criteria-table tbody td {
+  background: #3a3a3a;
+  border-top-color: #555;
+  border-right-color: #555;
+  border-bottom-color: #555;
+  border-left-color: #555;
+  color: #f0f0f0;
+}
+
+.criteria-table tbody tr:nth-child(even) td {
+  background: #f8f9fa;
+}
+
+body.dark-mode .criteria-table tbody tr:nth-child(even) td {
+  background: #2a2a2a;
+}
+
+/* Removed hover effects - table is static */
+/* No :hover selectors for table rows or cells */
+
+/* Ensure merged cells have proper borders - all four sides */
+.criteria-table tbody td[rowspan],
+.criteria-table tbody td[colspan] {
+  border-top: 1px solid #ddd !important;
+  border-right: 1px solid #ddd !important;
+  border-bottom: 1px solid #ddd !important;
+  border-left: 1px solid #ddd !important;
+}
+
+body.dark-mode .criteria-table tbody td[rowspan],
+body.dark-mode .criteria-table tbody td[colspan] {
+  border-top-color: #555 !important;
+  border-right-color: #555 !important;
+  border-bottom-color: #555 !important;
+  border-left-color: #555 !important;
+}
+
+/* Ensure all table cells have consistent borders */
+.criteria-table tbody td,
+.criteria-table thead th {
+  border-top: 1px solid #ddd;
+  border-right: 1px solid #ddd;
+  border-bottom: 1px solid #ddd;
+  border-left: 1px solid #ddd;
+}
+
+body.dark-mode .criteria-table tbody td,
+body.dark-mode .criteria-table thead th {
+  border-top-color: #555;
+  border-right-color: #555;
+  border-bottom-color: #555;
+  border-left-color: #555;
+}
+
+/* Ensure vertical alignment for all cells */
+.criteria-table tbody td,
+.criteria-table thead th {
+  vertical-align: top;
+}
+
+/* Consistent padding for all cells */
+.criteria-table tbody td {
+  padding: 10px 12px;
+}
+
+.criteria-table thead th {
+  padding: 12px;
+}
+
+.criteria-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.criteria-pagination .btn-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border: 1px solid #ddd;
+  background: white;
+  color: #666;
+  text-decoration: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  min-width: 80px;
+  height: 36px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  gap: 0.5rem;
+}
+
+.criteria-pagination .btn-nav:hover:not(:disabled) {
+  background: #8B0000;
+  border-color: #8B0000;
+  color: white;
+}
+
+.criteria-pagination .btn-nav:disabled {
+  background: #f9f9f9;
+  color: #ccc;
+  border-color: #ddd;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.criteria-pagination .page-numbers {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.criteria-pagination .btn-page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #ddd;
+  background: white;
+  color: #666;
+  text-decoration: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.criteria-pagination .btn-page:hover:not(.active) {
+  background: #8B0000;
+  border-color: #8B0000;
+  color: white;
+}
+
+.criteria-pagination .btn-page.active {
+  background: #8B0000;
+  color: white;
+  border-color: #8B0000;
+  font-weight: 600;
+}
+
+.criteria-pagination .btn-page.active:hover {
+  background: #5c0000;
+  border-color: #5c0000;
+}
+
+/* Dark mode pagination */
+body.dark-mode .criteria-pagination .btn-nav {
+  background: #2a2a2a;
+  color: #f0f0f0;
+  border-color: #555;
+}
+
+body.dark-mode .criteria-pagination .btn-nav:hover:not(:disabled) {
+  background: #8B0000;
+  border-color: #8B0000;
+  color: white;
+}
+
+body.dark-mode .criteria-pagination .btn-nav:disabled {
+  background: #2a2a2a;
+  color: #a0aec0;
+  border-color: #555;
+  opacity: 0.6;
+}
+
+body.dark-mode .criteria-pagination .btn-page {
+  background: #2a2a2a;
+  color: #f0f0f0;
+  border-color: #555;
+}
+
+body.dark-mode .criteria-pagination .btn-page:hover:not(.active) {
+  background: #8B0000;
+  border-color: #8B0000;
+  color: white;
+}
+
+body.dark-mode .criteria-pagination .btn-page.active {
+  background: #8B0000;
+  color: white;
+  border-color: #8B0000;
+}
+
+/* Responsive design for criteria pagination */
+@media (max-width: 768px) {
+  .controls-row {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .control-group {
+    min-width: 100%;
+  }
+
+  .criteria-pagination {
+    gap: 0.5rem;
+  }
+
+  .criteria-pagination .btn-nav {
+    padding: 0.4rem 0.8rem;
+    min-width: 70px;
+    height: 32px;
+    font-size: 0.85rem;
+  }
+
+  .criteria-pagination .btn-page {
+    width: 32px;
+    height: 32px;
+    font-size: 0.85rem;
+  }
+
+  .criteria-table {
+    font-size: 0.85rem;
+  }
+
+  .criteria-table thead th,
+  .criteria-table tbody td {
+    padding: 8px 6px;
+  }
 }
 
 .rubric-navigation .btn {
@@ -4652,7 +5187,7 @@ body.dark-mode .award-table tbody tr:hover td {
 /* Table Container */
 .table-container {
   overflow-x: auto;
-  border-radius: 8px;
+  border-radius: 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -4856,7 +5391,7 @@ body.dark-mode .award-table tbody tr:hover td {
 
 .modal-content {
   background: white;
-  border-radius: 8px;
+  border-radius: 0 !important;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   max-width: 500px;
   width: 90%;

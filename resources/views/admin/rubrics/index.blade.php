@@ -234,7 +234,7 @@
     /* Table Styling - Match other admin tables */
     .submissions-table-container {
         background: #fff !important;
-        border-radius: 12px;
+        border-radius: 0;
         padding: 1rem 1.25rem;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
         overflow-x: auto;
@@ -525,7 +525,7 @@
         width: 100%;
         border-collapse: collapse;
         background: #fff !important;
-        border-radius: 8px;
+        border-radius: 0;
         overflow: hidden;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
         color: #212529 !important; /* Explicit text color for light mode */

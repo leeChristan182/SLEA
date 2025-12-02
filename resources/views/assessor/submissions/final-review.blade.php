@@ -882,7 +882,7 @@
         /* Table styling to match other tables */
         .submissions-table-container {
             background: white;
-            border-radius: 8px;
+            border-radius: 0;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             overflow-x: hidden;
             overflow-y: visible;

@@ -145,6 +145,15 @@ class StudentController extends Controller
         $user->password = $request->password; // mutator hashes
         $user->save();
 
+        // 🔹 SYSTEM LOG: PASSWORD CHANGE
+        $userName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+        \App\Models\SystemMonitoringAndLog::record(
+            $user->role,
+            $userName ?: $user->email,
+            'Update',
+            "Changed password."
+        );
+
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
                 'success' => true,
@@ -259,6 +268,15 @@ class StudentController extends Controller
             $academic = StudentAcademic::create($payload);
         }
 
+        // 🔹 SYSTEM LOG: PROFILE UPDATE (Academic Info)
+        $userName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+        \App\Models\SystemMonitoringAndLog::record(
+            $user->role,
+            $userName ?: $user->email,
+            'Update',
+            "Updated academic information."
+        );
+
         // Messaging hint for UX
         $msg = $newEligibility === 'under_review'
             ? 'Academic information saved. Your eligibility is now under review.'
@@ -327,6 +345,15 @@ class StudentController extends Controller
                 DB::table('student_leaderships')->insert($base);
             }
         }
+
+        // 🔹 SYSTEM LOG: PROFILE UPDATE (Leadership Info)
+        $userName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+        \App\Models\SystemMonitoringAndLog::record(
+            $user->role,
+            $userName ?: $user->email,
+            'Update',
+            "Updated leadership information."
+        );
 
         $msg = 'Leadership information saved.';
 
@@ -613,30 +640,6 @@ class StudentController extends Controller
             'sleaAwarded'             => $sleaAwarded,
         ]);
     }
-
-    // GET /student/criteria
-
-    public function criteria()
-    {
-        // If rubric tables are missing (dev / migration issue), avoid crashing
-        if (!Schema::hasTable('rubric_categories')) {
-            return view('student.criteria', [
-                'categories' => collect(),
-            ]);
-        }
-
-        // Load the full rubric: category → sections → subsections → options
-        $categories = RubricCategory::with([
-            'sections.subsections.options',
-        ])
-            ->orderBy('order_no')
-            ->get();
-
-        return view('student.criteria', [
-            'categories' => $categories,
-        ]);
-    }
-
 
     // GET /student/history
 
