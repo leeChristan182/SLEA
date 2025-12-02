@@ -29,6 +29,11 @@
 
         <div class="rubric-main-container" x-data="rubricPager(@json($pageTitles), {{ $initialPage }})">
 
+            {{-- Page Header --}}
+            <div class="page-header">
+                <h1>Scoring Rubric Configuration</h1>
+            </div>
+
             {{-- Pages --}}
             <div class="rubric-pages">
 
@@ -144,6 +149,23 @@
     body.dark-mode .rubric-main-container {
         background: transparent !important;
         color: #f0f0f0 !important;
+    }
+
+    .page-header {
+        margin-bottom: 24px;
+        padding-bottom: 0;
+    }
+
+    .page-header h1 {
+        font-size: 28px;
+        font-weight: 700;
+        color: #7b0000 !important;
+        margin: 0;
+        padding: 0;
+    }
+
+    body.dark-mode .page-header h1 {
+        color: #f9bd3d !important;
     }
 
     .current-page-label {
