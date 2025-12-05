@@ -686,7 +686,7 @@
             background-color: #fff !important;
             margin: 0 !important;
             padding: 0 !important;
-            border-radius: 15px !important;
+            border-radius: 0 !important;
             width: 100% !important;
             max-width: none !important;
             max-height: 70vh !important;
@@ -1256,7 +1256,8 @@ body.dark-mode .score-pill {
 
         #submissionModal .btn-close::before {
             content: "�" !important;
-            font-size: 18px !important;
+            font-size: 24px !important;
+            display: block !important;
             font-weight: bold !important;
             color: white !important;
             line-height: 1 !important;

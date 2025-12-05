@@ -827,3 +827,77 @@ html, body {
     outline: none;
     box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.25);
 }
+
+/* ====== Privacy Modal - Always Light Mode with White Background ====== */
+#privacyModal .modal-content,
+#privacyModal .privacy-modal-content {
+    background-color: #ffffff !important;
+    color: #333 !important;
+}
+
+#privacyModal .modal-body {
+    color: #333 !important;
+}
+
+#privacyModal .modal-body p {
+    color: #333 !important;
+}
+
+#privacyModal .modal-body strong {
+    color: #7b0000 !important;
+}
+
+#privacyModal .modal-body a {
+    color: #8B0000 !important;
+}
+
+/* Override dark mode for privacy modal - keep white background */
+body.dark-mode #privacyModal .modal-content,
+body.dark-mode #privacyModal .privacy-modal-content {
+    background-color: #ffffff !important;
+    color: #333 !important;
+}
+
+body.dark-mode #privacyModal .modal-body {
+    color: #333 !important;
+}
+
+body.dark-mode #privacyModal .modal-body p {
+    color: #333 !important;
+}
+
+body.dark-mode #privacyModal .modal-body strong {
+    color: #7b0000 !important;
+}
+
+body.dark-mode #privacyModal .modal-body a {
+    color: #8B0000 !important;
+}
+
+/* Privacy Modal Continue Button - Maroon */
+#privacyModal .privacy-continue-btn {
+    background-color: #8B0000 !important;
+    color: #ffffff !important;
+    border: none !important;
+}
+
+#privacyModal .privacy-continue-btn:hover {
+    background-color: #6B0000 !important;
+    color: #ffffff !important;
+}
+
+#privacyModal .privacy-continue-btn:focus {
+    background-color: #8B0000 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(139, 0, 0, 0.25) !important;
+}
+
+body.dark-mode #privacyModal .privacy-continue-btn {
+    background-color: #8B0000 !important;
+    color: #ffffff !important;
+}
+
+body.dark-mode #privacyModal .privacy-continue-btn:hover {
+    background-color: #6B0000 !important;
+    color: #ffffff !important;
+}

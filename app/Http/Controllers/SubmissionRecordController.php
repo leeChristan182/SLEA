@@ -93,12 +93,36 @@ class SubmissionRecordController extends Controller
             'note'                 => ['nullable', 'string'],
             'term' => [
                 'nullable',
-                'regex:/^20\d{2}\s-\s20\d{2}$/',
                 function ($attribute, $value, $fail) {
-                    if ($value) {
-                        [$start, $end] = explode(' - ', $value);
-                        if ((int)$end <= (int)$start) {
-                            $fail('The ending year must be greater than the starting year.');
+                    if ($value && trim($value) !== '') {
+                        // Try different separators: " - ", "-", "–", " to "
+                        $parts = null;
+                        if (strpos($value, ' - ') !== false) {
+                            $parts = explode(' - ', $value);
+                        } elseif (strpos($value, '-') !== false) {
+                            $parts = explode('-', $value);
+                        } elseif (strpos($value, '–') !== false) {
+                            $parts = explode('–', $value);
+                        } elseif (strpos($value, ' to ') !== false) {
+                            $parts = explode(' to ', $value);
+                        }
+                        
+                        if ($parts && count($parts) >= 2) {
+                            $start = (int)trim($parts[0]);
+                            $end = (int)trim($parts[1]);
+                            
+                            // Validate years are reasonable (1900-3000)
+                            if ($start < 1900 || $start > 3000 || $end < 1900 || $end > 3000) {
+                                $fail('The term must contain valid years (e.g., 2023-2024 or 2023 - 2024).');
+                            } elseif ($end <= $start) {
+                                $fail('The ending year must be greater than the starting year.');
+                            }
+                        } else {
+                            // If no separator found, check if it's a single year or invalid format
+                            $trimmed = trim($value);
+                            if (!preg_match('/^\d{4}/', $trimmed)) {
+                                $fail('The term format is invalid. Please use format like "2023-2024" or "2023 - 2024".');
+                            }
                         }
                     }
                 },
@@ -220,10 +244,20 @@ class SubmissionRecordController extends Controller
 
         // ------------ REVERT RULE (same as before) ------------
         if (Schema::hasTable('assessor_final_reviews')) {
+            // Verify 'draft' status exists in enum table before updating
+            $draftExists = DB::table('final_review_statuses')->where('key', 'draft')->exists();
+            if (!$draftExists) {
+                try {
+                    DB::table('final_review_statuses')->insert(['key' => 'draft']);
+                } catch (\Exception $e) {
+                    \Log::warning("Could not create 'draft' status: " . $e->getMessage());
+                }
+            }
+            
             AssessorFinalReview::where('student_id', $user->id)
-                ->whereIn('status', ['finalized', 'submitted'])
+                ->whereIn('status', ['finalized', 'queued_for_admin'])
                 ->update([
-                    'status'      => 'tracking',
+                    'status'      => 'draft',
                     'reviewed_at' => now(),
                 ]);
         }

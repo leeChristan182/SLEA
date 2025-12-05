@@ -192,7 +192,8 @@ class FinalReviewController extends Controller
 
                     if (!$studentAcademic) {
                         // If no record yet, set directly to final status based on decision
-                        $status = ($data['decision'] === 'approved' && $hasFinalApplication)
+                        // At admin final review stage, if approved, mark as qualified
+                        $status = ($data['decision'] === 'approved')
                             ? 'qualified'
                             : 'not_qualified';
 
@@ -202,12 +203,9 @@ class FinalReviewController extends Controller
                         ]);
                     } else {
                         // We are at ADMIN FINAL REVIEW stage.
-                        // If admin APPROVES *and* it's truly a final application → qualified
-                        if ($data['decision'] === 'approved' && $hasFinalApplication) {
+                        // If admin APPROVES, mark as qualified (admin decision is final)
+                        if ($data['decision'] === 'approved') {
                             $studentAcademic->slea_application_status = 'qualified';
-                        } elseif ($data['decision'] === 'approved') {
-                            // Approved but not final application: keep whatever status it currently has.
-                            // (Do not overwrite with an invalid enum like "pending".)
                         } else {
                             // Admin marks NOT QUALIFIED
                             $studentAcademic->slea_application_status = 'not_qualified';

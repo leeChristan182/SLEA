@@ -222,30 +222,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // === PRIVACY MODAL (with localStorage ack) ===
-    setTimeout(() => {
-        const modalEl = document.getElementById('privacyModal');
-        if (!modalEl || typeof bootstrap === 'undefined') return;
-
-        const STORAGE_KEY = 'slea_privacy_ack_v1';
-
-        if (localStorage.getItem(STORAGE_KEY) === '1') {
-            // already acknowledged → don't show again
-            return;
-        }
-
-            const privacyModal = new bootstrap.Modal(modalEl, {
-                backdrop: 'static',
-                keyboard: false
-            });
-
-        // when user closes/continues, remember choice
-        modalEl.addEventListener('hidden.bs.modal', () => {
-            localStorage.setItem(STORAGE_KEY, '1');
-        }, { once: true });
-
-            privacyModal.show();
-    }, 100);
 
     document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('loginForm');

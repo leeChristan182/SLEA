@@ -768,10 +768,13 @@
             align-items: center;
             justify-content: center;
             width: 100%;
+            flex-wrap: nowrap;
         }
 
         .admin-decision-btn {
             min-width: 160px;
+            max-width: 200px;
+            flex: 0 1 auto;
             padding: 0.6rem 1.5rem;
             font-size: 0.95rem;
             font-weight: 600;

@@ -278,6 +278,11 @@
         word-wrap: break-word;
         word-break: break-word;
         padding: 12px 8px;
+        border-right: 1px solid #dee2e6 !important;
+    }
+
+    body.dark-mode .rubric-section[data-category="leadership"] .manage-table tbody td:nth-child(3) {
+        border-right-color: #555 !important;
     }
 
     /* Max Points column - narrow width (3rd column in categories II-V) */

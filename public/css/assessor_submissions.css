@@ -534,6 +534,7 @@
     height: 80vh !important;
     max-height: 80vh !important;
     overflow-y: auto !important;
+    border-radius: 0 !important;
 }
 
     @keyframes modalSlideIn {
@@ -1052,10 +1053,15 @@
 
     #individualSubmissionModal .btn-close::before {
         content: "×" !important;
-        font-size: 18px !important;
+        font-size: 24px !important;
         font-weight: bold !important;
         color: white !important;
         line-height: 1 !important;
+        display: block !important;
+    }
+    
+    #individualSubmissionModal .btn-close {
+        background-image: none !important;
     }
 
     #individualSubmissionModal .btn-close:hover {

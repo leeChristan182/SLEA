@@ -569,7 +569,7 @@
         position: relative;
         background: #fff;
         border: none;
-        border-radius: 12px;
+        border-radius: 0;
         margin: 100px auto 0;
         width: min(720px, 92%);
         box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
@@ -672,6 +672,13 @@
         text-align: center;
         font-weight: 700;
         margin: 8px 0 16px;
+    }
+
+    .submit-record-page .sr-modal-actions {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 16px;
     }
 
     .submit-record-page .sr-success {
