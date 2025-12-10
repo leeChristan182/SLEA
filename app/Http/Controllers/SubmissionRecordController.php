@@ -82,6 +82,8 @@ class SubmissionRecordController extends Controller
             'rubric_category_id'   => ['required', 'exists:rubric_categories,id'],
             'rubric_section_id'    => ['nullable', 'exists:rubric_sections,section_id'],
             'rubric_subsection_id' => ['nullable', 'exists:rubric_subsections,sub_section_id'],
+            'cluster_id'            => ['nullable', 'integer', 'exists:clusters,id'],
+            'organization_id'      => ['nullable', 'integer', 'exists:organizations,id'],
 
             'activity_title'       => ['required', 'string', 'max:255'],
             'description'          => ['nullable', 'string'],
@@ -185,6 +187,8 @@ class SubmissionRecordController extends Controller
                 'term'             => $data['term']             ?? null,
                 'issued_by'        => $data['issued_by']        ?? null,
                 'document_type'    => $data['document_type']    ?? null,
+                'cluster_id'       => $data['cluster_id']      ?? null,
+                'organization_id'  => $data['organization_id'] ?? null,
             ],
 
             'status'       => 'pending',

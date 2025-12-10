@@ -16,6 +16,7 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\OtpCodeMail;
 use App\Mail\AccountApprovedMail;
+use App\Mail\AccountRejectedMail;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\Paginator;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -196,190 +197,118 @@ class AdminController extends Controller
         return view('admin.manage-account', compact('users'));
     }
 
-    // GET /admin/create_assessor
-    public function createUser()
+    // GET /admin/approve-reject
+    public function approveReject(Request $request)
     {
-        $limit     = (int) config('slea.max_admin_accounts', 3); // change in .env via SLEA_MAX_ADMINS
-        $adminCnt  = User::where('role', 'admin')->count();
-        $remaining = max($limit - $adminCnt, 0);
+        $search = $request->input('q');
 
-        // points to resources/views/admin/create_user.blade.php
-        return view('admin.create_user', [
-            'limit'     => $limit,
-            'adminCnt'  => $adminCnt,
-            'remaining' => $remaining,
-        ]);
+        // Show all pending users with unassigned role
+        $users = User::query()
+            ->where('role', User::ROLE_UNASSIGNED)
+            ->where('status', User::STATUS_PENDING)
+            ->when($search, function ($q) use ($search) {
+                $like = '%' . $search . '%';
+                $q->where(function ($inner) use ($like) {
+                    $inner->where('email', 'like', $like)
+                        ->orWhere('first_name', 'like', $like)
+                        ->orWhere('last_name', 'like', $like)
+                        ->orWhere('user_code', 'like', $like);
+                });
+            })
+            ->orderByDesc('created_at')
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('admin.approve-reject', compact('users', 'search'));
     }
 
-    // app/Http/Controllers/AdminController.php
 
-    public function storeUser(Request $request)
+    // POST /admin/approve/{user_id} - Assign role and approve
+    public function approveUser(Request $request, $user_id)
     {
-        $data = $request->validate(
-            [
-                'first_name'  => ['required', 'string', 'max:50'],
-                'last_name'   => ['required', 'string', 'max:50'],
-                'middle_name' => ['nullable', 'string', 'max:50'],
-                'email'       => [
-                    'required',
-                    'email',
-                    'max:100',
-                    'unique:users,email',
-                    'regex:/^[^@]+@usep\.edu\.ph$/i',
-                ],
-                'role'    => ['nullable', 'string', 'in:admin,assessor,student'],
-                'contact' => ['nullable', 'string', 'regex:/^09\d{9}$/', 'max:15'],
-            ],
-            [
-                'email.regex' => 'The email must be a USEP address (ending in @usep.edu.ph).',
-            ]
-        );
-
-        // Default to 'assessor' if role is not provided
-        $data['role'] = $data['role'] ?? 'assessor';
-
-        // Default status to 'approved' for new assessor/admin accounts
-        $status = User::STATUS_APPROVED;
-
-        // ✅ strong random default password
-        $password = Str::random(12); // you can bump from 10 to 12 if you like
-
-        $user = User::create([
-            'first_name'  => $data['first_name'],
-            'last_name'   => $data['last_name'],
-            'middle_name' => $data['middle_name'] ?? null,
-            'email'       => $data['email'],
-            'password'    => Hash::make($password),
-            'role'        => $data['role'],
-            'status'      => $status,
-            'contact'     => $data['contact'] ?? null,
-        ]);
-
         $admin = Auth::user();
 
-        // 🔹 Send account creation email with initial password
-        Mail::to($user->email)->send(new AccountCreatedMail($user, $password));
+        $request->validate([
+            'role' => ['required', 'in:student,assessor'],
+        ]);
 
-        // 🔹 SYSTEM LOG: ACCOUNT CREATION
+        $user = User::where('id', $user_id)
+            ->where('role', User::ROLE_UNASSIGNED)
+            ->where('status', User::STATUS_PENDING)
+            ->firstOrFail();
+
+        // Assign role and approve
+        $user->role = $request->input('role');
+        $user->status = User::STATUS_APPROVED;
+        $user->save();
+
+        // If approving a student, ensure they have academic eligibility set up
+        if ($user->isStudent()) {
+            $academic = \App\Models\StudentAcademic::firstOrNew(['user_id' => $user->id]);
+            
+            // Set eligibility_status to 'eligible' if not already set or if it's in a restricted state
+            if (empty($academic->eligibility_status) || 
+                in_array($academic->eligibility_status, ['needs_revalidation', 'under_review', 'ineligible'], true)) {
+                $academic->eligibility_status = 'eligible';
+            }
+            
+            // Save the academic record
+            $academic->save();
+        }
+
+        // Send approval email
+        Mail::to($user->email)->send(new AccountApprovedMail($user));
+
+        // System log
+        $adminName = trim($admin->first_name . ' ' . ($admin->middle_name ? $admin->middle_name . ' ' : '') . $admin->last_name);
+        $userName  = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+        $roleName  = ucfirst($user->role);
+
+        SystemMonitoringAndLog::record(
+            $admin->role,
+            $adminName ?: $admin->email,
+            'Update',
+            "Approved and assigned as {$roleName} for {$userName} ({$user->email})."
+        );
+
+        return redirect()->back()->with('status', "Account approved and assigned as {$roleName} successfully.");
+    }
+
+
+    // POST /admin/reject/{user_id} - Reject with reason
+    public function rejectUser(Request $request, $user_id)
+    {
+        $admin = Auth::user();
+
+        $request->validate([
+            'rejection_reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $user = User::where('id', $user_id)
+            ->where('role', User::ROLE_UNASSIGNED)
+            ->where('status', User::STATUS_PENDING)
+            ->firstOrFail();
+
+        $user->status = User::STATUS_REJECTED;
+        $user->save();
+
+        $rejectionReason = $request->input('rejection_reason', '');
+
+        // Send rejection email with reason
+        Mail::to($user->email)->send(new AccountRejectedMail($user, $rejectionReason));
+
+        // System log
         $adminName = trim($admin->first_name . ' ' . ($admin->middle_name ? $admin->middle_name . ' ' : '') . $admin->last_name);
         $userName  = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
 
         SystemMonitoringAndLog::record(
             $admin->role,
             $adminName ?: $admin->email,
-            'Create',
-            "Created {$user->role} account for {$userName} ({$user->email})."
-        );
-
-        return redirect()->route('admin.manage-account')->with('status', 'User account created successfully.');
-    }
-
-
-    // GET /admin/approve-reject
-    public function approveReject(Request $request)
-    {
-        $search = $request->input('q');
-        $programId = $request->input('program_id');
-        $yearLevel = $request->input('year_level');
-
-        // Fetch programs for filter dropdown
-        $programs = DB::table('programs')
-            ->select('id', 'name')
-            ->orderBy('name')
-            ->get();
-
-        $students = User::query()
-            ->where('role', User::ROLE_STUDENT)
-            ->where('status', User::STATUS_PENDING) // Only show pending students
-            ->when($search, function ($q) use ($search) {
-                $like = '%' . $search . '%';
-
-                $q->where(function ($inner) use ($like) {
-                    $inner->where('email', 'like', $like)
-                        ->orWhereHas('studentAcademic', function ($qa) use ($like) {
-                            $qa->where('student_number', 'like', $like);
-                        });
-                });
-            })
-            ->when($programId, function ($q) use ($programId) {
-                $q->whereHas('studentAcademic', function ($qa) use ($programId) {
-                    $qa->where('program_id', $programId);
-                });
-            })
-            ->when($yearLevel, function ($q) use ($yearLevel) {
-                $q->whereHas('studentAcademic', function ($qa) use ($yearLevel) {
-                    $qa->where('year_level', $yearLevel);
-                });
-            })
-            ->with(['studentAcademic.program']) // eager load
-            ->orderByDesc('created_at')
-            ->paginate(5)
-            ->withQueryString();
-
-        return view('admin.approve-reject', compact('students', 'search', 'programs', 'programId', 'yearLevel'));
-    }
-
-
-    // POST /admin/approve/{student_id}
-    public function approveUser($student_id)
-    {
-        $admin = Auth::user();
-
-        // Only students
-        $student = User::where('id', $student_id)
-            ->where('role', User::ROLE_STUDENT)
-            ->firstOrFail();
-
-        // Optional: only allow approving pending accounts
-        if ($student->status !== User::STATUS_PENDING) {
-            return back()->withErrors([
-                'email' => 'Only pending student accounts can be approved.',
-            ]);
-        }
-
-        $student->status = User::STATUS_APPROVED;
-        $student->save();
-
-        // ✅ Send approval email here
-        Mail::to($student->email)->send(new AccountApprovedMail($student));
-
-        // System log
-        $adminName   = trim($admin->first_name . ' ' . ($admin->middle_name ? $admin->middle_name . ' ' : '') . $admin->last_name);
-        $studentName = trim($student->first_name . ' ' . ($student->middle_name ? $student->middle_name . ' ' : '') . $student->last_name);
-
-        SystemMonitoringAndLog::record(
-            $admin->role,
-            $adminName ?: $admin->email,
             'Update',
-            "Approved account for {$studentName} ({$student->email})."
+            "Rejected account for {$userName} ({$user->email})." . ($rejectionReason ? " Reason: {$rejectionReason}" : '')
         );
 
-        return redirect()->back()->with('status', 'Student account approved successfully.');
-    }
-
-
-    // POST /admin/reject/{user}
-    public function rejectUser($student_id)
-    {
-        $admin = Auth::user();
-
-        $student = User::where('id', $student_id)->firstOrFail();
-        $studentName = trim($student->first_name . ' ' . ($student->middle_name ? $student->middle_name . ' ' : '') . $student->last_name);
-
-        $student->status = 'rejected';
-        $student->save();
-
-        $adminName = trim($admin->first_name . ' ' . ($admin->middle_name ? $admin->middle_name . ' ' : '') . $admin->last_name);
-
-        // 🔹 SYSTEM LOG: REJECTION
-        SystemMonitoringAndLog::record(
-            $admin->role,
-            $adminName ?: $admin->email,
-            'Update',
-            "Rejected account for {$studentName} ({$student->email})."
-        );
-
-        return redirect()->back()->with('status', 'Student account rejected.');
+        return redirect()->back()->with('status', 'Account rejected. User has been notified via email.');
     }
 
 
@@ -420,31 +349,9 @@ class AdminController extends Controller
         return back()->with('status', 'User status toggled.');
     }
 
-    // DELETE /admin/manage/{user}
-    public function destroyUser(User $user)
-    {
-        // Safety: don’t delete yourself
-        if (Auth::id() === $user->id) {
-            return back()->withErrors(['email' => 'You cannot delete your own account.']);
-        }
-
-        // Safety: don’t delete the last admin
-        if ($user->isAdmin()) {
-            $adminCount = User::role(User::ROLE_ADMIN)->count();
-            if ($adminCount <= 1) {
-                return back()->withErrors(['email' => 'You cannot delete the last admin.']);
-            }
-        }
-
-        // Best-effort: delete stored avatar
-        if ($user->profile_picture_path && Storage::disk('public')->exists($user->profile_picture_path)) {
-            Storage::disk('public')->delete($user->profile_picture_path);
-        }
-
-        $user->delete();
-
-        return back()->with('status', 'User deleted.');
-    }
+    // DELETE /admin/manage/{user} - REMOVED
+    // Users should not be deleted for data integrity and reporting
+    // Use disable/enable functionality instead
     // GET /admin/revalidation
     // GET /admin/revalidation
     public function revalidationQueue()

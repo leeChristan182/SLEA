@@ -187,23 +187,23 @@
     {{-- =============== PRIVACY MODAL =============== --}}
     <div class="modal fade" id="privacyModal" tabindex="-1" aria-labelledby="privacyModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content text-center bg-light text-dark shadow-lg border-0 overflow-hidden privacy-modal-content" style="border-radius: 0 !important;">
+            <div class="modal-content text-center bg-dark text-light shadow-lg border-0 overflow-hidden" style="border-radius: 0 !important;">
                 <div class="modal-body px-5 py-5 d-flex flex-column align-items-center" style="min-height:460px;">
                     <img src="{{ asset('images/security-illustration.png') }}" alt="Security" class="mb-4"
                         style="max-width:230px;">
-                    <p class="mb-4 fs-5 px-3" style="color: #333;">
-                        By continuing to use this platform, you agree to the
+                    <p class="mb-4 fs-5 px-3">
+                        By continuing to use the <strong>Student Portal</strong>, you agree to the
                         <a href="https://www.usep.edu.ph/usep-data-privacy-statement/" target="_blank"
-                            class="text-decoration-none fw-semibold" style="color: #8B0000;">
-                            University of Southeastern Philippines' Data Privacy Statement
+                            class="text-decoration-none text-danger fw-semibold">
+                            University of Southeastern Philippines’ Data Privacy Statement
                         </a>.
                     </p>
-                    <button type="button" class="btn px-5 py-2 rounded-pill fw-bold mt-auto privacy-continue-btn"
-                        data-bs-dismiss="modal" style="background-color: #8B0000; color: #fff; border: none;">
+                    <button type="button" class="btn btn-danger px-5 py-2 rounded-pill fw-bold mt-auto"
+                        data-bs-dismiss="modal">
                         CONTINUE
                     </button>
                 </div>
-                <div class="w-100" style="height:12px;background-color:#8B0000;"></div>
+                <div class="w-100" style="height:12px;background-color:#C84848;"></div>
             </div>
         </div>
     </div>
@@ -397,10 +397,14 @@
             $isOtpMessage = str_contains(strtolower($loginStatus), 'otp') || str_contains(strtolower($loginStatus), 'one-time password');
             $isRegistrationMessage = str_contains(strtolower($loginStatus), 'registration received') || 
                                      str_contains(strtolower($loginStatus), 'account approval');
+            $isPasswordResetMessage = str_contains(strtolower($loginStatus), 'otp verified') && 
+                                     str_contains(strtolower($loginStatus), 'set a new password');
         @endphp
         @if (!$isRegistrationMessage)
             <div class="modal fade" id="loginSuccessModal" tabindex="-1" aria-labelledby="loginSuccessModalLabel"
-                aria-hidden="true" data-otp-followup="{{ $isOtpMessage && (session('show_otp_modal') || session()->has('otp_pending_user_id')) ? 'true' : 'false' }}">
+                aria-hidden="true" 
+                data-otp-followup="{{ $isOtpMessage && (session('show_otp_modal') || session()->has('otp_pending_user_id')) ? 'true' : 'false' }}"
+                data-password-reset-followup="{{ ($isPasswordResetMessage && session('show_reset_modal')) ? 'true' : 'false' }}">
                 <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content border-0">
                         <div class="modal-header bg-success text-white border-0">
@@ -463,7 +467,7 @@
         </div>
     </div>
 
-    {{-- Handle Privacy Modal - Always show on every visit --}}
+    {{-- Handle Privacy Modal with localStorage --}}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const modalEl = document.getElementById('privacyModal');
@@ -472,11 +476,20 @@
                 return;
             }
 
-            // Always show the modal on every visit (no localStorage check)
+            const STORAGE_KEY = 'slea_privacy_ack_v2';
+
+            if (localStorage.getItem(STORAGE_KEY) === '1') {
+                return;
+            }
+
             const privacyModal = new bootstrap.Modal(modalEl, {
                 backdrop: 'static',
                 keyboard: false
             });
+
+            modalEl.addEventListener('hidden.bs.modal', function () {
+                localStorage.setItem(STORAGE_KEY, '1');
+            }, { once: true });
 
             privacyModal.show();
         });
@@ -495,11 +508,6 @@
                 forgotModal.show();
             @endif
 
-                @if (session('show_reset_modal'))
-                    var resetModal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
-                    resetModal.show();
-                @endif
-
                 @if (session('show_disabled_modal'))
                     var disabledModal = new bootstrap.Modal(document.getElementById('accountDisabledModal'), {
                         backdrop: 'static',
@@ -515,10 +523,24 @@
                         errorModalEl.addEventListener('shown.bs.modal', function() {
                             var backdrop = document.querySelector('.modal-backdrop');
                             if (backdrop) {
-                                backdrop.style.backdropFilter = 'blur(5px)';
-                                backdrop.style.webkitBackdropFilter = 'blur(5px)';
+                                backdrop.style.backdropFilter = 'blur(10px)';
+                                backdrop.style.webkitBackdropFilter = 'blur(10px)';
+                                backdrop.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
                                 backdrop.classList.add('login-error-backdrop');
                             }
+                        });
+                        
+                        // Also apply blur when modal is about to show
+                        errorModalEl.addEventListener('show.bs.modal', function() {
+                            setTimeout(function() {
+                                var backdrop = document.querySelector('.modal-backdrop');
+                                if (backdrop) {
+                                    backdrop.style.backdropFilter = 'blur(10px)';
+                                    backdrop.style.webkitBackdropFilter = 'blur(10px)';
+                                    backdrop.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+                                    backdrop.classList.add('login-error-backdrop');
+                                }
+                            }, 10);
                         });
                         
                         var errorModal = new bootstrap.Modal(errorModalEl);
@@ -532,6 +554,7 @@
                     if (successModalEl) {
                         var successModal = new bootstrap.Modal(successModalEl);
                         var isOtpFollowup = successModalEl.getAttribute('data-otp-followup') === 'true';
+                        var isPasswordResetFollowup = successModalEl.getAttribute('data-password-reset-followup') === 'true';
                         
                         // If this is an OTP success message, set up handler to show OTP modal after success modal closes
                         if (isOtpFollowup) {
@@ -544,12 +567,27 @@
                             }, { once: true });
                         }
                         
+                        // If this is a password reset success message, set up handler to show reset password modal after success modal closes
+                        if (isPasswordResetFollowup) {
+                            // Listen for when success modal is hidden, then show reset password modal
+                            successModalEl.addEventListener('hidden.bs.modal', function() {
+                                setTimeout(function() {
+                                    var resetModal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
+                                    resetModal.show();
+                                }, 100); // Small delay to ensure modal is fully closed
+                            }, { once: true });
+                        }
+                        
                         successModal.show();
                     }
                 @elseif (session('show_otp_modal') || session()->has('otp_pending_user_id'))
                     // Only show OTP modal directly if there's no success message
                     var otpModal = new bootstrap.Modal(document.getElementById('otpModal'));
                     otpModal.show();
+                @elseif (session('show_reset_modal'))
+                    // Only show reset modal directly if there's no success message
+                    var resetModal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
+                    resetModal.show();
                 @endif
 
         });

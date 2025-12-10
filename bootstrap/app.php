@@ -8,6 +8,7 @@ use App\Http\Middleware\AwardEligibilityMiddleware;
 use App\Http\Middleware\RedirectIfAuthenticated;
 use App\Http\Middleware\CheckUserStatus;
 use App\Http\Middleware\RequirePasswordChange;
+use App\Http\Middleware\RequireProfileCompletion;
 
 return Illuminate\Foundation\Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -24,7 +25,7 @@ return Illuminate\Foundation\Application::configure(basePath: dirname(__DIR__))
             'guest' => RedirectIfAuthenticated::class,
             'check.status' => CheckUserStatus::class,
             'require.password.change' => RequirePasswordChange::class,
-
+            'require.profile.completion' => RequireProfileCompletion::class,
         ]);
 
         // Add CheckUserStatus to web middleware group for all authenticated routes

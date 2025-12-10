@@ -19,6 +19,7 @@ use App\Http\Controllers\AssessorFinalReviewController;
 use App\Http\Controllers\FinalReviewController;
 use App\Http\Controllers\AssessorStudentSubmissionController;
 use App\Http\Controllers\SystemMonitoringAndLogController;
+use App\Http\Controllers\ProfileCompletionController;
 /*
 |--------------------------------------------------------------------------
 | AUTH ROUTES (guest-only)
@@ -86,8 +87,27 @@ Route::prefix('api')->name('ajax.')->group(function () {
 | STUDENT ROUTES
 |--------------------------------------------------------------------------
 */
+// Profile Completion Routes (before role-specific routes)
+Route::middleware(['auth', SessionTimeout::class, NoCache::class])
+    ->prefix('profile')
+    ->name('profile.complete.')
+    ->group(function () {
+        Route::get('/student', [ProfileCompletionController::class, 'showStudentForm'])
+            ->middleware('role:student')
+            ->name('student');
+        Route::post('/student', [ProfileCompletionController::class, 'storeStudentProfile'])
+            ->middleware('role:student')
+            ->name('student.store');
+        Route::get('/assessor', [ProfileCompletionController::class, 'showAssessorForm'])
+            ->middleware('role:assessor')
+            ->name('assessor');
+        Route::post('/assessor', [ProfileCompletionController::class, 'storeAssessorProfile'])
+            ->middleware('role:assessor')
+            ->name('assessor.store');
+    });
+
 Route::prefix('student')
-    ->middleware(['auth', SessionTimeout::class, NoCache::class, 'role:student'])
+    ->middleware(['auth', SessionTimeout::class, NoCache::class, 'role:student', 'require.profile.completion'])
     ->name('student.')
     ->controller(StudentController::class)
     ->group(function () {
@@ -141,15 +161,13 @@ Route::prefix('admin')
         Route::post('/profile/avatar', [AdminController::class, 'updateAvatar'])->name('profile.avatar');
         Route::put('/profile/password', [AdminController::class, 'updatePassword'])->name('profile.password.update');
 
-        Route::get('/create_user', [AdminController::class, 'createUser'])->name('create_user');
-        Route::post('/create_user', [AdminController::class, 'storeUser'])->name('store_user');
         Route::get('/approve-reject', [AdminController::class, 'approveReject'])->name('approve-reject');
-        Route::post('/approve/{student_id}', [AdminController::class, 'approveUser'])->name('approve');
-        Route::post('/reject/{student_id}', [AdminController::class, 'rejectUser'])->name('reject');
+        Route::post('/approve/{user_id}', [AdminController::class, 'approveUser'])->name('approve');
+        Route::post('/reject/{user_id}', [AdminController::class, 'rejectUser'])->name('reject');
 
         Route::get('/manage', [AdminController::class, 'manageAccount'])->name('manage-account');
         Route::patch('/manage/{user}/toggle', [AdminController::class, 'toggleUser'])->name('manage.toggle');
-        Route::delete('/manage/{user}', [AdminController::class, 'destroyUser'])->name('manage.destroy');
+        // Delete route removed - users should not be deleted for data integrity and reporting
 
         Route::get('/revalidation', [AdminController::class, 'revalidationQueue'])->name('revalidation');
         Route::post('/revalidation/{user}/approve', [AdminController::class, 'approveRevalidation'])->name('revalidation.approve');

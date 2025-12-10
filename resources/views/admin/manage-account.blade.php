@@ -141,17 +141,7 @@
                                         </button>
                                     </form>
 
-                                    {{-- Delete --}}
-                                    <form action="{{ route('admin.manage.destroy', $user) }}"
-                                          method="POST"
-                                          class="d-inline delete-form"
-                                          data-user-name="{{ $user->full_name }}">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="button" class="btn-delete" title="Delete user">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </form>
+                                    {{-- Delete button removed - users should not be deleted for data integrity and reporting --}}
                                 </div>
                             </td>
                         </tr>
@@ -301,8 +291,7 @@
         align-items: center;
     }
 
-    .btn-toggle,
-    .btn-delete {
+    .btn-toggle {
         width: 35px;
         height: 35px;
         border: none;
@@ -313,9 +302,6 @@
         cursor: pointer;
         transition: all 0.2s ease;
         padding: 0;
-    }
-
-    .btn-toggle {
         background-color: #ffc107;
         color: #212529;
     }
@@ -325,18 +311,7 @@
         transform: translateY(-1px);
     }
 
-    .btn-delete {
-        background-color: #dc3545;
-        color: white;
-    }
-
-    .btn-delete:hover {
-        background-color: #c82333;
-        transform: translateY(-1px);
-    }
-
-    .btn-toggle i,
-    .btn-delete i {
+    .btn-toggle i {
         font-size: 0.9rem;
     }
 
@@ -347,14 +322,6 @@
 
     body.dark-mode .btn-toggle:hover {
         background-color: #e0a800;
-    }
-
-    body.dark-mode .btn-delete {
-        background-color: #dc3545;
-    }
-
-    body.dark-mode .btn-delete:hover {
-        background-color: #8b0000;
     }
 
     /* Filter group select width */
@@ -516,31 +483,7 @@
             });
         });
 
-        // Delete button handlers
-        document.querySelectorAll('.delete-form').forEach(function(form) {
-            const button = form.querySelector('.btn-delete');
-            const userName = form.getAttribute('data-user-name');
-
-            button.addEventListener('click', function(e) {
-                e.preventDefault();
-
-                Swal.fire({
-                    title: 'Delete User?',
-                    html: `Are you sure you want to delete <strong>${userName}</strong>? This action cannot be undone.`,
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#dc3545',
-                    cancelButtonColor: '#6c757d',
-                    confirmButtonText: 'Yes, Delete',
-                    cancelButtonText: 'Cancel',
-                    reverseButtons: true
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        form.submit();
-                    }
-                });
-            });
-        });
+        // Delete button removed - users should not be deleted for data integrity
     });
 </script>
 @endsection

@@ -61,6 +61,13 @@ class AuthController extends Controller
                 ->withInput($request->only('email'));
         }
 
+        // 2.5) Check if role is unassigned
+        if ($user->role === User::ROLE_UNASSIGNED) {
+            return back()
+                ->withErrors(['email' => 'Your account role has not been assigned yet. Please wait for admin approval.'])
+                ->withInput($request->only('email'));
+        }
+
         // 3) Optional: SLEA eligibility check for students (same logic as in verifyOtp)
         if (
             method_exists($user, 'isStudent')
@@ -133,6 +140,17 @@ class AuthController extends Controller
 
     protected function redirectAfterLogin(User $user)
     {
+        // Check if profile is completed (only for students and assessors, not admin)
+        if (!$user->isAdmin() && !$user->profile_completed) {
+            // Redirect to profile completion page
+            return match ($user->role) {
+                User::ROLE_STUDENT  => redirect()->route('profile.complete.student'),
+                User::ROLE_ASSESSOR => redirect()->route('profile.complete.assessor'),
+                default             => redirect()->route('login.show')
+                    ->withErrors(['email' => 'Your account role has not been assigned yet.']),
+            };
+        }
+
         return match ($user->role) {
             User::ROLE_ADMIN    => redirect()->route('admin.profile'),
             User::ROLE_ASSESSOR => redirect()->route('assessor.profile'),
@@ -185,139 +203,77 @@ class AuthController extends Controller
      * ========================= */
     public function showRegister()
     {
-        $colleges        = $this->getCollegesList();
-        $leadershipTypes = $this->getLeadershipTypesList();
-
-        return view('auth.register', compact('colleges', 'leadershipTypes'));
+        return view('auth.register-universal');
     }
 
     public function register(Request $request)
     {
+        // Universal Registration - Only basic fields
         $rules = [
-            // Step 1
-            'last_name'     => ['required', 'string', 'max:50'],
             'first_name'    => ['required', 'string', 'max:50'],
-            'middle_name'   => ['nullable', 'string', 'max:50'],
-            'birth_date' => [
-                'nullable',
-                'date',
-                'before:today',
-                'after_or_equal:' . now()->subYears(100)->toDateString(),
-                'before_or_equal:' . now()->subYears(15)->toDateString(),
-            ],
-            'email_address' => [
+            'last_name'     => ['required', 'string', 'max:50'],
+            'email'         => [
                 'required',
                 'email',
                 'max:100',
                 'regex:/^[a-zA-Z0-9._%+\-]+@usep\.edu\.ph$/',
                 Rule::unique('users', 'email'),
             ],
-            'contact'       => ['required', 'string', 'regex:/^09\d{9}$/', 'max:15'],
-
-            // Step 2
-            'student_id'    => [
-                'required',
-                'string',
-                'max:30',
-                'regex:/^\d{4}-\d{5}$/', // ✅ enforce YYYY-XXXXX format
-                Rule::unique('student_academic', 'student_number'),
-            ],
-
-            'college_id'    => ['required', 'integer', 'exists:colleges,id'],
-            'program_id'    => ['required', 'integer', 'exists:programs,id'],
-            'major_id'      => ['nullable', 'integer', 'exists:majors,id'],
-            'year_level'    => ['required', 'in:1,2,3,4,5,6,7,8'],
-
-            // Step 3
-            'leadership_type_id' => ['required', 'integer', 'exists:leadership_types,id'],
-            'position_id'        => ['required', 'integer', 'exists:positions,id'],
-            'term'               => ['required', 'string', 'max:25'],
-            'issued_by'          => ['required', 'string', 'max:150'],
-            'leadership_status'  => ['required', 'in:Active,Inactive'],
-
-            // Step 4
             'password'      => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
             'privacy_agree' => ['accepted'],
         ];
 
         $messages = [
-            'email_address.regex'  => 'Please use a valid @usep.edu.ph email address.',
-            'email_address.unique' => 'This email address is already registered. Please use a different email or try logging in.',
-            'student_id.unique'    => 'This student ID is already registered. Please check your student ID or contact support if you believe this is an error.',
-            'contact.regex'        => 'Please enter a valid Philippine mobile number in the format 09XXXXXXXXX.',
-            'student_id.regex'     => 'Please enter your Student ID in the format 20XX-12345.',
+            'email.regex'  => 'Please use a valid @usep.edu.ph email address.',
+            'email.unique' => 'This email address is already registered. Please use a different email or try logging in.',
+            'contact.regex' => 'Please enter a valid Philippine mobile number in the format 09XXXXXXXXX.',
         ];
 
-
-        $validated = $request->validate($rules, $messages);
-        // Normalize names to "Proper Case"
-        $validated['first_name']  = Str::title(Str::lower(trim($validated['first_name'])));
-        $validated['last_name']   = Str::title(Str::lower(trim($validated['last_name'])));
-        if (!empty($validated['middle_name'])) {
-            $validated['middle_name'] = Str::title(Str::lower(trim($validated['middle_name'])));
-        }
-        // Extra guard: entry year in student_id must not be in the future
-        if (preg_match('/^(\d{4})/', $validated['student_id'], $m)) {
-            $entryYear   = (int) $m[1];
-            $currentYear = (int) now()->year;
-
-            if ($entryYear > $currentYear) {
-                return back()
-                    ->withErrors(['student_id' => 'Student ID year cannot be in the future.'])
-                    ->withInput();
+        try {
+            $validated = $request->validate($rules, $messages);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Handle validation errors for AJAX requests
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Please check the form fields and try again.',
+                    'errors' => $e->errors()
+                ], 422);
             }
+            // Re-throw for non-AJAX requests (Laravel will handle redirect)
+            throw $e;
         }
 
-        // Normalize contact (strip spaces/dashes but keep 09 format)
-        $digits = preg_replace('/\D/', '', $validated['contact']); // keep only numbers
+        // Normalize names to "Proper Case"
+        $validated['first_name'] = Str::title(Str::lower(trim($validated['first_name'])));
+        $validated['last_name']  = Str::title(Str::lower(trim($validated['last_name'])));
 
-        // If user typed 9XXXXXXXXX or +639XXXXXXXXX, convert to 09XXXXXXXXX
-        if (Str::startsWith($digits, '63') && strlen($digits) === 12) {
-            // 63 + 10 digits -> 0 + 10 digits
-            $digits = '0' . substr($digits, 2);
-        } elseif (Str::startsWith($digits, '9') && strlen($digits) === 10) {
-            $digits = '0' . $digits;
+        // Verify foreign key constraints exist before creating user
+        if (!DB::table('user_roles')->where('key', User::ROLE_UNASSIGNED)->exists()) {
+            \Log::error('Missing unassigned role in user_roles table');
+            $error = 'System configuration error. Please contact support.';
+            if ($request->ajax() || $request->wantsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+                return response()->json([
+                    'success' => false,
+                    'message' => $error,
+                    'errors' => ['register' => [$error]]
+                ], 500);
+            }
+            return back()->withErrors(['register' => $error])->withInput();
         }
 
-        $validated['contact'] = $digits;
-
-        // Cluster/org enforcement for CCO etc.
-        $needsOrg = $this->leadershipRequiresOrg((int) $validated['leadership_type_id']);
-
-        // Check if CCO is selected
-        $isCCO = DB::table('leadership_types')
-            ->where('id', (int) $validated['leadership_type_id'])
-            ->where('key', 'cco')
-            ->exists();
-
-        if ($isCCO) {
-            // CCO: cluster_id and organization_id should be "N/A" (stored as null)
-            $request->validate([
-                'cluster_id'      => ['required', 'in:N/A'],
-                'organization_id' => ['required', 'in:N/A'],
-            ]);
-            $validated['cluster_id']      = null;
-            $validated['organization_id'] = null;
-        } elseif ($needsOrg) {
-            // Other types that require org: normal validation
-            $request->validate([
-                'cluster_id'      => ['required', 'integer', 'exists:clusters,id'],
-                'organization_id' => ['required', 'integer', 'exists:organizations,id'],
-            ]);
-            $validated['cluster_id']      = (int) $request->input('cluster_id');
-            $validated['organization_id'] = (int) $request->input('organization_id');
-        } else {
-            // Types that don't require org
-            $validated['cluster_id']      = null;
-            $validated['organization_id'] = null;
+        if (!DB::table('user_statuses')->where('key', User::STATUS_PENDING)->exists()) {
+            \Log::error('Missing pending status in user_statuses table');
+            $error = 'System configuration error. Please contact support.';
+            if ($request->ajax() || $request->wantsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+                return response()->json([
+                    'success' => false,
+                    'message' => $error,
+                    'errors' => ['register' => [$error]]
+                ], 500);
+            }
+            return back()->withErrors(['register' => $error])->withInput();
         }
-
-        // Expected grad + eligibility
-        $expectedGradYear = $this->computeExpectedGradYear(
-            $validated['student_id'],
-            (int) $validated['year_level']
-        );
-        $eligibility = (now()->year > $expectedGradYear) ? 'needs_revalidation' : 'eligible';
 
         DB::beginTransaction();
         try {
@@ -325,89 +281,166 @@ class AuthController extends Controller
             $user = User::create([
                 'first_name'           => $validated['first_name'],
                 'last_name'            => $validated['last_name'],
-                'middle_name'          => $validated['middle_name'] ?? null,
-                'email'                => $validated['email_address'],
+                'middle_name'          => null, // Not collected during registration
+                'email'                => $validated['email'],
                 'password'             => $validated['password'],
-                'contact'              => $validated['contact'],    // now normalized 09XXXXXXXXX
-                'birth_date'           => $validated['birth_date'],
+                'contact'              => null, // Not collected during registration
+                'birth_date'           => null, // Not collected during registration
                 'profile_picture_path' => null,
-                'role'                 => User::ROLE_STUDENT,
+                'role'                 => User::ROLE_UNASSIGNED, // Role will be assigned by admin
                 'status'               => User::STATUS_PENDING,
+                'profile_completed'    => false, // Will be set to true after profile completion
             ]);
-
-            // student_academic via relation
-            $user->studentAcademic()->updateOrCreate([], [
-                'student_number'     => $validated['student_id'],
-                'college_id'         => $validated['college_id'],
-                'program_id'         => $validated['program_id'],
-                'major_id'           => $validated['major_id'] ?? null,
-                'year_level'         => $validated['year_level'],
-                'expected_grad_year' => $expectedGradYear,
-                'eligibility_status' => $eligibility,
-                'revalidated_at'     => null,
-                'created_at'         => now(),
-                'updated_at'         => now(),
-            ]);
-
-            // leadership record
-            if (Schema::hasTable('student_leaderships')) {
-                DB::table('student_leaderships')->insert([
-                    'user_id'            => $user->id,
-                    'leadership_type_id' => (int) $validated['leadership_type_id'],
-                    'cluster_id'         => $validated['cluster_id'],
-                    'organization_id'    => $validated['organization_id'],
-                    'position_id'        => (int) $validated['position_id'],
-                    'term'               => $validated['term'],
-                    'issued_by'          => $validated['issued_by'],
-                    'leadership_status'  => $validated['leadership_status'],
-                    'created_at'         => now(),
-                    'updated_at'         => now(),
-                ]);
-            }
 
             DB::commit();
 
+            // Return JSON response for AJAX requests
+            // Check for AJAX header or Accept: application/json
+            $isAjax = $request->ajax() || 
+                     $request->wantsJson() || 
+                     $request->header('X-Requested-With') === 'XMLHttpRequest' ||
+                     $request->expectsJson();
+                     
+            if ($isAjax) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Registration received. Please wait for account approval. You will receive an email notification once your account is reviewed.',
+                    'redirect' => route('login.show')
+                ], 200);
+            }
+
             return redirect()
                 ->route('login.show')
-                ->with('status', 'Registration received. Please wait for account approval.');
+                ->with('status', 'Registration received. Please wait for account approval. You will receive an email notification once your account is reviewed.');
         } catch (\Illuminate\Database\QueryException $e) {
             DB::rollBack();
             report($e);
 
             $errorMessage = $e->getMessage();
+            \Log::error('Registration QueryException', [
+                'message' => $errorMessage,
+                'code' => $e->getCode(),
+                'trace' => $e->getTraceAsString()
+            ]);
 
             // Unique constraint handling
             if (
                 str_contains($errorMessage, 'UNIQUE constraint failed') ||
                 str_contains($errorMessage, 'Duplicate entry') ||
-                str_contains($errorMessage, 'unique constraint')
+                str_contains($errorMessage, 'unique constraint') ||
+                str_contains($errorMessage, 'UNIQUE')
             ) {
-
                 if (str_contains($errorMessage, 'email') || str_contains($errorMessage, 'users.email')) {
+                    $error = 'This email address is already registered. Please use a different email or try logging in.';
+                    if ($request->ajax() || $request->wantsJson()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => $error,
+                            'errors' => ['email' => [$error]]
+                        ], 422);
+                    }
                     return back()
-                        ->withErrors(['email_address' => 'This email address is already registered. Please use a different email or try logging in.'])
-                        ->withInput();
-                } elseif (str_contains($errorMessage, 'student_number') || str_contains($errorMessage, 'student_id')) {
-                    return back()
-                        ->withErrors(['student_id' => 'This student ID is already registered. Please check your student ID or contact support if you believe this is an error.'])
+                        ->withErrors(['email' => $error])
                         ->withInput();
                 } else {
+                    $error = 'This information is already registered. Please check your details or contact support.';
+                    if ($request->ajax() || $request->wantsJson()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => $error,
+                            'errors' => ['register' => [$error]]
+                        ], 422);
+                    }
                     return back()
-                        ->withErrors(['register' => 'This information is already registered. Please check your details or contact support.'])
+                        ->withErrors(['register' => $error])
                         ->withInput();
                 }
             }
 
-            // Generic DB error
+            // Check for NOT NULL constraint violations
+            if (str_contains($errorMessage, 'NOT NULL constraint') || str_contains($errorMessage, 'cannot be null')) {
+                $error = 'Some required information is missing. Please check all fields and try again.';
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $error,
+                        'errors' => ['register' => [$error]],
+                        'debug' => config('app.debug') ? $errorMessage : null
+                    ], 422);
+                }
+                return back()
+                    ->withErrors(['register' => $error])
+                    ->withInput();
+            }
+
+            // Generic DB error - show more details in debug mode
+            $error = 'Could not complete registration. Please try again.';
+            $debugInfo = config('app.debug') ? $errorMessage : null;
+            
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $error,
+                    'errors' => ['register' => [$error]],
+                    'debug' => $debugInfo
+                ], 500);
+            }
             return back()
-                ->withErrors(['register' => 'Could not complete registration. Please try again.'])
+                ->withErrors(['register' => $error])
                 ->withInput();
         } catch (\Throwable $e) {
             DB::rollBack();
             report($e);
 
+            // Get more specific error message
+            $errorMessage = $e->getMessage();
+            $error = 'Could not complete registration. Please try again.';
+            
+            // Provide more specific error messages based on exception type
+            if ($e instanceof \Illuminate\Validation\ValidationException) {
+                $error = 'Validation failed. Please check your input.';
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $error,
+                        'errors' => $e->errors()
+                    ], 422);
+                }
+                throw $e; // Re-throw for Laravel to handle
+            }
+            
+            // Log the actual error for debugging
+            \Log::error('Registration error', [
+                'exception' => get_class($e),
+                'message' => $errorMessage,
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // Show more helpful error messages
+            if (str_contains($errorMessage, 'SQLSTATE')) {
+                $error = 'Database error occurred. Please contact support if this persists.';
+            } elseif (str_contains($errorMessage, 'Connection') || str_contains($errorMessage, 'database')) {
+                $error = 'Unable to connect to database. Please try again later.';
+            }
+            
+            $debugInfo = config('app.debug') ? [
+                'message' => $errorMessage,
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ] : null;
+            
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $error,
+                    'errors' => ['register' => [$error]],
+                    'debug' => $debugInfo
+                ], 500);
+            }
             return back()
-                ->withErrors(['register' => 'Could not complete registration. Please try again.'])
+                ->withErrors(['register' => $error])
                 ->withInput();
         }
     }
@@ -481,6 +514,15 @@ class AuthController extends Controller
         $user = User::find($userId);
         if (!$user) {
             return redirect()->route('login.show');
+        }
+
+        // Check if role is unassigned
+        if ($context === 'login' && $user->role === User::ROLE_UNASSIGNED) {
+            session()->forget(['otp_pending_user_id', 'otp_remember_me', 'otp_context', 'otp_display_email']);
+            return redirect()
+                ->route('login.show')
+                ->withErrors(['email' => 'Your account role has not been assigned yet. Please wait for admin approval.'])
+                ->with('show_otp_modal', false);
         }
 
         // If you use student eligibility checks, re-check them here
@@ -727,6 +769,7 @@ class AuthController extends Controller
 
         $typeId = (int) $request->query('leadership_type_id');
         $orgId  = (int) $request->query('organization_id');
+        $typeKey = $request->query('leadership_type_key');
 
         // If organization_id is provided (for CCO), load positions via organization_position
         if ($orgId && Schema::hasTable('organization_position')) {
@@ -743,6 +786,16 @@ class AuthController extends Controller
                 ]);
 
             return response()->json($rows);
+        }
+
+        // If leadership_type_key is provided, get type ID first
+        if ($typeKey && !$typeId) {
+            $leadershipType = DB::table('leadership_types')
+                ->where('key', $typeKey)
+                ->first();
+            if ($leadershipType) {
+                $typeId = $leadershipType->id;
+            }
         }
 
         // Load positions directly by leadership_type_id

@@ -44,140 +44,142 @@
 
                     @if($isTrainingSection)
                         {{-- Special handling for D. Training section - show all subsections in one table --}}
+                        @php
+                            // Get section-level evidence (same for all subsections)
+                            $sectionEvidence = $section->evidence ?? '';
+                            $evidenceLines = preg_split("/\r\n|\n|\r/", $sectionEvidence ?? '');
+                            $totalRows = $subsections->count();
+                        @endphp
                         <div class="table-wrap">
-                            <table class="manage-table training-table">
+                            <table class="guide-table">
                                 <thead>
                                     <tr>
-                                        <th>Subsection</th>
-                                        <th>Position / Title</th>
-                                        <th>Points</th>
-                                        <th>Evidence Needed</th>
-                                        <th>Notes</th>
+                                        <th>POSITION/TITLE</th>
+                                        <th>MAX 20 POINTS</th>
+                                        <th>EVIDENCE NEEDED</th>
                                     </tr>
                                 </thead>
                                 <tbody>
+                                    @php
+                                        $evidenceRowPrinted = false;
+                                    @endphp
                                     @foreach ($subsections as $subsection)
                                         @php
                                             // score_params is already cast to array in the model
                                             $scoreParams = $subsection->score_params ?? [];
                                             $rate = $scoreParams['rate'] ?? null;
                                             $capPoints = $subsection->cap_points ?? null;
-
-                                            // Prefer subsection-specific evidence/notes; fallback to section-level
-                                            $rawEvidence = $subsection->evidence_needed ?: $section->evidence;
-                                            $rawNotes = $subsection->notes ?: $section->notes;
-
-                                            $evidenceLines = preg_split("/\r\n|\n|\r/", $rawEvidence ?? '');
-                                            $notesLines = preg_split("/\r\n|\n|\r/", $rawNotes ?? '');
                                         @endphp
                                         <tr>
-                                            <td class="training-category"><strong>{{ $subsection->sub_section }}</strong></td>
-                                            <td class="training-position">{{ $subsection->sub_section }}</td>
-                                            <td class="training-points">
+                                            <td><strong>{{ $subsection->sub_section }}</strong></td>
+                                            <td class="points-cell">
                                                 @if($rate)
-                                                    <span class="points-line">
-                                                        {{ rtrim(rtrim(number_format($rate, 1), '0'), '.') }}/day
-                                                    </span>
+                                                    {{ rtrim(rtrim(number_format($rate, 1), '0'), '.') }}/day
                                                     @if($capPoints)
                                                         <br>
-                                                        <span class="points-line">
-                                                            (max {{ rtrim(rtrim(number_format($capPoints, 2), '0'), '.') }} points)
-                                                        </span>
+                                                        <small>(max {{ rtrim(rtrim(number_format($capPoints, 2), '0'), '.') }} points)</small>
                                                     @endif
                                                 @else
                                                     —
                                                 @endif
                                             </td>
-                                            <td class="training-evidence">
-                                                @if(!empty($rawEvidence))
-                                                    <div class="evidence-notes-content">
-                                                        @foreach ($evidenceLines as $index => $line)
-                                                            @if(trim($line) !== '')
-                                                                @if($index > 0)
-                                                                    <br><br>
+                                            @if(!$evidenceRowPrinted)
+                                                <td rowspan="{{ $totalRows }}" class="merged-evidence-cell" style="vertical-align: top !important; border-bottom: none !important;">
+                                                    @if(!empty($sectionEvidence))
+                                                        <div class="evidence-notes-content">
+                                                            @foreach ($evidenceLines as $index => $line)
+                                                                @if(trim($line) !== '')
+                                                                    @if($index > 0)
+                                                                        <br>
+                                                                    @endif
+                                                                    - {{ $line }}
                                                                 @endif
-                                                                {{ $line }}
-                                                            @endif
-                                                        @endforeach
-                                                    </div>
-                                                @else
-                                                    Certificate of Attendance/Appreciation/Participation
-                                                @endif
-                                            </td>
-                                            <td class="training-notes">
-                                                @if(!empty($rawNotes))
-                                                    <div class="evidence-notes-content">
-                                                        @foreach ($notesLines as $index => $line)
-                                                            @if(trim($line) !== '')
-                                                                @if($index > 0)
-                                                                    <br><br>
-                                                                @endif
-                                                                {{ $line }}
-                                                            @endif
-                                                        @endforeach
-                                                    </div>
-                                                @else
-                                                    —
-                                                @endif
-                                            </td>
+                                                            @endforeach
+                                                        </div>
+                                                    @else
+                                                        Certificate of Attendance/Appreciation/Participation
+                                                    @endif
+                                                </td>
+                                                @php $evidenceRowPrinted = true; @endphp
+                                            @endif
                                         </tr>
                                     @endforeach
                                 </tbody>
                             </table>
                         </div>
                     @else
-                        {{-- Regular sections (A, B, C) - show each subsection in its own table --}}
-                        @foreach ($subsections as $subsection)
-                            @php
+                        {{-- Regular sections (A, B, C) - show all subsections in one table with Subsection column --}}
+                        @php
+                            // Check if this is section A (Campus-Based) or section C (Community-Based)
+                            $isSectionA = strpos($section->title, 'Campus-Based') !== false || strpos($section->title, 'Campus Based') !== false;
+                            $isSectionC = strpos($section->title, 'Community-Based') !== false || strpos($section->title, 'Community Based') !== false;
+                            $showSubsectionColumn = $isSectionA || $isSectionC;
+                            
+                            // Calculate total rows for evidence column
+                            $totalRows = 0;
+                            foreach ($subsections as $subsection) {
                                 $positions = $subsection->options ?? collect();
-
-                                // Prefer subsection evidence/notes; fallback to section-level
-                                $rawEvidence = $subsection->evidence_needed ?: $section->evidence;
-                                $rawNotes = $subsection->notes ?: $section->notes;
-
-                                $evidenceLines = preg_split("/\r\n|\n|\r/", $rawEvidence ?? '');
-                                $notesLines = preg_split("/\r\n|\n|\r/", $rawNotes ?? '');
-
-                                // For rate-based subsections, show the subsection itself
                                 $isRateBased = $subsection->scoring_method === 'rate';
-                                $scoreParams = $subsection->score_params ?? [];
-                                $rate = $scoreParams['rate'] ?? null;
-                                $capPoints = $subsection->cap_points ?? null;
-
-                                // If rate-based and no options, create a display row
                                 if ($isRateBased && $positions->isEmpty()) {
-                                    $positions = collect([
-                                        (object) [
-                                            'id' => null,
-                                            'label' => $subsection->sub_section,
-                                            'points' => $rate,
-                                            'order_no' => null,
-                                        ],
-                                    ]);
+                                    $totalRows += 1;
+                                } else {
+                                    $totalRows += max($positions->count(), 1);
                                 }
+                            }
+                            
+                            // Get section-level evidence (same for all subsections in a section)
+                            $sectionEvidence = $section->evidence ?? '';
+                            $evidenceLines = preg_split("/\r\n|\n|\r/", $sectionEvidence ?? '');
+                        @endphp
 
-                                $rowCount = max($positions->count(), 1);
-                            @endphp
+                        <div class="table-wrap">
+                            <table class="guide-table {{ $showSubsectionColumn ? 'has-subsection-column' : '' }}">
+                                <thead>
+                                    <tr>
+                                        @if($showSubsectionColumn)
+                                            <th>SUBSECTION</th>
+                                        @endif
+                                        <th>POSITION/TITLE</th>
+                                        <th>MAX 20 POINTS</th>
+                                        <th>EVIDENCE NEEDED</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @php
+                                        $evidenceRowPrinted = false;
+                                    @endphp
+                                    @foreach ($subsections as $subsection)
+                                        @php
+                                            $positions = $subsection->options ?? collect();
+                                            $isRateBased = $subsection->scoring_method === 'rate';
+                                            $scoreParams = $subsection->score_params ?? [];
+                                            $rate = $scoreParams['rate'] ?? null;
+                                            $capPoints = $subsection->cap_points ?? null;
 
-                            @if($positions->isNotEmpty() || $isRateBased)
-                                <div class="table-wrap">
-                                    <table class="manage-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Subsection</th>
-                                                <th>Position / Title</th>
-                                                <th>Points</th>
-                                                <th>Evidence Needed</th>
-                                                <th>Notes</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
+                                            // If rate-based and no options, create a display row
+                                            if ($isRateBased && $positions->isEmpty()) {
+                                                $positions = collect([
+                                                    (object) [
+                                                        'id' => null,
+                                                        'label' => $subsection->sub_section,
+                                                        'points' => $rate,
+                                                        'order_no' => null,
+                                                    ],
+                                                ]);
+                                            }
+
+                                            $rowCount = max($positions->count(), 1);
+                                        @endphp
+
+                                        @if($positions->isNotEmpty() || $isRateBased)
                                             @foreach ($positions as $index => $pos)
                                                 <tr>
-                                                    @if($index === 0)
-                                                        <td rowspan="{{ $rowCount }}">
-                                                            <strong>{{ $subsection->sub_section }}</strong>
-                                                        </td>
+                                                    @if($showSubsectionColumn)
+                                                        @if($index === 0)
+                                                            <td rowspan="{{ $rowCount }}" class="subsection-cell">
+                                                                <strong>{{ $subsection->sub_section }}</strong>
+                                                            </td>
+                                                        @endif
                                                     @endif
                                                     <td>
                                                         @if($isRateBased && $index === 0)
@@ -186,29 +188,29 @@
                                                             {{ $pos->label }}
                                                         @endif
                                                     </td>
-                                                    <td>
+                                                    <td class="points-cell">
                                                         @if($isRateBased && $index === 0)
                                                             @if($rate)
                                                                 {{ rtrim(rtrim(number_format($rate, 1), '0'), '.') }}/day
                                                                 @if($capPoints)
-                                                                    (max {{ rtrim(rtrim(number_format($capPoints, 2), '0'), '.') }}
-                                                                    points)
+                                                                    <br>
+                                                                    <small>(max {{ rtrim(rtrim(number_format($capPoints, 2), '0'), '.') }} points)</small>
                                                                 @endif
                                                             @endif
                                                         @else
                                                             {{ rtrim(rtrim(number_format($pos->points, 2), '0'), '.') }}
                                                         @endif
                                                     </td>
-                                                    @if($index === 0)
-                                                        <td rowspan="{{ $rowCount }}">
-                                                            @if(!empty($rawEvidence))
+                                                    @if(!$evidenceRowPrinted)
+                                                        <td rowspan="{{ $totalRows }}" class="merged-evidence-cell" style="vertical-align: top !important; border-bottom: none !important;">
+                                                            @if(!empty($sectionEvidence))
                                                                 <div class="evidence-notes-content">
                                                                     @foreach ($evidenceLines as $idx => $line)
                                                                         @if(trim($line) !== '')
                                                                             @if($idx > 0)
-                                                                                <br><br>
+                                                                                <br>
                                                                             @endif
-                                                                            {{ $line }}
+                                                                            - {{ $line }}
                                                                         @endif
                                                                     @endforeach
                                                                 </div>
@@ -216,36 +218,19 @@
                                                                 —
                                                             @endif
                                                         </td>
-                                                        <td rowspan="{{ $rowCount }}">
-                                                            @if(!empty($rawNotes))
-                                                                <div class="evidence-notes-content">
-                                                                    @foreach ($notesLines as $idx => $line)
-                                                                        @if(trim($line) !== '')
-                                                                            @if($idx > 0)
-                                                                                <br><br>
-                                                                            @endif
-                                                                            {{ $line }}
-                                                                        @endif
-                                                                    @endforeach
-                                                                </div>
-                                                            @else
-                                                                —
-                                                            @endif
-                                                        </td>
+                                                        @php $evidenceRowPrinted = true; @endphp
                                                     @endif
                                                 </tr>
                                             @endforeach
-                                        </tbody>
-                                    </table>
-                                </div>
-                            @endif
-                        @endforeach
+                                        @endif
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
                     @endif
                 </div>
             @endif
         @endforeach
     @endif
 </div>
-
-
 

@@ -1,10 +1,58 @@
+/* Cross-browser compatibility reset and normalization */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+}
+
+/* Normalize form elements across browsers */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="checkbox"],
+select,
+textarea,
+button {
+    margin: 0;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+input[type="checkbox"] {
+    -webkit-appearance: checkbox;
+    -moz-appearance: checkbox;
+    appearance: checkbox;
+}
+
+/* Reset for consistent rendering */
+html {
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
 .header-container {
     font-family: 'Quicksand', sans-serif;
     background-color: #f4f6f9;
     color: #000;
     transition: background-color 0.3s, color 0.3s;
+    -webkit-transition: background-color 0.3s, color 0.3s;
+    -moz-transition: background-color 0.3s, color 0.3s;
 }
 
+body.dark-mode .header-container,
 .header-container.dark-mode {
     background-color: #1a1a1a;
     color: #fff;
@@ -21,14 +69,17 @@
     transition: background-color 0.3s ease;
 }
 
+body.dark-mode .header-container .header,
 .header-container.dark-mode .header {
     background-color: #2b2b2b;
+    border-bottom-color: #444;
 }
 
 .header-container .logo-text {
     color: #7E0308;
 }
 
+body.dark-mode .header-container .logo-text,
 .header-container.dark-mode .logo-text {
     color: #fff;
 }
@@ -92,15 +143,29 @@
 }
 
 .header-container .dark-toggle-btn {
-    background: transparent;
-    border: none;
+    background: transparent !important;
+    border: none !important;
     font-size: 1.4rem;
     color: #666;
-    cursor: pointer;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    z-index: 1000;
+    position: relative;
+    padding: 0.25rem 0.5rem;
+    transition: color 0.3s ease, transform 0.2s ease;
+}
+
+.header-container .dark-toggle-btn:hover {
+    color: #7E0308;
+    transform: scale(1.1);
 }
 
 .header-container.dark-mode .dark-toggle-btn {
     color: #fff;
+}
+
+.header-container.dark-mode .dark-toggle-btn:hover {
+    color: #F9BD3D;
 }
 
 @media (max-width: 768px) {
@@ -146,147 +211,70 @@ body.dark-mode {
 }
 
 .register-container main {
+    -webkit-box-flex: 1;
+    -ms-flex: 1 1 auto;
     flex: 1 1 auto;
+    display: -webkit-box;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
     flex-direction: column;
     overflow: hidden !important; /* Prevent scrolling completely */
     min-height: 0; /* Important for flexbox */
     max-height: calc(100vh - 80px); /* Account for header */
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+.register-container {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 .register-container main .container {
-    padding-top: 0.25rem !important; /* Further reduced to move content up */
-    padding-bottom: 0.15rem !important; /* Minimal padding */
+    padding-top: 0.2rem !important;
+    padding-bottom: 0.2rem !important;
+    -webkit-box-flex: 1;
+    -ms-flex: 1 1 auto;
     flex: 1 1 auto;
+    display: -webkit-box;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
     flex-direction: column;
     min-height: 0;
-    position: relative; /* Use relative positioning */
-    justify-content: flex-start; /* Align content to top */
-}
-
-.register-container main .container form {
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 auto;
-    min-height: 0;
-    height: 100%;
-}
-
-/* Ensure form steps container allows flexbox for scrollable step */
-.register-container main .container form > .form-step-scrollable {
-    flex: 1 1 auto;
-    min-height: 0;
+    position: relative;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
+    justify-content: center; /* Center vertically */
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center; /* Center horizontally */
+    overflow: visible !important;
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
 }
 
 .register-container footer {
     flex-shrink: 0;
     margin-top: 0;
     padding: 0.5rem 0;
-}
-
-/* Form Steps */
-.form-step {
-    display: none;
-    animation: fadeIn 0.3s ease-in-out;
-}
-.form-step.active {
-    display: block;
-}
-
-/* Step 3 - Scrollable Leadership Information */
-.form-step-scrollable.active {
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 auto;
-    min-height: 0;
-}
-
-.form-step-scrollable .step-title-fixed {
-    flex-shrink: 0;
-    margin-bottom: 0.5rem !important;
-}
-
-.form-step-scrollable .step-3-scrollable-content {
-    flex: 1 1 auto;
-    overflow-y: hidden; /* Default: no scrolling (for non-SCO types) */
-    overflow-x: hidden;
-    min-height: 0;
-    max-height: none; /* Default: no max-height (fits in viewport) */
-    position: relative;
-    padding-top: 0.25rem;
-    padding-bottom: 0.25rem;
-    transition: overflow-y 0.3s ease, max-height 0.3s ease;
-}
-
-/* Enable scrolling only when SCO is selected */
-.form-step-scrollable-active .step-3-scrollable-content {
-    overflow-y: auto; /* Enable scrolling for SCO (7 fields) */
-    max-height: calc(100vh - 380px); /* Dynamic height: viewport minus header (~80px), title (~40px), pagination (~80px), footer (~60px), margins (~120px) */
-    padding-right: 0.5rem; /* Space for scrollbar */
-    margin-right: -0.5rem; /* Compensate for padding */
-}
-
-/* Responsive adjustments for smaller screens (SCO only) */
-@media (max-height: 800px) {
-    .form-step-scrollable-active .step-3-scrollable-content {
-        max-height: calc(100vh - 360px);
-    }
-}
-
-@media (max-height: 700px) {
-    .form-step-scrollable-active .step-3-scrollable-content {
-        max-height: calc(100vh - 340px);
-    }
-}
-
-/* Scrollbar styling for Step 3 (SCO only) */
-.form-step-scrollable-active .step-3-scrollable-content::-webkit-scrollbar {
-    width: 8px;
-}
-
-.form-step-scrollable-active .step-3-scrollable-content::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
-
-.form-step-scrollable-active .step-3-scrollable-content::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 4px;
-    transition: background 0.3s ease;
-}
-
-.form-step-scrollable-active .step-3-scrollable-content::-webkit-scrollbar-thumb:hover {
-    background: #555;
-}
-
-/* Dark mode scrollbar */
-.register-container.dark-mode .form-step-scrollable-active .step-3-scrollable-content::-webkit-scrollbar-track {
-    background: #2e2e2e;
-}
-
-.register-container.dark-mode .form-step-scrollable-active .step-3-scrollable-content::-webkit-scrollbar-thumb {
-    background: #666;
-}
-
-.register-container.dark-mode .form-step-scrollable-active .step-3-scrollable-content::-webkit-scrollbar-thumb:hover {
-    background: #888;
-}
-
-/* Firefox scrollbar (SCO only) */
-.form-step-scrollable-active .step-3-scrollable-content {
-    scrollbar-width: thin;
-    scrollbar-color: #888 #f1f1f1;
-}
-
-.register-container.dark-mode .form-step-scrollable-active .step-3-scrollable-content {
-    scrollbar-color: #666 #2e2e2e;
-}
-
-
-/* Ensure other steps (non-scrollable) remain as block display */
-.form-step:not(.form-step-scrollable).active {
-    display: block;
 }
 .required {
   color: red;
@@ -306,6 +294,18 @@ select.form-select {
 .register-container .form-control,
 .register-container .form-select {
     border-radius: 0.5rem;
+    -webkit-border-radius: 0.5rem;
+    -moz-border-radius: 0.5rem;
+    font-size: 0.8rem;
+    padding: 0.35rem 0.6rem;
+    height: calc(1.4em + 0.7rem + 2px);
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+    width: 100%;
 }
 
 /* Ensure long option text in select dropdowns is fully visible */
@@ -320,19 +320,22 @@ select.form-select {
     min-width: 100%;
     max-width: 100%;
 }
-    border: 1px solid #ced4da;
-    height: 44px; /* Reduced from 48px */
-    font-size: 0.95rem; /* Slightly smaller */
-    padding: 0.4rem 0.65rem; /* Reduced padding */
-    transition: background-color 0.3s, color 0.3s, border-color 0.3s;
-    font-family: 'Quicksand', sans-serif; /* Apply Quicksand to inputs */
-}
 
 /* Reduce form label spacing */
 .register-container .form-label {
-    margin-bottom: 0.15rem !important; /* Reduced spacing below labels */
-    font-size: 0.9rem; /* Slightly smaller */
+    margin-bottom: 0.05rem !important; /* Reduced spacing below labels */
+    font-size: 0.9rem; /* Increased font size for better readability */
+    font-weight: 500;
+    color: #333;
 }
+
+body.dark-mode .register-container .form-label,
+.register-container.dark-mode .form-label {
+    color: #e0e0e0;
+}
+
+body.dark-mode .register-container .form-control,
+body.dark-mode .register-container .form-select,
 .register-container.dark-mode .form-control,
 .register-container.dark-mode .form-select {
     background-color: #2e2e2e;
@@ -343,19 +346,149 @@ select.form-select {
 .register-container .form-select:focus {
     border-color: #7E0308;
     box-shadow: 0 0 0 0.2rem rgba(126, 3, 8, 0.2);
+    -webkit-box-shadow: 0 0 0 0.2rem rgba(126, 3, 8, 0.2);
+    -moz-box-shadow: 0 0 0 0.2rem rgba(126, 3, 8, 0.2);
     outline: none;
+    -webkit-outline: none;
+}
+
+body.dark-mode .register-container .form-control:focus,
+body.dark-mode .register-container .form-select:focus,
+.register-container.dark-mode .form-control:focus,
+.register-container.dark-mode .form-select:focus {
+    border-color: #7E0308;
+    box-shadow: 0 0 0 0.2rem rgba(126, 3, 8, 0.4);
+    -webkit-box-shadow: 0 0 0 0.2rem rgba(126, 3, 8, 0.4);
+    -moz-box-shadow: 0 0 0 0.2rem rgba(126, 3, 8, 0.4);
+    background-color: #2e2e2e;
+    color: #fff;
 }
 
 /* Reduce spacing between form fields and their containers */
 .register-container .col-md-4,
 .register-container .col-md-6 {
-    margin-bottom: 0.1rem !important; /* Minimal spacing between field columns */
+    margin-bottom: 0.05rem !important; /* Minimal spacing between field columns */
+}
+
+.register-container .mb-2 {
+    margin-bottom: 0.3rem !important;
+}
+
+/* Remove margins from checkbox containers */
+.register-container .mb-2:has(.show-password-checkbox) {
+    margin-bottom: 0.3rem !important;
+    margin-top: 0 !important;
+    padding: 0 !important;
+}
+
+.register-container .mb-2:has(.privacy-checkbox-wrapper) {
+    margin-bottom: 0.3rem !important;
+    margin-top: 0 !important;
+    padding: 0 !important;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+}
+
+/* Fallback for browsers that don't support :has() */
+.register-container .show-password-checkbox,
+.register-container .privacy-checkbox-wrapper {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Ensure checkbox and label are perfectly aligned */
+.register-container .form-check-input,
+.register-container .show-password-checkbox .form-check-input,
+.register-container .privacy-checkbox-wrapper .form-check-input {
+    position: relative;
+    top: 0;
+    left: 0;
+    transform: none;
+    margin: 0 !important;
+    padding: 0 !important;
+    align-self: center;
+}
+
+.register-container .show-password-checkbox {
+    align-items: center !important;
+}
+
+.register-container .privacy-checkbox-wrapper .form-check-input {
+    align-self: flex-start;
+    margin-top: 0.15rem !important;
 }
 
 /* Reduce invalid feedback spacing */
 .register-container .invalid-feedback {
+    margin-top: 0.05rem !important;
+    font-size: 0.75rem;
+    display: block;
+    width: 100%;
+    color: #dc3545;
+}
+
+body.dark-mode .register-container .invalid-feedback,
+.register-container.dark-mode .invalid-feedback {
+    color: #f8d7da;
+}
+
+.register-container .invalid-feedback.d-block {
     margin-top: 0.1rem !important;
-    font-size: 0.8rem;
+}
+
+/* Form text (password requirements) */
+.register-container .form-text {
+    font-size: 0.75rem;
+    margin-top: 0.05rem;
+    margin-bottom: 0.05rem;
+    color: #6c757d;
+}
+
+body.dark-mode .register-container .form-text,
+body.dark-mode .register-container .text-muted,
+.register-container.dark-mode .form-text,
+.register-container.dark-mode .text-muted {
+    color: #999;
+}
+
+/* Password Requirements List */
+.register-container .password-requirements {
+    margin-top: 0.3rem;
+    margin-bottom: 0.2rem;
+}
+
+.register-container .password-requirements-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.2rem 0 0 0;
+    font-size: 0.75rem;
+    color: #6c757d;
+}
+
+.register-container .password-requirements-list li {
+    padding: 0.1rem 0;
+    padding-left: 1.2rem;
+    position: relative;
+}
+
+.register-container .password-requirements-list li::before {
+    content: '○';
+    position: absolute;
+    left: 0;
+    color: #999;
+    font-size: 0.6rem;
+}
+
+body.dark-mode .register-container .password-requirements-list,
+.register-container.dark-mode .password-requirements-list {
+    color: #999;
+}
+
+body.dark-mode .register-container .password-requirements-list li::before,
+.register-container.dark-mode .password-requirements-list li::before {
+    color: #666;
 }
 
 /* Buttons */
@@ -366,157 +499,58 @@ select.form-select {
     transition: background-color 0.3s ease, transform 0.2s ease;
     font-family: 'Quicksand', sans-serif; /* Apply Quicksand to buttons */
 }
-.register-container .btn-primary.maroon-btn {
+
+/* Sign-Up Button - Maroon Background */
+.register-container .btn-signup {
     background-color: #7E0308;
     color: #fff;
-}
-.register-container .btn-primary.maroon-btn:hover {
-    background-color: #600205;
-}
-.register-container.dark-mode .btn-primary.maroon-btn {
-    background-color: #F9BD3D;
-    color: #121212;
-}
-.register-container.dark-mode .btn-primary.maroon-btn:hover {
-    background-color: #FCD34D;
-    color: #121212;
-}
-.register-container .btn-secondary {
-    background-color: #ccc;
-    color: #555;
-}
-.register-container .btn-secondary:disabled,
-.register-container .btn-secondary.disabled {
-    background-color: #e0e0e0;
-    color: #999;
-    cursor: not-allowed;
-    opacity: 0.7;
-}
-
-/* Pagination */
-.pagination-controls {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 0.5rem !important; /* Further reduced to move buttons higher */
-    margin-bottom: 0.5rem !important; /* Reduced but still space for footer */
-    gap: 2rem; /* Increased from 1.5rem for more spacing */
-    position: relative; /* Use relative positioning */
-}
-
-.pagination-controls .btn {
-    margin: 0 0.75rem; /* Increased from 0.5rem for better spacing */
-    cursor: pointer;
-    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.pagination-controls .btn:hover {
-    transform: translateY(-2px); /* Slight lift on hover */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.pagination-controls .btn-secondary:hover:not(:disabled) {
-    background-color: #b0b0b0 !important;
-    color: #333 !important;
-}
-
-.pagination-controls .btn-primary.maroon-btn:hover {
-    background-color: #600205 !important;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(126, 3, 8, 0.3);
-}
-
-.register-container.dark-mode .pagination-controls .btn-primary.maroon-btn:hover {
-    background-color: #FCD34D !important;
-    color: #121212 !important;
-}
-
-.pagination-controls .page-numbers {
-    margin: 0 0.75rem; /* Increased from 0.5rem for better spacing */
-}
-
-.page-numbers {
-    display: flex;
-    gap: 0.5rem;
-}
-.page-number {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background-color: #f1f1f1;
-    color: #555;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    border: none;
+    padding: 0.75rem 2rem;
+    font-size: 1rem;
     font-weight: 600;
+    border-radius: 8px;
+    -webkit-border-radius: 8px;
+    -moz-border-radius: 8px;
+    font-family: 'Quicksand', sans-serif;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
     cursor: pointer;
-    transition: background 0.3s ease, color 0.3s ease, box-shadow 0.2s ease;
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+    display: inline-block;
+    text-align: center;
+    vertical-align: middle;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    transition: background-color 0.3s ease;
 }
-.page-number.active {
+
+.register-container .btn-signup:hover {
+    background-color: #600205;
+    color: #fff;
+}
+
+.register-container .btn-signup:active {
+    background-color: #4a0204;
+}
+
+.register-container.dark-mode .btn-signup {
     background-color: #7E0308;
     color: #fff;
 }
-.page-number.completed {
-    background-color: #F9BD3D;
-    color: #000;
-}
-.register-container.dark-mode .page-number {
-    background-color: #333;
-    color: #ccc;
-}
-.register-container.dark-mode .page-number.active {
-    background-color: #F9BD3D;
-    color: #121212;
-}
-.register-container.dark-mode .page-number.completed {
-    background-color: #FCD34D;
-    color: #121212;
-}
 
-/* Floating Tools */
-/* Floating Tools (mobile only) - Only fixed on mobile */
-.floating-tools {
-    position: relative; /* Changed from fixed to relative for desktop */
-    display: none; /* hidden by default for desktop */
-    flex-direction: column;
-    gap: 12px; /* add breathing room between buttons */
-    z-index: 1050;
-}
-
-.floating-tools .btn {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    font-size: 1.4rem;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.floating-tools .btn-warning {
-    background-color: #F9BD3D;
-    color: #121212;
-}
-
-.floating-tools .btn-primary {
-    background-color: #3B82F6; /* blue */
+.register-container.dark-mode .btn-signup:hover {
+    background-color: #600205;
     color: #fff;
 }
 
-/* Only show floating tools on small screens */
-@media (max-width: 768px) {
-    .floating-tools {
-        display: flex;
-        position: fixed; /* Only fixed on mobile */
-        bottom: 15px;
-        right: 15px;
-    }
+.register-container.dark-mode .btn-signup:active {
+    background-color: #4a0204;
 }
 
-.floating-tools .btn i {
-    font-size: 1.2rem;
-}
 
 
 /* Typography - Apply Quicksand to all text elements */
@@ -544,8 +578,7 @@ select.form-select {
 .register-container .invalid-feedback,
 .register-container .text-muted,
 .register-container footer,
-.register-container footer a,
-.register-container .page-number {
+.register-container footer a {
     font-family: 'Quicksand', sans-serif !important;
 }
 
@@ -573,7 +606,7 @@ select.form-select {
 /* Reduce Bootstrap gap utilities for tighter spacing */
 .register-container .row.g-3 {
     --bs-gutter-x: 0.5rem !important; /* Further reduced from 0.75rem */
-    --bs-gutter-y: 0.25rem !important; /* Further reduced vertical gap */
+    --bs-gutter-y: 0.2rem !important; /* Further reduced vertical gap */
 }
 
 .register-container .mb-2 {
@@ -581,11 +614,410 @@ select.form-select {
 }
 
 .register-container .mb-3 {
-    margin-bottom: 0.25rem !important; /* Further reduced */
+    margin-bottom: 0.5rem !important;
+}
+
+/* Signup Card */
+.signup-card {
+    background-color: #f8f9fa;
+    border-radius: 12px;
+    -webkit-border-radius: 12px;
+    -moz-border-radius: 12px;
+    padding: 0.85rem;
+    max-width: 550px;
+    width: 100%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    -webkit-box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    -moz-box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin: 0 auto;
+    transform: scale(0.9);
+    -webkit-transform: scale(0.9);
+    -moz-transform: scale(0.9);
+    -ms-transform: scale(0.9);
+    transform-origin: center center;
+    -webkit-transform-origin: center center;
+    -moz-transform-origin: center center;
+    -ms-transform-origin: center center;
+    position: relative;
+}
+
+body.dark-mode .register-container .signup-card,
+.register-container.dark-mode .signup-card {
+    background-color: #2b2b2b;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    -webkit-box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    -moz-box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.signup-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 0.2rem;
+    font-family: 'Quicksand', sans-serif;
+}
+
+body.dark-mode .register-container .signup-title,
+.register-container.dark-mode .signup-title {
+    color: #fff;
+}
+
+.signup-login-link {
+    font-size: 0.95rem;
+    color: #666;
+    margin-bottom: 0.5rem;
+    font-family: 'Quicksand', sans-serif;
+}
+
+body.dark-mode .register-container .signup-login-link,
+.register-container.dark-mode .signup-login-link {
+    color: #ccc;
+}
+
+body.dark-mode .register-container .signup-login-link a,
+.register-container.dark-mode .signup-login-link a {
+    color: #4a9eff;
+}
+
+body.dark-mode .register-container .signup-login-link a:hover,
+.register-container.dark-mode .signup-login-link a:hover {
+    color: #6bb0ff;
+}
+
+.signup-login-link a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.signup-login-link a:hover {
+    text-decoration: underline;
+}
+
+.privacy-text {
+    font-size: 0.85rem;
+    color: #666;
+    line-height: 1.5;
+    margin: 0;
+    font-family: 'Quicksand', sans-serif;
+}
+
+.register-container.dark-mode .privacy-text {
+    color: #ccc;
+}
+
+.privacy-text a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.privacy-text a:hover {
+    text-decoration: underline;
+}
+
+.signup-card .mb-3 {
+    margin-bottom: 0.4rem !important;
+}
+
+.signup-card .mb-2 {
+    margin-bottom: 0.3rem !important;
+}
+
+.signup-card .row.g-3 {
+    --bs-gutter-y: 0.25rem !important;
+    margin-bottom: 0.3rem !important;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+.signup-card .row.g-3 > [class*="col-"] {
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+/* Show Password Checkbox Alignment */
+.show-password-checkbox {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 0.5rem;
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+.show-password-checkbox .form-check-input {
+    margin: 0 !important;
+    padding: 0 !important;
+    -ms-flex-negative: 0;
+    -webkit-flex-shrink: 0;
+    flex-shrink: 0;
+    width: 1rem !important;
+    height: 1rem !important;
+    min-width: 1rem !important;
+    min-height: 1rem !important;
+    max-width: 1rem !important;
+    max-height: 1rem !important;
+    -webkit-appearance: checkbox;
+    -moz-appearance: checkbox;
+    -ms-appearance: checkbox;
+    appearance: checkbox;
+    vertical-align: middle;
+    border: 1px solid #7E0308 !important;
+    border-color: #7E0308 !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    position: relative;
+    z-index: 1;
+    /* Cross-browser checkbox styling */
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -ms-box-sizing: border-box;
+    box-sizing: border-box;
+    /* Ensure clickability */
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.show-password-checkbox .form-check-input:checked {
+    background-color: #7E0308 !important;
+    border-color: #7E0308 !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10l3 3l6-6'/%3e%3c/svg%3e") !important;
+}
+
+.show-password-checkbox .form-check-label {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.4;
+    font-size: 0.75rem;
+    color: #666;
+    cursor: pointer;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    display: flex;
+    align-items: center;
+}
+
+.register-container.dark-mode .show-password-checkbox .form-check-label {
+    color: #999;
+}
+
+/* Privacy Checkbox Alignment */
+.privacy-checkbox-wrapper {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: start;
+    -ms-flex-align: start;
+    align-items: flex-start;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 0.5rem;
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+    width: 100%;
+    flex-wrap: nowrap;
+}
+
+.privacy-checkbox-wrapper .form-check-input {
+    margin: 0 !important;
+    padding: 0 !important;
+    margin-top: 0.15rem !important;
+    -ms-flex-negative: 0;
+    flex-shrink: 0;
+    width: 1rem;
+    height: 1rem;
+    min-width: 1rem;
+    min-height: 1rem;
+    -webkit-appearance: checkbox;
+    -moz-appearance: checkbox;
+    appearance: checkbox;
+    vertical-align: top;
+    border-color: #7E0308 !important;
+    cursor: pointer;
+}
+
+/* Ensure privacy text label doesn't turn red when checkbox is invalid */
+.privacy-checkbox-wrapper .form-check-input.is-invalid ~ .privacy-text-label {
+    color: #666 !important;
+}
+
+body.dark-mode .register-container .privacy-checkbox-wrapper .form-check-input.is-invalid ~ .privacy-text-label,
+.register-container.dark-mode .privacy-checkbox-wrapper .form-check-input.is-invalid ~ .privacy-text-label {
+    color: #ccc !important;
+}
+
+.privacy-checkbox-wrapper .form-check-input:checked {
+    background-color: #7E0308 !important;
+    border-color: #7E0308 !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10l3 3l6-6'/%3e%3c/svg%3e") !important;
+}
+
+/* Privacy text label - styled as regular text */
+.privacy-text-label {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.4;
+    font-size: 0.7rem;
+    color: #666 !important;
+    font-family: 'Quicksand', sans-serif;
+    cursor: pointer;
+    -webkit-box-flex: 1;
+    -ms-flex: 1;
+    flex: 1;
+    min-width: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    font-weight: normal !important;
+}
+
+body.dark-mode .register-container .privacy-text-label,
+.register-container.dark-mode .privacy-text-label {
+    color: #ccc !important;
+}
+
+/* Privacy text - regular text styling */
+.privacy-text {
+    margin: 0 !important;
+    padding: 0 !important;
+    display: inline;
+    color: inherit;
+}
+
+.privacy-text a {
+    color: #007bff;
+    text-decoration: none;
+    margin: 0;
+    padding: 0;
+    display: inline;
+}
+
+.privacy-text a:hover {
+    text-decoration: underline;
+}
+
+body.dark-mode .register-container .privacy-text a,
+.register-container.dark-mode .privacy-text a {
+    color: #4a9eff;
+}
+
+/* Keep old privacy-label styles for backward compatibility if needed */
+.privacy-label {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.4;
+    font-size: 0.7rem;
+    color: #666;
+    font-family: 'Quicksand', sans-serif;
+    cursor: pointer;
+    -webkit-box-flex: 1;
+    -ms-flex: 1;
+    flex: 1;
+    min-width: 0;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+body.dark-mode .register-container .privacy-label,
+.register-container.dark-mode .privacy-label {
+    color: #ccc;
+}
+
+.privacy-label a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.privacy-label a:hover {
+    text-decoration: underline;
+}
+
+/* Privacy error message - positioned below the checkbox wrapper */
+.privacy-error-message {
+    margin-top: 0.25rem !important;
+    margin-bottom: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding: 0 !important;
+    font-size: 0.7rem !important;
+    display: block;
+    width: 100%;
+    color: #dc3545;
+    clear: both;
+}
+
+body.dark-mode .register-container .privacy-error-message,
+.register-container.dark-mode .privacy-error-message {
+    color: #f8d7da;
+}
+
+/* Privacy error message - positioned below the checkbox wrapper */
+.privacy-error-message {
+    margin-top: 0.25rem !important;
+    margin-bottom: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding: 0 !important;
+    font-size: 0.7rem !important;
+    display: block;
+    width: 100%;
+    color: #dc3545;
+    clear: both;
+}
+
+body.dark-mode .register-container .privacy-error-message,
+.register-container.dark-mode .privacy-error-message {
+    color: #f8d7da;
+}
+
+/* Ensure the mb-2 container doesn't break layout */
+.register-container .mb-2:has(.privacy-checkbox-wrapper) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+}
+
+/* Password Error Message */
+.password-error-message {
+    font-size: 0.7rem;
+    color: #dc3545;
+    margin-top: 0.15rem;
+    font-family: 'Quicksand', sans-serif;
+}
+
+body.dark-mode .register-container .password-error-message,
+.register-container.dark-mode .password-error-message {
+    color: #f8d7da;
 }
 
 .register-container .mb-4 {
-    margin-bottom: 0.5rem !important; /* Further reduced */
+    margin-bottom: 0.3rem !important; /* Further reduced */
+}
+
+.register-container .mt-3 {
+    margin-top: 0.2rem !important;
+}
+
+.register-container .mt-2 {
+    margin-top: 0.15rem !important;
+}
+
+.register-container .mb-1 {
+    margin-bottom: 0.1rem !important;
 }
 
 .register-container .mt-2 {
@@ -623,22 +1055,29 @@ select.form-select {
     transform: translateY(-50%);
     cursor: pointer;
     color: #555;
-    font-size: 1rem;
+    font-size: 0.9rem;
     transition: color 0.2s ease;
     z-index: 10;
     background: transparent;
     border: none;
-    padding: 0;
+    padding: 0.25rem;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .register-container .toggle-password:hover {
     color: #7E0308;
 }
 
+body.dark-mode .register-container .toggle-password,
 .register-container.dark-mode .toggle-password {
     color: #ccc;
 }
 
+body.dark-mode .register-container .toggle-password:hover,
 .register-container.dark-mode .toggle-password:hover {
     color: #F9BD3D;
 }
@@ -648,24 +1087,48 @@ select.form-select {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    margin-top: 0.25rem !important;
-    margin-bottom: 0.15rem !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.register-container .privacy-checkbox-wrapper {
+    align-items: flex-start;
+}
+
+.register-container .privacy-checkbox-wrapper .form-check-input {
+    margin: 0 !important;
+    margin-top: 0.15rem !important;
+    flex-shrink: 0;
+}
+
+.register-container .privacy-label {
+    flex: 1;
+    line-height: 1.4;
+    font-size: 0.85rem;
+    margin: 0 !important;
+}
+
+.register-container .form-check-label {
+    font-size: 0.85rem;
+    line-height: 1.4;
+    margin: 0 !important;
 }
 
 .register-container .form-check-input {
-    margin-top: 0 !important;
-    margin-bottom: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
     flex-shrink: 0;
     width: 1.1em;
     height: 1.1em;
-    border-color: #7E0308;
+    border-color: #7E0308 !important;
     cursor: pointer;
     vertical-align: middle;
 }
 
 .register-container .form-check-input:checked {
-    background-color: #7E0308;
-    border-color: #7E0308;
+    background-color: #7E0308 !important;
+    border-color: #7E0308 !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10l3 3l6-6'/%3e%3c/svg%3e") !important;
 }
 
 .register-container .form-check-input:focus {
@@ -676,21 +1139,30 @@ select.form-select {
 .register-container .form-check-label {
     flex: 1;
     line-height: 1.5;
-    margin-bottom: 0;
+    margin: 0 !important;
+    padding: 0 !important;
     display: flex;
     align-items: center;
     min-height: 1.1em;
 }
 
+.show-password-checkbox .form-check-label {
+    margin: 0 !important;
+    padding: 0 !important;
+    align-items: center;
+    display: flex;
+}
+
 /* Dark mode checkbox */
 .register-container.dark-mode .form-check-input {
-    border-color: #7E0308;
+    border-color: #7E0308 !important;
     background-color: #2e2e2e;
 }
 
 .register-container.dark-mode .form-check-input:checked {
-    background-color: #7E0308;
-    border-color: #7E0308;
+    background-color: #7E0308 !important;
+    border-color: #7E0308 !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10l3 3l6-6'/%3e%3c/svg%3e") !important;
 }
 
 .register-container.dark-mode .form-check-input:focus {
@@ -699,61 +1171,89 @@ select.form-select {
 }
 
 .register-container h5 {
-    margin-bottom: 0.25rem !important; /* Further reduced from 0.5rem */
+    margin-bottom: 0.15rem !important; /* Further reduced from 0.5rem */
     margin-top: 0 !important;
-    font-size: 1.1rem;
+    font-size: 1rem;
 }
 
 .register-container h4 {
-    margin-bottom: 0.15rem !important; /* Further reduced */
+    margin-bottom: 0.1rem !important; /* Further reduced */
     margin-top: 0 !important; /* Remove top margin */
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     padding-top: 0 !important;
 }
 
-/* Footer styling */
+.register-container .small {
+    font-size: 0.85rem !important;
+    margin-bottom: 0.1rem !important;
+}
+
+/* Footer styling - Compatible with both light and dark mode */
 #page-footer {
     font-family: 'Quicksand', sans-serif !important;
-    font-size: 0.75rem;
-    padding: 0.35rem 0 !important; /* Reduced padding */
+    font-size: 0.7rem;
+    padding: 0.3rem 0 !important; /* Reduced padding */
     background-color: transparent;
     border-top: 1px solid rgba(0, 0, 0, 0.1);
     position: relative; /* Use relative positioning */
     flex-shrink: 0;
-    margin-top: 0.25rem !important; /* Reduced spacing from pagination buttons */
+    margin-top: 0.15rem !important; /* Reduced spacing */
+    margin-bottom: 0 !important;
+    color: #666 !important; /* Light mode text color */
 }
 
+/* Dark mode footer */
+body.dark-mode #page-footer,
 .register-container.dark-mode #page-footer {
-    border-top-color: rgba(255, 255, 255, 0.1);
+    border-top-color: rgba(255, 255, 255, 0.1) !important;
+    color: #ccc !important; /* Light gray for dark mode visibility */
+    background-color: transparent;
 }
 
+/* Footer text and small elements */
+#page-footer small,
+#page-footer .text-muted {
+    color: inherit !important; /* Inherit from footer */
+}
+
+body.dark-mode #page-footer small,
+body.dark-mode #page-footer .text-muted,
+.register-container.dark-mode #page-footer small,
+.register-container.dark-mode #page-footer .text-muted {
+    color: #ccc !important; /* Ensure visibility in dark mode */
+}
+
+/* Footer links */
 #page-footer a {
-    color: #7E0308;
+    color: #7E0308 !important; /* Maroon for light mode */
     text-decoration: none;
     margin: 0 0.25rem;
     transition: color 0.3s ease;
 }
 
-.register-container.dark-mode #page-footer a {
-    color: #F9BD3D;
-}
-
 #page-footer a:hover {
+    color: #9E0308 !important; /* Lighter maroon on hover */
     text-decoration: underline;
 }
 
-/* Show Floating Tools only on screens <= 768px */
+/* Dark mode footer links */
+body.dark-mode #page-footer a,
+.register-container.dark-mode #page-footer a {
+    color: #F9BD3D !important; /* Gold/yellow for dark mode visibility */
+}
+
+body.dark-mode #page-footer a:hover,
+.register-container.dark-mode #page-footer a:hover {
+    color: #FCD34D !important; /* Lighter gold on hover */
+    text-decoration: underline;
+}
+
+/* Mobile responsive adjustments */
 @media (max-width: 576px) {
     .register-container .form-control,
     .register-container .form-select {
         height: 42px;
         font-size: 0.95rem;
-    }
-
-    .pagination-controls {
-        margin-top: 0.75rem;
-        margin-bottom: 0.5rem;
-        gap: 1rem; /* Slightly less gap on mobile */
     }
     
     html, body {
@@ -911,5 +1411,344 @@ select.form-select {
     }
     75% {
         transform: rotate(10deg);
+    }
+}
+
+/* Error Modal Styles */
+.error-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.error-modal-content {
+    background-color: #fff;
+    border-radius: 12px;
+    padding: 2rem 2.5rem;
+    max-width: 500px;
+    width: 90%;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease-out;
+}
+
+.register-container.dark-mode .error-modal-content {
+    background-color: #2b2b2b;
+    color: #fff;
+}
+
+.error-modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #333;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease;
+}
+
+.error-modal-close:hover {
+    color: #dc3545;
+}
+
+.register-container.dark-mode .error-modal-close {
+    color: #ccc;
+}
+
+.register-container.dark-mode .error-modal-close:hover {
+    color: #f8d7da;
+}
+
+.error-modal-icon {
+    margin-bottom: 1rem;
+}
+
+.error-modal-icon {
+    margin-bottom: 1rem;
+}
+
+.error-modal-icon {
+    margin-bottom: 1rem;
+}
+
+.error-modal-icon i {
+    font-size: 2.5rem;
+    color: #dc3545;
+    display: inline-block;
+    width: 60px;
+    height: 60px;
+    line-height: 60px;
+    text-align: center;
+    border: 3px solid #dc3545;
+    border-radius: 0;
+    background-color: #fff;
+}
+
+.error-modal-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #000;
+    margin-bottom: 0.5rem;
+    font-family: 'Quicksand', sans-serif;
+}
+
+.register-container.dark-mode .error-modal-title {
+    color: #fff;
+}
+
+.error-modal-subtitle {
+    font-size: 0.95rem;
+    color: #333;
+    margin-bottom: 0.75rem;
+    font-family: 'Quicksand', sans-serif;
+}
+
+.register-container.dark-mode .error-modal-subtitle {
+    color: #ccc;
+}
+
+.register-container.dark-mode .error-modal-title {
+    color: #f8d7da;
+}
+
+.error-modal-body {
+    margin-bottom: 1.5rem;
+    text-align: left;
+}
+
+.error-modal-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.error-modal-list li {
+    padding: 0.5rem 0;
+    color: #333;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    font-family: 'Quicksand', sans-serif;
+    border-bottom: 1px solid #eee;
+}
+
+.error-modal-list li:last-child {
+    border-bottom: none;
+}
+
+.register-container.dark-mode .error-modal-list li {
+    color: #ccc;
+    border-bottom-color: #444;
+}
+
+.error-modal-btn {
+    background-color: #dc3545;
+    color: #fff;
+    border: none;
+    padding: 0.75rem 3rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    font-family: 'Quicksand', sans-serif;
+}
+
+.error-modal-btn:hover {
+    background-color: #c82333;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+}
+
+.error-modal-btn:active {
+    transform: translateY(0);
+}
+
+@keyframes shake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    10%, 30%, 50%, 70%, 90% {
+        transform: translateX(-5px);
+    }
+    20%, 40%, 60%, 80% {
+        transform: translateX(5px);
+    }
+}
+
+/* Success Modal Styles */
+.success-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.success-modal-content {
+    background-color: #fff;
+    border-radius: 0;
+    padding: 2rem 2.5rem;
+    max-width: 500px;
+    width: 90%;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease-out;
+}
+
+.register-container.dark-mode .success-modal-content {
+    background-color: #2b2b2b;
+    color: #fff;
+}
+
+.success-modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #333;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease;
+}
+
+.success-modal-close:hover {
+    color: #666;
+}
+
+.register-container.dark-mode .success-modal-close {
+    color: #ccc;
+}
+
+.register-container.dark-mode .success-modal-close:hover {
+    color: #fff;
+}
+
+.success-modal-icon {
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+.success-modal-icon i {
+    font-size: 4rem;
+    color: #28a745;
+    position: relative;
+}
+
+.success-modal-icon i::after {
+    content: '';
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 16px;
+    height: 16px;
+    background-color: #28a745;
+    border-radius: 50%;
+    border: 2px solid #fff;
+}
+
+.success-modal-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #000;
+    margin-bottom: 1rem;
+    line-height: 1.4;
+    font-family: 'Quicksand', sans-serif;
+}
+
+.register-container.dark-mode .success-modal-title {
+    color: #fff;
+}
+
+.success-modal-body {
+    margin-bottom: 1.5rem;
+}
+
+.success-modal-body p {
+    font-size: 0.95rem;
+    color: #333;
+    line-height: 1.6;
+    margin: 0;
+    font-family: 'Quicksand', sans-serif;
+}
+
+.register-container.dark-mode .success-modal-body p {
+    color: #ccc;
+}
+
+.success-modal-btn {
+    background-color: #7E0308;
+    color: #fff;
+    border: none;
+    padding: 0.75rem 3rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    font-family: 'Quicksand', sans-serif;
+}
+
+.success-modal-btn:hover {
+    background-color: #9E0308;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(126, 3, 8, 0.3);
+}
+
+.success-modal-btn:active {
+    transform: translateY(0);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
     }
 }

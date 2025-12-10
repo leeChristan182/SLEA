@@ -37,8 +37,8 @@
                     <h3>SLEA Classification</h3>
                     <div class="sr-grid">
                         <div class="sr-field">
-                            <label for="docType">Document Type</label>
-                            <select id="docType" name="document_type">
+                            <label for="docType">Document Type <span style="color: red;">*</span></label>
+                            <select id="docType" name="document_type" required>
                                 <option value="">Select document type</option>
                                 <option value="certificate">Certificate</option>
                                 <option value="appointment">Appointment</option>
@@ -63,17 +63,33 @@
 
                         {{-- Rubric Section --}}
                         <div class="sr-field">
-                            <label for="sectionSelect">Section</label>
-                            <select id="sectionSelect" name="rubric_section_id" disabled>
+                            <label for="sectionSelect">Section <span style="color: red;">*</span></label>
+                            <select id="sectionSelect" name="rubric_section_id" disabled required>
                                 <option value="">Select section</option>
                             </select>
                         </div>
 
                         {{-- Rubric Subsection --}}
                         <div class="sr-field">
-                            <label for="subSection">Subsection</label>
-                            <select id="subSection" name="rubric_subsection_id" disabled>
+                            <label for="subSection">Subsection <span style="color: red;">*</span></label>
+                            <select id="subSection" name="rubric_subsection_id" disabled required>
                                 <option value="">Select subsection</option>
+                            </select>
+                        </div>
+
+                        {{-- Cluster Field (only shown when "Student Clubs and Organizations" is selected) --}}
+                        <div class="sr-field" id="clusterField" style="display: none;">
+                            <label for="clusterSelect">Cluster <span style="color: red;">*</span></label>
+                            <select id="clusterSelect" name="cluster_id">
+                                <option value="">Select cluster</option>
+                            </select>
+                        </div>
+
+                        {{-- Organization Field (only shown when "Student Clubs and Organizations" is selected) --}}
+                        <div class="sr-field" id="organizationField" style="display: none;">
+                            <label for="organizationSelect">Organization <span style="color: red;">*</span></label>
+                            <select id="organizationSelect" name="organization_id" disabled>
+                                <option value="">Select organization</option>
                             </select>
                         </div>
                     </div>
@@ -108,11 +124,24 @@
                         </div>
                         <div class="sr-field">
                             <label for="role">Role in Activity</label>
-                            <input
-                                id="role"
-                                name="role_in_activity"
-                                type="text"
-                                placeholder="e.g., Participant / Speaker">
+                            <div style="position: relative;">
+                                <select id="role" name="role_in_activity" style="width: 100%;">
+                                    <option value="">Select role or enter custom</option>
+                                </select>
+                                <input
+                                    id="roleCustom"
+                                    name="role_in_activity_custom"
+                                    type="text"
+                                    placeholder="Enter custom role"
+                                    style="margin-top: 8px; display: none; width: 100%; height: 42px; border-radius: 10px; border: 1px solid #ccd1d7; padding: 0 12px; padding-right: 100px; background: #fff; color: #111;">
+                                <button
+                                    type="button"
+                                    id="roleBackToDropdown"
+                                    style="display: none; position: absolute; right: 8px; top: 50px; padding: 6px 12px; background: #8B0000; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;"
+                                    title="Back to dropdown">
+                                    ← Back to List
+                                </button>
+                            </div>
                         </div>
                         <div class="sr-field">
                             <label for="date">Date of Activity</label>
@@ -252,6 +281,21 @@
                     <div class="sr-modal-body sr-success">
                         <div class="sr-success-title">Submitted<br>Successfully!</div>
                         <div class="sr-success-icon"><i class="fa-solid fa-check"></i></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Validation Error Modal -->
+            <div id="modalValidation" class="sr-modal" aria-hidden="true">
+                <div class="sr-modal-backdrop"></div>
+                <div class="sr-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="validationTitle">
+                    <div class="sr-modal-body">
+                        <h4 id="validationTitle" class="sr-modal-title">Incomplete Fields</h4>
+                        <p class="sr-modal-subtitle">Please complete all required fields before proceeding:</p>
+                        <ul id="validationList" class="sr-validation-list"></ul>
+                        <div class="sr-modal-actions">
+                            <button class="sr-btn sr-btn-primary" data-close="modalValidation">Okay</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -705,6 +749,38 @@
         font-size: 26px;
     }
 
+    .submit-record-page .sr-validation-list {
+        list-style: none;
+        margin: 10px 0 14px;
+        padding: 0;
+        border: 2px dotted #cfcfcf;
+        border-radius: 8px;
+        max-height: 260px;
+        overflow-y: auto;
+        background: #fff7f7;
+    }
+
+    body.dark-mode .submit-record-page .sr-validation-list {
+        background: #3b1b1b;
+        border-color: #555;
+    }
+
+    .submit-record-page .sr-validation-list li {
+        padding: 10px 14px;
+        border-bottom: 1px dashed #d9d9d9;
+        color: #dc3545;
+        font-weight: 500;
+    }
+
+    .submit-record-page .sr-validation-list li:last-child {
+        border-bottom: none;
+    }
+
+    body.dark-mode .submit-record-page .sr-validation-list li {
+        color: #fca5a5;
+        border-bottom-color: #555;
+    }
+
     /* Responsive */
     @media (max-width: 992px) {
         .submit-record-page .submit-record-container {
@@ -788,6 +864,8 @@
             });
 
             sleaSectionSelect.disabled = false;
+            sleaSectionSelect.removeAttribute('required');
+            sleaSectionSelect.setAttribute('required', 'required');
         };
 
         const populateSubsections = (categoryId, sectionId) => {
@@ -824,6 +902,8 @@
             });
 
             sleaSubSelect.disabled = false;
+            sleaSubSelect.removeAttribute('required');
+            sleaSubSelect.setAttribute('required', 'required');
         };
 
         if (sleaCatSelect) {
@@ -840,9 +920,541 @@
             sleaSectionSelect.addEventListener('change', () => {
                 try {
                     populateSubsections(sleaCatSelect.value, sleaSectionSelect.value);
+                    // Reset cluster and organization fields when section changes
+                    const clusterField = document.getElementById('clusterField');
+                    const clusterSelect = document.getElementById('clusterSelect');
+                    const orgField = document.getElementById('organizationField');
+                    const orgSelect = document.getElementById('organizationSelect');
+                    
+                    if (clusterField) clusterField.style.display = 'none';
+                    if (clusterSelect) {
+                        clusterSelect.innerHTML = '<option value="">Select cluster</option>';
+                        clusterSelect.removeAttribute('required');
+                    }
+                    
+                    if (orgField) orgField.style.display = 'none';
+                    if (orgSelect) {
+                        orgSelect.innerHTML = '<option value="">Select organization</option>';
+                        orgSelect.removeAttribute('required');
+                        orgSelect.disabled = true;
+                    }
                 } catch (err) {
                     console.error('Error in populateSubsections:', err);
                 }
+            });
+        }
+
+        // ======== CLUSTER AND ORGANIZATION FIELD LOGIC ========
+        const clusterField = document.getElementById('clusterField');
+        const clusterSelect = document.getElementById('clusterSelect');
+        const orgField = document.getElementById('organizationField');
+        const orgSelect = document.getElementById('organizationSelect');
+        const clustersUrl = '{{ route("ajax.clusters") }}';
+        const organizationsUrl = '{{ route("ajax.organizations") }}';
+
+        const loadClusters = async () => {
+            if (!clusterSelect) return;
+            
+            clusterSelect.innerHTML = '<option value="">Loading clusters...</option>';
+            clusterSelect.disabled = true;
+
+            try {
+                const response = await fetch(`${clustersUrl}?_=${Date.now()}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                const data = await response.json();
+                
+                clusterSelect.innerHTML = '<option value="">Select cluster</option>';
+                
+                if (Array.isArray(data)) {
+                    data.forEach(cluster => {
+                        const opt = document.createElement('option');
+                        opt.value = cluster.id || cluster.value;
+                        opt.textContent = cluster.name || cluster.label || cluster.id;
+                        clusterSelect.appendChild(opt);
+                    });
+                } else if (typeof data === 'object' && data !== null) {
+                    Object.entries(data).forEach(([id, name]) => {
+                        const opt = document.createElement('option');
+                        opt.value = id;
+                        opt.textContent = name;
+                        clusterSelect.appendChild(opt);
+                    });
+                }
+                
+                clusterSelect.disabled = false;
+            } catch (err) {
+                console.error('Error loading clusters:', err);
+                clusterSelect.innerHTML = '<option value="">Error loading clusters</option>';
+            }
+        };
+
+        const loadOrganizations = async (clusterId) => {
+            if (!orgSelect) return;
+            
+            orgSelect.innerHTML = '<option value="">Loading organizations...</option>';
+            orgSelect.disabled = true;
+
+            if (!clusterId) {
+                orgSelect.innerHTML = '<option value="">Select cluster first</option>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${organizationsUrl}?cluster_id=${encodeURIComponent(clusterId)}&_=${Date.now()}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                const data = await response.json();
+                
+                orgSelect.innerHTML = '<option value="">Select organization</option>';
+                
+                if (Array.isArray(data)) {
+                    data.forEach(org => {
+                        const opt = document.createElement('option');
+                        opt.value = org.id || org.value;
+                        opt.textContent = org.name || org.label || org.id;
+                        orgSelect.appendChild(opt);
+                    });
+                } else if (typeof data === 'object' && data !== null) {
+                    Object.entries(data).forEach(([id, name]) => {
+                        const opt = document.createElement('option');
+                        opt.value = id;
+                        opt.textContent = name;
+                        orgSelect.appendChild(opt);
+                    });
+                }
+                
+                orgSelect.disabled = false;
+            } catch (err) {
+                console.error('Error loading organizations:', err);
+                orgSelect.innerHTML = '<option value="">Error loading organizations</option>';
+            }
+        };
+
+        // Handle subsection change to show/hide cluster and organization fields
+        if (sleaSubSelect) {
+            sleaSubSelect.addEventListener('change', () => {
+                const selectedOption = sleaSubSelect.options[sleaSubSelect.selectedIndex];
+                const subsectionText = selectedOption ? selectedOption.textContent.trim() : '';
+                const subsectionId = selectedOption ? selectedOption.value : null;
+                
+                // Store selected subsection text and ID for Step 2
+                selectedSubsectionText = subsectionText;
+                selectedSubsectionId = subsectionId;
+                
+                // Check if subsection is "Student Clubs and Organizations"
+                const isStudentClubsOrg = /student clubs and organizations/i.test(subsectionText);
+                
+                if (isStudentClubsOrg) {
+                    // Show cluster field first
+                    if (clusterField && clusterSelect) {
+                        clusterField.style.display = '';
+                        clusterSelect.setAttribute('required', 'required');
+                        loadClusters();
+                    }
+                    // Show organization field (but disabled until cluster is selected)
+                    if (orgField && orgSelect) {
+                        orgField.style.display = '';
+                        orgSelect.setAttribute('required', 'required');
+                        orgSelect.disabled = true;
+                        orgSelect.innerHTML = '<option value="">Select cluster first</option>';
+                    }
+                } else {
+                    // Hide both fields
+                    if (clusterField) {
+                        clusterField.style.display = 'none';
+                        if (clusterSelect) {
+                            clusterSelect.removeAttribute('required');
+                            clusterSelect.value = '';
+                        }
+                    }
+                    if (orgField) {
+                        orgField.style.display = 'none';
+                        if (orgSelect) {
+                            orgSelect.removeAttribute('required');
+                            orgSelect.value = '';
+                            orgSelect.disabled = true;
+                        }
+                    }
+                }
+            });
+        }
+
+        // Handle cluster change to load organizations
+        if (clusterSelect) {
+            clusterSelect.addEventListener('change', () => {
+                const clusterId = clusterSelect.value;
+                if (orgSelect) {
+                    if (clusterId) {
+                        loadOrganizations(clusterId);
+                    } else {
+                        orgSelect.innerHTML = '<option value="">Select cluster first</option>';
+                        orgSelect.disabled = true;
+                        orgSelect.value = '';
+                        selectedOrganizationId = null;
+                    }
+                }
+            });
+        }
+
+        // Handle organization change to store organization ID for Step 2
+        if (orgSelect) {
+            orgSelect.addEventListener('change', () => {
+                selectedOrganizationId = orgSelect.value || null;
+            });
+        }
+
+        // ======== ROLE IN ACTIVITY DROPDOWN LOGIC ========
+        const roleSelect = document.getElementById('role');
+        const roleCustomInput = document.getElementById('roleCustom');
+        const roleBackToDropdown = document.getElementById('roleBackToDropdown');
+        const positionsUrl = '{{ route("ajax.positions") }}';
+        const councilPositionsUrl = '{{ route("ajax.council.positions") }}';
+        
+        // Store selected subsection text and ID for Step 2
+        let selectedSubsectionText = '';
+        let selectedSubsectionId = null;
+        let selectedOrganizationId = null;
+        let selectedSectionText = ''; // Store section text to check if it's Section A
+
+        // Map subsection text to leadership type key
+        const subsectionToLeadershipType = {
+            'student government (university / campus)': 'usg',
+            'student government (university / campu': 'usg', // truncated version
+            'campus student council': 'osc',
+            'local councils (college level)': 'lc',
+            'local council': 'lc',
+            'student clubs and organizations': 'sco',
+            'local government unit (lgu)': 'lgu',
+            'other recognized organizations (non-lgu)': 'eap',
+            'elective/appointive position': 'eap',
+            'league of class mayors': 'lcm',
+            'council of clubs and organizations': 'cco'
+        };
+
+        const getLeadershipTypeFromSubsection = (subsectionText) => {
+            if (!subsectionText) return null;
+            const normalized = subsectionText.toLowerCase().trim();
+            for (const [key, value] of Object.entries(subsectionToLeadershipType)) {
+                if (normalized.includes(key) || key.includes(normalized)) {
+                    return value;
+                }
+            }
+            return null;
+        };
+
+        const loadPositionsByLeadershipType = async (leadershipTypeKey) => {
+            if (!leadershipTypeKey || !roleSelect) return;
+            
+            roleSelect.innerHTML = '<option value="">Loading positions...</option>';
+            roleSelect.disabled = true;
+
+            // Try to load from API first, but use hardcoded as primary source
+            try {
+                const response = await fetch(`${councilPositionsUrl}?leadership_type_key=${encodeURIComponent(leadershipTypeKey)}&_=${Date.now()}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                
+                let data = [];
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    console.warn('Could not parse positions from API, using hardcoded positions');
+                }
+                
+                roleSelect.innerHTML = '<option value="">Select role</option>';
+                
+                // Use API data if available, otherwise use hardcoded positions
+                if (Array.isArray(data) && data.length > 0) {
+                    data.forEach(pos => {
+                        const opt = document.createElement('option');
+                        opt.value = pos.id || pos.value || pos.name;
+                        opt.textContent = pos.name || pos.label || pos.alias || pos.id;
+                        roleSelect.appendChild(opt);
+                    });
+                } else {
+                    // Use hardcoded positions from PositionSeeder
+                    const hardcodedPositions = getHardcodedPositions(leadershipTypeKey);
+                    if (hardcodedPositions && hardcodedPositions.length > 0) {
+                        hardcodedPositions.forEach(pos => {
+                            const opt = document.createElement('option');
+                            opt.value = pos;
+                            opt.textContent = pos;
+                            roleSelect.appendChild(opt);
+                        });
+                    }
+                }
+                
+                // Add option for custom input (only if NOT Section A)
+                const isSectionA = /campus-based student government/i.test(selectedSectionText) || 
+                                  /^a\./i.test(selectedSectionText);
+                if (!isSectionA) {
+                    const customOpt = document.createElement('option');
+                    customOpt.value = '__custom__';
+                    customOpt.textContent = '--- Enter Custom Role ---';
+                    roleSelect.appendChild(customOpt);
+                }
+                
+                roleSelect.disabled = false;
+            } catch (err) {
+                console.error('Error loading positions by leadership type:', err);
+                // Fallback to hardcoded positions
+                const hardcodedPositions = getHardcodedPositions(leadershipTypeKey);
+                roleSelect.innerHTML = '<option value="">Select role</option>';
+                if (hardcodedPositions && hardcodedPositions.length > 0) {
+                    hardcodedPositions.forEach(pos => {
+                        const opt = document.createElement('option');
+                        opt.value = pos;
+                        opt.textContent = pos;
+                        roleSelect.appendChild(opt);
+                    });
+                }
+                // Add option for custom input (only if NOT Section A)
+                const isSectionA = /campus-based student government/i.test(selectedSectionText) || 
+                                  /^a\./i.test(selectedSectionText);
+                if (!isSectionA) {
+                    const customOpt = document.createElement('option');
+                    customOpt.value = '__custom__';
+                    customOpt.textContent = '--- Enter Custom Role ---';
+                    roleSelect.appendChild(customOpt);
+                }
+                roleSelect.disabled = false;
+            }
+        };
+
+        const getHardcodedPositions = (leadershipTypeKey) => {
+            const positionsMap = {
+                'usg': [
+                    'Student Regent/President',
+                    'Vice President for Internal and External Affairs',
+                    'Vice President for Business Correspondence and Records',
+                    'Vice President for Finance, Audit and Logistics',
+                    'Vice President for Publication and Information',
+                    'Committee Member'
+                ],
+                'osc': [
+                    'OSC President',
+                    'OSC Vice President for Internal Affairs',
+                    'OSC Vice President for External Affairs',
+                    'OSC General Secretary',
+                    'OSC General Treasurer',
+                    'OSC General Auditor',
+                    'OSC Public Information Officer',
+                    'Committee Member'
+                ],
+                'lc': [
+                    'Governor',
+                    'Vice Governor',
+                    'Secretary',
+                    'Treasurer',
+                    'Auditor',
+                    'College House Representative (1st)',
+                    'College House Representative (2nd)',
+                    'Committee Member'
+                ],
+                'lcm': [
+                    'Mayor',
+                    'Vice Mayor',
+                    'Secretary',
+                    'Treasurer',
+                    'Auditor'
+                ],
+                'sco': [
+                    'President',
+                    'Internal Vice President',
+                    'External Vice President',
+                    'Secretary',
+                    'Assistant Secretary',
+                    'Treasurer',
+                    'Auditor',
+                    'Public Information Officer (PIO)',
+                    '1st Year Representative',
+                    '2nd Year Representative',
+                    '3rd Year Representative',
+                    '4th Year Representative',
+                    'Committee Member'
+                ],
+                'cco': [
+                    'President',
+                    'Vice President for Internal Affairs',
+                    'Vice President for External Affairs',
+                    'Vice President for Secretariat and Communications',
+                    'Associate Vice President for Secretariat and Communications',
+                    'Vice President for Audit',
+                    'Vice President for Finance',
+                    'Vice President for Business and Events Management',
+                    'Vice President for Logistics and Property Superintendent',
+                    'Campus Ministry Cluster Director',
+                    'Legislative Board Chairperson',
+                    'Academic Cluster Director',
+                    'Socio-Civic Cluster Director',
+                    'Culture and Arts Cluster Director',
+                    'Sports Cluster Director',
+                    'Inter-Fraternity and Sorority Cluster Director',
+                    'Committee Member'
+                ],
+                'lgu': [
+                    'Municipal Councilor / SK Federated President',
+                    'Barangay Councilor / SK Chairperson',
+                    'Barangay Secretary / Treasurer',
+                    'SK Councilor',
+                    'Indigenous People / Youth Leader'
+                ],
+                'eap': [
+                    'President',
+                    'Vice President',
+                    'Indigenous People',
+                    'Youth Leader',
+                    'Secretary',
+                    'Treasurer'
+                ]
+            };
+            return positionsMap[leadershipTypeKey] || null;
+        };
+
+        const populateRoleDropdown = async (positions) => {
+            if (!roleSelect) return;
+            
+            roleSelect.innerHTML = '<option value="">Select role</option>';
+            
+            if (Array.isArray(positions)) {
+                positions.forEach(pos => {
+                    const opt = document.createElement('option');
+                    opt.value = typeof pos === 'string' ? pos : (pos.name || pos.label || pos);
+                    opt.textContent = typeof pos === 'string' ? pos : (pos.name || pos.label || pos);
+                    roleSelect.appendChild(opt);
+                });
+            }
+            
+            // Add option for custom input (only if NOT Section A)
+            const isSectionA = /campus-based student government/i.test(selectedSectionText) || 
+                              /^a\./i.test(selectedSectionText);
+            if (!isSectionA) {
+                const customOpt = document.createElement('option');
+                customOpt.value = '__custom__';
+                customOpt.textContent = '--- Enter Custom Role ---';
+                roleSelect.appendChild(customOpt);
+            }
+        };
+
+        const loadPositionsForOrganization = async (orgId) => {
+            if (!orgId || !roleSelect) return;
+            
+            roleSelect.innerHTML = '<option value="">Loading positions...</option>';
+            roleSelect.disabled = true;
+
+            try {
+                const response = await fetch(`${positionsUrl}?organization_id=${encodeURIComponent(orgId)}&_=${Date.now()}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                const data = await response.json();
+                
+                roleSelect.innerHTML = '<option value="">Select role</option>';
+                
+                if (Array.isArray(data) && data.length > 0) {
+                    data.forEach(pos => {
+                        const opt = document.createElement('option');
+                        opt.value = pos.id || pos.value || pos.name;
+                        opt.textContent = pos.name || pos.label || pos.id;
+                        roleSelect.appendChild(opt);
+                    });
+                } else {
+                    // If no positions found, show custom input option
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.textContent = 'No positions available - use custom input';
+                    roleSelect.appendChild(opt);
+                }
+                
+                // Add option for custom input (only if NOT Section A)
+                const isSectionA = /campus-based student government/i.test(selectedSectionText) || 
+                                  /^a\./i.test(selectedSectionText);
+                if (!isSectionA) {
+                    const customOpt = document.createElement('option');
+                    customOpt.value = '__custom__';
+                    customOpt.textContent = '--- Enter Custom Role ---';
+                    roleSelect.appendChild(customOpt);
+                }
+                
+                roleSelect.disabled = false;
+            } catch (err) {
+                console.error('Error loading positions:', err);
+                roleSelect.innerHTML = '<option value="">Error loading positions</option>';
+            }
+        };
+
+        // Update role dropdown when moving to Step 2
+        const updateRoleDropdownForStep2 = () => {
+            if (!roleSelect) return;
+            
+            // Get leadership type from subsection
+            const leadershipTypeKey = getLeadershipTypeFromSubsection(selectedSubsectionText);
+            
+            if (leadershipTypeKey) {
+                // Load positions by leadership type (this includes SCO with hardcoded positions)
+                loadPositionsByLeadershipType(leadershipTypeKey);
+            } else {
+                // Default: show empty dropdown with custom option (only if NOT Section A)
+                const isSectionA = /campus-based student government/i.test(selectedSectionText) || 
+                                  /^a\./i.test(selectedSectionText);
+                roleSelect.innerHTML = '<option value="">Select role' + (isSectionA ? '' : ' or enter custom') + '</option>';
+                if (!isSectionA) {
+                    const customOpt = document.createElement('option');
+                    customOpt.value = '__custom__';
+                    customOpt.textContent = '--- Enter Custom Role ---';
+                    roleSelect.appendChild(customOpt);
+                }
+            }
+        };
+
+        // Handle role dropdown change to show/hide custom input
+        if (roleSelect) {
+            roleSelect.addEventListener('change', () => {
+                if (roleSelect.value === '__custom__') {
+                    roleSelect.style.display = 'none';
+                    if (roleCustomInput) {
+                        roleCustomInput.style.display = 'block';
+                        roleCustomInput.focus();
+                    }
+                    if (roleBackToDropdown) {
+                        roleBackToDropdown.style.display = 'block';
+                    }
+                } else {
+                    if (roleCustomInput) {
+                        roleCustomInput.style.display = 'none';
+                        roleCustomInput.value = '';
+                    }
+                    if (roleBackToDropdown) {
+                        roleBackToDropdown.style.display = 'none';
+                    }
+                }
+            });
+        }
+
+        // Handle back to dropdown button
+        if (roleBackToDropdown) {
+            roleBackToDropdown.addEventListener('click', () => {
+                if (roleSelect) {
+                    roleSelect.style.display = 'block';
+                    roleSelect.value = '';
+                }
+                if (roleCustomInput) {
+                    roleCustomInput.style.display = 'none';
+                    roleCustomInput.value = '';
+                }
+                if (roleBackToDropdown) {
+                    roleBackToDropdown.style.display = 'none';
+                }
+                // Reload the dropdown options
+                updateRoleDropdownForStep2();
             });
         }
 
@@ -872,23 +1484,130 @@
         const btnStep2Next = document.getElementById('btnStep2Next');
         const btnStep3Prev = document.getElementById('btnStep3Prev');
 
+        // ======== VALIDATION MODAL LOGIC ========
+        const modalValidation = document.getElementById('modalValidation');
+        const validationList = document.getElementById('validationList');
+        
+        const openValidationModal = (missingFields) => {
+            if (!validationList || !modalValidation) return;
+            
+            validationList.innerHTML = '';
+            missingFields.forEach(field => {
+                const li = document.createElement('li');
+                li.textContent = field;
+                validationList.appendChild(li);
+            });
+            
+            modalValidation.setAttribute('aria-hidden', 'false');
+        };
+
+        const closeValidationModal = () => {
+            if (modalValidation) {
+                modalValidation.setAttribute('aria-hidden', 'true');
+            }
+        };
+
         btnStep1Next?.addEventListener('click', () => {
+            const missingFields = [];
+            
+            // Validate Document Type
+            const docType = document.getElementById('docType');
+            if (!docType || !docType.value) {
+                missingFields.push('Document Type');
+            }
+            
+            // Validate SLEA Category
             const category = sleaCatSelect.value;
             if (!category) {
-                alert('Please select a SLEA category before continuing.');
+                missingFields.push('SLEA Category');
+            }
+            
+            // Validate Section (only if enabled)
+            if (!sleaSectionSelect.disabled && !sleaSectionSelect.value) {
+                missingFields.push('Section');
+            } else if (sleaSectionSelect.disabled) {
+                missingFields.push('Section (please select a category first)');
+            }
+            
+            // Validate Subsection (only if enabled)
+            if (!sleaSubSelect.disabled && !sleaSubSelect.value) {
+                missingFields.push('Subsection');
+            } else if (sleaSubSelect.disabled && !sleaSectionSelect.disabled) {
+                missingFields.push('Subsection (please select a section first)');
+            }
+            
+            // Validate Cluster (if visible)
+            if (clusterField && clusterField.style.display !== 'none') {
+                if (!clusterSelect || !clusterSelect.value) {
+                    missingFields.push('Cluster');
+                }
+            }
+            
+            // Validate Organization (if visible)
+            if (orgField && orgField.style.display !== 'none') {
+                if (!orgSelect || !orgSelect.value || orgSelect.disabled) {
+                    missingFields.push('Organization');
+                }
+            }
+            
+            // If there are missing fields, show modal and prevent proceeding
+            if (missingFields.length > 0) {
+                openValidationModal(missingFields);
                 return;
             }
+            
+            // All fields are complete, proceed to next step
+            // Update role dropdown before showing Step 2
+            updateRoleDropdownForStep2();
             showStep(2);
         });
 
-        btnStep2Prev?.addEventListener('click', () => showStep(1));
+        btnStep2Prev?.addEventListener('click', () => {
+            // Reset role dropdown when going back
+            if (roleSelect) {
+                const isSectionA = /campus-based student government/i.test(selectedSectionText) || 
+                                  /^a\./i.test(selectedSectionText);
+                roleSelect.innerHTML = '<option value="">Select role' + (isSectionA ? '' : ' or enter custom') + '</option>';
+                if (!isSectionA) {
+                    const customOpt = document.createElement('option');
+                    customOpt.value = '__custom__';
+                    customOpt.textContent = '--- Enter Custom Role ---';
+                    roleSelect.appendChild(customOpt);
+                }
+                roleSelect.disabled = false;
+            }
+            if (roleCustomInput) {
+                roleCustomInput.style.display = 'none';
+                roleCustomInput.value = '';
+            }
+            if (roleBackToDropdown) {
+                roleBackToDropdown.style.display = 'none';
+            }
+            showStep(1);
+        });
 
         btnStep2Next?.addEventListener('click', () => {
-            const title = document.getElementById('title').value.trim();
-            if (!title) {
-                alert('Please enter the title of activity before continuing.');
+            const missingFields = [];
+            
+            // Validate Activity Title
+            const title = document.getElementById('title');
+            if (!title || !title.value.trim()) {
+                missingFields.push('Title of Activity');
+            }
+            
+            // Validate Application Status
+            const appStatus = document.getElementById('applicationStatus');
+            if (appStatus && appStatus.hasAttribute('required') && !appStatus.value) {
+                missingFields.push('Application Status');
+            }
+            
+            // If there are missing fields, show modal and prevent proceeding
+            if (missingFields.length > 0) {
+                openValidationModal(missingFields);
                 return;
             }
+            
+            // All required fields are complete, proceed to next step
             showStep(3);
         });
 
@@ -1063,6 +1782,13 @@
             const form = document.getElementById('submitForm');
             const fd = new FormData(form);
 
+            // Handle role_in_activity: use custom input if selected, otherwise use dropdown value
+            if (roleSelect && roleSelect.value === '__custom__' && roleCustomInput && roleCustomInput.value) {
+                fd.set('role_in_activity', roleCustomInput.value);
+            } else if (roleSelect && roleSelect.value && roleSelect.value !== '__custom__') {
+                fd.set('role_in_activity', roleSelect.value);
+            }
+
             files.forEach(f => {
                 fd.append('attachments[]', f.file);
             });
@@ -1140,7 +1866,14 @@
 
         document.addEventListener('click', e => {
             const closer = e.target.closest('[data-close]');
-            if (closer) closeModal(document.getElementById(closer.getAttribute('data-close')));
+            if (closer) {
+                const modalId = closer.getAttribute('data-close');
+                if (modalId === 'modalValidation') {
+                    closeValidationModal();
+                } else {
+                    closeModal(document.getElementById(modalId));
+                }
+            }
         });
 
         // Initialize step 1

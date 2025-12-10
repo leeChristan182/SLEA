@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Student Account Approval')
+@section('title', 'Pending Account Approval')
 
 @section('content')
     <div class="container">
@@ -8,7 +8,8 @@
 
         <main class="main-content">
             <div class="page-header">
-                <h1>Student Account Approval</h1>
+                <h1>Pending Account Approval</h1>
+                <p class="text-muted">Review and assign roles to newly registered users</p>
             </div>
 
             {{-- Alerts --}}
@@ -26,47 +27,22 @@
                 </div>
             @endif
 
-            {{-- Controls Section --}}
+            {{-- Search Section --}}
             <div class="controls-section">
-                {{-- Filter Section --}}
-                <div class="filter-controls">
-                    <div class="filter-group">
-                        <label for="programFilter">Program:</label>
-                        <select id="programFilter" name="program_id" class="form-control">
-                            <option value="">All Programs</option>
-                            @foreach($programs as $program)
-                                <option value="{{ $program->id }}" {{ request('program_id') == $program->id ? 'selected' : '' }}>
-                                    {{ $program->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label for="yearLevelFilter">Year Level:</label>
-                        <select id="yearLevelFilter" name="year_level" class="form-control">
-                            <option value="">All Year Levels</option>
-                            @for($i = 1; $i <= 8; $i++)
-                                <option value="{{ $i }}" {{ request('year_level') == $i ? 'selected' : '' }}>
-                                    {{ $i }}{{ $i == 1 ? 'st' : ($i == 2 ? 'nd' : ($i == 3 ? 'rd' : 'th')) }} Year
-                                </option>
-                            @endfor
-                        </select>
-                    </div>
-                </div>
-
-                {{-- Search Section --}}
                 <div class="search-controls">
                     <div class="search-group">
-                        <input type="text" id="searchInput" name="q" class="form-control" value="{{ request('q') }}"
-                            placeholder="Search by Student ID or Email">
-                        <button type="button" id="searchBtn" class="btn-search-maroon search-btn-attached" title="Search"
-                            onclick="handleSearchClick(event)">
-                            <i class="fas fa-search"></i>
-                        </button>
-                        <button type="button" id="clearBtn" class="btn-clear" title="Clear all filters"
-                            onclick="handleClearClick(event)">
-                            Clear
-                        </button>
+                        <form method="GET" action="{{ route('admin.approve-reject') }}" class="d-flex gap-2 align-items-center" style="width: 100%;">
+                            <input type="text" id="searchInput" name="q" class="form-control" value="{{ request('q') }}"
+                                placeholder="Search by User ID, Name, or Email">
+                            <button type="submit" id="searchBtn" class="btn-search-maroon search-btn-attached" title="Search">
+                                <i class="fas fa-search"></i>
+                            </button>
+                            @if(request('q'))
+                                <a href="{{ route('admin.approve-reject') }}" class="btn-clear" title="Clear search">
+                                    Clear
+                                </a>
+                            @endif
+                        </form>
                     </div>
                 </div>
             </div>
@@ -76,55 +52,63 @@
                 <table class="table submissions-table">
                     <thead>
                         <tr>
-                            <th>Student ID</th>
-                            <th>Student Name</th>
+                            <th>User ID</th>
+                            <th>Full Name</th>
                             <th>Email</th>
-                            <th>Program</th>
-                            <th>Year Level</th>
-                            <th>Action</th>
+                            <th>Date Registered</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($students as $student)
-                            @php
-                                $acad = $student->studentAcademic;
-                            @endphp
+                        @forelse($users as $user)
                             <tr>
-                                <td>{{ $acad->student_number ?? '—' }}</td>
+                                <td>{{ $user->user_code ?? '—' }}</td>
                                 <td>
-                                    {{ $student->last_name }},
-                                    {{ $student->first_name }}
-                                    {{ $student->middle_name }}
+                                    {{ $user->last_name }},
+                                    {{ $user->first_name }}
+                                    {{ $user->middle_name ? ' ' . $user->middle_name : '' }}
                                 </td>
-                                <td>{{ $student->email }}</td>
-                                <td>{{ $acad->program->name ?? '—' }}</td>
-                                <td>{{ $acad->year_level ?? '—' }}</td>
+                                <td class="email-cell">{{ $user->email }}</td>
+                                <td>{{ $user->created_at->format('M d, Y') }}</td>
                                 <td>
                                     <div class="action-buttons-group">
-                                        <form action="{{ route('admin.approve', $student) }}" method="POST"
-                                            class="d-inline approve-form"
-                                            data-student-name="{{ $student->first_name }} {{ $student->last_name }}">
+                                        {{-- Assign as Student --}}
+                                        <form action="{{ route('admin.approve', $user->id) }}" method="POST"
+                                            class="d-inline approve-student-form"
+                                            data-user-name="{{ $user->first_name }} {{ $user->last_name }}">
                                             @csrf
-                                            <button type="button" class="btn-approve" title="Approve">
-                                                <i class="fas fa-check"></i>
+                                            <input type="hidden" name="role" value="student">
+                                            <button type="button" class="btn-assign-student" title="Assign as Student">
+                                                <i class="fas fa-user-graduate"></i> Student
                                             </button>
                                         </form>
 
-                                        <form action="{{ route('admin.reject', $student) }}" method="POST"
-                                            class="d-inline reject-form"
-                                            data-student-name="{{ $student->first_name }} {{ $student->last_name }}">
+                                        {{-- Assign as Assessor --}}
+                                        <form action="{{ route('admin.approve', $user->id) }}" method="POST"
+                                            class="d-inline approve-assessor-form"
+                                            data-user-name="{{ $user->first_name }} {{ $user->last_name }}">
                                             @csrf
-                                            <button type="button" class="btn-reject" title="Reject">
-                                                <i class="fas fa-times"></i>
+                                            <input type="hidden" name="role" value="assessor">
+                                            <button type="button" class="btn-assign-assessor" title="Assign as Assessor">
+                                                <i class="fas fa-user-tie"></i> Assessor
                                             </button>
                                         </form>
+
+                                        {{-- Reject --}}
+                                        <button type="button" class="btn-reject" 
+                                            data-user-id="{{ $user->id }}"
+                                            data-user-name="{{ $user->first_name }} {{ $user->last_name }}"
+                                            data-user-email="{{ $user->email }}"
+                                            title="Reject">
+                                            <i class="fas fa-times"></i> Reject
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center text-muted" style="padding: 40px;">
-                                    No pending student accounts found.
+                                <td colspan="5" class="text-center text-muted" style="padding: 40px;">
+                                    No pending accounts found.
                                 </td>
                             </tr>
                         @endforelse
@@ -133,34 +117,34 @@
             </div>
 
             {{-- Pagination --}}
-            @if($students->hasPages())
+            @if($users->hasPages())
                 <div class="pagination-container" data-pagination-container>
                     <div class="pagination-info">
-                        Showing {{ $students->firstItem() ?? 0 }} – {{ $students->lastItem() ?? 0 }}
-                        of {{ $students->total() }} entries
+                        Showing {{ $users->firstItem() ?? 0 }} – {{ $users->lastItem() ?? 0 }}
+                        of {{ $users->total() }} entries
                     </div>
 
                     <div class="unified-pagination">
-                        @if($students->onFirstPage())
+                        @if($users->onFirstPage())
                             <button class="btn-nav" disabled>
                                 <i class="fas fa-chevron-left"></i> Previous
                             </button>
                         @else
-                            <a href="{{ $students->previousPageUrl() }}" class="btn-nav">
+                            <a href="{{ $users->previousPageUrl() }}" class="btn-nav">
                                 <i class="fas fa-chevron-left"></i> Previous
                             </a>
                         @endif
 
                         <span class="pagination-pages">
                             @php
-                                $currentPage = $students->currentPage();
-                                $lastPage = $students->lastPage();
+                                $currentPage = $users->currentPage();
+                                $lastPage = $users->lastPage();
                                 $start = max(1, $currentPage - 2);
                                 $end = min($lastPage, $currentPage + 2);
                             @endphp
 
                             @if($start > 1)
-                                <a href="{{ $students->url(1) }}" class="page-btn">1</a>
+                                <a href="{{ $users->url(1) }}" class="page-btn">1</a>
                                 @if($start > 2)
                                     <span class="page-btn disabled">...</span>
                                 @endif
@@ -170,7 +154,7 @@
                                 @if($i == $currentPage)
                                     <span class="page-btn active">{{ $i }}</span>
                                 @else
-                                    <a href="{{ $students->url($i) }}" class="page-btn">{{ $i }}</a>
+                                    <a href="{{ $users->url($i) }}" class="page-btn">{{ $i }}</a>
                                 @endif
                             @endfor
 
@@ -178,12 +162,12 @@
                                 @if($end < $lastPage - 1)
                                     <span class="page-btn disabled">...</span>
                                 @endif
-                                <a href="{{ $students->url($lastPage) }}" class="page-btn">{{ $lastPage }}</a>
+                                <a href="{{ $users->url($lastPage) }}" class="page-btn">{{ $lastPage }}</a>
                             @endif
                         </span>
 
-                        @if($students->hasMorePages())
-                            <a href="{{ $students->nextPageUrl() }}" class="btn-nav">
+                        @if($users->hasMorePages())
+                            <a href="{{ $users->nextPageUrl() }}" class="btn-nav">
                                 Next <i class="fas fa-chevron-right"></i>
                             </a>
                         @else
@@ -197,91 +181,74 @@
         </main>
     </div>
 
+    {{-- Rejection Modal --}}
+    <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="rejectModalLabel">Reject Account</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="rejectForm" method="POST">
+                    @csrf
+                    <div class="modal-body">
+                        <p>Are you sure you want to reject the account for <strong id="rejectUserName"></strong>?</p>
+                        <div class="mb-3">
+                            <label for="rejection_reason" class="form-label">Rejection Reason (Optional)</label>
+                            <textarea class="form-control" id="rejection_reason" name="rejection_reason" rows="3" 
+                                placeholder="Enter reason for rejection (will be sent via email)"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger">Reject Account</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <link rel="stylesheet" href="{{ asset('css/pending-submissions.css') }}">
     <style>
-        /* Status badges for approve-reject page */
-        .status-badge.pending {
-            background-color: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffc107;
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .status-badge.approved {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #28a745;
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .status-badge.rejected {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #dc3545;
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        body.dark-mode .status-badge.pending {
-            background-color: #744210;
-            color: #f6e05e;
-            border-color: #f6e05e;
-        }
-
-        body.dark-mode .status-badge.approved {
-            background-color: #1e4d2b;
-            color: #68d391;
-            border-color: #68d391;
-        }
-
-        body.dark-mode .status-badge.rejected {
-            background-color: #742a2a;
-            color: #feb2b2;
-            border-color: #feb2b2;
-        }
-
-        /* Action buttons group */
         .action-buttons-group {
             display: flex;
             gap: 8px;
             justify-content: center;
             align-items: center;
+            flex-wrap: wrap;
         }
 
-        .btn-approve,
+        .btn-assign-student,
+        .btn-assign-assessor,
         .btn-reject {
-            width: 35px;
-            height: 35px;
+            padding: 6px 12px;
             border: none;
             border-radius: 6px;
             display: inline-flex;
             align-items: center;
-            justify-content: center;
+            gap: 6px;
             cursor: pointer;
             transition: all 0.2s ease;
-            padding: 0;
+            font-size: 0.875rem;
+            font-weight: 500;
         }
 
-        .btn-approve {
+        .btn-assign-student {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-assign-student:hover {
+            background-color: #0056b3;
+            transform: translateY(-1px);
+        }
+
+        .btn-assign-assessor {
             background-color: #28a745;
             color: white;
         }
 
-        .btn-approve:hover {
+        .btn-assign-assessor:hover {
             background-color: #218838;
             transform: translateY(-1px);
         }
@@ -296,86 +263,8 @@
             transform: translateY(-1px);
         }
 
-        .btn-approve i,
-        .btn-reject i {
-            font-size: 0.9rem;
-        }
-
-        .no-action-text {
-            color: #6c757d;
-            font-style: italic;
-            font-size: 0.85rem;
-        }
-
-        body.dark-mode .no-action-text {
-            color: #999;
-        }
-
-        body.dark-mode .btn-approve {
-            background-color: #28a745;
-        }
-
-        body.dark-mode .btn-approve:hover {
-            background-color: #2d5a2d;
-        }
-
-        body.dark-mode .btn-reject {
-            background-color: #dc3545;
-        }
-
-        body.dark-mode .btn-reject:hover {
-            background-color: #8b0000;
-        }
-
-        /* Controls section - filters and search */
         .controls-section {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
             margin-bottom: 20px;
-            align-items: flex-start;
-        }
-
-        .filter-controls {
-            display: flex;
-            gap: 20px;
-            align-items: flex-start;
-            flex-wrap: wrap;
-            width: 100%;
-        }
-
-        .filter-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .filter-group label {
-            font-weight: 600;
-            color: #333;
-            white-space: nowrap;
-            font-size: 14px;
-            margin-bottom: 0;
-        }
-
-        body.dark-mode .filter-group label {
-            color: #f0f0f0;
-        }
-
-        .filter-group .form-control {
-            padding: 8px 12px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            font-size: 14px;
-            background: #fff;
-            color: #333;
-            min-width: 200px;
-        }
-
-        body.dark-mode .filter-group .form-control {
-            background: #3a3a3a;
-            border-color: #555;
-            color: #f0f0f0;
         }
 
         .search-controls {
@@ -388,131 +277,104 @@
             display: flex;
             gap: 8px;
             align-items: center;
+            width: 100%;
+        }
+
+        .search-group .form-control {
+            flex: 1;
+            max-width: 400px;
+        }
+
+        /* User ID column - make it smaller */
+        .submissions-table th:nth-child(1),
+        .submissions-table td:nth-child(1) {
+            width: 8%;
+            min-width: 80px;
+            max-width: 100px;
+        }
+
+        /* Email column styling - make it longer */
+        .submissions-table .email-cell {
+            min-width: 300px;
+            max-width: 400px;
+            width: 35%;
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+
+        /* Date Registered column - make it smaller but ensure it fits on one line */
+        .submissions-table th:nth-child(4),
+        .submissions-table td:nth-child(4) {
+            width: 15%;
+            min-width: 140px;
+            max-width: 160px;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 768px) {
+            .submissions-table .email-cell {
+                min-width: 200px;
+                max-width: 250px;
+                width: auto;
+                font-size: 0.875rem;
+            }
+
+            .submissions-table th:nth-child(4),
+            .submissions-table td:nth-child(4) {
+                width: auto;
+                min-width: 100px;
+                max-width: 120px;
+                font-size: 0.875rem;
+            }
         }
     </style>
     <script src="{{ asset('js/admin_pagination.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
-        // Filter functionality
-        document.getElementById('programFilter')?.addEventListener('change', function() {
-            applyFilters();
-        });
-
-        document.getElementById('yearLevelFilter')?.addEventListener('change', function() {
-            applyFilters();
-        });
-
-        function applyFilters() {
-            const form = document.createElement('form');
-            form.method = 'GET';
-            form.action = window.location.pathname;
-
-            // Add search query if exists
-            const searchInput = document.getElementById('searchInput');
-            if (searchInput && searchInput.value.trim()) {
-                const qInput = document.createElement('input');
-                qInput.type = 'hidden';
-                qInput.name = 'q';
-                qInput.value = searchInput.value.trim();
-                form.appendChild(qInput);
-            }
-
-            // Add program filter
-            const programFilter = document.getElementById('programFilter');
-            if (programFilter && programFilter.value) {
-                const programInput = document.createElement('input');
-                programInput.type = 'hidden';
-                programInput.name = 'program_id';
-                programInput.value = programFilter.value;
-                form.appendChild(programInput);
-            }
-
-            // Add year level filter
-            const yearLevelFilter = document.getElementById('yearLevelFilter');
-            if (yearLevelFilter && yearLevelFilter.value) {
-                const yearLevelInput = document.createElement('input');
-                yearLevelInput.type = 'hidden';
-                yearLevelInput.name = 'year_level';
-                yearLevelInput.value = yearLevelFilter.value;
-                form.appendChild(yearLevelInput);
-            }
-
-            document.body.appendChild(form);
-            form.submit();
-        }
-
-        // Search and Clear functionality
-        function handleSearchClick(event) {
-            event.preventDefault();
-            const searchInput = document.getElementById('searchInput');
-            const form = document.createElement('form');
-            form.method = 'GET';
-            form.action = window.location.pathname;
-
-            if (searchInput.value.trim()) {
-                const qInput = document.createElement('input');
-                qInput.type = 'hidden';
-                qInput.name = 'q';
-                qInput.value = searchInput.value.trim();
-                form.appendChild(qInput);
-            }
-
-            // Preserve filters when searching
-            const programFilter = document.getElementById('programFilter');
-            if (programFilter && programFilter.value) {
-                const programInput = document.createElement('input');
-                programInput.type = 'hidden';
-                programInput.name = 'program_id';
-                programInput.value = programFilter.value;
-                form.appendChild(programInput);
-            }
-
-            const yearLevelFilter = document.getElementById('yearLevelFilter');
-            if (yearLevelFilter && yearLevelFilter.value) {
-                const yearLevelInput = document.createElement('input');
-                yearLevelInput.type = 'hidden';
-                yearLevelInput.name = 'year_level';
-                yearLevelInput.value = yearLevelFilter.value;
-                form.appendChild(yearLevelInput);
-            }
-
-            document.body.appendChild(form);
-            form.submit();
-        }
-
-        function handleClearClick(event) {
-            event.preventDefault();
-            // Clear all filter values
-            document.getElementById('searchInput').value = '';
-            document.getElementById('programFilter').value = '';
-            document.getElementById('yearLevelFilter').value = '';
-            
-            // Submit form with no filters
-            const form = document.createElement('form');
-            form.method = 'GET';
-            form.action = window.location.pathname;
-            document.body.appendChild(form);
-            form.submit();
-        }
-
-        // Approve/Reject confirmation modals
         document.addEventListener('DOMContentLoaded', function () {
-            // Approve button handlers
-            document.querySelectorAll('.approve-form').forEach(function (form) {
-                const button = form.querySelector('.btn-approve');
-                const studentName = form.getAttribute('data-student-name');
+            // Assign as Student
+            document.querySelectorAll('.approve-student-form').forEach(function (form) {
+                const button = form.querySelector('.btn-assign-student');
+                const userName = form.getAttribute('data-user-name');
 
                 button.addEventListener('click', function (e) {
                     e.preventDefault();
 
                     Swal.fire({
-                        title: 'Approve Student Account?',
-                        html: `Are you sure you want to approve the account for <strong>${studentName}</strong>?`,
+                        title: 'Assign as Student?',
+                        html: `Are you sure you want to approve and assign <strong>${userName}</strong> as a <strong>Student</strong>?`,
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonColor: '#007bff',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'Yes, Assign as Student',
+                        cancelButtonText: 'Cancel',
+                        reverseButtons: true
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            form.submit();
+                        }
+                    });
+                });
+            });
+
+            // Assign as Assessor
+            document.querySelectorAll('.approve-assessor-form').forEach(function (form) {
+                const button = form.querySelector('.btn-assign-assessor');
+                const userName = form.getAttribute('data-user-name');
+
+                button.addEventListener('click', function (e) {
+                    e.preventDefault();
+
+                    Swal.fire({
+                        title: 'Assign as Assessor?',
+                        html: `Are you sure you want to approve and assign <strong>${userName}</strong> as an <strong>Assessor</strong>?`,
                         icon: 'question',
                         showCancelButton: true,
                         confirmButtonColor: '#28a745',
                         cancelButtonColor: '#6c757d',
-                        confirmButtonText: 'Yes, Approve',
+                        confirmButtonText: 'Yes, Assign as Assessor',
                         cancelButtonText: 'Cancel',
                         reverseButtons: true
                     }).then((result) => {
@@ -523,33 +385,23 @@
                 });
             });
 
-            // Reject button handlers
-            document.querySelectorAll('.reject-form').forEach(function (form) {
-                const button = form.querySelector('.btn-reject');
-                const studentName = form.getAttribute('data-student-name');
+            // Reject button
+            const rejectModal = new bootstrap.Modal(document.getElementById('rejectModal'));
+            const rejectForm = document.getElementById('rejectForm');
 
+            document.querySelectorAll('.btn-reject').forEach(function (button) {
                 button.addEventListener('click', function (e) {
                     e.preventDefault();
+                    const userId = this.getAttribute('data-user-id');
+                    const userName = this.getAttribute('data-user-name');
 
-                    Swal.fire({
-                        title: 'Reject Student Account?',
-                        html: `Are you sure you want to reject the account for <strong>${studentName}</strong>?`,
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonColor: '#dc3545',
-                        cancelButtonColor: '#6c757d',
-                        confirmButtonText: 'Yes, Reject',
-                        cancelButtonText: 'Cancel',
-                        reverseButtons: true
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            form.submit();
-                        }
-                    });
+                    document.getElementById('rejectUserName').textContent = userName;
+                    rejectForm.action = "{{ route('admin.reject', ':id') }}".replace(':id', userId);
+                    rejectModal.show();
                 });
             });
 
-            // Auto-fade success alert after 3 seconds
+            // Auto-fade success alert
             const successAlert = document.getElementById('successAlert');
             if (successAlert) {
                 setTimeout(function() {
@@ -557,8 +409,8 @@
                     successAlert.style.opacity = '0';
                     setTimeout(function() {
                         successAlert.remove();
-                    }, 500); // Remove after fade animation completes
-                }, 3000); // Start fade after 3 seconds
+                    }, 500);
+                }, 3000);
             }
         });
     </script>

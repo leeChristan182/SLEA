@@ -4,6 +4,8 @@
     /** Current user + role (single users table) */
     $user = Auth::user();
     $role = $user?->role; // 'admin' | 'assessor' | 'student'
+    $profileCompleted = $user?->profile_completed ?? false;
+    $isApproved = $user?->status === 'approved';
 @endphp
 
 <!-- Overlay for mobile only -->
@@ -106,9 +108,6 @@
                     <i class="fas fa-users-cog"></i><span>User Account Management</span>
                 </span>
                 <ul class="submenu">
-                    <li class="{{ request()->routeIs('admin.create_user') ? 'active' : '' }}">
-                        <a href="{{ route('admin.create_user') }}">Create Assessor's Account</a>
-                    </li>
                     <li class="{{ request()->routeIs('admin.approve-reject') ? 'active' : '' }}">
                         <a href="{{ route('admin.approve-reject') }}">Approve/Reject Account</a>
                     </li>
@@ -237,5 +236,81 @@
             const title = item.querySelector('.submenu-title');
             title?.addEventListener('click', () => item.classList.toggle('open'));
         });
+
+        // Profile completion check for students
+        @if ($role === 'student' && $isApproved && !$profileCompleted)
+            const profileIncompleteModal = document.getElementById('profileIncompleteModal');
+            const profileIncompleteBackdrop = document.getElementById('profileIncompleteBackdrop');
+            const profileIncompleteClose = document.getElementById('profileIncompleteClose');
+            const profileIncompleteBtn = document.getElementById('profileIncompleteBtn');
+
+            const showProfileIncompleteModal = () => {
+                if (profileIncompleteModal) {
+                    profileIncompleteModal.setAttribute('aria-hidden', 'false');
+                    profileIncompleteModal.style.display = 'flex';
+                    document.body.style.overflow = 'hidden';
+                }
+            };
+
+            const hideProfileIncompleteModal = () => {
+                if (profileIncompleteModal) {
+                    profileIncompleteModal.setAttribute('aria-hidden', 'true');
+                    profileIncompleteModal.style.display = 'none';
+                    document.body.style.overflow = '';
+                }
+            };
+
+            // Intercept all student navigation links except Profile
+            const studentLinks = document.querySelectorAll('aside#sidebar ul li a[href*="/student/"]');
+            studentLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                // Allow profile page access
+                if (href && !href.includes('/student/profile') && !href.includes('/student/revalidation')) {
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        showProfileIncompleteModal();
+                    });
+                }
+            });
+
+            // Close modal handlers
+            if (profileIncompleteBackdrop) {
+                profileIncompleteBackdrop.addEventListener('click', hideProfileIncompleteModal);
+            }
+            if (profileIncompleteClose) {
+                profileIncompleteClose.addEventListener('click', hideProfileIncompleteModal);
+            }
+            if (profileIncompleteBtn) {
+                profileIncompleteBtn.addEventListener('click', () => {
+                    window.location.href = '{{ route("profile.complete.student") }}';
+                });
+            }
+        @endif
     });
 </script>
+
+{{-- Profile Incomplete Modal --}}
+@if ($role === 'student' && $isApproved && !$profileCompleted)
+<div id="profileIncompleteModal" class="sr-modal" aria-hidden="true" style="display: none;">
+    <div id="profileIncompleteBackdrop" class="sr-modal-backdrop"></div>
+    <div class="sr-modal-dialog sr-modal-sm" role="dialog" aria-modal="true" aria-labelledby="profileIncompleteTitle">
+        <div class="sr-modal-body">
+            <button id="profileIncompleteClose" class="sr-modal-close" aria-label="Close modal" type="button">
+                <i class="fas fa-times"></i>
+            </button>
+            <h4 id="profileIncompleteTitle" class="sr-modal-title" style="color: #dc3545;">
+                <i class="fas fa-exclamation-triangle" style="margin-right: 8px;"></i>
+                Profile Incomplete
+            </h4>
+            <p class="sr-modal-subtitle" style="margin-top: 16px; margin-bottom: 24px;">
+                Please complete your profile details first to continue. You need to fill in your academic and leadership information before accessing other sections.
+            </p>
+            <div class="sr-modal-actions" style="justify-content: flex-end;">
+                <button id="profileIncompleteBtn" class="sr-btn sr-btn-primary" style="background: #8B0000;">
+                    Complete Profile
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif

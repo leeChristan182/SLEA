@@ -18,14 +18,12 @@
         <p class="text-muted text-center">No sections found for this category.</p>
     @else
         <div class="table-wrap">
-            <table class="manage-table">
+            <table class="guide-table">
                 <thead>
                     <tr>
-                        <th>Section</th>
-                        <th>Subsection</th>
-                        <th>Max Points</th>
-                        <th>Evidence Needed</th>
-                        <th>Notes</th>
+                        <th>POSITION/TITLE</th>
+                        <th>MAX 20 POINTS</th>
+                        <th>EVIDENCE NEEDED</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -33,10 +31,10 @@
                         @php
                             $subsections = $section->subsections;
                             $rowCount = max($subsections->count(), 1);
-                            $sectionPrinted = false;
+                            $sectionEvidence = $section->evidence ?? '';
                         @endphp
 
-                        @foreach($subsections as $sub)
+                        @foreach($subsections as $index => $sub)
                             @php
                                 // 1) Base numeric values
                                 $points = $sub->max_points ?? $sub->cap_points;
@@ -54,54 +52,30 @@
                                     : null;
 
                                 // 3) Evidence/notes fallback: subsection → section
-                                $evidenceSource = $sub->evidence_needed ?: $section->evidence;
-                                $notesSource = $sub->notes ?: $section->notes;
+                                $evidenceSource = $sub->evidence_needed ?: $sectionEvidence;
                             @endphp
 
                             <tr>
-                                @if(!$sectionPrinted)
-                                    <td rowspan="{{ $rowCount }}"><strong>{{ $section->title }}</strong></td>
-                                    @php $sectionPrinted = true; @endphp
-                                @endif
-
                                 <td>{{ $sub->sub_section }}</td>
-                                <td>{{ $pointsDisplay !== null ? $pointsDisplay : '—' }}</td>
-
-                                {{-- Evidence --}}
-                                <td>
-                                    @if(!empty($evidenceSource))
-                                        <div class="evidence-notes-content">
-                                            @foreach(explode("\n", $evidenceSource) as $index => $line)
-                                                @if(trim($line) !== '')
-                                                    @if($index > 0)
-                                                        <br><br>
+                                <td class="points-cell">{{ $pointsDisplay !== null ? $pointsDisplay : '—' }}</td>
+                                @if($index === 0)
+                                    <td rowspan="{{ $rowCount }}">
+                                        @if(!empty($evidenceSource))
+                                            <div class="evidence-notes-content">
+                                                @foreach(explode("\n", $evidenceSource) as $idx => $line)
+                                                    @if(trim($line) !== '')
+                                                        @if($idx > 0)
+                                                            <br>
+                                                        @endif
+                                                        - {{ $line }}
                                                     @endif
-                                                    {{ $line }}
-                                                @endif
-                                            @endforeach
-                                        </div>
-                                    @else
-                                        —
-                                    @endif
-                                </td>
-
-                                {{-- Notes --}}
-                                <td>
-                                    @if(!empty($notesSource))
-                                        <div class="evidence-notes-content">
-                                            @foreach(explode("\n", $notesSource) as $index => $line)
-                                                @if(trim($line) !== '')
-                                                    @if($index > 0)
-                                                        <br><br>
-                                                    @endif
-                                                    {{ $line }}
-                                                @endif
-                                            @endforeach
-                                        </div>
-                                    @else
-                                        —
-                                    @endif
-                                </td>
+                                                @endforeach
+                                            </div>
+                                        @else
+                                            —
+                                        @endif
+                                    </td>
+                                @endif
                             </tr>
                         @endforeach
                     @endforeach
@@ -110,6 +84,4 @@
         </div>
     @endif
 </div>
-
-
 

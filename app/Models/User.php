@@ -13,9 +13,10 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     // --- Roles (match user_roles.key) ---
-    public const ROLE_ADMIN    = 'admin';
-    public const ROLE_ASSESSOR = 'assessor';
-    public const ROLE_STUDENT  = 'student';
+    public const ROLE_ADMIN     = 'admin';
+    public const ROLE_ASSESSOR   = 'assessor';
+    public const ROLE_STUDENT   = 'student';
+    public const ROLE_UNASSIGNED = 'unassigned';
 
     // --- Statuses (match user_statuses.key) ---
     public const STATUS_PENDING  = 'pending';
@@ -35,6 +36,7 @@ class User extends Authenticatable
         'profile_picture_path',
         'role',
         'status',
+        'profile_completed',
     ];
 
 
@@ -183,10 +185,11 @@ class User extends Authenticatable
     public static function makeUserCode(?string $role): string
     {
         $prefix = match ($role) {
-            self::ROLE_ADMIN    => 'ADM',
-            self::ROLE_ASSESSOR => 'ASC',
-            self::ROLE_STUDENT  => 'STU',
-            default             => 'USR',
+            self::ROLE_ADMIN     => 'ADM',
+            self::ROLE_ASSESSOR  => 'ASC',
+            self::ROLE_STUDENT   => 'STU',
+            self::ROLE_UNASSIGNED => 'USR',
+            default              => 'USR',
         };
 
         $year = now()->format('Y');

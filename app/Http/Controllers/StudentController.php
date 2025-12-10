@@ -24,9 +24,8 @@ class StudentController extends Controller
      | PROFILE & DASHBOARD
      * ========================= */
 
-
     /**
-     * Display Criteria and Points System page for students
+     * Display Criteria and Points System guide page for students
      * GET /student/criteria
      */
     public function criteria()
@@ -89,11 +88,21 @@ class StudentController extends Controller
             ->get()
             : collect();
 
+        // Get colleges for profile completion modal
+        $colleges = Schema::hasTable('colleges')
+            ? DB::table('colleges')
+                ->select('id', 'college_name', 'name')
+                ->orderBy('college_name')
+                ->orderBy('name')
+                ->get()
+            : collect();
+
         return view('student.profile', [
             'user'           => $user,
             'academic'       => $academic,
             'leaderships'    => $leaderships,
             'leadershipTypes' => $leadershipTypes,
+            'colleges'       => $colleges,
         ]);
     }
 
@@ -544,66 +553,47 @@ class StudentController extends Controller
         // 1) Load rubric categories in display order
         $categories = RubricCategory::orderBy('order_no')->get();
 
-        // 2) Check if compiled scores exist (preferred source - matches admin/assessor views)
-        $compiledScores = \App\Models\AssessorCompiledScore::where('student_id', $user->id)
-            ->with('category')
+        // 2) Get all reviews for this student's APPROVED submissions (from all assessors)
+        $reviews = SubmissionReview::query()
+            ->whereHas('submission', function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                    ->where('status', 'approved'); // only approved submissions count
+            })
+            ->with(['submission.category'])
             ->get();
 
+        // 3) Sum scores per category key
         $scoresByCategoryKey = [];
-        $maxPointsByCategoryKey = [];
+        $reviewsBySubmission = $reviews->groupBy('submission_id');
 
-        if ($compiledScores->isNotEmpty()) {
-            // Use compiled scores (matches admin/assessor views)
-            foreach ($compiledScores as $compiled) {
-                if (!$compiled->category) {
-                    continue;
-                }
-                $key = $compiled->category->key;
-                $scoresByCategoryKey[$key] = (float) ($compiled->total_score ?? 0);
-                $maxPointsByCategoryKey[$key] = (float) ($compiled->max_points ?? 0);
+        foreach ($reviewsBySubmission as $submissionReviews) {
+            $review = $submissionReviews->sortByDesc('reviewed_at')->first();
+
+            if (!isset($review->score) || $review->score === null) {
+                continue;
             }
-        } else {
-            // Fallback: Get all reviews for this student's APPROVED submissions (from all assessors)
-            $reviews = SubmissionReview::query()
-                ->whereHas('submission', function ($q) use ($user) {
-                    $q->where('user_id', $user->id)
-                        ->where('status', 'approved'); // only approved submissions count
-                })
-                ->with(['submission.category'])
-                ->get();
 
-            // Sum scores per category key
-            $reviewsBySubmission = $reviews->groupBy('submission_id');
-
-            foreach ($reviewsBySubmission as $submissionReviews) {
-                $review = $submissionReviews->sortByDesc('reviewed_at')->first();
-
-                if (!isset($review->score) || $review->score === null) {
-                    continue;
-                }
-
-                $submission = $review->submission;
-                if (!$submission) {
-                    continue;
-                }
-
-                $category = $submission->category
-                    ?: ($review->rubric_category_id
-                        ? RubricCategory::find($review->rubric_category_id)
-                        : null);
-
-                if (!$category) {
-                    continue;
-                }
-
-                $key = $category->key;
-
-                if (!isset($scoresByCategoryKey[$key])) {
-                    $scoresByCategoryKey[$key] = 0.0;
-                }
-
-                $scoresByCategoryKey[$key] += (float) $review->score;
+            $submission = $review->submission;
+            if (!$submission) {
+                continue;
             }
+
+            $category = $submission->category
+                ?: ($review->rubric_category_id
+                    ? RubricCategory::find($review->rubric_category_id)
+                    : null);
+
+            if (!$category) {
+                continue;
+            }
+
+            $key = $category->key;
+
+            if (!isset($scoresByCategoryKey[$key])) {
+                $scoresByCategoryKey[$key] = 0.0;
+            }
+
+            $scoresByCategoryKey[$key] += (float) $review->score;
         }
 
         // 4) Build perfData
@@ -615,10 +605,7 @@ class StudentController extends Controller
 
         foreach ($categories as $cat) {
             $key       = $cat->key;
-            // Use compiled max_points if available, otherwise fall back to category max_points
-            $max       = isset($maxPointsByCategoryKey[$key]) 
-                ? $maxPointsByCategoryKey[$key] 
-                : (float) ($cat->max_points ?? 0);
+            $max       = (float) ($cat->max_points ?? 0);
             $rawEarned = (float) ($scoresByCategoryKey[$key] ?? 0);
 
             // Show full earned points (no clamping)

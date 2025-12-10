@@ -5,122 +5,101 @@
 @section('content')
 @php
     /** @var \Illuminate\Support\Collection|\App\Models\RubricCategory[] $categories */
-
-    // Build page titles - exactly 5 pages, one for each category
-    $pageTitles = [
-        1 => 'I. LEADERSHIP EXCELLENCE',
-        2 => 'II. ACADEMIC EXCELLENCE',
-        3 => 'III. AWARDS/RECOGNITION RECEIVED',
-        4 => 'IV. COMMUNITY INVOLVEMENT',
-        5 => 'V. GOOD CONDUCT',
-    ];
-
-    $totalPages = 5;
 @endphp
 
 <div class="container" style="margin-top: 0 !important;">
     @include('partials.sidebar')
 
     <main class="main-content" style="padding-top: 100px !important;">
-        @php
-            // Determine initial page (default to 1 since no filter)
-            $initialPage = 1;
-        @endphp
-
-        <div class="rubric-main-container" x-data="rubricPager(@json($pageTitles), {{ $initialPage }})">
-
+        <div class="criteria-guide-container">
             {{-- Page Header --}}
             <div class="page-header">
                 <h1>Criteria and Points System</h1>
             </div>
 
-            {{-- Pages --}}
-            <div class="rubric-pages">
+            @php
+                // Build page titles - exactly 5 pages, one for each category
+                $pageTitles = [
+                    1 => 'I. LEADERSHIP EXCELLENCE',
+                    2 => 'II. ACADEMIC EXCELLENCE',
+                    3 => 'III. AWARDS/RECOGNITION RECEIVED',
+                    4 => 'IV. COMMUNITY INVOLVEMENT',
+                    5 => 'V. GOOD CONDUCT',
+                ];
+                $totalPages = 5;
+                $initialPage = request()->get('page', 1);
+            @endphp
 
-            {{-- Page 1: Leadership Excellence (all subsections A-D) --}}
-            <section x-show="page === 1" x-cloak>
-                @include('student.criteria.sections.leadership', [
-                    'categories' => $categories,
-                    'leadershipSections' => null, // null means show all sections
-                ])
-            </section>
+            <div class="criteria-main-container" x-data="criteriaPager(@json($pageTitles), {{ $initialPage }})">
+                {{-- Pages --}}
+                <div class="criteria-pages">
+                    {{-- Page 1: Leadership Excellence --}}
+                    <section x-show="page === 1" x-cloak>
+                        @include('student.criteria.sections.leadership', [
+                            'categories' => $categories,
+                            'leadershipSections' => null,
+                        ])
+                    </section>
 
-            {{-- Page 2: Academic Excellence --}}
-            <section x-show="page === 2" x-cloak>
-                @include('student.criteria.sections.academic', ['categories' => $categories])
-            </section>
+                    {{-- Page 2: Academic Excellence --}}
+                    <section x-show="page === 2" x-cloak>
+                        @include('student.criteria.sections.academic', ['categories' => $categories])
+                    </section>
 
-            {{-- Page 3: Awards/Recognition Received --}}
-            <section x-show="page === 3" x-cloak>
-                @include('student.criteria.sections.awards', ['categories' => $categories])
-            </section>
+                    {{-- Page 3: Awards/Recognition Received --}}
+                    <section x-show="page === 3" x-cloak>
+                        @include('student.criteria.sections.awards', ['categories' => $categories])
+                    </section>
 
-            {{-- Page 4: Community Involvement --}}
-            <section x-show="page === 4" x-cloak>
-                @include('student.criteria.sections.community', ['categories' => $categories])
-            </section>
+                    {{-- Page 4: Community Involvement --}}
+                    <section x-show="page === 4" x-cloak>
+                        @include('student.criteria.sections.community', ['categories' => $categories])
+                    </section>
 
-            {{-- Page 5: Good Conduct --}}
-            <section x-show="page === 5" x-cloak>
-                @include('student.criteria.sections.conduct', ['categories' => $categories])
-            </section>
-        </div>
+                    {{-- Page 5: Good Conduct --}}
+                    <section x-show="page === 5" x-cloak>
+                        @include('student.criteria.sections.conduct', ['categories' => $categories])
+                    </section>
+                </div>
 
+                {{-- Pagination Controls --}}
+                <div class="criteria-pagination">
+                    <button @click="prev()" :disabled="page === 1" class="btn-prev">
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </button>
+                    <div class="page-info">
+                        <span class="current-page-label" x-text="pageTitle"></span>
+                        <span class="page-numbers" x-text="`Page ${page} of ${maxPage}`"></span>
+                    </div>
+                    <button @click="next()" :disabled="page === maxPage" class="btn-next">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
         </div>
     </main>
 </div>
-
-{{-- Include CSS for search button styling --}}
-<link rel="stylesheet" href="{{ asset('css/pending-submissions.css') }}">
 @endsection
-
-@push('scripts')
-<script>
-    function rubricPager(pageTitles, initialPage = 1) {
-        return {
-            page: initialPage || 1,
-            titles: pageTitles || {},
-            get maxPage() {
-                return Object.keys(this.titles).length;
-            },
-            get pageTitle() {
-                return this.titles[this.page] || '';
-            },
-            setPage(n) {
-                if (n >= 1 && n <= this.maxPage) {
-                    this.page = n;
-                    // Scroll to top of content whenever page changes
-                    const el = document.querySelector('.rubric-main-container');
-                    if (el) {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
-                }
-            },
-        };
-    }
-</script>
-@endpush
 
 @push('styles')
 <style>
     /* Main Container */
-    .rubric-main-container {
+    .criteria-guide-container {
         padding: 20px;
-        padding-top: 20px; /* Normal padding since main-content now handles header spacing */
         background: #fff;
         border-radius: 8px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         margin-bottom: 20px;
     }
 
-    body.dark-mode .rubric-main-container {
+    body.dark-mode .criteria-guide-container {
         background-color: #2a2a2a;
         color: #f0f0f0;
     }
 
     /* Page Header */
     .page-header {
-        margin-bottom: 24px;
+        margin-bottom: 32px;
         padding-bottom: 0;
     }
 
@@ -136,320 +115,419 @@
         color: #f9bd3d !important;
     }
 
-    /* Current Page Label */
-    .current-page-label {
-        font-size: 24px;
-        font-weight: 700;
-        color: #7b0000;
-        margin-bottom: 20px;
-        margin-top: 20px; /* Additional top margin for visibility */
-        padding-bottom: 10px;
-        border-bottom: 2px solid #7b0000;
+    /* Criteria Main Container */
+    .criteria-main-container {
+        position: relative;
     }
 
-    body.dark-mode .current-page-label {
-        color: #f9bd3d;
-        border-bottom-color: #f9bd3d;
-    }
-
-    /* Rubric Pages */
-    .rubric-pages {
+    /* Criteria Pages */
+    .criteria-pages {
         min-height: 400px;
+    }
+
+    .criteria-pages section {
+        display: block;
     }
 
     /* Rubric Section */
     .rubric-section {
-        margin-bottom: 192px; /* 2 inches spacing between sections */
-        margin-top: 1rem; /* Additional spacing for category title */
-        color: #212529 !important;
-    }
-
-    body.dark-mode .rubric-section {
-        color: #f0f0f0 !important;
+        margin-bottom: 0;
     }
 
     .rubric-heading {
         font-size: 20px;
         font-weight: 700;
-        color: #7b0000 !important;
-        margin-bottom: 16px;
+        color: #7b0000;
+        margin-bottom: 12px;
         padding-bottom: 8px;
         border-bottom: 2px solid #7b0000;
     }
 
     body.dark-mode .rubric-heading {
-        color: #f9bd3d !important;
+        color: #f9bd3d;
         border-bottom-color: #f9bd3d;
     }
 
     .rubric-category-description {
         font-size: 14px;
         line-height: 1.6;
-        color: #555;
+        color: #333;
         margin-bottom: 20px;
-        padding: 12px;
-        background: #f8f9fa;
-        border-left: 4px solid #7b0000;
-        border-radius: 4px;
     }
 
     body.dark-mode .rubric-category-description {
-        color: #ccc;
-        background: #333;
-        border-left-color: #f9bd3d;
+        color: #e0e0e0;
     }
 
-    /* Subsection */
-    .subsection {
-        margin-bottom: 2rem;
-        color: #212529 !important;
+    /* Table Styling - shadcn/ui style */
+    .criteria-guide-container .table-wrap {
+        overflow-x: auto !important;
+        margin-bottom: 20px !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
     }
 
-    body.dark-mode .subsection {
-        color: #f0f0f0 !important;
+    body.dark-mode .criteria-guide-container .table-wrap {
+        background: transparent !important;
+        border: none !important;
     }
 
-    .subsection-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: #7b0000 !important;
-        margin-bottom: 16px;
-        padding-bottom: 8px;
-        border-bottom: 1px solid #dee2e6;
+    .criteria-guide-container .guide-table {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        border-collapse: collapse !important;
+        border-radius: 0 !important;
+        font-size: 14px !important;
+        background: transparent !important;
+        border: none !important;
+        border-spacing: 0 !important;
+        table-layout: auto !important; /* Allow flexible column widths */
     }
 
-    body.dark-mode .subsection-title {
-        color: #f9bd3d !important;
-        border-bottom-color: #555;
-    }
-
-    .table-wrap {
-        margin-bottom: 20px;
-        overflow-x: auto;
-        background: transparent;
-    }
-
-    body.dark-mode .table-wrap {
+    .criteria-guide-container .guide-table thead {
         background: transparent !important;
     }
 
-    .manage-table {
-        width: 100%;
-        border-collapse: collapse;
-        background: #fff !important;
-        border-radius: 0;
-        overflow: hidden;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
-        color: #212529 !important;
+    .criteria-guide-container .guide-table thead tr {
+        background: transparent !important;
     }
 
-    body.dark-mode .manage-table {
-        background: #333 !important;
-        color: #f0f0f0 !important;
-    }
-
-    .manage-table thead {
-        background: #7b0000;
-    }
-
-    .manage-table thead th {
-        background: #7b0000;
-        color: #fff;
-        font-weight: 600;
-        padding: 15px 12px;
-        text-align: left;
-        border-right: 1px solid rgba(255, 255, 255, 0.2);
-        border-bottom: 2px solid #fff;
-        font-size: 14px;
-    }
-
-    .manage-table thead th:last-child {
-        border-right: none;
-    }
-
-    /* Points column - narrow width (3rd column in Leadership category only) */
-    .rubric-section[data-category="leadership"] .manage-table thead th:nth-child(3),
-    .rubric-section[data-category="leadership"] .manage-table tbody td:nth-child(3) {
-        width: 100px;
-        min-width: 100px;
-        max-width: 100px;
-        text-align: center;
-        white-space: normal;
-        word-wrap: break-word;
-        word-break: break-word;
-        padding: 12px 8px;
-        border-right: 1px solid #dee2e6 !important;
-    }
-
-    body.dark-mode .rubric-section[data-category="leadership"] .manage-table tbody td:nth-child(3) {
-        border-right-color: #555 !important;
-    }
-
-    /* Max Points column - narrow width (3rd column in categories II-V) */
-    .manage-table thead th:nth-child(3),
-    .manage-table tbody td:nth-child(3) {
-        width: 100px;
-        min-width: 100px;
-        max-width: 100px;
-        text-align: center;
-        white-space: normal;
-        word-wrap: break-word;
-        word-break: break-word;
-        padding: 12px 8px;
-    }
-
-    .manage-table tbody td {
-        padding: 12px;
-        border-right: 1px solid #dee2e6;
-        border-bottom: 1px solid #dee2e6;
-        background: #fff !important;
-        color: #212529 !important;
-        vertical-align: top;
-        position: relative;
-    }
-
-    body.dark-mode .manage-table tbody td {
-        background: #333 !important;
-        color: #f0f0f0 !important;
-        border-right-color: #555;
-        border-bottom-color: #555;
-    }
-
-    .manage-table tbody td:not(:last-child) {
-        vertical-align: top;
-    }
-
-    /* Evidence Needed column - left alignment (4th column) */
-    .manage-table thead th:nth-child(4),
-    .manage-table tbody td:nth-child(4) {
+    .criteria-guide-container .guide-table th {
+        padding: 12px 16px !important;
         text-align: left !important;
+        font-weight: 500 !important;
+        font-size: 14px !important;
+        color: #6b7280 !important;
+        background: transparent !important;
+        border: none !important;
+        border-bottom: 1px solid #e5e7eb !important;
+        vertical-align: middle !important;
+        width: auto !important;
+        min-width: auto !important;
+        max-width: none !important;
     }
 
-    /* Notes column - left alignment (5th column) */
-    .manage-table thead th:nth-child(5),
-    .manage-table tbody td:nth-child(5) {
-        text-align: left !important;
+    body.dark-mode .criteria-guide-container .guide-table th {
+        color: #9ca3af !important;
+        border-bottom-color: #374151 !important;
+        background: transparent !important;
     }
 
-    /* Evidence and Notes content styling - no bullets, line breaks with spacing */
+    .criteria-guide-container .guide-table tbody {
+        background: transparent !important;
+    }
+
+    .criteria-guide-container .guide-table tbody tr {
+        background: transparent !important;
+    }
+
+    .criteria-guide-container .guide-table td {
+        padding: 12px 16px !important;
+        border: none !important;
+        border-bottom: 1px solid #e5e7eb !important;
+        font-size: 14px !important;
+        vertical-align: top !important;
+        color: #111827 !important;
+        background: transparent !important;
+        width: auto !important;
+        min-width: auto !important;
+        max-width: none !important;
+        white-space: normal !important;
+        word-wrap: break-word !important;
+    }
+
+    body.dark-mode .criteria-guide-container .guide-table td {
+        border-bottom-color: #374151 !important;
+        color: #f9fafb !important;
+        background: transparent !important;
+    }
+
+    .criteria-guide-container .guide-table tbody tr:last-child td {
+        border-bottom: none !important;
+    }
+
+    .criteria-guide-container .guide-table tbody tr:hover {
+        background-color: transparent !important;
+    }
+
+    .criteria-guide-container .guide-table tbody tr:nth-child(even) {
+        background-color: transparent !important;
+    }
+
+    /* Evidence and Notes Content */
     .evidence-notes-content {
         line-height: 1.6;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
     }
 
-    /* Max Points column - narrow width (3rd column in categories II-V) */
-    /* Exclude leadership category which uses Points column */
-    .rubric-section:not([data-category="leadership"]) .manage-table thead th:nth-child(3),
-    .rubric-section:not([data-category="leadership"]) .manage-table tbody td:nth-child(3) {
-        width: 100px;
-        min-width: 100px;
-        max-width: 100px;
-        text-align: center;
-        white-space: normal;
-        word-wrap: break-word;
-        word-break: break-word;
-        padding: 12px 8px;
+    /* Subsection Title */
+    .subsection-title {
+        font-size: 18px;
+        font-weight: 700 !important;
+        color: #7b0000;
+        margin-bottom: 12px;
+        margin-top: 20px;
     }
 
-    .manage-table tbody tr:last-child td {
-        border-bottom: none;
+    .subsection-title strong {
+        font-weight: 700 !important;
+    }
+
+    body.dark-mode .subsection-title {
+        color: #f9bd3d;
+    }
+
+    /* Merged Evidence Cell - Remove borders between merged rows */
+    .criteria-guide-container .merged-evidence-cell {
+        border-bottom: none !important;
+        border-top: none !important;
+    }
+
+    .criteria-guide-container .guide-table tbody tr:not(:last-child) .merged-evidence-cell {
+        border-bottom: none !important;
+    }
+
+    .criteria-guide-container .guide-table tbody tr:not(:first-child) .merged-evidence-cell {
+        border-top: none !important;
+    }
+
+    /* Remove all internal borders for merged cells */
+    .criteria-guide-container .guide-table tbody tr .merged-evidence-cell {
+        border: none !important;
+    }
+
+    /* Only show border on the outer edges */
+    .criteria-guide-container .guide-table tbody tr:first-child .merged-evidence-cell {
+        border-top: 1px solid #e5e7eb !important;
+    }
+
+    body.dark-mode .criteria-guide-container .guide-table tbody tr:first-child .merged-evidence-cell {
+        border-top-color: #374151 !important;
+    }
+
+    .criteria-guide-container .guide-table tbody tr:last-child .merged-evidence-cell {
+        border-bottom: 1px solid #e5e7eb !important;
+    }
+
+    body.dark-mode .criteria-guide-container .guide-table tbody tr:last-child .merged-evidence-cell {
+        border-bottom-color: #374151 !important;
+    }
+
+    /* Points Display */
+    .criteria-guide-container .points-cell {
+        font-weight: 500 !important;
+        color: #111827 !important;
+        width: auto !important;
+        min-width: auto !important;
+        max-width: none !important;
+    }
+
+    body.dark-mode .criteria-guide-container .points-cell {
+        color: #f9fafb !important;
+    }
+
+    /* Subsection Cell */
+    .criteria-guide-container .subsection-cell {
+        font-weight: 600 !important;
+        vertical-align: middle !important;
+        background-color: #f9fafb !important;
+    }
+
+    body.dark-mode .criteria-guide-container .subsection-cell {
+        background-color: #1f2937 !important;
+    }
+
+
+    /* For tables with subsection column (4 columns) */
+    .criteria-guide-container .guide-table.has-subsection-column th:nth-child(1),
+    .criteria-guide-container .guide-table.has-subsection-column td:nth-child(1) {
+        text-align: left !important; /* Subsection column */
+    }
+
+    .criteria-guide-container .guide-table.has-subsection-column th:nth-child(2),
+    .criteria-guide-container .guide-table.has-subsection-column td:nth-child(2) {
+        text-align: left !important; /* Criteria column */
+    }
+
+    .criteria-guide-container .guide-table.has-subsection-column th:nth-child(3),
+    .criteria-guide-container .guide-table.has-subsection-column td:nth-child(3) {
+        text-align: right !important; /* Points column */
+    }
+
+    .criteria-guide-container .guide-table.has-subsection-column th:nth-child(4),
+    .criteria-guide-container .guide-table.has-subsection-column td:nth-child(4) {
+        text-align: left !important; /* Evidence column */
+    }
+
+    /* For tables without subsection column (3 columns total) */
+    .criteria-guide-container .guide-table:not(.has-subsection-column) th:nth-child(1),
+    .criteria-guide-container .guide-table:not(.has-subsection-column) td:nth-child(1) {
+        text-align: left !important; /* Criteria column */
+    }
+
+    .criteria-guide-container .guide-table:not(.has-subsection-column) th:nth-child(2),
+    .criteria-guide-container .guide-table:not(.has-subsection-column) td:nth-child(2) {
+        text-align: right !important; /* Points column */
+    }
+
+    .criteria-guide-container .guide-table:not(.has-subsection-column) th:nth-child(3),
+    .criteria-guide-container .guide-table:not(.has-subsection-column) td:nth-child(3) {
+        text-align: left !important; /* Evidence column */
+    }
+
+    /* Ensure table columns can expand/contract - no fixed widths */
+    .criteria-guide-container .guide-table colgroup,
+    .criteria-guide-container .guide-table col {
+        width: auto !important;
+        min-width: auto !important;
+        max-width: none !important;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .criteria-guide-container {
+            padding: 15px;
+        }
+
+        .page-header h1 {
+            font-size: 24px;
+        }
+
+        .rubric-heading {
+            font-size: 18px;
+        }
+
+        .guide-table {
+            font-size: 12px;
+        }
+
+        .guide-table th,
+        .guide-table td {
+            padding: 8px 12px;
+        }
     }
 
     /* Pagination Controls */
-    .rubric-pager {
+    .criteria-pagination {
         display: flex;
-        justify-content: center;
+        justify-content: space-between;
         align-items: center;
-        gap: 10px;
-        margin-top: 30px;
+        margin-top: 40px;
         padding: 20px;
+        background: #f9fafb;
+        border-radius: 8px;
+        gap: 20px;
     }
 
-    .pager-btn {
-        padding: 8px 16px;
-        background: #fff;
-        border: 1px solid #dee2e6;
-        border-radius: 4px;
-        color: #7b0000;
-        cursor: pointer;
-        font-size: 14px;
-        transition: all 0.2s;
+    body.dark-mode .criteria-pagination {
+        background: #1f2937;
     }
 
-    .pager-btn:hover:not(:disabled) {
+    .criteria-pagination .btn-prev,
+    .criteria-pagination .btn-next {
+        padding: 10px 20px;
         background: #7b0000;
-        color: #fff;
-        border-color: #7b0000;
-    }
-
-    .pager-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    body.dark-mode .pager-btn {
-        background-color: #262626;
-        border-color: #555;
-        color: #eee;
-    }
-
-    body.dark-mode .pager-btn:hover:not(:disabled) {
-        background: #f9bd3d;
-        color: #2a2a2a;
-        border-color: #f9bd3d;
-    }
-
-    .pager-pages {
-        display: flex;
-        gap: 5px;
-    }
-
-    .pager-page {
-        min-width: 40px;
-        height: 40px;
-        padding: 0 12px;
-        background: #fff;
-        border: 1px solid #dee2e6;
-        border-radius: 4px;
-        color: #7b0000;
+        color: white;
+        border: none;
+        border-radius: 6px;
         cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
+        font-weight: 600;
         transition: all 0.2s;
         display: flex;
         align-items: center;
-        justify-content: center;
+        gap: 8px;
     }
 
-    .pager-page:hover {
-        background: #f8f9fa;
-        border-color: #7b0000;
+    .criteria-pagination .btn-prev:hover:not(:disabled),
+    .criteria-pagination .btn-next:hover:not(:disabled) {
+        background: #5a0000;
+        transform: translateY(-1px);
     }
 
-    .pager-page.active {
+    .criteria-pagination .btn-prev:disabled,
+    .criteria-pagination .btn-next:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+
+    body.dark-mode .criteria-pagination .btn-prev,
+    body.dark-mode .criteria-pagination .btn-next {
         background: #7b0000;
-        border-color: #7b0000;
-        color: #fff;
-        font-weight: 600;
     }
 
-    body.dark-mode .pager-page {
-        background-color: #262626;
-        border-color: #555;
-        color: #eee;
+    body.dark-mode .criteria-pagination .btn-prev:disabled,
+    body.dark-mode .criteria-pagination .btn-next:disabled {
+        background: #555;
     }
 
-    body.dark-mode .pager-page:hover {
-        background: #333;
-        border-color: #f9bd3d;
+    .criteria-pagination .page-info {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
     }
 
-    body.dark-mode .pager-page.active {
-        background-color: #f9bd3d;
-        border-color: #f9bd3d;
-        color: #2a2a2a;
+    .criteria-pagination .current-page-label {
+        font-size: 20px;
+        font-weight: 700;
+        color: #7b0000;
+    }
+
+    body.dark-mode .criteria-pagination .current-page-label {
+        color: #f9bd3d;
+    }
+
+    .criteria-pagination .page-numbers {
+        font-size: 14px;
+        color: #6b7280;
+    }
+
+    body.dark-mode .criteria-pagination .page-numbers {
+        color: #9ca3af;
     }
 </style>
+@endpush
+
+@push('scripts')
+<script>
+    function criteriaPager(pageTitles, initialPage = 1) {
+        return {
+            page: initialPage || 1,
+            titles: pageTitles || {},
+            get maxPage() {
+                return Object.keys(this.titles).length;
+            },
+            get pageTitle() {
+                return this.titles[this.page] || '';
+            },
+            setPage(n) {
+                if (n >= 1 && n <= this.maxPage) {
+                    this.page = n;
+                    // Update URL without reload
+                    const url = new URL(window.location);
+                    url.searchParams.set('page', n);
+                    window.history.pushState({}, '', url);
+                    // Scroll to top of content whenever page changes
+                    const el = document.querySelector('.criteria-main-container');
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }
+            },
+            next() {
+                if (this.page < this.maxPage) this.setPage(this.page + 1);
+            },
+            prev() {
+                if (this.page > 1) this.setPage(this.page - 1);
+            },
+        };
+    }
+</script>
 @endpush
 

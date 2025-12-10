@@ -656,18 +656,36 @@ function updateExpectedGrad() {
 
     // -------- Dark mode --------
     const body = document.body,
+      registerContainer = document.querySelector('.register-container'),
+      headerContainer = document.querySelector('.header-container'),
       toggleBtn = document.getElementById('darkModeToggle'),
       toggleBtn2 = document.getElementById('darkModeToggleFloating');
 
     function applyTheme(mode) {
       const d = mode === 'dark';
       body.classList.toggle('dark-mode', d);
+      // Also apply to register-container and header-container
+      if (registerContainer) {
+        registerContainer.classList.toggle('dark-mode', d);
+      }
+      if (headerContainer) {
+        headerContainer.classList.toggle('dark-mode', d);
+      }
       toggleBtn?.querySelector('i')?.classList.replace(d ? 'fa-moon' : 'fa-sun', d ? 'fa-sun' : 'fa-moon');
       toggleBtn2?.querySelector('i')?.classList.replace(d ? 'fa-moon' : 'fa-sun', d ? 'fa-sun' : 'fa-moon');
       localStorage.setItem('theme', mode);
     }
 
-    applyTheme(localStorage.getItem('theme') || 'light');
+    // Apply theme on load
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    applyTheme(savedTheme);
+    
+    // Sync containers with body on load
+    if (body.classList.contains('dark-mode')) {
+      if (registerContainer) registerContainer.classList.add('dark-mode');
+      if (headerContainer) headerContainer.classList.add('dark-mode');
+    }
+
     const flip = () => applyTheme(body.classList.contains('dark-mode') ? 'light' : 'dark');
     toggleBtn?.addEventListener('click', flip);
     toggleBtn2?.addEventListener('click', flip);
