@@ -14,22 +14,16 @@ class LeadershipStatusSeeder extends Seeder
             return;
         }
 
-        // Define the leadership statuses
         $statuses = [
-            ['key' => 'Active'],
-            ['key' => 'Inactive'],
+            'Active',
+            'Inactive',
         ];
 
-        // Clear existing data and insert fresh data
-        DB::table('student_leadership_statuses')->truncate();
-
-        foreach ($statuses as $status) {
-            DB::table('student_leadership_statuses')->insert([
-                'key' => $status['key'],
-            ]);
+        foreach ($statuses as $key) {
+            DB::table('student_leadership_statuses')->updateOrInsert(
+                ['key' => $key],
+                ['key' => $key]
+            );
         }
     }
 }
-
-
-

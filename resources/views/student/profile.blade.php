@@ -108,48 +108,6 @@
                     </div>
                 </section>
 
-                {{-- Leadership Information --}}
-                <section class="profile-info" style="margin-top:24px;">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h3 class="mb-0">Leadership Information</h3>
-                        <button type="button" class="change-btn" data-bs-toggle="modal"
-                            data-bs-target="#addLeadershipModal">
-                            + Add Leadership Info
-                        </button>
-                    </div>
-
-                    <div class="table-responsive">
-                        <table class="approval-table w-100">
-                            <thead>
-                                <tr>
-                                    <th>Type</th>
-                                    <th>Organization Name</th>
-                                    <th>Organization Role</th>
-                                    <th>Term</th>
-                                    <th>Issued By</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse (($leaderships ?? []) as $lead)
-                                    <tr>
-                                        <td>{{ $lead->leadership_type_name ?? '—' }}</td>
-                                        <td>{{ $lead->organization_name ?? '—' }}</td>
-                                        <td>{{ $lead->position_name ?? '—' }}</td>
-                                        <td>{{ $lead->term ?? '—' }}</td>
-                                        <td>{{ $lead->issued_by ?? '—' }}</td>
-                                        <td>{{ $lead->leadership_status ?? $lead->status ?? '—' }}</td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="6" class="text-center">No leadership records found.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-
                 {{-- Settings --}}
                 <section class="settings-grid" style="margin-top:24px;">
                     {{-- Change Password --}}
@@ -199,7 +157,8 @@
                     {{-- Update Academic Details --}}
                     <div class="profile-info settings-year">
                         <h3>Update Academic Details</h3>
-                        <form action="{{ route('student.updateAcademic') }}" method="POST">
+                        <form id="uploadCORForm" action="{{ route('student.uploadCOR') }}" method="POST"
+                            enctype="multipart/form-data">
                             @csrf
 
                             {{-- Year Level only (program & major are shown but not edited here) --}}

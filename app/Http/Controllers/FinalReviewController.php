@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
+use App\Mail\AdminFinalReviewDecisionMail;
 
 class FinalReviewController extends Controller
 {
@@ -57,11 +60,11 @@ class FinalReviewController extends Controller
                         $allScores->push($scoresByCategory->get($categoryId));
                     } else {
                         // Create a placeholder compiled score with 0 values
-                        $placeholder                          = new \App\Models\AssessorCompiledScore();
-                        $placeholder->rubric_category_id      = $categoryId;
-                        $placeholder->total_score             = 0;
-                        $placeholder->max_points              = $category->max_points ?? 0;
-                        $placeholder->min_required_points     = $category->min_required_points ?? 0;
+                        $placeholder                      = new \App\Models\AssessorCompiledScore();
+                        $placeholder->rubric_category_id  = $categoryId;
+                        $placeholder->total_score         = 0;
+                        $placeholder->max_points          = $category->max_points ?? 0;
+                        $placeholder->min_required_points = $category->min_required_points ?? 0;
                         $placeholder->setRelation('category', $category);
                         $allScores->push($placeholder);
                     }
@@ -144,8 +147,12 @@ class FinalReviewController extends Controller
             return back()->with('error', 'Invalid decision value. Please contact system administrator.');
         }
 
+        // We want to use these AFTER the transaction (for mailing)
+        $finalReview = null;
+        $student     = null;
+
         try {
-            DB::transaction(function () use ($assessorFinalReview, $admin, $data) {
+            DB::transaction(function () use ($assessorFinalReview, $admin, $data, &$finalReview, &$student) {
                 // Verify admin exists
                 if (!$admin || !$admin->exists) {
                     throw new \Exception('Admin user not found');
@@ -157,7 +164,7 @@ class FinalReviewController extends Controller
                 }
 
                 // Upsert final_reviews row - use updateOrCreate to handle existing records
-                $final = FinalReview::updateOrCreate(
+                $finalReview = FinalReview::updateOrCreate(
                     [
                         'assessor_final_review_id' => $assessorFinalReview->id,
                         'admin_id'                 => $admin->id,
@@ -184,7 +191,7 @@ class FinalReviewController extends Controller
                     // Check if student has any accepted submissions with 'for_final_application'
                     $hasFinalApplication = \App\Models\Submission::where('user_id', $student->id)
                         ->where('application_status', 'for_final_application')
-                        ->where('status', 'accepted') // ✅ aligned with new enum
+                        ->where('status', 'accepted') // aligned with new enum
                         ->exists();
 
                     // Get or create student academic record
@@ -197,17 +204,17 @@ class FinalReviewController extends Controller
                             : 'not_qualified';
 
                         $studentAcademic = \App\Models\StudentAcademic::create([
-                            'user_id'                => $student->id,
+                            'user_id'                 => $student->id,
                             'slea_application_status' => $status,
                         ]);
                     } else {
                         // We are at ADMIN FINAL REVIEW stage.
+
                         // If admin APPROVES *and* it's truly a final application → qualified
                         if ($data['decision'] === 'approved' && $hasFinalApplication) {
                             $studentAcademic->slea_application_status = 'qualified';
                         } elseif ($data['decision'] === 'approved') {
                             // Approved but not final application: keep whatever status it currently has.
-                            // (Do not overwrite with an invalid enum like "pending".)
                         } else {
                             // Admin marks NOT QUALIFIED
                             $studentAcademic->slea_application_status = 'not_qualified';
@@ -229,14 +236,32 @@ class FinalReviewController extends Controller
             });
         } catch (\Illuminate\Database\QueryException $e) {
             \Log::error("Database error in storeDecision: " . $e->getMessage(), [
-                'decision'                => $data['decision'],
+                'decision'                 => $data['decision'],
                 'assessor_final_review_id' => $assessorFinalReview->id,
-                'admin_id'                => $admin->id ?? null,
+                'admin_id'                 => $admin->id ?? null,
             ]);
             return back()->with('error', 'Failed to save decision. Please try again or contact system administrator.');
         } catch (\Exception $e) {
             \Log::error("Error in storeDecision: " . $e->getMessage());
             return back()->with('error', 'An error occurred: ' . $e->getMessage());
+        }
+
+        /**
+         * 📧 Send Admin Final Review decision email
+         * We send this AFTER the transaction so a mail failure doesn't rollback DB changes.
+         */
+        if ($student && $finalReview && filter_var($student->email, FILTER_VALIDATE_EMAIL)) {
+            try {
+                Mail::to($student->email)->send(
+                    new AdminFinalReviewDecisionMail($student, $finalReview, $assessorFinalReview)
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Failed to send AdminFinalReviewDecisionMail', [
+                    'assessor_final_review_id' => $assessorFinalReview->id ?? null,
+                    'student_id'               => $student->id ?? null,
+                    'error'                    => $e->getMessage(),
+                ]);
+            }
         }
 
         $msg = $data['decision'] === 'approved'

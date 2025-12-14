@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Pagination\LengthAwarePaginator;
-
+use App\Models\StudentLeadership;
 
 class StudentController extends Controller
 {
@@ -53,7 +53,7 @@ class StudentController extends Controller
                 )
                 ->get();
         } elseif (Schema::hasTable('leadership_information')) {
-            $leaderships = \App\Models\LeadershipInformation::where('student_id', $user->id)->get();
+            $leaderships = \App\Models\StudentLeadership::where('student_id', $user->id)->get();
         } else {
             $leaderships = collect();
         }
@@ -145,6 +145,15 @@ class StudentController extends Controller
         $user->password = $request->password; // mutator hashes
         $user->save();
 
+        // 🔹 SYSTEM LOG: PASSWORD CHANGE
+        $userName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+        \App\Models\SystemMonitoringAndLog::record(
+            $user->role,
+            $userName ?: $user->email,
+            'Update',
+            "Changed password."
+        );
+
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
                 'success' => true,
@@ -230,7 +239,9 @@ class StudentController extends Controller
         // - Else → eligible
         $oldEligibility = $current ? ($current->eligibility_status ?? 'eligible') : 'eligible';
 
-        if ($exceeded || $programChanged || $majorChanged) {
+        if ($exceeded) {
+            $newEligibility = 'needs_revalidation';
+        } elseif ($programChanged || $majorChanged) {
             $newEligibility = 'under_review';
         } else {
             $newEligibility = 'eligible';
@@ -259,10 +270,22 @@ class StudentController extends Controller
             $academic = StudentAcademic::create($payload);
         }
 
+        // 🔹 SYSTEM LOG: PROFILE UPDATE (Academic Info)
+        $userName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+        \App\Models\SystemMonitoringAndLog::record(
+            $user->role,
+            $userName ?: $user->email,
+            'Update',
+            "Updated academic information."
+        );
+
         // Messaging hint for UX
-        $msg = $newEligibility === 'under_review'
-            ? 'Academic information saved. Your eligibility is now under review.'
-            : 'Academic information saved.';
+        $msg = $newEligibility === 'needs_revalidation'
+            ? 'Academic information saved. Your eligibility requires revalidation.'
+            : ($newEligibility === 'under_review'
+                ? 'Academic information saved. Your eligibility is now under review.'
+                : 'Academic information saved.');
+
 
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
@@ -328,6 +351,15 @@ class StudentController extends Controller
             }
         }
 
+        // 🔹 SYSTEM LOG: PROFILE UPDATE (Leadership Info)
+        $userName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+        \App\Models\SystemMonitoringAndLog::record(
+            $user->role,
+            $userName ?: $user->email,
+            'Update',
+            "Updated leadership information."
+        );
+
         $msg = 'Leadership information saved.';
 
         if ($request->expectsJson() || $request->ajax()) {
@@ -383,7 +415,7 @@ class StudentController extends Controller
         }
 
         // Store file
-        $path = $request->file('cor')->store('cor', 'student_docs');
+        $path = $request->file('cor')->store('student_cors', 'public');
         $now  = now();
 
         // Upsert into student_academic
@@ -426,11 +458,18 @@ class StudentController extends Controller
 
         if ($academic) {
             $nowYear = (int) now()->year;
-            $status  = 'eligible';
+            $currentStatus = (string) ($academic->eligibility_status ?? 'eligible');
 
-            if (!empty($academic->expected_grad_year) && $nowYear > (int) $academic->expected_grad_year) {
-                $status = 'needs_revalidation';
+            $status = $currentStatus; // keep current by default
+
+            if ($currentStatus !== 'under_review') {
+                $status = 'eligible';
+
+                if (!empty($academic->expected_grad_year) && $nowYear > (int) $academic->expected_grad_year) {
+                    $status = 'needs_revalidation';
+                }
             }
+
 
             DB::table('student_academic')
                 ->where('user_id', $user->id)
@@ -455,27 +494,29 @@ class StudentController extends Controller
         // Fallback for normal form POST
         return back()->with('status', 'Certificate of Registration uploaded.');
     }
+
+
     public function viewCOR()
     {
-        /** @var User $user */
+        /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        // Ensure academic exists
-        $academic = \DB::table('student_academic')->where('user_id', $user->id)->first();
+        // Ensure academic record exists
+        $academic = $user->studentAcademic;
 
-        if (!$academic || empty($academic->certificate_of_registration_path)) {
+        if (! $academic || empty($academic->certificate_of_registration_path)) {
             abort(404, 'No COR uploaded.');
         }
 
-        // Serve the file directly
         $path = $academic->certificate_of_registration_path;
 
-        if (!\Storage::disk('student_docs')->exists($path)) {
+        // Must match the disk used during upload
+        if (! Storage::disk('public')->exists($path)) {
             abort(404, 'File not found.');
         }
 
         return response()->file(
-            Storage::disk('student_docs')->path($path)
+            Storage::disk('public')->path($path)
         );
     }
 
@@ -483,7 +524,6 @@ class StudentController extends Controller
      | VIEWS: PERFORMANCE / CRITERIA / HISTORY
      * ========================= */
 
-    // GET /student/performance
     // GET /student/performance
     public function performance()
     {
@@ -618,26 +658,12 @@ class StudentController extends Controller
 
     public function criteria()
     {
-        // If rubric tables are missing (dev / migration issue), avoid crashing
-        if (!Schema::hasTable('rubric_categories')) {
-            return view('student.criteria', [
-                'categories' => collect(),
-            ]);
-        }
-
-        // Load the full rubric: category → sections → subsections → options
-        $categories = RubricCategory::with([
-            'sections.subsections.options',
-        ])
+        $categories = RubricCategory::with(['sections.subsections.options'])
             ->orderBy('order_no')
             ->get();
 
-        return view('student.criteria', [
-            'categories' => $categories,
-        ]);
+        return view('student.criteria', compact('categories'));
     }
-
-
     // GET /student/history
 
     public function history()

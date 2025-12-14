@@ -141,17 +141,6 @@
                                         </button>
                                     </form>
 
-                                    {{-- Delete --}}
-                                    <form action="{{ route('admin.manage.destroy', $user) }}"
-                                          method="POST"
-                                          class="d-inline delete-form"
-                                          data-user-name="{{ $user->full_name }}">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="button" class="btn-delete" title="Delete user">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </form>
                                 </div>
                             </td>
                         </tr>

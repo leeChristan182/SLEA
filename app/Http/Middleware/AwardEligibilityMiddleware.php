@@ -17,23 +17,42 @@ class AwardEligibilityMiddleware
             return $next($request);
         }
 
-        // Allow these routes even if locked
-        if (
-            $request->routeIs('student.revalidation') ||
-            $request->is('student/revalidation') ||
-            $request->routeIs('student.updateAcademic') ||
-            $request->routeIs('student.uploadCOR') ||
-            $request->routeIs('student.updateLeadership')
-        ) {
+        /**
+         * 🚫 DO NOT run revalidation logic
+         * until onboarding is complete
+         */
+        if (! $user->profile_completed) {
             return $next($request);
         }
 
-        // If NOT locked, allow all normal routes
+        /**
+         * ✅ Always allow revalidation-related routes
+         */
+        if ($request->routeIs(
+            'student.revalidation',
+            'student.updateAcademic',
+            'student.uploadCOR',
+            'student.updateLeadership'
+        )) {
+            return $next($request);
+        }
+
+        /**
+         * If student is NOT locked → allow normal access
+         */
         if (! $user->awardLocked()) {
             return $next($request);
         }
 
-        // Locked → force to revalidation page
-        return redirect()->route('student.revalidation');
+        /**
+         * 🔒 Locked due to exceeded expected_grad_year
+         * Force revalidation
+         */
+        return redirect()
+            ->route('student.revalidation')
+            ->with(
+                'warning',
+                'Your academic information requires revalidation because your expected year to graduate has been exceeded.'
+            );
     }
 }

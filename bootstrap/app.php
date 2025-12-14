@@ -7,7 +7,9 @@ use App\Http\Middleware\RoleMiddleware;
 use App\Http\Middleware\AwardEligibilityMiddleware;
 use App\Http\Middleware\RedirectIfAuthenticated;
 use App\Http\Middleware\CheckUserStatus;
-use App\Http\Middleware\RequirePasswordChange;
+use App\Http\Middleware\EnsureStudentProfileApproved;
+use App\Http\Middleware\RequireProfileCompletion;
+use App\Http\Middleware\SessionTimeout;
 
 return Illuminate\Foundation\Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -23,13 +25,16 @@ return Illuminate\Foundation\Application::configure(basePath: dirname(__DIR__))
             'role' => RoleMiddleware::class,
             'guest' => RedirectIfAuthenticated::class,
             'check.status' => CheckUserStatus::class,
-            'require.password.change' => RequirePasswordChange::class,
+            'require.profile.completion' => \App\Http\Middleware\EnsureLimitedFlow::class,
+
 
         ]);
 
         // Add CheckUserStatus to web middleware group for all authenticated routes
-        $middleware->appendToGroup('web', [CheckUserStatus::class]);
-
+        $middleware->appendToGroup('web', [
+            SessionTimeout::class,
+            CheckUserStatus::class,
+        ]);
         // (optional) add something to groups
         // $middleware->appendToGroup('web', [ ... ]);
         // $middleware->appendToGroup('api', [ ... ]);

@@ -35,16 +35,13 @@
 
                 <div class="search-controls">
                     <div class="search-group">
-                        <input
-                            type="text"
-                            id="searchInput"
-                            class="form-control"
-                            placeholder="Search submissions..."
-                        >
-                        <button type="button" id="searchBtn" class="btn-search-maroon search-btn-attached" title="Search" onclick="handleSearchClick(event)">
+                        <input type="text" id="searchInput" class="form-control" placeholder="Search submissions...">
+                        <button type="button" id="searchBtn" class="btn-search-maroon search-btn-attached" title="Search"
+                            onclick="handleSearchClick(event)">
                             <i class="fas fa-search"></i>
                         </button>
-                        <button type="button" id="clearBtn" class="btn-clear" title="Clear search" onclick="handleClearClick(event)">
+                        <button type="button" id="clearBtn" class="btn-clear" title="Clear search"
+                            onclick="handleClearClick(event)">
                             Clear
                         </button>
                     </div>
@@ -153,10 +150,8 @@
                             : 'N/A' }}
                                             </td>
                                             <td>
-                                                <button class="btn btn-view" 
-                                                    data-student-id="{{ $student->id }}"
-                                                    onclick="openStudentSubmissionsModalFromButton(this)"
-                                                    title="View Submissions">
+                                                <button class="btn btn-view" data-student-id="{{ $student->id }}"
+                                                    onclick="openStudentSubmissionsModalFromButton(this)" title="View Submissions">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
                                             </td>
@@ -480,20 +475,21 @@
             overflow-x: hidden !important;
             max-width: 100vw;
         }
-        
+
         .container {
             overflow-x: hidden !important;
             max-width: 100vw;
             box-sizing: border-box;
         }
-        
+
         /* ==== Main content wrapper ==== */
         .main-content {
             max-width: 100%;
-            overflow-x: hidden; /* Prevent horizontal scroll on main content */
+            overflow-x: hidden;
+            /* Prevent horizontal scroll on main content */
             box-sizing: border-box;
         }
-        
+
         /* ==== Filter + Search Bar ==== */
         .controls-section {
             display: flex;
@@ -501,7 +497,8 @@
             align-items: flex-end;
             margin-bottom: 2rem;
             gap: 2rem;
-            flex-wrap: wrap; /* Allow wrapping on smaller screens */
+            flex-wrap: wrap;
+            /* Allow wrapping on smaller screens */
         }
 
         .filter-controls {
@@ -628,10 +625,12 @@
         /* ==== Main table ==== */
         .submissions-table-container {
             background: white;
-            border-radius: 8px;
+            border-radius: 0;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            overflow-x: hidden; /* Remove horizontal scrollbar */
-            overflow-y: auto; /* Keep vertical scrollbar if needed */
+            overflow-x: hidden;
+            /* Remove horizontal scrollbar */
+            overflow-y: auto;
+            /* Keep vertical scrollbar if needed */
             width: 100%;
             max-width: 100%;
             box-sizing: border-box;
@@ -641,7 +640,8 @@
             margin: 0;
             width: 100%;
             background: white;
-            table-layout: fixed; /* Use fixed layout for better control */
+            table-layout: fixed;
+            /* Use fixed layout for better control */
             border-collapse: collapse;
         }
 
@@ -650,57 +650,87 @@
         }
 
         .submissions-table thead th {
-            padding: 0.7rem 0.5rem; /* Reduced padding to fit more content */
+            padding: 0.7rem 0.5rem;
+            /* Reduced padding to fit more content */
             font-weight: 600;
             color: white !important;
             border-bottom: 1px solid white !important;
             border-right: 1px solid white !important;
-            font-size: 0.8rem; /* Slightly smaller font for headers */
+            font-size: 0.8rem;
+            /* Slightly smaller font for headers */
             background-color: #8B0000 !important;
-            white-space: nowrap; /* Prevent header text wrapping */
-            overflow: visible; /* Show full header text */
-            text-overflow: clip; /* Don't truncate headers */
+            white-space: nowrap;
+            /* Prevent header text wrapping */
+            overflow: visible;
+            /* Show full header text */
+            text-overflow: clip;
+            /* Don't truncate headers */
             vertical-align: middle;
-            line-height: 1.3; /* Tighter line height for headers */
+            line-height: 1.3;
+            /* Tighter line height for headers */
         }
-        
+
         /* Ensure Date Reviewed header fits on one line */
         .submissions-table thead th:nth-child(7) {
-            font-size: 0.75rem; /* Slightly smaller to fit "Date Reviewed" */
+            font-size: 0.75rem;
+            /* Slightly smaller to fit "Date Reviewed" */
             white-space: nowrap;
         }
-        
+
         /* Center Action column header */
         .submissions-table thead th:nth-child(8) {
             text-align: center;
             font-size: 0.8rem;
         }
-        
+
         /* Optimize column widths - percentages that add up to 100% */
         /* Redistributed: Reduced Student Name & Program, Increased Email for single-line display */
-        .submissions-table thead th:nth-child(1) { /* Student ID */
-            width: 9%; /* Maintained - accommodates wrapped IDs */
+        .submissions-table thead th:nth-child(1) {
+            /* Student ID */
+            width: 9%;
+            /* Maintained - accommodates wrapped IDs */
         }
-        .submissions-table thead th:nth-child(2) { /* Student Name */
-            width: 12%; /* Reduced from 14% - wraps long names within cell */
+
+        .submissions-table thead th:nth-child(2) {
+            /* Student Name */
+            width: 12%;
+            /* Reduced from 14% - wraps long names within cell */
         }
-        .submissions-table thead th:nth-child(3) { /* Email */
-            width: 18%; /* Increased from 15% - ensures emails fit on one line */
+
+        .submissions-table thead th:nth-child(3) {
+            /* Email */
+            width: 18%;
+            /* Increased from 15% - ensures emails fit on one line */
         }
-        .submissions-table thead th:nth-child(4) { /* Program */
-            width: 16%; /* Reduced from 18% - wraps long programs within cell */
+
+        .submissions-table thead th:nth-child(4) {
+            /* Program */
+            width: 16%;
+            /* Reduced from 18% - wraps long programs within cell */
         }
-        .submissions-table thead th:nth-child(5) { /* College */
-            width: 14%; /* Maintained - allows wrapping */
+
+        .submissions-table thead th:nth-child(5) {
+            /* College */
+            width: 14%;
+            /* Maintained - allows wrapping */
         }
-        .submissions-table thead th:nth-child(6) { /* SLEA Status */
-            width: 12%; /* Maintained - allows badge wrapping */
+
+        .submissions-table thead th:nth-child(6) {
+            /* SLEA Status */
+            width: 12%;
+            /* Maintained - allows badge wrapping */
         }
-        .submissions-table thead th:nth-child(7) { /* Date Reviewed */
-            width: 11%; /* Maintained - fits header text on one line */
+
+        .submissions-table thead th:nth-child(7) {
+            /* Date Reviewed */
+            width: 11%;
+            /* Maintained - fits header text on one line */
         }
-        .submissions-table thead th:nth-child(8) { /* Action */
-            width: 8%; /* Slightly increased for better button visibility */
+
+        .submissions-table thead th:nth-child(8) {
+            /* Action */
+            width: 8%;
+            /* Slightly increased for better button visibility */
         }
 
         .submissions-table thead th:last-child {
@@ -708,55 +738,71 @@
         }
 
         .submissions-table tbody td {
-            padding: 0.65rem 0.5rem; /* Adequate padding for multi-line content */
+            padding: 0.65rem 0.5rem;
+            /* Adequate padding for multi-line content */
             border-bottom: 1px solid #e9ecef;
             border-right: 1px solid #e9ecef;
             color: #333;
-            font-size: 0.85rem; /* Slightly smaller font */
+            font-size: 0.85rem;
+            /* Slightly smaller font */
             background: white;
-            vertical-align: middle; /* Center content vertically */
-            box-sizing: border-box; /* Include padding in width calculation */
+            vertical-align: middle;
+            /* Center content vertically */
+            box-sizing: border-box;
+            /* Include padding in width calculation */
         }
-        
+
         /* Student ID - allow wrapping for long IDs */
         .submissions-table tbody td:nth-child(1) {
             white-space: normal;
-            overflow: hidden; /* Prevent overflow into adjacent columns */
+            overflow: hidden;
+            /* Prevent overflow into adjacent columns */
             text-overflow: clip;
             word-break: break-word;
             word-wrap: break-word;
         }
-        
+
         /* Student Name - wrap long names within cell boundaries */
         .submissions-table tbody td:nth-child(2) {
-            white-space: normal; /* Allow wrapping for long names */
-            overflow: hidden; /* Prevent overflow into adjacent columns */
+            white-space: normal;
+            /* Allow wrapping for long names */
+            overflow: hidden;
+            /* Prevent overflow into adjacent columns */
             text-overflow: clip;
-            word-break: break-word; /* Break at word boundaries */
+            word-break: break-word;
+            /* Break at word boundaries */
             word-wrap: break-word;
             overflow-wrap: break-word;
-            line-height: 1.5; /* Adequate line height for wrapped text */
+            line-height: 1.5;
+            /* Adequate line height for wrapped text */
         }
-        
+
         /* Email - keep on single line, no wrapping */
         .submissions-table tbody td:nth-child(3) {
-            white-space: nowrap; /* Keep email on one line */
-            overflow: hidden; /* Prevent overflow */
-            text-overflow: ellipsis; /* Show ellipsis if extremely long (shouldn't happen with 18% width) */
+            white-space: nowrap;
+            /* Keep email on one line */
+            overflow: hidden;
+            /* Prevent overflow */
+            text-overflow: ellipsis;
+            /* Show ellipsis if extremely long (shouldn't happen with 18% width) */
             word-break: normal;
         }
-        
+
         /* Program - wrap long program names within cell boundaries */
         .submissions-table tbody td:nth-child(4) {
-            white-space: normal; /* Allow wrapping for long programs */
-            overflow: hidden; /* Prevent overflow into adjacent columns */
+            white-space: normal;
+            /* Allow wrapping for long programs */
+            overflow: hidden;
+            /* Prevent overflow into adjacent columns */
             text-overflow: clip;
-            word-break: break-word; /* Break at word boundaries */
+            word-break: break-word;
+            /* Break at word boundaries */
             word-wrap: break-word;
             overflow-wrap: break-word;
-            line-height: 1.5; /* Adequate line height for wrapped text */
+            line-height: 1.5;
+            /* Adequate line height for wrapped text */
         }
-        
+
         /* College - allow wrapping */
         .submissions-table tbody td:nth-child(5) {
             white-space: normal;
@@ -765,7 +811,7 @@
             word-break: break-word;
             word-wrap: break-word;
         }
-        
+
         /* SLEA Status - allow badge to wrap if needed */
         .submissions-table tbody td:nth-child(6) {
             white-space: normal;
@@ -773,35 +819,43 @@
             text-overflow: clip;
             word-break: break-word;
         }
-        
+
         /* Date Reviewed - keep on one line */
         .submissions-table tbody td:nth-child(7) {
-            white-space: nowrap; /* Keep date on one line */
+            white-space: nowrap;
+            /* Keep date on one line */
             overflow: hidden;
             text-overflow: clip;
         }
-        
+
         /* Action column - keep button on one line */
         .submissions-table tbody td:nth-child(8) {
-            white-space: nowrap; /* Keep button on one line */
-            text-align: center; /* Center the button */
-            padding: 0.5rem; /* Reduced padding for smaller button */
+            white-space: nowrap;
+            /* Keep button on one line */
+            text-align: center;
+            /* Center the button */
+            padding: 0.5rem;
+            /* Reduced padding for smaller button */
             vertical-align: middle;
         }
-        
+
         /* Ensure Action column button is smaller and compact */
         .submissions-table tbody td:nth-child(8) .btn-view {
-            width: 28px; /* Reduced from 35px */
-            height: 28px; /* Reduced from 35px */
+            width: 28px;
+            /* Reduced from 35px */
+            height: 28px;
+            /* Reduced from 35px */
             padding: 0;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.75rem; /* Smaller icon */
+            font-size: 0.75rem;
+            /* Smaller icon */
         }
-        
+
         .submissions-table tbody td:nth-child(8) .btn-view i {
-            font-size: 0.75rem; /* Smaller icon size */
+            font-size: 0.75rem;
+            /* Smaller icon size */
         }
 
         .submissions-table tbody td:last-child {
@@ -811,40 +865,50 @@
         .submissions-table tbody tr:hover {
             background-color: #f8f9fa;
         }
-        
+
         /* Ensure table rows have consistent height that accommodates wrapped text */
         .submissions-table tbody tr {
-            height: auto; /* Allow height to adjust based on content */
-            min-height: 45px; /* Minimum row height for readability */
+            height: auto;
+            /* Allow height to adjust based on content */
+            min-height: 45px;
+            /* Minimum row height for readability */
         }
-        
+
         /* Ensure table cells respect column boundaries - prevent overflow */
         .submissions-table tbody td {
-            max-width: 0; /* Force cells to respect column width */
+            max-width: 0;
+            /* Force cells to respect column width */
         }
-        
+
         /* Override max-width for columns that need wrapping */
-        .submissions-table tbody td:nth-child(2), /* Student Name */
-        .submissions-table tbody td:nth-child(4) { /* Program */
-            max-width: 100%; /* Allow content to use full column width */
+        .submissions-table tbody td:nth-child(2),
+        /* Student Name */
+        .submissions-table tbody td:nth-child(4) {
+            /* Program */
+            max-width: 100%;
+            /* Allow content to use full column width */
         }
-        
+
         /* Ensure SLEA status badge can wrap if needed */
         .submissions-table tbody td:nth-child(6) .slea-status-pill {
             display: inline-block;
-            max-width: 100%; /* Prevent badge from overflowing */
+            max-width: 100%;
+            /* Prevent badge from overflowing */
             word-wrap: break-word;
-            white-space: normal; /* Allow badge text to wrap if extremely long */
+            white-space: normal;
+            /* Allow badge text to wrap if extremely long */
         }
-        
+
         /* Ensure Student Name wraps at word boundaries */
         .submissions-table tbody td:nth-child(2) {
-            hyphens: auto; /* Add hyphens when breaking words if needed */
+            hyphens: auto;
+            /* Add hyphens when breaking words if needed */
         }
-        
+
         /* Ensure Program wraps at word boundaries */
         .submissions-table tbody td:nth-child(4) {
-            hyphens: auto; /* Add hyphens when breaking words if needed */
+            hyphens: auto;
+            /* Add hyphens when breaking words if needed */
         }
 
         /* ==== SLEA status pill ==== */
@@ -1232,7 +1296,8 @@
         body.dark-mode .submissions-table-container {
             background: #2a2a2a !important;
             border: 1px solid #555 !important;
-            overflow-x: hidden !important; /* Remove horizontal scrollbar in dark mode */
+            overflow-x: hidden !important;
+            /* Remove horizontal scrollbar in dark mode */
         }
 
         body.dark-mode .submissions-table {
@@ -1422,18 +1487,25 @@
             background-color: #8B0000;
             color: white;
             border: none;
-            border-radius: 4px; /* Slightly smaller border radius */
-            width: 28px; /* Reduced from 35px */
-            height: 28px; /* Reduced from 35px */
-            display: inline-flex; /* Changed to inline-flex */
+            border-radius: 4px;
+            /* Slightly smaller border radius */
+            width: 28px;
+            /* Reduced from 35px */
+            height: 28px;
+            /* Reduced from 35px */
+            display: inline-flex;
+            /* Changed to inline-flex */
             align-items: center;
             justify-content: center;
-            font-size: 0.75rem; /* Reduced from 0.9rem */
+            font-size: 0.75rem;
+            /* Reduced from 0.9rem */
             transition: all 0.2s ease;
             cursor: pointer;
             padding: 0;
-            min-width: 28px; /* Ensure minimum size */
-            flex-shrink: 0; /* Prevent shrinking */
+            min-width: 28px;
+            /* Ensure minimum size */
+            flex-shrink: 0;
+            /* Prevent shrinking */
         }
 
         .btn-view:hover {
@@ -1442,7 +1514,8 @@
         }
 
         .btn-view i {
-            font-size: 0.75rem; /* Reduced from 0.9rem */
+            font-size: 0.75rem;
+            /* Reduced from 0.9rem */
             line-height: 1;
         }
 
@@ -1492,14 +1565,15 @@
                 max-width: 100% !important;
                 margin: 1rem;
             }
-            
+
             /* Make table scrollable horizontally on mobile if needed */
             .submissions-table-container {
                 overflow-x: auto !important;
             }
-            
+
             .submissions-table {
-                min-width: 800px; /* Minimum width for table on mobile */
+                min-width: 800px;
+                /* Minimum width for table on mobile */
             }
         }
     </style>

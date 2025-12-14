@@ -223,49 +223,32 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // === PRIVACY MODAL (with localStorage ack) ===
-    setTimeout(() => {
-        const modalEl = document.getElementById('privacyModal');
-        if (!modalEl || typeof bootstrap === 'undefined') return;
+// === PRIVACY MODAL (once per TAB session) ===
+setTimeout(() => {
+  const modalEl = document.getElementById('privacyModal');
+  if (!modalEl || typeof bootstrap === 'undefined') return;
 
-        const STORAGE_KEY = 'slea_privacy_ack_v1';
+  const STORAGE_KEY = 'slea_privacy_ack'; // no versioning needed now
 
-        if (localStorage.getItem(STORAGE_KEY) === '1') {
-            // already acknowledged → don't show again
-            return;
-        }
+  // sessionStorage = resets when tab/browser closes
+  if (sessionStorage.getItem(STORAGE_KEY) === '1') return;
 
-            const privacyModal = new bootstrap.Modal(modalEl, {
-                backdrop: 'static',
-                keyboard: false
-            });
+  if (modalEl.classList.contains('show')) return;
 
-        // when user closes/continues, remember choice
-        modalEl.addEventListener('hidden.bs.modal', () => {
-            localStorage.setItem(STORAGE_KEY, '1');
-        }, { once: true });
+  const privacyModal =
+    bootstrap.Modal.getInstance(modalEl) ||
+    new bootstrap.Modal(modalEl, { backdrop: 'static', keyboard: false });
 
-            privacyModal.show();
-    }, 100);
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    sessionStorage.setItem(STORAGE_KEY, '1');
 
-    document.addEventListener('DOMContentLoaded', function () {
-    const form = document.getElementById('loginForm');
-    const submitBtn = document.getElementById('loginSubmitBtn');
+    document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+    document.body.classList.remove('modal-open');
+    document.body.style.removeProperty('padding-right');
+  }, { once: true });
 
-    if (!form || !submitBtn) return;
+  privacyModal.show();
+}, 100);
 
-    form.addEventListener('submit', function () {
-        // DO NOT call e.preventDefault() here – let Laravel handle the POST.
-
-        // Disable button & show spinner text while submitting
-        if (!submitBtn.dataset.originalHtml) {
-            submitBtn.dataset.originalHtml = submitBtn.innerHTML;
-        }
-
-        submitBtn.disabled = true;
-        submitBtn.innerHTML =
-            '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>' +
-            'Logging in...';
-    });
-});
 
 });

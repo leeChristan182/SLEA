@@ -40,11 +40,11 @@ class Submission extends Model
         return $this->belongsTo(User::class);
     }
 
+
     public function leadership(): BelongsTo
     {
-        return $this->belongsTo(LeadershipInformation::class, 'leadership_id');
+        return $this->belongsTo(StudentLeadership::class, 'leadership_id');
     }
-
     public function category(): BelongsTo
     {
         return $this->belongsTo(RubricCategory::class, 'rubric_category_id');

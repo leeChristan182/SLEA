@@ -1,23 +1,44 @@
 /**
  * Session Timeout Management
- * Handles idle timeout detection and user notifications
+ * - warningTime: time AFTER idle starts when warning modal appears
+ * - timeoutTime: TOTAL idle time before logout
  */
+// Put this early in DOMContentLoaded
+const isAuthenticated =
+  document.querySelector('meta[name="auth"]')?.content === '1'
+  || document.body?.dataset?.auth === '1'; // pick one convention
+
+if (!isAuthenticated) {
+  // Clear ONLY your app keys (don’t nuke all localStorage)
+  [
+    'slea_last_activity',
+    'slea_idle_deadline',
+    'slea_warning_shown',
+    'slea_privacy_accepted',
+    'slea_privacy_dismissed',
+  ].forEach(k => {
+    localStorage.removeItem(k);
+    sessionStorage.removeItem(k);
+  });
+}
+
 class SessionTimeout {
     constructor(options = {}) {
         this.options = {
-            // Default values (you can override on init)
-            warningTime: 5 * 60 * 1000,   // 5 minutes
-            timeoutTime: 10 * 60 * 1000,  // 10 minutes
-            checkInterval: 30 * 1000,     // 30 seconds
+            warningTime: 5 * 60 * 1000,
+            timeoutTime: 10 * 60 * 1000,
+            checkInterval: 30 * 1000,
 
-            warningMessage: 'Your session will expire in {time} minutes due to inactivity. Do you want to stay logged in?',
-            timeoutMessage: 'Your session has expired due to inactivity. You will be redirected to the login page.',
-            ...options
+            warningMessage:
+                'Your session will expire in {time} minutes due to inactivity. Do you want to stay logged in?',
+            timeoutMessage:
+                'Your session has expired due to inactivity. You will be redirected to the login page.',
+            ...options,
         };
 
         this.isWarningShown = false;
         this.isTimedOut = false;
-        this.lastActivity = Date.now();
+
         this.warningTimer = null;
         this.timeoutTimer = null;
         this.checkTimer = null;
@@ -29,131 +50,92 @@ class SessionTimeout {
     init() {
         this.bindEvents();
         this.startCheckTimer();
-        this.startWarningTimer();
-    }
 
-    bindEvents() {
-        // Track user activity BEFORE the warning modal is shown
-        const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-
-        events.forEach(event => {
-            document.addEventListener(event, (e) => {
-                this.handleActivity(e);
-            }, true);
-        });
-
-        // Handle visibility change (tab switching)
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) {
-                this.handleActivity();
-            }
-        });
-
-        // Handle page unload
-        window.addEventListener('beforeunload', () => {
-            this.cleanup();
-        });
-    }
-
-    /**
-     * Called on any user interaction.
-     * BEFORE warning: resets timers.
-     * AFTER warning: does NOT reset timers (user must click "Stay Logged In").
-     */
-    handleActivity() {
-        if (this.isTimedOut) return;
-
-        // If warning popup is already shown, ignore passive activity.
-        // Only clicking "Stay Logged In" should extend the session.
-        if (this.isWarningShown) {
-            // We can optionally update lastActivity, but DO NOT reset timers.
-            this.lastActivity = Date.now();
-            return;
-        }
-
-        // Normal case: no warning yet → reset timers
+        // ✅ start BOTH timers aligned to same baseline
         this.resetTimers();
     }
 
-    resetTimers() {
-        if (this.isTimedOut) return;
+    bindEvents() {
+        const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
 
-        this.lastActivity = Date.now();
-        this.isWarningShown = false;
+        events.forEach((event) => {
+            document.addEventListener(
+                event,
+                () => {
+                    this.handleActivity();
+                },
+                true
+            );
+        });
 
-        // Clear existing timers
-        if (this.warningTimer) {
-            clearTimeout(this.warningTimer);
-            this.warningTimer = null;
-        }
-        if (this.timeoutTimer) {
-            clearTimeout(this.timeoutTimer);
-            this.timeoutTimer = null;
-        }
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) this.handleActivity();
+        });
 
-        // Also clear any countdown in case it was running
-        this.clearCountdown();
-
-        // Start new timers
-        this.startWarningTimer();
+        window.addEventListener('beforeunload', () => this.cleanup());
     }
 
+    handleActivity() {
+        if (this.isTimedOut) return;
+
+        // If warning already shown, don't reset timers unless user clicks "Stay Logged In"
+        if (this.isWarningShown) return;
+
+        this.resetTimers();
+    }
+
+resetTimers() {
+  if (this.isTimedOut) return;
+
+  this.lastActivity = Date.now();
+  this.isWarningShown = false;
+
+  if (this.warningTimer) clearTimeout(this.warningTimer);
+  if (this.timeoutTimer) clearTimeout(this.timeoutTimer);
+
+  this.startWarningTimer();
+  this.startTimeoutTimer(); // ✅ ADD THIS
+}
+
     startWarningTimer() {
-        this.warningTimer = setTimeout(() => {
-            this.showWarning();
-        }, this.options.warningTime);
+        this.warningTimer = setTimeout(() => this.showWarning(), this.options.warningTime);
     }
 
     startTimeoutTimer() {
-        this.timeoutTimer = setTimeout(() => {
-            this.handleTimeout();
-        }, this.options.timeoutTime);
+        this.timeoutTimer = setTimeout(() => this.handleTimeout(), this.options.timeoutTime);
     }
 
     startCheckTimer() {
-        this.checkTimer = setInterval(() => {
-            this.checkSessionStatus();
-        }, this.options.checkInterval);
+        this.checkTimer = setInterval(() => this.checkSessionStatus(), this.options.checkInterval);
     }
 
-showWarning() {
-    if (this.isWarningShown || this.isTimedOut) return;
+    showWarning() {
+        if (this.isWarningShown || this.isTimedOut) return;
+        this.isWarningShown = true;
 
-    this.isWarningShown = true;
+        const remainingMs = Math.max(0, this.options.timeoutTime - this.options.warningTime);
+        const remainingMin = Math.max(1, Math.ceil(remainingMs / 60000));
+        const message = this.options.warningMessage.replace('{time}', remainingMin);
 
-    const remainingMs  = this.options.timeoutTime - this.options.warningTime;
-    const remainingMin = Math.max(1, Math.ceil(remainingMs / 60000)); // avoid 0
-
-    const message = this.options.warningMessage.replace('{time}', remainingMin);
-
-    // 🔔 If tab is not visible and notifications are allowed, show native browser notification
-    if (
-        document.hidden &&
-        'Notification' in window &&
-        Notification.permission === 'granted'
-    ) {
-        try {
-            new Notification('SLEA Session Expiring Soon', {
-                body: `Your SLEA session will expire in about ${remainingMin} minute(s) if you stay idle.`,
-                icon: '/images/osas-logo.png', // optional, adjust path
-            });
-        } catch (e) {
-            console.warn('Notification failed:', e);
+        // If tab hidden & notifications granted
+        if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+            try {
+                new Notification('SLEA Session Expiring Soon', {
+                    body: `Your SLEA session will expire in about ${remainingMin} minute(s) if you stay idle.`,
+                    icon: '/images/osas-logo.png',
+                });
+            } catch (e) {
+                console.warn('Notification failed:', e);
+            }
         }
+
+        this.createWarningModal(message, remainingMin);
+        // ✅ DO NOT start timeout timer here; it is already running
     }
-
-    // Existing behavior: show your Bootstrap-style in-page warning modal
-    this.createWarningModal(message, remainingMin);
-    this.startTimeoutTimer();
-}
-
 
     createWarningModal(message, remainingMinutes) {
-        // Remove existing modal if any
         const existingModal = document.getElementById('session-warning-modal');
-        if (existingModal) {
-            existingModal.remove();
-        }
+        if (existingModal) existingModal.remove();
 
         const modal = document.createElement('div');
         modal.id = 'session-warning-modal';
@@ -175,7 +157,7 @@ showWarning() {
                         <p>${message}</p>
                         <div class="progress mb-3">
                             <div class="progress-bar bg-warning" role="progressbar"
-                                 style="width: 0%" id="timeout-progress"></div>
+                                 style="width:0%" id="timeout-progress"></div>
                         </div>
                         <p class="text-muted small mb-0">
                             Click <strong>"Stay Logged In"</strong> to continue your session,
@@ -183,16 +165,10 @@ showWarning() {
                         </p>
                     </div>
                     <div class="modal-footer d-flex flex-column flex-sm-row gap-2">
-                        <button type="button"
-                                class="btn btn-secondary flex-fill flex-sm-grow-0"
-                                id="logout-now"
-                                style="min-width: 150px; white-space: nowrap;">
+                        <button type="button" class="btn btn-secondary" id="logout-now">
                             <i class="fas fa-sign-out-alt me-1"></i> Logout Now
                         </button>
-                        <button type="button"
-                                class="btn btn-primary flex-fill flex-sm-grow-0"
-                                id="stay-logged-in"
-                                style="min-width: 170px; white-space: nowrap;">
+                        <button type="button" class="btn btn-primary" id="stay-logged-in">
                             <i class="fas fa-clock me-1"></i> Stay Logged In
                         </button>
                     </div>
@@ -202,16 +178,9 @@ showWarning() {
 
         document.body.appendChild(modal);
 
-        // Add event listeners
-        document.getElementById('stay-logged-in').addEventListener('click', () => {
-            this.stayLoggedIn();
-        });
+        document.getElementById('stay-logged-in')?.addEventListener('click', () => this.stayLoggedIn());
+        document.getElementById('logout-now')?.addEventListener('click', () => this.logoutNow());
 
-        document.getElementById('logout-now').addEventListener('click', () => {
-            this.logoutNow();
-        });
-
-        // Start countdown
         this.startCountdown(remainingMinutes);
     }
 
@@ -222,7 +191,7 @@ showWarning() {
         const totalTimeSec = remainingMinutes * 60;
         let timeLeft = totalTimeSec;
 
-        this.clearCountdown(); // ensure any previous interval is cleared
+        this.clearCountdown();
 
         this.countdownInterval = setInterval(() => {
             timeLeft--;
@@ -245,10 +214,9 @@ showWarning() {
     }
 
     stayLoggedIn() {
-        // User explicitly chose to extend session
         this.hideWarningModal();
-        this.resetTimers();   // will clear countdown + restart timers
-        this.sendKeepAlive(); // tell server we're still here
+        this.resetTimers();
+        this.sendKeepAlive();
     }
 
     logoutNow() {
@@ -258,9 +226,7 @@ showWarning() {
 
     hideWarningModal() {
         const modal = document.getElementById('session-warning-modal');
-        if (modal) {
-            modal.remove();
-        }
+        if (modal) modal.remove();
         this.clearCountdown();
         this.isWarningShown = false;
     }
@@ -271,18 +237,19 @@ showWarning() {
                 method: 'GET',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                    'Accept': 'application/json'
                 }
             });
 
-            if (!response.ok) {
-                throw new Error('Session check failed');
-            }
+            if (!response.ok) throw new Error('Keep-alive failed (non-OK)');
+
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) throw new Error('Keep-alive got non-JSON');
 
             const data = await response.json();
-            console.log('Session kept alive:', data);
-        } catch (error) {
-            console.error('Keep-alive failed:', error);
+            if (!data.authenticated) this.handleTimeout();
+        } catch (err) {
+            console.error('Keep-alive failed:', err);
             this.handleTimeout();
         }
     }
@@ -293,18 +260,23 @@ showWarning() {
                 method: 'GET',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                    'Accept': 'application/json'
                 }
             });
 
-            if (!response.ok) {
-                throw new Error('Session expired');
+            // If session is gone and server returns 401, timeout
+            if (response.status === 401) return this.handleTimeout();
+
+            if (!response.ok) throw new Error('Session check non-OK');
+
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+                // got HTML redirect or something unexpected
+                return this.handleTimeout();
             }
 
             const data = await response.json();
-            if (!data.authenticated) {
-                this.handleTimeout();
-            }
+            if (!data.authenticated) this.handleTimeout();
         } catch (error) {
             console.error('Session check failed:', error);
             this.handleTimeout();
@@ -318,10 +290,7 @@ showWarning() {
         this.hideWarningModal();
         this.showTimeoutMessage();
 
-        // Perform logout after a short delay
-        setTimeout(() => {
-            this.performLogout();
-        }, 2000);
+        setTimeout(() => this.performLogout(), 1500);
     }
 
     showTimeoutMessage() {
@@ -345,7 +314,7 @@ showWarning() {
                         </h5>
                     </div>
                     <div class="modal-body text-center">
-                        <i class="fas fa-exclamation-circle text-danger mb-3" style="font-size: 3rem;"></i>
+                        <i class="fas fa-exclamation-circle text-danger mb-3" style="font-size:3rem;"></i>
                         <p>${this.options.timeoutMessage}</p>
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Redirecting...</span>
@@ -360,27 +329,20 @@ showWarning() {
 
     async performLogout() {
         try {
-// public/js/session-timeout.js, inside performLogout()
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
-const response = await fetch('/logout', {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',           // ✅ explicitly ask for JSON
-        'X-Requested-With': 'XMLHttpRequest',
-        'X-CSRF-TOKEN': document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute('content') || ''
-    },
-    body: JSON.stringify({})
-});
+            const response = await fetch('/logout', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrf,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json'
+                }
+            });
 
-let data = {};
-try {
-    data = await response.json();
-} catch (e) {
-    // Non-JSON response is fine; handled by fallback below
-}
+            let data = {};
+            try { data = await response.json(); } catch (e) {}
 
             if (data.success && data.redirect_url) {
                 window.location.href = data.redirect_url;
@@ -394,18 +356,11 @@ try {
     }
 
     cleanup() {
-        if (this.warningTimer) {
-            clearTimeout(this.warningTimer);
-        }
-        if (this.timeoutTimer) {
-            clearTimeout(this.timeoutTimer);
-        }
-        if (this.checkTimer) {
-            clearInterval(this.checkTimer);
-        }
+        if (this.warningTimer) clearTimeout(this.warningTimer);
+        if (this.timeoutTimer) clearTimeout(this.timeoutTimer);
+        if (this.checkTimer) clearInterval(this.checkTimer);
         this.clearCountdown();
     }
 }
 
-// Export for manual initialization if needed
 window.SessionTimeout = SessionTimeout;

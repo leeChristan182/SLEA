@@ -66,17 +66,13 @@
 </head>
 
 <body class="d-flex flex-column min-vh-100
-             {{ session('dark_mode', false) ? 'dark-mode' : '' }}
-             {{ auth()->check() ? 'authenticated' : 'guest' }}">
+    {{ session('dark_mode', false) ? 'dark-mode' : '' }}
+    {{ auth()->check() ? 'authenticated' : 'guest' }}">
 
     {{-- Header --}}
     @include('partials.header')
 
     <div class="d-flex">
-        {{-- Sidebar (if any) --}}
-        {{-- @include('partials.sidebar') --}}
-
-        {{-- Main Content --}}
         <main class="flex-grow-1">
             @yield('content')
         </main>
@@ -87,17 +83,17 @@
 
     {{-- Account Disabled Modal --}}
     @if(session('account_disabled'))
-        <div id="accountDisabledModal" class="modal" style="display: flex;">
-            <div class="modal-content" style="max-width: 500px; margin: auto; background: white; border-radius: 8px;
-                                            padding: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
-                <div class="modal-header" style="text-align: center; margin-bottom: 20px;">
-                    <div style="font-size: 48px; color: #dc3545; margin-bottom: 15px;">
+        <div id="accountDisabledModal" class="modal" style="display:flex;">
+            <div class="modal-content" style="max-width:500px;margin:auto;background:white;border-radius:8px;
+                    padding:30px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+                <div class="modal-header" style="text-align:center;margin-bottom:20px;">
+                    <div style="font-size:48px;color:#dc3545;margin-bottom:15px;">
                         <i class="fas fa-user-slash"></i>
                     </div>
-                    <h3 style="color: #dc3545; margin: 0; font-weight: 700;">Account Disabled</h3>
+                    <h3 style="color:#dc3545;margin:0;font-weight:700;">Account Disabled</h3>
                 </div>
-                <div class="modal-body" style="text-align: center; margin-bottom: 20px;">
-                    <p style="font-size: 16px; color: #333; margin: 0;">
+                <div class="modal-body" style="text-align:center;margin-bottom:20px;">
+                    <p style="font-size:16px;color:#333;margin:0;">
                         Your account has been disabled by an administrator. You will be logged out automatically.
                     </p>
                 </div>
@@ -106,14 +102,22 @@
         <div class="modal-backdrop-custom"></div>
     @endif
 
-    {{-- JS Scripts (only once) --}}
+    {{-- JS (only once) --}}
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    {{-- Provide session values to JS --}}
+    <script>
+        window.SLEA_SESSION = {
+            lifetime_seconds: {{ (int) config('session.lifetime') * 60 }}, // total allowed idle seconds
+            warn_before_minutes: {{ (int) config('slea.session_warning_minutes', 5) }} // show warning N min before expiry
+        };
+    </script>
 
     {{-- Session timeout handler --}}
     <script src="{{ asset('js/session-timeout.js') }}"></script>
 
-    {{-- Initialize SessionTimeout (TEST VALUES) --}}
+    {{-- Initialize SessionTimeout --}}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const isAuthenticated =
@@ -122,42 +126,39 @@
 
             if (!isAuthenticated) return;
 
-            // Ask for notification permission once (optional, you can move this behind a button too)
+            // Optional: request notification permission
             if ('Notification' in window && Notification.permission === 'default') {
-                Notification.requestPermission().then(function (result) {
-                    console.log('Notification permission:', result);
-                });
+                Notification.requestPermission().catch(() => { });
             }
 
-            new SessionTimeout({
-                warningTime: 5 * 60 * 1000,   // 5 min
-                timeoutTime: 10 * 60 * 1000,  // 10 min
-                checkInterval: 30 * 1000,     // 30 sec
+            const totalMs = (window.SLEA_SESSION?.lifetime_seconds ?? (10 * 60)) * 1000;
+            const warnBeforeMin = window.SLEA_SESSION?.warn_before_minutes ?? 5;
+
+            // warningTime = when warning appears AFTER idle started
+            // Example: lifetime 10min, warnBefore 2min => warningTime = 8min
+            const warningTimeMs = Math.max(5 * 1000, totalMs - (warnBeforeMin * 60 * 1000));
+
+            window.__sessionTimeout = new SessionTimeout({
+                warningTime: warningTimeMs,
+                timeoutTime: totalMs,
+                checkInterval: 30 * 1000
             });
 
+            console.log('[SessionTimeout] enabled', { totalMs, warningTimeMs, warnBeforeMin });
         });
     </script>
 
-    {{-- Account Disabled Auto-Logout Script --}}
+    {{-- Account Disabled Auto-Logout --}}
     @if(session('account_disabled'))
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 const modal = document.getElementById('accountDisabledModal');
                 const backdrop = document.querySelector('.modal-backdrop-custom');
-
-                // Prevent body scroll
                 document.body.style.overflow = 'hidden';
 
-                // After 3 seconds, start fade out (2 seconds), then logout
                 setTimeout(function () {
-                    if (modal) {
-                        modal.style.transition = 'opacity 2s ease-out';
-                        modal.style.opacity = '0';
-                    }
-                    if (backdrop) {
-                        backdrop.style.transition = 'opacity 2s ease-out';
-                        backdrop.style.opacity = '0';
-                    }
+                    if (modal) { modal.style.transition = 'opacity 2s ease-out'; modal.style.opacity = '0'; }
+                    if (backdrop) { backdrop.style.transition = 'opacity 2s ease-out'; backdrop.style.opacity = '0'; }
 
                     setTimeout(function () {
                         const form = document.createElement('form');

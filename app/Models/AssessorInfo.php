@@ -12,6 +12,9 @@ class AssessorInfo extends Model
     protected $fillable = [
         'user_id',
         'created_by_admin_id',
+        'office_unit',
+        'position',
+        'assessor_code',
         'temporary_password_hash',
         'must_change_password',
         'date_created',

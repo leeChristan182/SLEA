@@ -9,9 +9,7 @@ class RubricSubsectionsSeeder extends Seeder
 {
     public function run(): void
     {
-        DB::statement('PRAGMA foreign_keys = OFF;');
         DB::table('rubric_subsections')->delete();
-        DB::statement('PRAGMA foreign_keys = ON;');
 
         $sectionId = DB::table('rubric_sections')->pluck('section_id', 'key');
         $now = now();

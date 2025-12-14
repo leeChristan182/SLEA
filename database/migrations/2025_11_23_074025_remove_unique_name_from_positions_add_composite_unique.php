@@ -10,12 +10,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('positions', function (Blueprint $table) {
-            // Drop unique constraint on name
-            $table->dropUnique(['name']);
-            // Drop unique constraint on key (since same key can exist for different leadership types)
-            $table->dropUnique(['key']);
+            $table->dropUnique('positions_name_unique');
+            $table->dropUnique('positions_key_unique');
         });
-        
+
+
         // Add composite unique constraint on (leadership_type_id, name)
         // Note: SQLite doesn't support adding unique constraints via alter, so we'll handle it in the seeder
     }

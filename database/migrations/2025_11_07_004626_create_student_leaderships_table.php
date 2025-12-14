@@ -7,7 +7,10 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
+
         Schema::create('student_leaderships', function (Blueprint $table) {
+            $table->engine = 'InnoDB';
+
             $table->id();
 
             $table->foreignId('user_id')
@@ -44,7 +47,7 @@ return new class extends Migration {
                 ->references('key')
                 ->on('student_leadership_statuses');
 
-            $table->string('issued_by', 255)->nullable();
+            $table->string('issued_by', 191)->nullable();
             $table->json('attachments')->nullable();
 
             $table->timestamps();

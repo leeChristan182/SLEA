@@ -10,15 +10,15 @@ return new class extends Migration {
     {
         // For SQLite, we need to drop and recreate the foreign key constraint
         // to properly handle NULL values in the qualification column
-        
-        if (DB::getDriverName() === 'sqlite') {
+
+        if (DB::getDriverName() === 'mysql') {
             // SQLite doesn't support dropping foreign keys directly
             // We need to recreate the table without the problematic constraint
             // or modify it to handle NULL properly
-            
+
             // First, ensure the enum values exist
             $this->ensureEnumValuesExist();
-            
+
             // Note: SQLite foreign key constraints should work with NULL values
             // if the column is nullable. The issue might be that the constraint
             // was created incorrectly. We'll verify the constraint is correct.
@@ -27,7 +27,7 @@ return new class extends Migration {
             Schema::table('assessor_final_reviews', function (Blueprint $table) {
                 $table->dropForeign(['qualification']);
             });
-            
+
             Schema::table('assessor_final_reviews', function (Blueprint $table) {
                 // Recreate with proper NULL handling
                 $table->foreign('qualification')
@@ -45,7 +45,7 @@ return new class extends Migration {
             Schema::table('assessor_final_reviews', function (Blueprint $table) {
                 $table->dropForeign(['qualification']);
             });
-            
+
             Schema::table('assessor_final_reviews', function (Blueprint $table) {
                 $table->foreign('qualification')
                     ->references('key')
@@ -73,4 +73,3 @@ return new class extends Migration {
         }
     }
 };
-

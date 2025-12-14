@@ -12,12 +12,40 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use App\Models\AssessorInfo;
+use App\Models\AssessorFinalReview;
 
 class AssessorController extends Controller
 {
     /* =========================
      | PROFILE
      * ========================= */
+    public function dashboard()
+    {
+        $assessorId = Auth::id();
+
+        // Status counts for THIS assessor
+        $statusCounts = AssessorFinalReview::query()
+            ->where('assessor_id', $assessorId)
+            ->select('status', DB::raw('COUNT(*) as total'))
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $reviewStats = [
+            'pending'   => (int) ($statusCounts[AssessorFinalReview::STATUS_DRAFT] ?? $statusCounts['draft'] ?? 0),
+            'submitted' => (int) ($statusCounts[AssessorFinalReview::STATUS_QUEUED_FOR_ADMIN] ?? $statusCounts['queued_for_admin'] ?? 0),
+            'finalized' => (int) ($statusCounts[AssessorFinalReview::STATUS_FINALIZED] ?? $statusCounts['finalized'] ?? 0),
+        ];
+
+        // Individual reviews list (latest first)
+        // Adjust relations/columns to match your schema (see notes below).
+        $reviews = AssessorFinalReview::query()
+            ->with(['student.user']) // if you have student->user relationship
+            ->where('assessor_id', $assessorId)
+            ->orderByDesc('updated_at')
+            ->paginate(12);
+
+        return view('assessor.dashboard', compact('reviewStats', 'reviews'));
+    }
 
     // GET /assessor/profile
     public function profile()
@@ -38,7 +66,10 @@ class AssessorController extends Controller
                 'last_name'  => ['required', 'string', 'max:50'],
                 'middle_name' => ['nullable', 'string', 'max:50'],
                 'email'      => ['required', 'email', 'max:100', Rule::unique('users', 'email')->ignore($user->id)],
-                'contact'    => ['nullable', 'string', 'max:20'],
+                'contact' => [
+                    'required',
+                    'regex:' . config('slea.phone_regex'),
+                ],
                 'birth_date' => [
                     'nullable',
                     'date',
@@ -49,6 +80,15 @@ class AssessorController extends Controller
             ]);
 
             $user->update($data);
+
+            // 🔹 SYSTEM LOG: PROFILE UPDATE
+            $userName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+            \App\Models\SystemMonitoringAndLog::record(
+                $user->role,
+                $userName ?: $user->email,
+                'Update',
+                "Updated profile information."
+            );
 
             // Return JSON response for AJAX requests
             if ($request->ajax() || $request->expectsJson()) {
@@ -119,6 +159,16 @@ class AssessorController extends Controller
             'temporary_password_hash' => null,
             'must_change_password'    => false,
         ]);
+
+        // 🔹 SYSTEM LOG: PASSWORD CHANGE
+        $userName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+        \App\Models\SystemMonitoringAndLog::record(
+            $user->role,
+            $userName ?: $user->email,
+            'Update',
+            "Changed password."
+        );
+
         // Return JSON response for AJAX requests
         if ($request->ajax() || $request->expectsJson()) {
             return response()->json([

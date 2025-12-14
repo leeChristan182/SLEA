@@ -11,7 +11,7 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('organization_id')->constrained('organizations')->onDelete('cascade');
             $table->foreignId('position_id')->constrained('positions')->onDelete('cascade');
-            $table->string('alias', 255)->nullable();
+            $table->string('alias', 191)->nullable();
             $table->timestamps();
             $table->unique(['organization_id', 'position_id']);
         });

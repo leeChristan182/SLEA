@@ -8,19 +8,28 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('organizations', function (Blueprint $table) {
-            // Avoid duplicate organizations with same name, cluster, and leadership type
-            $table->unique(
-                ['name', 'cluster_id', 'leadership_type_id'],
-                'org_name_cluster_type_unique'
-            );
-        });
+        // Only add the unique index if table/columns exist
+        if (
+            Schema::hasTable('organizations') &&
+            Schema::hasColumn('organizations', 'name') &&
+            Schema::hasColumn('organizations', 'cluster_id')
+        ) {
+            Schema::table('organizations', function (Blueprint $table) {
+                // Enforce unique organization name per cluster
+                $table->unique(
+                    ['name', 'cluster_id'],
+                    'org_name_cluster_type_unique'
+                );
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('organizations', function (Blueprint $table) {
-            $table->dropUnique('org_name_cluster_type_unique');
-        });
+        if (Schema::hasTable('organizations')) {
+            Schema::table('organizations', function (Blueprint $table) {
+                $table->dropUnique('org_name_cluster_type_unique');
+            });
+        }
     }
 };

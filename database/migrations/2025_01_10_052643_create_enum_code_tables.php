@@ -16,7 +16,7 @@ return new class extends Migration {
 
         // Status of an individual submitted evidence/record
         Schema::create('submission_statuses', function (Blueprint $t) {
-            $t->string('key', 32)->primary();
+            $t->string('key', 191)->primary();
         });
 
         DB::table('submission_statuses')->insert(array_map(fn($k) => ['key' => $k], [
@@ -112,7 +112,7 @@ return new class extends Migration {
 
         // Overall SLEA application status (student_academic.slea_application_status)
         Schema::create('slea_application_statuses', function (Blueprint $t) {
-            $t->string('key', 32)->primary();
+            $t->string('key', 191)->primary();
         });
 
         DB::table('slea_application_statuses')->insert(array_map(fn($k) => ['key' => $k], [

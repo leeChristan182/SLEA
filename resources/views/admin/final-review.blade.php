@@ -483,11 +483,11 @@
 
                     if (!Array.isArray(breakdown) || breakdown.length === 0) {
                         tbody.innerHTML = `
-                                    <tr class="text-muted">
-                                        <td colspan="3" class="text-center">
-                                            No category breakdown available for this student.
-                                        </td>
-                                    </tr>`;
+                                        <tr class="text-muted">
+                                            <td colspan="3" class="text-center">
+                                                No category breakdown available for this student.
+                                            </td>
+                                        </tr>`;
                     } else {
                         // Sort breakdown by order_no to ensure correct sequence
                         breakdown.sort((a, b) => {
@@ -518,20 +518,20 @@
 
                             const tr = document.createElement('tr');
                             tr.innerHTML = `
-                                        <td>${roman}. ${catName}</td>
-                                        <td>${sc.toFixed(2)}</td>
-                                        <td>${maxPts.toFixed(2)}</td>
-                                    `;
+                                            <td>${roman}. ${catName}</td>
+                                            <td>${sc.toFixed(2)}</td>
+                                            <td>${maxPts.toFixed(2)}</td>
+                                        `;
                             tbody.appendChild(tr);
                         });
 
                         const totalTr = document.createElement('tr');
                         totalTr.classList.add('summary-total-row');
                         totalTr.innerHTML = `
-                                    <td><strong>Total Score</strong></td>
-                                    <td><strong>${totalScore.toFixed(2)}</strong></td>
-                                    <td><strong>${totalMax.toFixed(2)}</strong></td>
-                                `;
+                                        <td><strong>Total Score</strong></td>
+                                        <td><strong>${totalScore.toFixed(2)}</strong></td>
+                                        <td><strong>${totalMax.toFixed(2)}</strong></td>
+                                    `;
                         tbody.appendChild(totalTr);
                     }
                 });
@@ -569,8 +569,8 @@
 @push('styles')
     <style>
         /* ------------------------------
-                   Admin Final Review – override global .modal rules safely
-                ------------------------------ */
+                       Admin Final Review – override global .modal rules safely
+                    ------------------------------ */
 
         /* Only this modal: center it instead of bottom-sheet style.css behavior */
         .admin-final-modal.modal {
@@ -579,7 +579,7 @@
         }
 
         .admin-final-modal .modal-dialog {
-            max-width: 960px !important;
+            max-width: 1200px !important;
             width: 95vw !important;
             margin: 1.5rem auto !important;
         }

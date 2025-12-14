@@ -83,13 +83,13 @@ class SubmissionRecordController extends Controller
             'rubric_section_id'    => ['nullable', 'exists:rubric_sections,section_id'],
             'rubric_subsection_id' => ['nullable', 'exists:rubric_subsections,sub_section_id'],
 
-            'activity_title'       => ['required', 'string', 'max:255'],
+            'activity_title'       => ['required', 'string', 'max:191'],
             'description'          => ['nullable', 'string'],
 
             'activity_type'        => ['nullable', 'string', 'max:100'],
-            'role_in_activity'     => ['nullable', 'string', 'max:255'],
+            'role_in_activity'     => ['nullable', 'string', 'max:191'],
             'date_of_activity'     => ['nullable', 'date'],
-            'organizing_body'      => ['nullable', 'string', 'max:255'],
+            'organizing_body'      => ['nullable', 'string', 'max:191'],
             'note'                 => ['nullable', 'string'],
             'term' => [
                 'nullable',
@@ -103,7 +103,7 @@ class SubmissionRecordController extends Controller
                     }
                 },
             ],
-            'issued_by'            => ['nullable', 'string', 'max:255'],
+            'issued_by'            => ['nullable', 'string', 'max:191'],
             'document_type'        => ['nullable', 'string', 'max:50'],
 
             'attachments'   => ['required'],

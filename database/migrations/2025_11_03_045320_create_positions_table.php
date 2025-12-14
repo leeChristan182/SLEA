@@ -10,7 +10,7 @@ return new class extends Migration {
         Schema::create('positions', function (Blueprint $table) {
             $table->id();
             $table->string('key', 150)->unique();   // e.g., president, vp_internal
-            $table->string('name', 255)->unique();  // canonical label
+            $table->string('name', 191)->unique();  // canonical label
             $table->unsignedSmallInteger('rank_order')->default(100);
             $table->boolean('is_executive')->default(false);
             $table->boolean('is_elected')->default(true);

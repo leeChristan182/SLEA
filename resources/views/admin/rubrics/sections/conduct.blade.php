@@ -35,7 +35,7 @@
                             @php
                                 // fallback for evidence/notes
                                 $evidenceSource = $sub->evidence_needed ?: $section->evidence;
-                                $notesSource    = $sub->notes ?: $section->notes;
+                                $notesSource = $sub->notes ?: $section->notes;
 
                                 $options = $sub->options ?? collect();
                                 $rowCount = max($options->count(), 1);
@@ -94,21 +94,22 @@
                                         <td>
                                             <div class="action-buttons-group">
                                                 <button class="btn-edit" onclick="openEditRubricModal(
-                                                    {{ $opt->id }},
-                                                    {{ $sub->sub_section_id }},
-                                                    '{{ addslashes($opt->label) }}',
-                                                    {{ $opt->points }},
-                                                    {{ $opt->order_no }},
-                                                    '{{ addslashes($sub->notes ?? '') }}'
-                                                )">
+                                                                                            {{ $opt->id }},
+                                                                                            {{ $sub->sub_section_id }},
+                                                                                            '{{ addslashes($opt->label) }}',
+                                                                                            {{ $opt->points }},
+                                                                                            {{ $opt->order_no }},
+                                                                '{{ addslashes($sub->evidence_needed ?? '') }}',
+                                                                                            '{{ addslashes($sub->notes ?? '') }}'
+                                                                                        )">
                                                     <i class="fas fa-edit"></i>
                                                 </button>
 
                                                 <button class="btn-delete" onclick="openDeleteRubricModal(
-                                                    {{ $opt->id }},
-                                                    'Good Conduct',
-                                                    '{{ addslashes($opt->label) }}'
-                                                )">
+                                                                                            {{ $opt->id }},
+                                                                                            'Good Conduct',
+                                                                                            '{{ addslashes($opt->label) }}'
+                                                                                        )">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             </div>

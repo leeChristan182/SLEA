@@ -22,12 +22,14 @@
     @include('partials.sidebar')
 
     <main class="main-content" style="padding-top: 0 !important; margin-top: 0 !important;">
+
         @php
             // Determine initial page (default to 1 since no filter)
             $initialPage = 1;
         @endphp
 
         <div class="rubric-main-container" x-data="rubricPager(@json($pageTitles), {{ $initialPage }})">
+            <div class="page-header"><h1>Scoring Rubric Configuration </h1> </div>
 
             {{-- Current rubric label (same style as student-side pages) --}}
             <div class="current-page-label">

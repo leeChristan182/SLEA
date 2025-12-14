@@ -8,7 +8,7 @@
     // Default landing route based on role
     switch ($role) {
         case 'admin':
-            $routeName = 'admin.profile';
+            $routeName = 'admin.dashboard';
             break;
         case 'assessor':
             $routeName = 'assessor.profile';

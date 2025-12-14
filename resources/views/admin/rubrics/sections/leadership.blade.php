@@ -123,22 +123,24 @@
                                             </td>
                                             <td>
                                                 <div class="action-buttons-group">
-                                                    <button class="btn-edit" title="Edit" onclick="openEditSubsectionModal(
-                                                                                                                                            {{ $subsection->sub_section_id }},
-                                                                                                                                            {{ $subsection->section_id }},
-                                                                                                                                            '{{ addslashes($subsection->sub_section) }}',
-                                                                                                                                            {{ $subsection->max_points ?? '' }},
-                                                                                                                                            '{{ addslashes($subsection->evidence_needed ?? '') }}',
-                                                                                                                                            '{{ addslashes($subsection->notes ?? '') }}',
-                                                                                                                                            {{ $subsection->order_no ?? '' }}
-                                                                                                                                        )">
+                                                    <button class="btn-edit" title="Edit"
+                                                        onclick="openEditSubsectionModal(
+                                                                                                                                                                {{ $subsection->sub_section_id }},
+                                                                                                                                                                {{ $subsection->section_id }},
+                                                                                                                                                                '{{ addslashes($subsection->sub_section) }}',
+                                                                                                                                                                {{ $subsection->max_points ?? '' }},
+                                                                                                                                                                '{{ addslashes($subsection->evidence_needed ?? '') }}',
+                                                                                                                                                                '{{ addslashes($subsection->notes ?? '') }}',
+                                                                                                                                                                {{ $subsection->order_no ?? '' }}
+                                                                                                                                                            )">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
 
-                                                    <button class="btn-delete" title="Delete" onclick="openDeleteSubsectionModal(
-                                                                                                                                            {{ $subsection->sub_section_id }},
-                                                                                                                                            '{{ addslashes($subsection->sub_section) }}'
-                                                                                                                                        )">
+                                                    <button class="btn-delete" title="Delete"
+                                                        onclick="openDeleteSubsectionModal(
+                                                                                                                                                                {{ $subsection->sub_section_id }},
+                                                                                                                                                                '{{ addslashes($subsection->sub_section) }}'
+                                                                                                                                                            )">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
                                                 </div>
@@ -264,22 +266,23 @@
                                                             <div class="action-buttons-group">
                                                                 <button class="btn-edit" title="Edit"
                                                                     onclick="openEditRubricModal(
-                                                                                                                                                                                                        {{ $pos->id }},
-                                                                                                                                                                                                        {{ $subsection->sub_section_id }},
-                                                                                                                                                                                                        '{{ addslashes($pos->label) }}',
-                                                                                                                                                                                                        {{ $pos->points ?? 0 }},
-                                                                                                                                                                                                        {{ $pos->order_no ?? '' }},
-                                                                                                                                                                                                        '{{ addslashes($subsection->notes ?? '') }}'
-                                                                                                                                                                                                    )">
+                                                                                                                                                                                                                                        {{ $pos->id }},
+                                                                                                                                                                                                                                        {{ $subsection->sub_section_id }},
+                                                                                                                                                                                                                                        '{{ addslashes($pos->label) }}',
+                                                                                                                                                                                                                                        {{ $pos->points ?? 0 }},
+                                                                                                                                                                                                                                        {{ $pos->order_no ?? '' }},
+                                                                                                                                                                                                                                         '{{ addslashes($subsection->evidence_needed ?? '') }}',
+                                                                                                                                                                                                                                        '{{ addslashes($subsection->notes ?? '') }}'
+                                                                                                                                                                                                                                    )">
                                                                     <i class="fas fa-edit"></i>
                                                                 </button>
 
                                                                 <button class="btn-delete" title="Delete"
                                                                     onclick="openDeleteRubricModal(
-                                                                                                                                                                                                        {{ $pos->id }},
-                                                                                                                                                                                                        'Leadership',
-                                                                                                                                                                                                        '{{ addslashes($pos->label) }}'
-                                                                                                                                                                                                    )">
+                                                                                                                                                                                                                                        {{ $pos->id }},
+                                                                                                                                                                                                                                        'Leadership',
+                                                                                                                                                                                                                                        '{{ addslashes($pos->label) }}'
+                                                                                                                                                                                                                                    )">
                                                                     <i class="fas fa-trash"></i>
                                                                 </button>
                                                             </div>

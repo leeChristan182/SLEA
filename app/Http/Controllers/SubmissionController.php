@@ -69,17 +69,17 @@ class SubmissionController extends Controller
             'rubric_subsection_id' => ['nullable', 'exists:rubric_subsections,sub_section_id'],
 
             // Main activity fields
-            'activity_title'       => ['required', 'string', 'max:255'],
+            'activity_title'       => ['required', 'string', 'max:191'],
             'description'          => ['nullable', 'string'], // not from UI yet but kept
 
             // Extra UI fields → meta JSON
             'activity_type'        => ['nullable', 'string', 'max:100'],
-            'role_in_activity'     => ['nullable', 'string', 'max:255'],
+            'role_in_activity'     => ['nullable', 'string', 'max:191'],
             'date_of_activity'     => ['nullable', 'date'],
-            'organizing_body'      => ['nullable', 'string', 'max:255'],
+            'organizing_body'      => ['nullable', 'string', 'max:191'],
             'note'                 => ['nullable', 'string'],
             'term'                 => ['nullable', 'string', 'max:50'],
-            'issued_by'            => ['nullable', 'string', 'max:255'],
+            'issued_by'            => ['nullable', 'string', 'max:191'],
             'document_type'        => ['nullable', 'string', 'max:50'],
 
             // Files: JPEG/PDF/PNG up to 5 MB each
@@ -130,8 +130,16 @@ class SubmissionController extends Controller
             // Must match submission_statuses.key
             'status'              => 'pending',
             'submitted_at'        => now(),
-        ]);
 
+        ]);
+        $userName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+        $categoryName = \App\Models\RubricCategory::find($data['rubric_category_id'])->name ?? 'Unknown Category';
+        \App\Models\SystemMonitoringAndLog::record(
+            $user->role,
+            $userName ?: $user->email,
+            'Submit',
+            "Submitted {$categoryName} activity: {$data['activity_title']}."
+        );
         // Two flows: Proceed vs Submit Another
         $redirectRoute = $request->has('submit_another')
             ? 'student.submit'   // stay on form

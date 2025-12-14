@@ -10,18 +10,23 @@ class UsersAdminSeeder extends Seeder
 {
     public function run(): void
     {
+        $seedingConfig = config('seeding');
+        $defaultPassword = $seedingConfig['default_password'];
+        $adminConfig = $seedingConfig['admin'];
+        $assessorConfig = $seedingConfig['assessor'];
+
         // ===============================
         // ADMIN ACCOUNT
         // ===============================
         User::updateOrCreate(
-            ['email' => 'admin@usep.edu.ph'],
+            ['email' => $adminConfig['email']],
             [
-                'user_code'           => 'ADM-0001', // fixed code for main admin
-                'first_name'          => 'System',
-                'last_name'           => 'Admin',
+                'user_code'           => $adminConfig['user_code'], // fixed code for main admin
+                'first_name'          => $adminConfig['first_name'],
+                'last_name'           => $adminConfig['last_name'],
                 'middle_name'         => null,
-                'contact'             => '09123456789',
-                'password'            => Hash::make('password123'),
+                'contact'             => $adminConfig['contact'],
+                'password'            => Hash::make($defaultPassword),
                 'role'                => User::ROLE_ADMIN,
                 'status'              => User::STATUS_APPROVED,
                 'birth_date'          => null,
@@ -33,14 +38,14 @@ class UsersAdminSeeder extends Seeder
         // DEFAULT ASSESSOR
         // ===============================
         User::updateOrCreate(
-            ['email' => 'assessor@usep.edu.ph'],
+            ['email' => $assessorConfig['email']],
             [
-                'user_code'           => 'ASC-0001', // fixed code for default assessor
-                'first_name'          => 'Default',
-                'last_name'           => 'Assessor',
+                'user_code'           => $assessorConfig['user_code'], // fixed code for default assessor
+                'first_name'          => $assessorConfig['first_name'],
+                'last_name'           => $assessorConfig['last_name'],
                 'middle_name'         => null,
-                'contact'             => '09999999999',
-                'password'            => Hash::make('password123'),
+                'contact'             => $assessorConfig['contact'],
+                'password'            => Hash::make($defaultPassword),
                 'role'                => User::ROLE_ASSESSOR,
                 'status'              => User::STATUS_APPROVED,
                 'birth_date'          => null,

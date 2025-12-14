@@ -13,7 +13,7 @@ class PositionSeeder extends Seeder
     {
         // Get leadership type IDs
         $leadershipTypes = LeadershipType::pluck('id', 'key')->toArray();
-        
+
         // Define positions by leadership type key
         $positionsByType = [
             // CCO - Council of Clubs and Organizations
@@ -36,7 +36,7 @@ class PositionSeeder extends Seeder
                 ['name' => 'Inter-Fraternity and Sorority Cluster Director', 'rank' => 16, 'exec' => false],
                 ['name' => 'Committee Member', 'rank' => 17, 'exec' => false],
             ],
-            
+
             // SCO - Student Clubs and Organizations
             'sco' => [
                 ['name' => 'President', 'rank' => 1, 'exec' => true],
@@ -53,17 +53,17 @@ class PositionSeeder extends Seeder
                 ['name' => '4th Year Representative', 'rank' => 12, 'exec' => false],
                 ['name' => 'Committee Member', 'rank' => 13, 'exec' => false],
             ],
-            
+
             // USG - University Student Government (Student Government)
             'usg' => [
                 ['name' => 'Student Regent/President', 'rank' => 1, 'exec' => true],
                 ['name' => 'Vice President for Internal and External Affairs', 'rank' => 2, 'exec' => true],
-            ['name' => 'Vice President for Business Correspondence and Records', 'rank' => 3, 'exec' => true],
+                ['name' => 'Vice President for Business Correspondence and Records', 'rank' => 3, 'exec' => true],
                 ['name' => 'Vice President for Finance, Audit and Logistics', 'rank' => 4, 'exec' => true],
                 ['name' => 'Vice President for Publication and Information', 'rank' => 5, 'exec' => true],
                 ['name' => 'Committee Member', 'rank' => 6, 'exec' => false],
             ],
-            
+
             // OSC - Obrero Student Council (Campus Student Council)
             'osc' => [
                 ['name' => 'OSC President', 'rank' => 1, 'exec' => true],
@@ -75,7 +75,7 @@ class PositionSeeder extends Seeder
                 ['name' => 'OSC Public Information Officer', 'rank' => 7, 'exec' => false],
                 ['name' => 'Committee Member', 'rank' => 8, 'exec' => false],
             ],
-            
+
             // LC - Local Council
             'lc' => [
                 ['name' => 'Governor', 'rank' => 1, 'exec' => true],
@@ -87,7 +87,7 @@ class PositionSeeder extends Seeder
                 ['name' => 'College House Representative (2nd)', 'rank' => 7, 'exec' => false],
                 ['name' => 'Committee Member', 'rank' => 8, 'exec' => false],
             ],
-            
+
             // LCM - League of Class Mayors
             'lcm' => [
                 ['name' => 'Mayor', 'rank' => 1, 'exec' => true],
@@ -105,7 +105,7 @@ class PositionSeeder extends Seeder
                 ['name' => 'SK Councilor', 'rank' => 4, 'exec' => false],
                 ['name' => 'Indigenous People / Youth Leader', 'rank' => 5, 'exec' => false],
             ],
-            
+
             // EAP - Elective/Appointive Position (in organizations with approved/recognized Constitution and By-laws other than LGU)
             'eap' => [
                 ['name' => 'President', 'rank' => 1, 'exec' => true],
@@ -117,37 +117,38 @@ class PositionSeeder extends Seeder
             ],
         ];
 
-        // Clear existing positions
-        DB::table('positions')->truncate();
+        $seededKeys = [];
 
-        // Insert positions by leadership type
         foreach ($positionsByType as $typeKey => $positions) {
             $leadershipTypeId = $leadershipTypes[$typeKey] ?? null;
-            
+
             if (!$leadershipTypeId) {
-                $this->command?->warn("⚠️ Leadership type '{$typeKey}' not found; skipping positions.");
-                    continue;
-                }
+                $this->command?->warn("⚠️ Leadership type '{$typeKey}' not found; skipping.");
+                continue;
+            }
 
             foreach ($positions as $pos) {
+                $key = Str::slug($pos['name'], '_') . '_' . $typeKey;
+                $seededKeys[] = $key;
+
                 DB::table('positions')->updateOrInsert(
                     [
                         'leadership_type_id' => $leadershipTypeId,
-                        'name' => $pos['name']
+                        'name'               => $pos['name'],
                     ],
                     [
-                        'key' => Str::slug($pos['name'], '_') . '_' . $typeKey,
-                        'rank_order' => $pos['rank'],
+                        'key'          => $key,
+                        'rank_order'   => $pos['rank'],
                         'is_executive' => $pos['exec'],
-                        'is_elected' => true,
-                        'created_at' => now(),
-                        'updated_at' => now(),
+                        'is_elected'   => true,
+                        'updated_at'   => now(),
+                        'created_at'   => now(), // safe even if existing; ignored by updateOrInsert insert path
                     ]
                 );
             }
         }
 
 
-        $this->command?->info('✅ Positions seeded by leadership type.');
+        $this->command?->info('✅ Positions seeded by leadership type (no truncate).');
     }
 }

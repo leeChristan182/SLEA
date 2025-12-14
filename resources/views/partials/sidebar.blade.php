@@ -60,6 +60,12 @@
 
         {{-- ===================== ASSESSOR MENU ===================== --}}
         @if ($role === 'assessor')
+            <li class="{{ request()->routeIs('assessor.dashboard') ? 'active' : '' }}">
+                <a href="{{ route('assessor.dashboard') }}"
+                    style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                    <i class="fas fa-chart-line"></i><span>Dashboard</span>
+                </a>
+            </li>
             <li class="{{ request()->routeIs('assessor.profile') ? 'active' : '' }}">
                 <a href="{{ route('assessor.profile') }}"
                     style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
@@ -93,6 +99,13 @@
 
         {{-- ===================== ADMIN MENU ===================== --}}
         @if ($role === 'admin')
+            <li class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+                <a href="{{ route('admin.dashboard') }}"
+                    style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                    <i class="fas fa-chart-line"></i><span>Dashboard</span>
+                </a>
+            </li>
+
             <li class="{{ request()->routeIs('admin.profile') ? 'active' : '' }}">
                 <a href="{{ route('admin.profile') }}"
                     style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
@@ -106,8 +119,8 @@
                     <i class="fas fa-users-cog"></i><span>User Account Management</span>
                 </span>
                 <ul class="submenu">
-                    <li class="{{ request()->routeIs('admin.create_user') ? 'active' : '' }}">
-                        <a href="{{ route('admin.create_user') }}">Create Assessor's Account</a>
+                    <li class="{{ request()->routeIs('admin.initial-validation') ? 'active' : '' }}">
+                        <a href="{{ route('admin.initial-validation') }}">Account Initial Validation</a>
                     </li>
                     <li class="{{ request()->routeIs('admin.approve-reject') ? 'active' : '' }}">
                         <a href="{{ route('admin.approve-reject') }}">Approve/Reject Account</a>

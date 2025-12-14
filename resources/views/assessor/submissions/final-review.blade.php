@@ -522,11 +522,11 @@
 
                     if (!Array.isArray(breakdown) || breakdown.length === 0) {
                         tbody.innerHTML = `
-                                                                                    <tr class="text-muted">
-                                                                                        <td colspan="5" class="text-center">
-                                                                                            No category breakdown available for this student.
-                                                                                        </td>
-                                                                                    </tr>`;
+                                                                                        <tr class="text-muted">
+                                                                                            <td colspan="5" class="text-center">
+                                                                                                No category breakdown available for this student.
+                                                                                            </td>
+                                                                                        </tr>`;
                     } else {
                         let totalScore = 0;
                         let totalMax = 0;
@@ -542,22 +542,22 @@
 
                             const tr = document.createElement('tr');
                             tr.innerHTML = `
-                                                                <td>${catName}</td>
-                                                                <td>${result || '—'}</td>
-                                                                <td>${sc.toFixed(2)}</td>
-                                                                <td>${maxPts.toFixed(2)}</td>
-                                                            `;
+                                                                    <td>${catName}</td>
+                                                                    <td>${result || '—'}</td>
+                                                                    <td>${sc.toFixed(2)}</td>
+                                                                    <td>${maxPts.toFixed(2)}</td>
+                                                                `;
                             tbody.appendChild(tr);
                         });
 
                         const totalTr = document.createElement('tr');
                         totalTr.classList.add('summary-total-row');
                         totalTr.innerHTML = `
-                                                    <td><strong>Total Score</strong></td>
-                                                    <td></td>
-                                                    <td><strong>${totalScore.toFixed(2)}</strong></td>
-                                                    <td><strong>${totalMax.toFixed(2)}</strong></td>
-                                                `;
+                                                        <td><strong>Total Score</strong></td>
+                                                        <td></td>
+                                                        <td><strong>${totalScore.toFixed(2)}</strong></td>
+                                                        <td><strong>${totalMax.toFixed(2)}</strong></td>
+                                                    `;
                         tbody.appendChild(totalTr);
 
                     }
@@ -710,8 +710,8 @@
 @push('styles')
     <style>
         /* ============================================
-                           FINAL REVIEW TABLE - CLEAN REBUILD
-                           ============================================ */
+                               FINAL REVIEW TABLE - CLEAN REBUILD
+                               ============================================ */
 
         /* Page Header */
         .page-header {
@@ -882,7 +882,7 @@
         /* Table styling to match other tables */
         .submissions-table-container {
             background: white;
-            border-radius: 8px;
+            border-radius: 0;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             overflow-x: hidden;
             overflow-y: visible;
@@ -1363,7 +1363,7 @@
         }
 
         /* FORCE SUPER-WIDE FINAL REVIEW MODAL
-                       Completely overrides bootstrap + your style.css */
+                           Completely overrides bootstrap + your style.css */
         #viewSummaryModal .modal-dialog {
             max-width: 1200px !important;
             width: 95vw !important;
