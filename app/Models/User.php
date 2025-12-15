@@ -262,6 +262,11 @@ class User extends Authenticatable
 
     public function needsLoginOtp(): bool
     {
+        // Admin accounts don't need OTP verification
+        if ($this->isAdmin()) {
+            return false;
+        }
+
         // First time ever = force OTP
         if (is_null($this->otp_last_verified_at)) {
             return true;

@@ -31,6 +31,7 @@ class UsersAdminSeeder extends Seeder
                 'status'              => User::STATUS_APPROVED,
                 'birth_date'          => null,
                 'profile_picture_path' => null,
+                'otp_last_verified_at' => now(), // Skip OTP for pre-created admin accounts
             ]
         );
 
@@ -50,6 +51,7 @@ class UsersAdminSeeder extends Seeder
                 'status'              => User::STATUS_APPROVED,
                 'birth_date'          => null,
                 'profile_picture_path' => null,
+                'otp_last_verified_at' => now(), // Skip OTP for pre-created assessor accounts
             ]
         );
     }

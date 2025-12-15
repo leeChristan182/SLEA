@@ -191,7 +191,8 @@ class ProfileCompletionController extends Controller
 
             return redirect()
                 ->route('student.profile')
-                ->with('show_waiting_modal', true)
+                // Show a one-time success confirmation popup on the profile page
+                ->with('requirements_submitted', true)
                 ->with('status', 'Your information has been submitted and is under review.');
         } catch (QueryException $e) {
             DB::rollBack();
@@ -216,7 +217,20 @@ class ProfileCompletionController extends Controller
         /** @var User $user */
         $user = Auth::user();
 
-        if (! $user->isAssessor() || $user->profile_completed) {
+        if (! $user->isAssessor()) {
+            return redirect()
+                ->route('assessor.profile')
+                ->with('show_waiting_modal', true);
+        }
+
+        // Check if assessor has already submitted requirements
+        $assessorSubmitted =
+            $user->assessorInfo
+            && ! empty($user->assessorInfo->office_unit)
+            && ! empty($user->assessorInfo->position);
+
+        // If already submitted, redirect to profile with waiting modal
+        if ($assessorSubmitted) {
             return redirect()
                 ->route('assessor.profile')
                 ->with('show_waiting_modal', true);
@@ -233,7 +247,20 @@ class ProfileCompletionController extends Controller
         /** @var User $user */
         $user = Auth::user();
 
-        if (! $user->isAssessor() || $user->profile_completed) {
+        if (! $user->isAssessor()) {
+            return redirect()
+                ->route('assessor.profile')
+                ->with('show_waiting_modal', true);
+        }
+
+        // Check if assessor has already submitted requirements
+        $assessorSubmitted =
+            $user->assessorInfo
+            && ! empty($user->assessorInfo->office_unit)
+            && ! empty($user->assessorInfo->position);
+
+        // If already submitted, redirect to profile with waiting modal
+        if ($assessorSubmitted) {
             return redirect()
                 ->route('assessor.profile')
                 ->with('show_waiting_modal', true);
@@ -258,6 +285,8 @@ class ProfileCompletionController extends Controller
 
         return redirect()
             ->route('assessor.profile')
+            ->with('requirements_submitted', true)
+            ->with('status', 'Your information has been submitted and is under review.')
             ->with('show_waiting_modal', true);
     }
 

@@ -74,8 +74,9 @@ class SubmissionRecordController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        // Does the submissions table have application_status?
+        // Check which optional columns exist
         $hasApplicationStatusColumn = Schema::hasColumn('submissions', 'application_status');
+        $hasLeadershipIdColumn = Schema::hasColumn('submissions', 'leadership_id');
 
         // ------------ VALIDATION ------------
         $rules = [
@@ -93,10 +94,19 @@ class SubmissionRecordController extends Controller
             'note'                 => ['nullable', 'string'],
             'term' => [
                 'nullable',
-                'regex:/^20\d{2}\s-\s20\d{2}$/',
                 function ($attribute, $value, $fail) {
-                    if ($value) {
-                        [$start, $end] = explode(' - ', $value);
+                    if ($value && $value !== '') {
+                        // Check format: YYYY - YYYY (with spaces around hyphen)
+                        if (!preg_match('/^20\d{2}\s-\s20\d{2}$/', $value)) {
+                            $fail('The term must be in the format: YYYY - YYYY (e.g., 2023 - 2024). Make sure there are spaces before and after the hyphen.');
+                            return;
+                        }
+                        $parts = explode(' - ', $value);
+                        if (count($parts) !== 2) {
+                            $fail('The term must be in the format: YYYY - YYYY (e.g., 2023 - 2024).');
+                            return;
+                        }
+                        [$start, $end] = $parts;
                         if ((int)$end <= (int)$start) {
                             $fail('The ending year must be greater than the starting year.');
                         }
@@ -142,8 +152,6 @@ class SubmissionRecordController extends Controller
         // ------------ CREATE SUBMISSION ROW ------------
         $submissionData = [
             'user_id'              => $user->id,
-            'leadership_id'        => null,
-
             'rubric_category_id'   => $data['rubric_category_id'],
             'rubric_section_id'    => $data['rubric_section_id'] ?? null,
             'rubric_subsection_id' => $data['rubric_subsection_id'] ?? null,
@@ -168,6 +176,12 @@ class SubmissionRecordController extends Controller
             'submitted_at' => now(),
         ];
 
+        // Only include leadership_id if the column exists
+        if ($hasLeadershipIdColumn) {
+            $submissionData['leadership_id'] = null;
+        }
+
+        // Only include application_status if the column exists
         if ($hasApplicationStatusColumn) {
             $submissionData['application_status'] = $data['application_status'];
         }

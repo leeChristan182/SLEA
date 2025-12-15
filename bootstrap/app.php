@@ -40,5 +40,20 @@ return Illuminate\Foundation\Application::configure(basePath: dirname(__DIR__))
         // $middleware->appendToGroup('api', [ ... ]);
     })
     ->withExceptions(function ($exceptions) {
-        //
+        // Handle 419 CSRF token mismatch errors
+        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, $request) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'CSRF token mismatch. Please refresh the page and try again.'], 419);
+            }
+            
+            // For login page, redirect back with error message
+            if ($request->is('login') || $request->routeIs('login.*')) {
+                return redirect()->route('login.show')
+                    ->withErrors(['email' => 'Your session has expired. Please try logging in again.'])
+                    ->withInput($request->except('password', '_token'));
+            }
+            
+            // For other pages, redirect back with error
+            return back()->withErrors(['error' => 'Your session has expired. Please refresh the page and try again.'])->withInput();
+        });
     })->create();

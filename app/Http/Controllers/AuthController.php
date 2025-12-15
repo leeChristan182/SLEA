@@ -36,6 +36,14 @@ class AuthController extends Controller
     {
         $rememberedEmail = $request->cookie('slea_remembered_email');
 
+        // Clear OTP session data if it's for an admin account
+        if (session()->has('otp_pending_user_id')) {
+            $pendingUser = User::find(session('otp_pending_user_id'));
+            if ($pendingUser && $pendingUser->isAdmin()) {
+                session()->forget(['otp_pending_user_id', 'otp_context', 'otp_remember_me', 'otp_display_email', 'show_otp_modal']);
+            }
+        }
+
         return view('auth.login', [
             'rememberedEmail' => $rememberedEmail,
         ]);
@@ -97,9 +105,10 @@ class AuthController extends Controller
         }
 
         // 4) OTP required? (USE YOUR MODEL LOGIC)
+        // Admin accounts never require OTP
         $otpRequired = false;
 
-        if (Schema::hasColumn('users', 'otp_last_verified_at')) {
+        if (!$user->isAdmin() && Schema::hasColumn('users', 'otp_last_verified_at')) {
             // ✅ uses auth.otp.login_fresh_days + handles null
             $otpRequired = $user->needsLoginOtp();
         }
@@ -272,12 +281,15 @@ class AuthController extends Controller
             ],
 
             // NOTE: your form field is email_address, but db column is email
+            // Allow re-registration if previous account was rejected
             'email_address' => [
                 'required',
                 'email',
                 'max:100',
                 "regex:$emailRuleRegex",
-                Rule::unique('users', 'email'),
+                Rule::unique('users', 'email')->where(function ($query) {
+                    $query->where('status', '!=', User::STATUS_REJECTED);
+                }),
             ],
 
             'contact' => [
@@ -322,23 +334,45 @@ class AuthController extends Controller
 
         DB::beginTransaction();
         try {
-            User::create([
-                'first_name'        => $first,
-                'last_name'         => $last,
-                'middle_name'       => $middle,
-                'email'             => $validated['email_address'],
-                'password'          => Hash::make($validated['password']),
-                'contact'           => $validated['contact'],
-                'birth_date'        => $validated['birth_date'] ?? null,
-                'profile_picture_path' => null,
+            // Check if a rejected user with this email exists
+            $existingRejectedUser = User::where('email', $validated['email_address'])
+                ->where('status', User::STATUS_REJECTED)
+                ->first();
 
-                'role'              => User::ROLE_UNASSIGNED,
-                'status'            => User::STATUS_PENDING,
-                'profile_completed' => false,
+            if ($existingRejectedUser) {
+                // Update the rejected user's record for re-registration
+                $existingRejectedUser->update([
+                    'first_name'        => $first,
+                    'last_name'         => $last,
+                    'middle_name'       => $middle,
+                    'password'          => Hash::make($validated['password']),
+                    'contact'           => $validated['contact'],
+                    'birth_date'        => $validated['birth_date'] ?? null,
+                    'role'              => User::ROLE_UNASSIGNED,
+                    'status'            => User::STATUS_PENDING,
+                    'profile_completed' => false,
+                    'user_code'         => null, // Reset user code for new registration
+                ]);
+            } else {
+                // Create a new user record
+                User::create([
+                    'first_name'        => $first,
+                    'last_name'         => $last,
+                    'middle_name'       => $middle,
+                    'email'             => $validated['email_address'],
+                    'password'          => Hash::make($validated['password']),
+                    'contact'           => $validated['contact'],
+                    'birth_date'        => $validated['birth_date'] ?? null,
+                    'profile_picture_path' => null,
 
-                // If you have it in DB column:
-                // 'is_account_limited' => true,
-            ]);
+                    'role'              => User::ROLE_UNASSIGNED,
+                    'status'            => User::STATUS_PENDING,
+                    'profile_completed' => false,
+
+                    // If you have it in DB column:
+                    // 'is_account_limited' => true,
+                ]);
+            }
 
             DB::commit();
 
@@ -675,6 +709,30 @@ class AuthController extends Controller
             ->orderBy('rank_order')
             ->orderBy('name')
             ->select('id', 'name')
+            ->get()
+            ->map(fn($r) => [
+                'id'   => $r->id,
+                'name' => $r->name,
+            ])
+            ->values();
+    }
+
+    public function getRubricOptions(Request $request)
+    {
+        if (!Schema::hasTable('rubric_options')) {
+            return response()->json([]);
+        }
+
+        $subsectionId = (int) $request->query('subsection_id');
+        if (!$subsectionId) {
+            return response()->json([]);
+        }
+
+        return DB::table('rubric_options')
+            ->where('sub_section_id', $subsectionId)
+            ->orderBy('order_no')
+            ->orderBy('label')
+            ->select('id', 'label as name')
             ->get()
             ->map(fn($r) => [
                 'id'   => $r->id,

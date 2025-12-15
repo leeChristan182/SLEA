@@ -154,16 +154,16 @@
                         </form>
                     </div>
 
-                    {{-- Update Academic Details --}}
+                    {{-- Update Academic Details & Upload COR (Merged) --}}
                     <div class="profile-info settings-year">
                         <h3>Update Academic Details</h3>
-                        <form id="uploadCORForm" action="{{ route('student.uploadCOR') }}" method="POST"
+                        <form id="updateAcademicForm" action="{{ route('student.updateAcademic') }}" method="POST"
                             enctype="multipart/form-data">
                             @csrf
 
-                            {{-- Year Level only (program & major are shown but not edited here) --}}
+                            {{-- Year Level --}}
                             <div class="form-group">
-                                <label for="year_level">Year Level</label>
+                                <label for="year_level">Year Level <span class="text-danger">*</span></label>
                                 <select id="year_level" name="year_level" required>
                                     <option value="">— Select —</option>
                                     @foreach([1 => '1st Year', 2 => '2nd Year', 3 => '3rd Year', 4 => '4th Year', 5 => '5th Year'] as $val => $label)
@@ -186,29 +186,28 @@
                                 <input id="major_display" type="text" value="{{ $majorName ?? '' }}" readonly>
                             </div>
 
-                            <button class="change-btn" type="submit">Update</button>
-                        </form>
-                    </div>
+                            {{-- COR Upload (Required) --}}
+                            <div class="form-group">
+                                <label for="cor">Certificate of Registration (COR) <span class="text-danger">*</span></label>
+                                <input type="file" id="cor" name="cor" accept=".jpg,.jpeg,.png,.pdf" required>
+                                <small class="text-muted">Max size 5MB • JPG, PNG, or PDF</small>
+                                
+                                @if(!empty($acad->certificate_of_registration_path))
+                                    <p style="margin-top:8px;">
+                                        <a href="{{ route('student.cor.view') }}" target="_blank">
+                                            View current COR
+                                        </a>
+                                    </p>
+                                @endif
+                            </div>
 
-                    {{-- Upload COR --}}
-                    {{-- Upload COR --}}
-                    <div class="profile-info settings-cor">
-                        <h3>Upload Certificate of Registration</h3>
-                        <form id="uploadCORForm" action="{{ route('student.uploadCOR') }}" method="POST"
-                            enctype="multipart/form-data">
-                            @csrf
-                            <label for="cor">Choose file</label>
-                            <input id="cor" name="cor" type="file" accept=".jpg,.jpeg,.png,.pdf" required>
-                            <small>Max size 5MB • JPG, PNG, or PDF</small>
-                            <button class="change-btn" type="submit" style="margin-top:12px;">Upload</button>
+                            <div class="alert alert-info" style="margin-top: 12px; padding: 10px 12px; border-radius: 6px; background-color: #e7f3ff; border: 1px solid #b3d9ff; color: #004085;">
+                                <i class="fas fa-info-circle"></i> 
+                                <strong>Note:</strong> After submission, your academic details and COR will be reviewed by an administrator. 
+                                You will receive an email notification once the review is complete.
+                            </div>
 
-                            @if(!empty($acad->certificate_of_registration_path))
-                                <p style="margin-top:8px;">
-                                    <a href="{{ asset('storage/' . $acad->certificate_of_registration_path) }}" target="_blank">
-                                        View uploaded COR
-                                    </a>
-                                </p>
-                            @endif
+                            <button class="change-btn" type="submit">Submit for Review</button>
                         </form>
                     </div>
 
@@ -217,8 +216,91 @@
         </div>
     </div>
 
+    {{-- Hidden logout form for limited-flow modals (separate from header logout confirm) --}}
+    <form id="limited-logout-form" method="POST" action="{{ route('logout') }}" style="display:none;">
+        @csrf
+    </form>
+
+    {{-- Success / Waiting confirmation popup after requirements submission --}}
+    @if(session('requirements_submitted') || session('show_waiting_modal'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const isFirstSubmit = {{ session('requirements_submitted') ? 'true' : 'false' }};
+                const statusMsg = @json(session('status'));
+
+                const title = isFirstSubmit ? 'Submitted Successfully' : 'Submission Under Review';
+                const icon = isFirstSubmit ? 'success' : 'info';
+
+                Swal.fire({
+                    icon: icon,
+                    title: title,
+                    html: `
+                        ${statusMsg ? `<p>${statusMsg}</p>` : ''}
+                        <p>Please wait for <strong>Admin validation</strong> before accessing other features.</p>
+                    `,
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: true,
+                    confirmButtonText: 'OK',
+                    showCancelButton: true,
+                    cancelButtonText: 'Logout',
+                    cancelButtonColor: '#dc3545',
+                    customClass: {
+                        popup: 'profile-success-modal',
+                        backdrop: 'profile-success-modal-backdrop'
+                    },
+                    didOpen: () => {
+                        // Apply blur to backdrop
+                        const backdrop = document.querySelector('.swal2-backdrop-show');
+                        if (backdrop) {
+                            backdrop.style.backdropFilter = 'blur(10px)';
+                            backdrop.style.webkitBackdropFilter = 'blur(10px)';
+                            backdrop.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                        }
+                    }
+                }).then(result => {
+                    if (result.dismiss === Swal.DismissReason.cancel) {
+                        document.getElementById('limited-logout-form')?.submit();
+                    }
+                });
+            });
+        </script>
+    @endif
+
     {{-- Styles & JS --}}
     <style>
+        /* Profile Success Modal - Remove corner radius and add blur backdrop */
+        .profile-success-modal {
+            border-radius: 0 !important;
+            -webkit-border-radius: 0 !important;
+            -moz-border-radius: 0 !important;
+        }
+
+        .profile-success-modal-backdrop {
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            background-color: rgba(0, 0, 0, 0.5) !important;
+        }
+
+        .swal2-backdrop-show {
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            background-color: rgba(0, 0, 0, 0.5) !important;
+        }
+
+        /* Academic Update Success Modal Styling */
+        .academic-update-success-modal {
+            border-radius: 0 !important;
+            -webkit-border-radius: 0 !important;
+            -moz-border-radius: 0 !important;
+        }
+
+        .academic-update-success-backdrop {
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            background-color: rgba(0, 0, 0, 0.5) !important;
+        }
+
         /* === Settings Grid Layout === */
         .student-profile-page .settings-grid {
             display: grid;
@@ -400,6 +482,7 @@
             }
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="{{ asset('js/student_profile.js') }}"></script>
 
     <script>

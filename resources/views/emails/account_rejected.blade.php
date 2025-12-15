@@ -23,3 +23,5 @@ You may also re-register with corrected information if needed.
 Thanks,<br>
 {{ config('app.name') }} Team
 @endcomponent
+
+

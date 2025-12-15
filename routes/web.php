@@ -32,7 +32,12 @@ Route::middleware(['guest', NoCache::class])->group(function () {
     Route::post('/login', [AuthController::class, 'authenticate'])->name('login.auth')
         ->middleware('throttle:100,1');
 
-    Route::get('/register', [AuthController::class, 'showRegister'])->name('register.show');
+    // Registration is now handled via modal on login page
+    // GET route completely removed - returns plain 404 with no UI
+    Route::get('/register', function () {
+        abort(404, 'Not Found');
+    });
+    
     Route::post('/register', [AuthController::class, 'register'])->name('register.store')
         ->middleware('throttle:10,10');
 
@@ -84,6 +89,8 @@ Route::prefix('api')->name('ajax.')->group(function () {
     Route::get('/academics-map',     [AuthController::class, 'getAcademicsMap'])->name('academics.map');
     Route::get('/council-positions', [AuthController::class, 'getCouncilPositions'])->name('council.positions');
     Route::get('/council-orgs',      [AuthController::class, 'getCouncilOrgs'])->name('council_orgs');
+    Route::get('/leadership-types', [AuthController::class, 'getLeadershipTypes'])->name('leadership.types');
+    Route::get('/rubric-options', [AuthController::class, 'getRubricOptions'])->name('rubric.options');
 });
 
 /*
@@ -195,6 +202,19 @@ Route::prefix('admin')
         Route::post('/organizations', [OrganizationController::class, 'store'])->name('organizations.store');
         Route::put('/organizations/{organization}', [OrganizationController::class, 'update'])->name('organizations.update');
         Route::delete('/organizations/{organization}', [OrganizationController::class, 'destroy'])->name('organizations.destroy');
+
+        // Academic Management
+        Route::get('/colleges', [\App\Http\Controllers\CollegeController::class, 'index'])->name('colleges.index');
+        Route::post('/colleges', [\App\Http\Controllers\CollegeController::class, 'store'])->name('colleges.store');
+        Route::post('/colleges/program', [\App\Http\Controllers\CollegeController::class, 'storeProgram'])->name('colleges.store-program');
+        Route::get('/colleges/{college}/programs-majors', [\App\Http\Controllers\CollegeController::class, 'getProgramsMajors'])->name('colleges.programs-majors');
+        Route::put('/colleges/{college}', [\App\Http\Controllers\CollegeController::class, 'update'])->name('colleges.update');
+        Route::delete('/colleges/{college}', [\App\Http\Controllers\CollegeController::class, 'destroy'])->name('colleges.destroy');
+
+        Route::get('/programs', [\App\Http\Controllers\ProgramController::class, 'index'])->name('programs.index');
+        Route::post('/programs', [\App\Http\Controllers\ProgramController::class, 'store'])->name('programs.store');
+        Route::put('/programs/{program}', [\App\Http\Controllers\ProgramController::class, 'update'])->name('programs.update');
+        Route::delete('/programs/{program}', [\App\Http\Controllers\ProgramController::class, 'destroy'])->name('programs.destroy');
 
         Route::prefix('rubrics')->name('rubrics.')->group(function () {
             Route::get('/', [RubricController::class, 'index'])->name('index');

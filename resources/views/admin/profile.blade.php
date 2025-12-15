@@ -98,12 +98,6 @@
                                 <label class="field-label">Contact Number</label>
                                 <input type="text" class="field-input" value="{{ $admin->contact }}" readonly>
                             </div>
-                            <div class="info-field">
-                                <label class="field-label">Birth Date</label>
-                                <input type="text" class="field-input"
-                                    value="{{ $admin->birth_date ? \Carbon\Carbon::parse($admin->birth_date)->format('F d, Y') : '—' }}"
-                                    readonly>
-                            </div>
                         </div>
 
                         <!-- Edit Mode -->
@@ -136,11 +130,6 @@
                                     <div class="info-field">
                                         <label class="field-label">Contact Number</label>
                                         <input type="text" class="field-input" name="contact" value="{{ $admin->contact }}">
-                                    </div>
-                                    <div class="info-field">
-                                        <label class="field-label">Birth Date</label>
-                                        <input type="date" class="field-input" name="birth_date"
-                                            value="{{ $admin->birth_date }}">
                                     </div>
                                 </div>
                                 <div class="form-actions" style="display:none;">

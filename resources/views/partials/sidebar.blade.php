@@ -114,16 +114,16 @@
             </li>
 
             <li
-                class="has-submenu {{ request()->routeIs('admin.create_user') || request()->routeIs('admin.approve-reject') || request()->routeIs('admin.manage-account') ? 'open' : '' }}">
+                class="has-submenu {{ request()->routeIs('admin.create_user') || request()->routeIs('admin.approve-reject') || request()->routeIs('admin.initial-validation') || request()->routeIs('admin.manage-account') || request()->routeIs('admin.revalidation') ? 'open' : '' }}">
                 <span class="submenu-title" style="display:flex;align-items:center;gap:10px;cursor:default;">
                     <i class="fas fa-users-cog"></i><span>User Account Management</span>
                 </span>
                 <ul class="submenu">
-                    <li class="{{ request()->routeIs('admin.initial-validation') ? 'active' : '' }}">
-                        <a href="{{ route('admin.initial-validation') }}">Account Initial Validation</a>
-                    </li>
                     <li class="{{ request()->routeIs('admin.approve-reject') ? 'active' : '' }}">
                         <a href="{{ route('admin.approve-reject') }}">Approve/Reject Account</a>
+                    </li>
+                    <li class="{{ request()->routeIs('admin.initial-validation') ? 'active' : '' }}">
+                        <a href="{{ route('admin.initial-validation') }}">Account Initial Validation</a>
                     </li>
                     <li class="{{ request()->routeIs('admin.manage-account') ? 'active' : '' }}">
                         <a href="{{ route('admin.manage-account') }}">Manage Account</a>
@@ -142,11 +142,19 @@
                 </a>
             </li>
 
-            <li class="{{ request()->routeIs('admin.organizations.index') ? 'active' : '' }}">
-                <a href="{{ route('admin.organizations.index') }}"
-                    style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
-                    <i class="fas fa-building"></i><span>Organization Management</span>
-                </a>
+            <li
+                class="has-submenu {{ request()->routeIs('admin.organizations.index') || request()->routeIs('admin.colleges.index') || request()->routeIs('admin.programs.index') ? 'open' : '' }}">
+                <span class="submenu-title" style="display:flex;align-items:center;gap:10px;cursor:default;">
+                    <i class="fas fa-building"></i><span>Reference Data Management</span>
+                </span>
+                <ul class="submenu">
+                    <li class="{{ request()->routeIs('admin.colleges.index') ? 'active' : '' }}">
+                        <a href="{{ route('admin.colleges.index') }}">Academic Management</a>
+                    </li>
+                    <li class="{{ request()->routeIs('admin.organizations.index') ? 'active' : '' }}">
+                        <a href="{{ route('admin.organizations.index') }}">Organization Management</a>
+                    </li>
+                </ul>
             </li>
 
             <li class="{{ request()->routeIs('admin.final-review') ? 'active' : '' }}">

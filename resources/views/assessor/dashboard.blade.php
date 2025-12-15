@@ -162,6 +162,53 @@
         body.dark-mode .muted {
             color: rgba(255, 255, 255, .70);
         }
+
+        .chart-wrap {
+            padding: 12px 16px 16px;
+        }
+
+        .chart-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .chart-title {
+            font-weight: 800;
+            font-size: 16px;
+        }
+
+        .chart-meta {
+            font-size: 12px;
+            color: rgba(0, 0, 0, .55);
+        }
+
+        body.dark-mode .chart-meta {
+            color: rgba(255, 255, 255, .7);
+        }
+
+        .dash-alert {
+            margin-top: 12px;
+            border-radius: 12px;
+            padding: 10px 12px;
+            border: 1px solid rgba(0, 0, 0, .10);
+            background: rgba(255, 193, 7, .10);
+            color: rgba(0, 0, 0, .70);
+            font-size: 13px;
+        }
+
+        body.dark-mode .dash-alert {
+            border-color: rgba(255, 255, 255, .12);
+            background: rgba(255, 193, 7, .15);
+            color: rgba(255, 255, 255, .80);
+        }
+
+        /* Ensure charts don't overflow */
+        canvas {
+            max-width: 100% !important;
+        }
     </style>
 @endsection
 
@@ -211,6 +258,22 @@
                             </div>
                             <div class="icon"><i class="fas fa-circle-check"></i></div>
                         </div>
+                    </div>
+                </div>
+
+                {{-- FINALIZED REVIEWS CHART --}}
+                <div class="dash-card mb-3">
+                    <div class="chart-wrap">
+                        <div class="chart-head">
+                            <div class="chart-title">Finalized Reviews Over Time</div>
+                            <div class="chart-meta">Last 12 months</div>
+                        </div>
+                        <canvas id="finalizedReviewsChart" height="80"></canvas>
+                        @if(array_sum($chartData) === 0)
+                            <div class="dash-alert">
+                                No finalized reviews yet. This chart will populate once you finalize reviews.
+                            </div>
+                        @endif
                     </div>
                 </div>
 
@@ -289,3 +352,60 @@
         </main>
     </div>
 @endsection
+
+@push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+        const chartLabels = @json($chartLabels);
+        const chartData = @json($chartData);
+
+        // Finalized Reviews Bar Chart
+        const ctx = document.getElementById('finalizedReviewsChart');
+        if (ctx) {
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'Finalized Reviews',
+                        data: chartData,
+                        backgroundColor: 'rgba(25, 135, 84, 0.6)',
+                        borderColor: 'rgba(25, 135, 84, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Finalized: ' + context.parsed.y;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0,
+                                stepSize: 1
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+@endpush

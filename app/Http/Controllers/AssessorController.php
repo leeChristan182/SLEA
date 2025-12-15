@@ -44,13 +44,47 @@ class AssessorController extends Controller
             ->orderByDesc('updated_at')
             ->paginate(12);
 
-        return view('assessor.dashboard', compact('reviewStats', 'reviews'));
+        // Chart data: Monthly finalized reviews for the last 12 months
+        $monthlyFinalized = AssessorFinalReview::query()
+            ->where('assessor_id', $assessorId)
+            ->where('status', AssessorFinalReview::STATUS_FINALIZED)
+            ->select(
+                DB::raw('DATE_FORMAT(updated_at, "%Y-%m") as month'),
+                DB::raw('COUNT(*) as count')
+            )
+            ->where('updated_at', '>=', now()->subMonths(12))
+            ->groupBy('month')
+            ->orderBy('month')
+            ->pluck('count', 'month')
+            ->toArray();
+
+        // Generate labels and data for the last 12 months
+        $chartLabels = [];
+        $chartData = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $month = now()->subMonths($i)->format('Y-m');
+            $monthLabel = now()->subMonths($i)->format('M Y');
+            $chartLabels[] = $monthLabel;
+            $chartData[] = (int) ($monthlyFinalized[$month] ?? 0);
+        }
+
+        return view('assessor.dashboard', compact('reviewStats', 'reviews', 'chartLabels', 'chartData'));
     }
 
     // GET /assessor/profile
     public function profile()
     {
+        /** @var User $user */
         $user = Auth::user();
+        
+        // Refresh user data from database to ensure we have latest state
+        $user->refresh();
+        
+        // If account is no longer limited (approved), clear waiting modal session flags
+        if (!$user->is_account_limited) {
+            session()->forget(['show_waiting_modal', 'requirements_submitted']);
+        }
+        
         return view('assessor.profile', compact('user'));
     }
 

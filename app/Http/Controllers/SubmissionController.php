@@ -81,6 +81,8 @@ class SubmissionController extends Controller
             'term'                 => ['nullable', 'string', 'max:50'],
             'issued_by'            => ['nullable', 'string', 'max:191'],
             'document_type'        => ['nullable', 'string', 'max:50'],
+            'cluster_id'           => ['nullable', 'integer', 'exists:clusters,id'],
+            'organization_id'      => ['nullable', 'integer', 'exists:organizations,id'],
 
             // Files: JPEG/PDF/PNG up to 5 MB each
             'attachments.*'        => ['file', 'max:5120', 'mimes:jpeg,jpg,png,pdf'],
@@ -125,6 +127,8 @@ class SubmissionController extends Controller
                 'term'            => $data['term']             ?? null,
                 'issued_by'       => $data['issued_by']        ?? null,
                 'document_type'   => $data['document_type']    ?? null,
+                'cluster_id'      => $data['cluster_id']       ?? null,
+                'organization_id' => $data['organization_id']  ?? null,
             ],
 
             // Must match submission_statuses.key

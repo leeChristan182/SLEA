@@ -3,80 +3,129 @@
 @section('title', 'Complete Assessor Requirements')
 
 @section('content')
-    <div class="max-w-3xl mx-auto py-10 px-4">
+<div class="container">
+    @include('partials.sidebar')
 
-        {{-- Header --}}
-        <div class="mb-8 text-center">
-            <h1 class="text-2xl font-bold text-gray-800">
-                Complete Assessor Requirements
-            </h1>
-            <p class="text-gray-600 mt-2">
-                Please provide your assessor information to proceed.
-                Your account will be reviewed by the administrator after submission.
-            </p>
+    <main class="main-content">
+
+        <div class="alert alert-warning mb-3">
+            <strong>Account Limited.</strong><br>
+            Please complete the assessor requirements below.
+            Once submitted, wait for <strong>Admin validation</strong>.
         </div>
 
-        {{-- Validation Errors --}}
-        @if ($errors->any())
-            <div class="mb-6 rounded-lg bg-red-50 border border-red-200 p-4">
-                <ul class="list-disc list-inside text-sm text-red-700">
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
+        @if(session('status'))
+            <div class="alert alert-success">{{ session('status') }}</div>
+        @endif
+
+        @if($errors->any())
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                    @foreach($errors->all() as $err)
+                        <li>{{ $err }}</li>
                     @endforeach
                 </ul>
             </div>
         @endif
 
-        {{-- Form --}}
-        <form method="POST" action="{{ route('profile.complete.assessor.store') }}"
-            class="bg-white shadow rounded-lg p-6 space-y-6">
+        {{-- MAIN SUBMISSION FORM --}}
+        <form method="POST" action="{{ route('profile.complete.assessor.store') }}">
             @csrf
 
-            {{-- Office / Unit --}}
-            <div>
-                <label for="office_unit" class="block text-sm font-medium text-gray-700">
-                    Office / Unit <span class="text-red-500">*</span>
-                </label>
-                <input type="text" id="office_unit" name="office_unit" value="{{ old('office_unit') }}" required
-                    maxlength="150" placeholder="e.g. Office of Student Affairs"
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            {{-- =========================
+               ASSESSOR INFORMATION
+               ========================= --}}
+            <div class="card mb-4">
+                <div class="card-header"><h5 class="mb-0">Assessor Information</h5></div>
+
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Office / Unit <span class="text-danger">*</span></label>
+                            <input type="text"
+                                   name="office_unit"
+                                   id="office_unit"
+                                   class="form-control"
+                                   value="{{ old('office_unit', $user->assessorInfo->office_unit ?? '') }}"
+                                   placeholder="e.g. Sports Unit, Discipline"
+                                   maxlength="150"
+                                   required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Position / Designation <span class="text-danger">*</span></label>
+                            <input type="text"
+                                   name="position"
+                                   id="position"
+                                   class="form-control"
+                                   value="{{ old('position', $user->assessorInfo->position ?? '') }}"
+                                   placeholder="e.g. staff"
+                                   maxlength="100"
+                                   required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Assessor Code <span class="text-muted">(optional)</span></label>
+                            <input type="text"
+                                   name="assessor_code"
+                                   id="assessor_code"
+                                   class="form-control"
+                                   value="{{ old('assessor_code', $user->assessorInfo->assessor_code ?? '') }}"
+                                   placeholder="If provided by the institution"
+                                   maxlength="50">
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            {{-- Position --}}
-            <div>
-                <label for="position" class="block text-sm font-medium text-gray-700">
-                    Position / Designation <span class="text-red-500">*</span>
-                </label>
-                <input type="text" id="position" name="position" value="{{ old('position') }}" required maxlength="100"
-                    placeholder="e.g. Faculty Adviser, Program Coordinator"
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-            </div>
-
-            {{-- Assessor Code (Optional) --}}
-            <div>
-                <label for="assessor_code" class="block text-sm font-medium text-gray-700">
-                    Assessor Code <span class="text-gray-400">(optional)</span>
-                </label>
-                <input type="text" id="assessor_code" name="assessor_code" value="{{ old('assessor_code') }}" maxlength="50"
-                    placeholder="If provided by the institution"
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-            </div>
-
-            {{-- Info Notice --}}
-            <div class="rounded-lg bg-blue-50 border border-blue-200 p-4 text-sm text-blue-700">
-                <p>
-                    After submission, your account will be placed under administrative review.
-                    You will be notified once your assessor access is fully approved.
-                </p>
-            </div>
-
-            {{-- Submit --}}
-            <div class="flex justify-end">
-                <button type="submit"
-                    class="inline-flex items-center px-6 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    Submit for Review
+            {{-- ACTIONS --}}
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-success flex-fill">
+                    Submit for Validation
                 </button>
             </div>
         </form>
-    </div>
+
+        {{-- LOGOUT (SEPARATE FORM - NOT NESTED) --}}
+        <form method="POST" action="{{ route('logout') }}" class="mt-2">
+            @csrf
+            <button type="submit" class="btn btn-outline-danger w-100">
+                Logout
+            </button>
+        </form>
+
+    </main>
+</div>
+
+{{-- Logout form for waiting modal --}}
+<form id="logout-form" method="POST" action="{{ route('logout') }}">
+    @csrf
+</form>
+
+{{-- Waiting modal (optional) --}}
+@if(session('show_waiting_modal'))
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            Swal.fire({
+                icon: 'info',
+                title: 'Submission Under Review',
+                html: `
+                    <p>Your submitted information is currently being reviewed by the administrator.</p>
+                    <p>Please wait for approval before accessing other features.</p>
+                `,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                showCancelButton: true,
+                cancelButtonText: 'Logout',
+                cancelButtonColor: '#dc3545'
+            }).then(result => {
+                if (result.dismiss === Swal.DismissReason.cancel) {
+                    document.getElementById('logout-form').submit();
+                }
+            });
+        });
+    </script>
+@endif
 @endsection

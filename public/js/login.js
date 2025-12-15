@@ -37,16 +37,121 @@ document.addEventListener('DOMContentLoaded', function () {
     const emailDisplay  = document.getElementById('email_display');
     const emailReal     = document.getElementById('email_real');
     const passwordReal  = document.getElementById('password_real');
+    const rememberCheckbox = document.getElementById('remember');
 
+    // === REMEMBER ME FUNCTIONALITY (sessionStorage - tab-specific) ===
+    const REMEMBER_EMAIL_KEY = 'slea_remember_email';
+    const REMEMBER_PASSWORD_KEY = 'slea_remember_password';
+
+    // Load saved credentials from sessionStorage on page load
+    function loadRememberedCredentials() {
+        if (!rememberCheckbox) return;
+
+        const savedEmail = sessionStorage.getItem(REMEMBER_EMAIL_KEY);
+        const savedPassword = sessionStorage.getItem(REMEMBER_PASSWORD_KEY);
+
+        if (savedEmail && emailDisplay) {
+            emailDisplay.value = savedEmail;
+            if (emailReal) {
+                emailReal.value = savedEmail;
+            }
+            // Check the remember checkbox if credentials were saved
+            rememberCheckbox.checked = true;
+        }
+
+        if (savedPassword && passwordInput) {
+            passwordInput.value = savedPassword;
+            if (passwordReal) {
+                passwordReal.value = savedPassword;
+            }
+        }
+    }
+
+    // Save credentials to sessionStorage when "Remember Me" is checked
+    function saveCredentials() {
+        if (!rememberCheckbox || !rememberCheckbox.checked) {
+            // Clear saved credentials if checkbox is unchecked
+            sessionStorage.removeItem(REMEMBER_EMAIL_KEY);
+            sessionStorage.removeItem(REMEMBER_PASSWORD_KEY);
+            return;
+        }
+
+        const email = emailDisplay?.value?.trim() || '';
+        const password = passwordInput?.value || '';
+
+        if (email) {
+            sessionStorage.setItem(REMEMBER_EMAIL_KEY, email);
+        } else {
+            sessionStorage.removeItem(REMEMBER_EMAIL_KEY);
+        }
+
+        if (password) {
+            sessionStorage.setItem(REMEMBER_PASSWORD_KEY, password);
+        } else {
+            sessionStorage.removeItem(REMEMBER_PASSWORD_KEY);
+        }
+    }
+
+    // Auto-save credentials as user types (if "Remember Me" is checked)
+    if (emailDisplay && rememberCheckbox) {
+        emailDisplay.addEventListener('input', function() {
+            if (rememberCheckbox.checked) {
+                const email = this.value.trim();
+                if (email) {
+                    sessionStorage.setItem(REMEMBER_EMAIL_KEY, email);
+                } else {
+                    sessionStorage.removeItem(REMEMBER_EMAIL_KEY);
+                }
+            }
+        });
+    }
+
+    if (passwordInput && rememberCheckbox) {
+        passwordInput.addEventListener('input', function() {
+            if (rememberCheckbox.checked) {
+                const password = this.value;
+                if (password) {
+                    sessionStorage.setItem(REMEMBER_PASSWORD_KEY, password);
+                } else {
+                    sessionStorage.removeItem(REMEMBER_PASSWORD_KEY);
+                }
+            }
+        });
+    }
+
+    // Clear credentials when "Remember Me" is unchecked
+    function handleRememberCheckboxChange() {
+        if (!rememberCheckbox) return;
+
+        rememberCheckbox.addEventListener('change', function() {
+            if (!this.checked) {
+                // Clear saved credentials when unchecked
+                sessionStorage.removeItem(REMEMBER_EMAIL_KEY);
+                sessionStorage.removeItem(REMEMBER_PASSWORD_KEY);
+            }
+        });
+    }
+
+    // Load remembered credentials on page load
+    loadRememberedCredentials();
+
+    // Handle remember checkbox changes
+    handleRememberCheckboxChange();
+
+    // If emailDisplay already has a value from old('email'), use that instead of sessionStorage
     if (emailDisplay && emailReal) {
-        // Show old('email') if present, otherwise blank
-        emailDisplay.value = emailReal.value || '';
+        // Show old('email') if present, otherwise use sessionStorage value
+        if (emailReal.value && !sessionStorage.getItem(REMEMBER_EMAIL_KEY)) {
+            emailDisplay.value = emailReal.value;
+        }
     }
 
     if (passwordInput && passwordReal) {
-        // Never pre-fill password on load
-        passwordInput.value = '';
-        passwordReal.value = '';
+        // If no saved password, keep it empty
+        if (!sessionStorage.getItem(REMEMBER_PASSWORD_KEY)) {
+            passwordInput.value = '';
+            passwordReal.value = '';
+        }
     }
 
     // === PASSWORD TOGGLE (eye button) ===
@@ -160,6 +265,9 @@ document.addEventListener('DOMContentLoaded', function () {
             // Copy values BEFORE any validation happens
             emailReal.value    = emailDisplay.value.trim();
             passwordReal.value = passwordInput.value;
+
+            // Save credentials to sessionStorage if "Remember Me" is checked
+            saveCredentials();
         }, true); // Use capture phase to run early
     }
 

@@ -37,6 +37,11 @@ html {
     text-size-adjust: 100%;
 }
 
+:root {
+    /* Base scale for the signup card to keep it inside a single viewport */
+    --signup-scale: 0.85;
+}
+
 body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -623,23 +628,34 @@ body.dark-mode .register-container .password-requirements-list li::before,
     border-radius: 12px;
     -webkit-border-radius: 12px;
     -moz-border-radius: 12px;
-  padding: 1.25rem;
-    width: min(92vw, 780px);
-    max-width: 980px;
-      width: 100%;
+    padding: 1rem 1.25rem;
+    width: min(960px, 95vw);
+    max-width: 960px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     -webkit-box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     -moz-box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     margin: 0 auto;
-  transform: none !important;
-    -webkit-transform: scale(0.9);
-    -moz-transform: scale(0.9);
-    -ms-transform: scale(0.9);
-    transform-origin: center center;
-    -webkit-transform-origin: center center;
-    -moz-transform-origin: center center;
-    -ms-transform-origin: center center;
+    -webkit-transform: scale(var(--signup-scale));
+    -moz-transform: scale(var(--signup-scale));
+    -ms-transform: scale(var(--signup-scale));
+    transform: scale(var(--signup-scale));
+    transform-origin: top center;
+    -webkit-transform-origin: top center;
+    -moz-transform-origin: top center;
+    -ms-transform-origin: top center;
     position: relative;
+}
+
+@media (min-height: 900px) {
+    :root {
+        --signup-scale: 0.9;
+    }
+}
+
+@media (max-height: 780px) {
+    :root {
+        --signup-scale: 0.8;
+    }
 }
 
 body.dark-mode .register-container .signup-card,

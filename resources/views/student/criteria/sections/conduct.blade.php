@@ -34,7 +34,7 @@
                             @php
                                 // fallback for evidence/notes
                                 $evidenceSource = $sub->evidence_needed ?: $section->evidence;
-                                $notesSource    = $sub->notes ?: $section->notes;
+                                $notesSource = $sub->notes ?: $section->notes;
 
                                 $options = $sub->options ?? collect();
                                 $rowCount = max($options->count(), 1);
@@ -110,4 +110,3 @@
         @endforeach
     @endif
 </div>
-

@@ -33,10 +33,6 @@
                     <label for="roleFilter">Role</label>
                     <select id="roleFilter" name="role" class="form-select" onchange="applyFilters()">
                         <option value="">All</option>
-                        <option value="{{ \App\Models\User::ROLE_ADMIN }}"
-                            {{ request('role') === \App\Models\User::ROLE_ADMIN ? 'selected' : '' }}>
-                            Admin
-                        </option>
                         <option value="{{ \App\Models\User::ROLE_ASSESSOR }}"
                             {{ request('role') === \App\Models\User::ROLE_ASSESSOR ? 'selected' : '' }}>
                             Assessor
@@ -125,7 +121,7 @@
                                     {{ ucfirst($user->status) }}
                                 </span>
                             </td>
-                            <td>{{ $user->created_at?->format('M d, Y h:i A') }}</td>
+                            <td>{{ $user->created_at?->setTimezone('Asia/Manila')->format('M d, Y h:i A') }}</td>
                             <td>
                                 <div class="action-buttons-group">
                                     {{-- Toggle (approved <-> disabled) --}}

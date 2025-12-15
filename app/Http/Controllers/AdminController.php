@@ -261,6 +261,7 @@ class AdminController extends Controller
     public function manageAccount(Request $request)
     {
         $users = User::query()
+            ->where('role', '!=', User::ROLE_ADMIN) // Exclude admin accounts (system accounts)
             ->when($request->filled('role'),   fn($q) => $q->where('role', $request->role))
             ->when($request->filled('status'), fn($q) => $q->where('status', $request->status))
             ->when($request->filled('q'),      fn($q) => $q->where(function ($x) use ($request) {
@@ -294,7 +295,7 @@ class AdminController extends Controller
                         ->orWhere('user_code', 'like', $like);
                 });
             })
-            ->orderByDesc('created_at')
+            ->orderBy('created_at', 'asc') // Oldest registrations first
             ->paginate(10)
             ->withQueryString();
 
@@ -377,7 +378,15 @@ class AdminController extends Controller
         $rejectionReason = $request->input('rejection_reason', '');
 
         // Send rejection email with reason
-        Mail::to($user->email)->send(new AccountRejectedMail($user, $rejectionReason));
+        try {
+            Mail::to($user->email)->send(new AccountRejectedMail($user, $rejectionReason));
+        } catch (\Throwable $e) {
+            Log::warning('Failed to send AccountRejectedMail', [
+                'user_id' => $user->id,
+                'email'   => $user->email,
+                'error'   => $e->getMessage(),
+            ]);
+        }
 
         // System log
         $adminName = trim($admin->first_name . ' ' . ($admin->middle_name ? $admin->middle_name . ' ' : '') . $admin->last_name);
@@ -681,16 +690,13 @@ class AdminController extends Controller
                 ]);
             }
 
-            // Mark profile completed
+            // Mark profile completed and grant full access
             if (Schema::hasColumn($user->getTable(), 'profile_completed')) {
-                $user->profile_completed  = true;
-                $user->is_account_limited = true;
+                $user->profile_completed = true;
             }
-
-            // If you have some "limited" flag for assessors, you can flip it here (optional)
-            // if (Schema::hasColumn($user->getTable(), 'is_account_limited')) {
-            //     $user->is_account_limited = false;
-            // }
+            
+            // Grant FULL access (same as students)
+            $user->is_account_limited = false;
 
             $user->save();
 
@@ -831,11 +837,18 @@ class AdminController extends Controller
     public function revalidationQueue()
     {
         // Use Eloquent so we can show more info and re-use relationships
+        // Include both 'needs_revalidation' and 'under_review' statuses
+        // Refresh to ensure we get the latest COR paths
         $rows = StudentAcademic::with(['user'])
-            ->where('eligibility_status', 'needs_revalidation')
+            ->whereIn('eligibility_status', ['needs_revalidation', 'under_review'])
             ->orderByDesc('updated_at')
             ->paginate(20)
             ->withQueryString();
+
+        // Ensure all records are fresh (no stale data) - this ensures latest COR is shown
+        $rows->getCollection()->each(function ($row) {
+            $row->refresh();
+        });
 
         return view('admin.revalidation', compact('rows'));
     }
@@ -943,9 +956,17 @@ class AdminController extends Controller
             abort(403);
         }
 
+        // Refresh to get the latest COR (including any updates from revalidation)
         $academic = StudentAcademic::where('user_id', $user->id)->first();
+        
+        if (!$academic) {
+            abort(404, 'No academic record found for this student.');
+        }
+        
+        // Refresh the model to ensure we have the latest data
+        $academic->refresh();
 
-        if (! $academic || empty($academic->certificate_of_registration_path)) {
+        if (empty($academic->certificate_of_registration_path)) {
             abort(404, 'No COR uploaded for this student.');
         }
 

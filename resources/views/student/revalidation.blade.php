@@ -138,7 +138,7 @@
                             @if(!empty($acad->certificate_of_registration_path))
                                 <p style="margin-top:8px;">
                                     Current file:
-                                    <a href="{{ asset('storage/' . $acad->certificate_of_registration_path) }}" target="_blank">
+                                    <a href="{{ route('student.cor.view') }}" target="_blank">
                                         View uploaded COR
                                     </a>
                                 </p>

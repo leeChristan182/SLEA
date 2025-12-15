@@ -12,12 +12,24 @@ class Major extends Model
     protected $table = 'majors';
 
     protected $fillable = [
-        'major_name',     // ex: "Software Engineering"
+        'name',           // Database column is 'name'
         'program_id',
         'code',           // optional
     ];
 
     public $timestamps = true;
+
+    // Accessor for major_name (maps to 'name' column)
+    public function getMajorNameAttribute()
+    {
+        return $this->attributes['name'] ?? null;
+    }
+
+    // Mutator for major_name (maps to 'name' column)
+    public function setMajorNameAttribute($value)
+    {
+        $this->attributes['name'] = $value;
+    }
 
     // Relationships
     public function program()
@@ -28,6 +40,6 @@ class Major extends Model
     // Scopes
     public function scopeAlphabetical($q)
     {
-        return $q->orderBy('major_name');
+        return $q->orderBy('name');
     }
 }

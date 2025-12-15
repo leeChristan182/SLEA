@@ -28,10 +28,11 @@
             @endphp
 
             <div class="rubric-main-container" x-data="rubricPager(@json($pageTitles), {{ $initialPage }})">
+                <div class="page-header"><h1>Criteria and Points System</h1></div>
 
-                {{-- Page Header --}}
-                <div class="page-header">
-                    <h1>Criteria and Points System</h1>
+                {{-- Current rubric label (same style as admin-side pages) --}}
+                <div class="current-page-label">
+                    <span x-text="pageTitle"></span>
                 </div>
 
                 {{-- Pages --}}
@@ -103,22 +104,43 @@
 
 @push('styles')
     <style>
-        /* Main Container */
+        /* Layout shell – partials control table/frontend look */
+        .container {
+            margin-top: 0 !important;
+        }
+
+        body.dark-mode .container {
+            background: #2a2a2a !important;
+            color: #f0f0f0 !important;
+        }
+
+        .main-content {
+            padding: 0 !important;
+            margin-top: 0 !important;
+            width: 100%;
+            background: #fff !important;
+            color: #212529 !important;
+        }
+
+        body.dark-mode .main-content {
+            background: #2a2a2a !important;
+            color: #f0f0f0 !important;
+        }
+
         .rubric-main-container {
-            padding: 20px;
-            padding-top: 20px; /* Normal padding since main-content now handles header spacing */
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
+            width: 100%;
+            margin-top: 0 !important;
+            padding-top: 24px !important; /* 1 inch gap from header */
+            padding: 24px 20px 20px 20px;
+            background: transparent;
+            color: inherit;
         }
 
         body.dark-mode .rubric-main-container {
-            background-color: #2a2a2a;
-            color: #f0f0f0;
+            background: transparent !important;
+            color: #f0f0f0 !important;
         }
 
-        /* Page Header */
         .page-header {
             margin-bottom: 24px;
             padding-bottom: 0;
@@ -136,31 +158,93 @@
             color: #f9bd3d !important;
         }
 
-        /* Current Page Label */
         .current-page-label {
-            font-size: 24px;
             font-weight: 700;
-            color: #7b0000;
-            margin-bottom: 20px;
-            margin-top: 20px; /* Additional top margin for visibility */
-            padding-bottom: 10px;
+            font-size: 16px;
+            color: #7b0000 !important; /* Explicit text color for light mode */
+            padding: 8px 0;
             border-bottom: 2px solid #7b0000;
+            margin-bottom: 16px;
+            margin-top: 0 !important;
         }
 
         body.dark-mode .current-page-label {
-            color: #f9bd3d;
+            color: #f9bd3d !important;
             border-bottom-color: #f9bd3d;
         }
 
-        /* Rubric Pages */
-        .rubric-pages {
-            min-height: 400px;
+        /* Pager */
+        .rubric-pager {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.4rem;
+            margin-top: 1.25rem;
         }
 
-        /* Rubric Section */
+        .pager-btn {
+            border-radius: 4px;
+            padding: 0.35rem 0.75rem;
+            border: 1px solid #ccc;
+            background-color: #fff !important;
+            color: #212529 !important; /* Explicit text color for light mode */
+            font-size: 0.85rem;
+            cursor: pointer;
+            min-width: 2.1rem;
+        }
+
+        .pager-btn:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        body.dark-mode .pager-btn:disabled {
+            background-color: #262626 !important;
+            color: #888 !important;
+            border-color: #555 !important;
+        }
+
+        .pager-page.active {
+            background-color: #8B0000;
+            border-color: #8B0000;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .pager-nav {
+            min-width: 3.2rem;
+        }
+
+        /* Dark mode */
+        body.dark-mode .rubric-content {
+            background-color: #2a2a2a;
+            color: #f0f0f0;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+        }
+
+        body.dark-mode .rubric-main-title {
+            color: #f9bd3d;
+        }
+
+        body.dark-mode .rubric-pager .pager-btn {
+            background-color: #262626;
+            border-color: #555;
+            color: #eee;
+        }
+
+        body.dark-mode .pager-page.active {
+            background-color: #f9bd3d;
+            border-color: #f9bd3d;
+            color: #2a2a2a;
+        }
+
+        /* Rubric section heading */
         .rubric-section {
-            margin-bottom: 192px; /* 2 inches spacing between sections */
-            margin-top: 1rem; /* Additional spacing for category title */
+            margin-bottom: 30px;
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             color: #212529 !important;
         }
 
@@ -171,10 +255,13 @@
         .rubric-heading {
             font-size: 20px;
             font-weight: 700;
-            color: #7b0000 !important;
-            margin-bottom: 16px;
+            color: #7b0000 !important; /* Explicit text color for light mode */
+            margin-bottom: 12px;
             padding-bottom: 8px;
             border-bottom: 2px solid #7b0000;
+            text-align: left;
+            width: 100%;
+            max-width: 1200px;
         }
 
         body.dark-mode .rubric-heading {
@@ -184,22 +271,19 @@
 
         .rubric-category-description {
             font-size: 14px;
+            color: #666 !important; /* Explicit text color for light mode */
+            margin-bottom: 16px;
+            text-align: left;
             line-height: 1.6;
-            color: #555;
-            margin-bottom: 20px;
-            padding: 12px;
-            background: #f8f9fa;
-            border-left: 4px solid #7b0000;
-            border-radius: 4px;
+            width: 100%;
+            max-width: 1200px;
         }
 
         body.dark-mode .rubric-category-description {
-            color: #ccc;
-            background: #333;
-            border-left-color: #f9bd3d;
+            color: #ccc !important;
         }
 
-        /* Subsection */
+        /* Old design styling - subsection and table-wrap */
         .subsection {
             margin-bottom: 2rem;
             color: #212529 !important;
@@ -212,7 +296,7 @@
         .subsection-title {
             font-size: 18px;
             font-weight: 600;
-            color: #7b0000 !important;
+            color: #7b0000 !important; /* Explicit text color for light mode */
             margin-bottom: 16px;
             padding-bottom: 8px;
             border-bottom: 1px solid #dee2e6;
@@ -227,223 +311,300 @@
             margin-bottom: 20px;
             overflow-x: auto;
             background: transparent;
+            width: 100%;
         }
 
         body.dark-mode .table-wrap {
             background: transparent !important;
         }
 
-        .manage-table {
-            width: 100%;
-            border-collapse: collapse;
+        /* CRITICAL: Override ALL global CSS with maximum specificity */
+        /* Use the EXACT same structure as admin but with higher specificity */
+        
+        /* Override global .rubric-section .manage-table rules */
+        .rubric-main-container .rubric-section .manage-table,
+        .rubric-main-container .rubric-section .table-wrap .manage-table,
+        .rubric-main-container .table-wrap .manage-table,
+        .rubric-section .table-wrap .manage-table {
+            width: 100% !important;
+            border-collapse: collapse !important; /* CRITICAL: override global 'separate' */
+            border-spacing: 0 !important;
             background: #fff !important;
-            border-radius: 0;
-            overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+            border-radius: 8px !important;
+            overflow: hidden !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06) !important;
             color: #212529 !important;
+            table-layout: auto !important; /* Override global fixed */
+            border: none !important;
+            margin: 0 !important;
         }
 
-        body.dark-mode .manage-table {
-            background: #333 !important;
-            color: #f0f0f0 !important;
+        .rubric-main-container .rubric-section .manage-table thead,
+        .rubric-main-container .rubric-section .table-wrap .manage-table thead,
+        .rubric-main-container .table-wrap .manage-table thead,
+        .rubric-section .table-wrap .manage-table thead {
+            background: #7b0000 !important;
         }
 
-        .manage-table thead {
-            background: #7b0000;
+        .rubric-main-container .rubric-section .manage-table thead th,
+        .rubric-main-container .rubric-section .table-wrap .manage-table thead th,
+        .rubric-main-container .table-wrap .manage-table thead th,
+        .rubric-section .table-wrap .manage-table thead th {
+            background: #7b0000 !important;
+            color: #fff !important;
+            font-weight: 600 !important;
+            padding: 15px 12px !important;
+            text-align: left !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border-bottom: 2px solid #fff !important;
+            border-top: none !important;
+            border-left: none !important;
+            font-size: 14px !important;
         }
 
-        .manage-table thead th {
-            background: #7b0000;
-            color: #fff;
-            font-weight: 600;
-            padding: 15px 12px;
-            text-align: left;
-            border-right: 1px solid rgba(255, 255, 255, 0.2);
-            border-bottom: 2px solid #fff;
-            font-size: 14px;
-        }
-
-        .manage-table thead th:last-child {
-            border-right: none;
+        .rubric-main-container .rubric-section .manage-table thead th:last-child,
+        .rubric-main-container .rubric-section .table-wrap .manage-table thead th:last-child,
+        .rubric-main-container .table-wrap .manage-table thead th:last-child,
+        .rubric-section .table-wrap .manage-table thead th:last-child {
+            border-right: none !important;
         }
 
         /* Points column - narrow width (3rd column in Leadership category only) */
         .rubric-section[data-category="leadership"] .manage-table thead th:nth-child(3),
         .rubric-section[data-category="leadership"] .manage-table tbody td:nth-child(3) {
-            width: 100px;
-            min-width: 100px;
-            max-width: 100px;
-            text-align: center;
-            white-space: normal;
-            word-wrap: break-word;
-            word-break: break-word;
-            padding: 12px 8px;
+            width: 100px !important;
+            min-width: 100px !important;
+            max-width: 100px !important;
+            text-align: center !important;
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            word-break: break-word !important;
+            padding: 12px 8px !important;
         }
 
         /* Max Points column - narrow width (3rd column in categories II-V) */
-        .manage-table thead th:nth-child(3),
-        .manage-table tbody td:nth-child(3) {
-            width: 100px;
-            min-width: 100px;
-            max-width: 100px;
-            text-align: center;
-            white-space: normal;
-            word-wrap: break-word;
-            word-break: break-word;
-            padding: 12px 8px;
+        .rubric-main-container .rubric-section .manage-table thead th:nth-child(3),
+        .rubric-main-container .rubric-section .manage-table tbody td:nth-child(3),
+        .rubric-main-container .rubric-section .table-wrap .manage-table thead th:nth-child(3),
+        .rubric-main-container .rubric-section .table-wrap .manage-table tbody td:nth-child(3),
+        .rubric-main-container .table-wrap .manage-table thead th:nth-child(3),
+        .rubric-main-container .table-wrap .manage-table tbody td:nth-child(3),
+        .rubric-section .table-wrap .manage-table thead th:nth-child(3),
+        .rubric-section .table-wrap .manage-table tbody td:nth-child(3) {
+            width: 100px !important;
+            min-width: 100px !important;
+            max-width: 100px !important;
+            text-align: center !important;
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            word-break: break-word !important;
+            padding: 12px 8px !important;
         }
 
-        .manage-table tbody td {
-            padding: 12px;
-            border-right: 1px solid #dee2e6;
-            border-bottom: 1px solid #dee2e6;
+        /* CRITICAL: Override global height: 64px and other conflicting rules */
+        .rubric-main-container .rubric-section .manage-table tbody td,
+        .rubric-main-container .rubric-section .table-wrap .manage-table tbody td,
+        .rubric-main-container .table-wrap .manage-table tbody td,
+        .rubric-section .table-wrap .manage-table tbody td {
+            padding: 12px !important;
+            border-right: 1px solid #dee2e6 !important;
+            border-bottom: 1px solid #dee2e6 !important;
+            border-left: none !important;
+            border-top: none !important;
             background: #fff !important;
             color: #212529 !important;
-            vertical-align: top;
-            position: relative;
+            vertical-align: top !important; /* Override global middle */
+            position: relative !important;
+            height: auto !important; /* CRITICAL: Override global 64px */
+            text-align: left !important; /* Override global center */
+            min-height: auto !important;
+            max-height: none !important;
+            line-height: 1.6 !important;
+            word-wrap: break-word !important;
         }
 
-        body.dark-mode .manage-table tbody td {
-            background: #333 !important;
-            color: #f0f0f0 !important;
-            border-right-color: #555;
-            border-bottom-color: #555;
+        /* Ensure merged cells have proper borders */
+        .rubric-main-container .rubric-section .manage-table tbody td[rowspan],
+        .rubric-main-container .rubric-section .table-wrap .manage-table tbody td[rowspan],
+        .rubric-main-container .table-wrap .manage-table tbody td[rowspan],
+        .rubric-section .table-wrap .manage-table tbody td[rowspan] {
+            border-right: 1px solid #dee2e6 !important;
+            border-bottom: 1px solid #dee2e6 !important;
+            border-left: none !important;
+            border-top: none !important;
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
         }
 
-        .manage-table tbody td:not(:last-child) {
-            vertical-align: top;
-        }
-
-        /* Evidence Needed column - left alignment (4th column) */
-        .manage-table thead th:nth-child(4),
-        .manage-table tbody td:nth-child(4) {
-            text-align: left !important;
+        .rubric-main-container .rubric-section .manage-table tbody td:not(:last-child),
+        .rubric-main-container .rubric-section .table-wrap .manage-table tbody td:not(:last-child),
+        .rubric-main-container .table-wrap .manage-table tbody td:not(:last-child),
+        .rubric-section .table-wrap .manage-table tbody td:not(:last-child) {
+            vertical-align: top !important;
         }
 
         /* Notes column - left alignment (5th column) */
-        .manage-table thead th:nth-child(5),
-        .manage-table tbody td:nth-child(5) {
+        .rubric-main-container .rubric-section .manage-table thead th:nth-child(5),
+        .rubric-main-container .rubric-section .manage-table tbody td:nth-child(5),
+        .rubric-main-container .rubric-section .table-wrap .manage-table thead th:nth-child(5),
+        .rubric-main-container .rubric-section .table-wrap .manage-table tbody td:nth-child(5),
+        .rubric-main-container .table-wrap .manage-table thead th:nth-child(5),
+        .rubric-main-container .table-wrap .manage-table tbody td:nth-child(5),
+        .rubric-section .table-wrap .manage-table thead th:nth-child(5),
+        .rubric-section .table-wrap .manage-table tbody td:nth-child(5) {
             text-align: left !important;
         }
 
-        /* Evidence and Notes content styling - no bullets, line breaks with spacing */
+        /* Evidence and Notes content styling */
         .evidence-notes-content {
             line-height: 1.6;
             word-wrap: break-word;
             overflow-wrap: break-word;
         }
 
-        /* Max Points column - narrow width (3rd column in categories II-V) */
-        /* Exclude leadership category which uses Points column */
+        /* Max Points column - exclude leadership */
         .rubric-section:not([data-category="leadership"]) .manage-table thead th:nth-child(3),
         .rubric-section:not([data-category="leadership"]) .manage-table tbody td:nth-child(3) {
-            width: 100px;
-            min-width: 100px;
-            max-width: 100px;
-            text-align: center;
-            white-space: normal;
-            word-wrap: break-word;
-            word-break: break-word;
-            padding: 12px 8px;
+            width: 100px !important;
+            min-width: 100px !important;
+            max-width: 100px !important;
+            text-align: center !important;
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            word-break: break-word !important;
+            padding: 12px 8px !important;
         }
 
-        .manage-table tbody tr:last-child td {
-            border-bottom: none;
+        .rubric-main-container .rubric-section .manage-table tbody tr:last-child td,
+        .rubric-main-container .rubric-section .table-wrap .manage-table tbody tr:last-child td,
+        .rubric-main-container .table-wrap .manage-table tbody tr:last-child td,
+        .rubric-section .table-wrap .manage-table tbody tr:last-child td {
+            border-bottom: none !important;
         }
 
-        /* Pagination Controls */
-        .rubric-pager {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
-            margin-top: 30px;
-            padding: 20px;
+        /* Alternating row colors - matching admin */
+        .rubric-main-container .rubric-section .manage-table tbody tr:nth-child(even) td,
+        .rubric-main-container .rubric-section .table-wrap .manage-table tbody tr:nth-child(even) td,
+        .rubric-main-container .table-wrap .manage-table tbody tr:nth-child(even) td,
+        .rubric-section .table-wrap .manage-table tbody tr:nth-child(even) td {
+            background: #f8f9fa !important;
+            color: #212529 !important;
         }
 
-        .pager-btn {
-            padding: 8px 16px;
-            background: #fff;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            color: #7b0000;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.2s;
+        /* CRITICAL: Disable hover effects */
+        .rubric-main-container .rubric-section .manage-table tbody tr:hover td,
+        .rubric-main-container .rubric-section .table-wrap .manage-table tbody tr:hover td,
+        .rubric-main-container .table-wrap .manage-table tbody tr:hover td,
+        .rubric-section .table-wrap .manage-table tbody tr:hover td {
+            background: inherit !important;
+            color: inherit !important;
         }
 
-        .pager-btn:hover:not(:disabled) {
-            background: #7b0000;
-            color: #fff;
-            border-color: #7b0000;
+        /* Dark mode - same high specificity */
+        body.dark-mode .rubric-main-container .rubric-section .manage-table,
+        body.dark-mode .rubric-main-container .rubric-section .table-wrap .manage-table,
+        body.dark-mode .rubric-main-container .table-wrap .manage-table,
+        body.dark-mode .rubric-section .table-wrap .manage-table {
+            background: #2b2b2b !important;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3) !important;
+            color: #f0f0f0 !important;
         }
 
-        .pager-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        body.dark-mode .rubric-main-container .rubric-section .manage-table thead,
+        body.dark-mode .rubric-main-container .rubric-section .table-wrap .manage-table thead,
+        body.dark-mode .rubric-main-container .table-wrap .manage-table thead,
+        body.dark-mode .rubric-section .table-wrap .manage-table thead {
+            background: #5c0000 !important;
         }
 
-        body.dark-mode .pager-btn {
-            background-color: #262626;
-            border-color: #555;
-            color: #eee;
+        body.dark-mode .rubric-main-container .rubric-section .manage-table thead th,
+        body.dark-mode .rubric-main-container .rubric-section .table-wrap .manage-table thead th,
+        body.dark-mode .rubric-main-container .table-wrap .manage-table thead th,
+        body.dark-mode .rubric-section .table-wrap .manage-table thead th {
+            background: #5c0000 !important;
+            border-color: rgba(255, 255, 255, 0.15) !important;
+            color: #fff !important;
         }
 
-        body.dark-mode .pager-btn:hover:not(:disabled) {
-            background: #f9bd3d;
-            color: #2a2a2a;
-            border-color: #f9bd3d;
+        body.dark-mode .rubric-main-container .rubric-section .manage-table tbody td,
+        body.dark-mode .rubric-main-container .rubric-section .table-wrap .manage-table tbody td,
+        body.dark-mode .rubric-main-container .table-wrap .manage-table tbody td,
+        body.dark-mode .rubric-section .table-wrap .manage-table tbody td {
+            background: #3a3a3a !important;
+            border-color: #555 !important;
+            color: #f0f0f0 !important;
+            height: auto !important;
         }
 
-        .pager-pages {
-            display: flex;
-            gap: 5px;
+        body.dark-mode .rubric-main-container .rubric-section .manage-table tbody td[rowspan],
+        body.dark-mode .rubric-main-container .rubric-section .table-wrap .manage-table tbody td[rowspan],
+        body.dark-mode .rubric-main-container .table-wrap .manage-table tbody td[rowspan],
+        body.dark-mode .rubric-section .table-wrap .manage-table tbody td[rowspan] {
+            background: #3a3a3a !important;
+            border-color: #555 !important;
+            height: auto !important;
         }
 
-        .pager-page {
-            min-width: 40px;
-            height: 40px;
-            padding: 0 12px;
-            background: #fff;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            color: #7b0000;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        body.dark-mode .rubric-main-container .rubric-section .manage-table tbody tr:nth-child(even) td,
+        body.dark-mode .rubric-main-container .rubric-section .table-wrap .manage-table tbody tr:nth-child(even) td,
+        body.dark-mode .rubric-main-container .table-wrap .manage-table tbody tr:nth-child(even) td,
+        body.dark-mode .rubric-section .table-wrap .manage-table tbody tr:nth-child(even) td {
+            background: #333 !important;
+            color: #f0f0f0 !important;
         }
 
-        .pager-page:hover {
-            background: #f8f9fa;
-            border-color: #7b0000;
+        body.dark-mode .rubric-main-container .rubric-section .manage-table tbody tr:hover td,
+        body.dark-mode .rubric-main-container .rubric-section .table-wrap .manage-table tbody tr:hover td,
+        body.dark-mode .rubric-main-container .table-wrap .manage-table tbody tr:hover td,
+        body.dark-mode .rubric-section .table-wrap .manage-table tbody tr:hover td {
+            background: inherit !important;
+            color: inherit !important;
         }
 
-        .pager-page.active {
-            background: #7b0000;
-            border-color: #7b0000;
-            color: #fff;
-            font-weight: 600;
+        /* Dark mode for lists and text elements */
+        body.dark-mode ul,
+        body.dark-mode li {
+            color: #f0f0f0 !important;
         }
 
-        body.dark-mode .pager-page {
-            background-color: #262626;
-            border-color: #555;
-            color: #eee;
+        body.dark-mode .mb-0 {
+            color: #f0f0f0 !important;
         }
 
-        body.dark-mode .pager-page:hover {
-            background: #333;
-            border-color: #f9bd3d;
+        body.dark-mode .mb-0 ul,
+        body.dark-mode .mb-0 li {
+            color: #f0f0f0 !important;
         }
 
-        body.dark-mode .pager-page.active {
-            background-color: #f9bd3d;
-            border-color: #f9bd3d;
-            color: #2a2a2a;
+        /* Ensure all text in dark mode is visible */
+        body.dark-mode p {
+            color: #f0f0f0 !important;
+        }
+
+        body.dark-mode span {
+            color: inherit;
+        }
+
+        body.dark-mode .rubric-pages {
+            color: #f0f0f0 !important;
+        }
+
+        body.dark-mode .rubric-pages * {
+            color: inherit;
+        }
+
+        /* Dark mode for disabled pager buttons */
+        body.dark-mode .pager-btn:disabled {
+            background-color: #262626 !important;
+            color: #888 !important;
+            border-color: #555 !important;
+        }
+
+        @media (max-width: 768px) {
+            .rubric-pager {
+                flex-wrap: wrap;
+            }
         }
     </style>
 @endpush

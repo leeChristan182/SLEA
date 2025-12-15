@@ -167,9 +167,112 @@ const res = await fetch(form.action, {
     });
   }
 
+  /* -------------------- CUSTOM HANDLER FOR ACADEMIC UPDATE (with modal) -------------------- */
+  const academicForm = document.querySelector('#updateAcademicForm');
+  if (academicForm) {
+    academicForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const fd = new FormData(academicForm);
+      const submitBtn = academicForm.querySelector('button[type="submit"]');
+      const originalBtnText = submitBtn?.textContent;
+      
+      // Disable button during submission
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+      }
+      
+      try {
+        const res = await fetch(academicForm.action, {
+          method: 'POST',
+          headers: {
+            'X-CSRF-TOKEN': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+          },
+          body: fd
+        });
+
+        const data = await res.json();
+        
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalBtnText;
+        }
+        
+        if (res.ok && data.success) {
+          // Show success modal with SweetAlert2
+          if (typeof Swal !== 'undefined') {
+            Swal.fire({
+              icon: 'success',
+              title: 'Submitted Successfully',
+              html: `
+                <p><strong>${data.message || 'Your academic details and COR have been submitted for review.'}</strong></p>
+                <p style="margin-top: 12px;">Please wait for <strong>Admin confirmation</strong> before accessing other features.</p>
+                <p style="margin-top: 8px; font-size: 0.9em; color: #666;">You will receive an email notification once the administrator has reviewed your submission.</p>
+              `,
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#7E0308',
+              customClass: {
+                popup: 'academic-update-success-modal',
+                backdrop: 'academic-update-success-backdrop'
+              },
+              didOpen: () => {
+                const backdrop = document.querySelector('.swal2-backdrop-show');
+                if (backdrop) {
+                  backdrop.style.backdropFilter = 'blur(10px)';
+                  backdrop.style.webkitBackdropFilter = 'blur(10px)';
+                  backdrop.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                }
+              }
+            }).then(() => {
+              // Reload page after modal is closed
+              window.location.reload();
+            });
+          } else {
+            // Fallback to toast if SweetAlert2 is not available
+            showToast(data.message || 'Academic information updated');
+            setTimeout(() => window.location.reload(), 2000);
+          }
+        } else {
+          // Show error
+          const errorMsg = data.message || data.errors ? Object.values(data.errors || {}).flat().join(', ') : 'Error saving changes';
+          if (typeof Swal !== 'undefined') {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: errorMsg,
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#7E0308',
+            });
+          } else {
+            showToast(errorMsg, true);
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalBtnText;
+        }
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Request failed. Please try again.',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#7E0308',
+          });
+        } else {
+          showToast('Request failed', true);
+        }
+      }
+    });
+  }
+
   /* -------------------- APPLY AJAX HANDLERS -------------------- */
   handleAjaxForm('#updatePersonalForm', 'Personal information updated');
-  handleAjaxForm('#updateAcademicForm', 'Academic information updated');
+  // handleAjaxForm('#updateAcademicForm', 'Academic information updated'); // Handled separately above
   handleAjaxForm('#updateLeadershipForm', 'Leadership information saved');
   handleAjaxForm('#uploadCORForm', 'Certificate of Registration uploaded');
   handleAjaxForm('#passwordChangeForm', 'Password changed successfully');

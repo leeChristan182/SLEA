@@ -270,9 +270,94 @@
             </div>
         </div>
     </div>
+
+    {{-- Success / Waiting confirmation popup after requirements submission --}}
+    @php
+        // Only show modal if account is still limited AND has submitted requirements
+        // If is_account_limited is false, they've been approved and shouldn't see the modal
+        // Refresh user to get latest database state
+        $user->refresh();
+        $hasSubmittedRequirements = $user->assessorInfo && 
+                                    !empty($user->assessorInfo->office_unit) && 
+                                    !empty($user->assessorInfo->position);
+        
+        // Only show modal if:
+        // 1. Account is still limited (not approved yet)
+        // 2. Has submitted requirements
+        // 3. Session flag is set (for first-time submission)
+        $shouldShowModal = ($user->is_account_limited && $hasSubmittedRequirements) && 
+                          (session('show_waiting_modal') || session('requirements_submitted'));
+    @endphp
+    
+    @if($shouldShowModal)
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const isFirstSubmit = {{ session('requirements_submitted') ? 'true' : 'false' }};
+                const statusMsg = @json(session('status') ?? 'Your information has been submitted and is under review.');
+
+                const title = isFirstSubmit ? 'Submitted Successfully' : 'Submission Under Review';
+                const icon = isFirstSubmit ? 'success' : 'info';
+
+                Swal.fire({
+                    icon: icon,
+                    title: title,
+                    html: `
+                        <p>${statusMsg}</p>
+                        <p>Please wait for <strong>Admin validation</strong> before accessing other features.</p>
+                    `,
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: true,
+                    confirmButtonText: 'OK',
+                    showCancelButton: true,
+                    cancelButtonText: 'Logout',
+                    cancelButtonColor: '#dc3545',
+                    customClass: {
+                        popup: 'profile-success-modal',
+                        backdrop: 'profile-success-modal-backdrop'
+                    },
+                    didOpen: () => {
+                        // Apply blur to backdrop
+                        const backdrop = document.querySelector('.swal2-backdrop-show');
+                        if (backdrop) {
+                            backdrop.style.backdropFilter = 'blur(10px)';
+                            backdrop.style.webkitBackdropFilter = 'blur(10px)';
+                            backdrop.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                        }
+                    }
+                }).then(result => {
+                    if (result.dismiss === Swal.DismissReason.cancel) {
+                        document.getElementById('limited-logout-form')?.submit();
+                    }
+                });
+            });
+        </script>
+    @endif
+
+    <style>
+        /* Profile Success Modal - Remove corner radius and add blur backdrop */
+        .profile-success-modal {
+            border-radius: 0 !important;
+            -webkit-border-radius: 0 !important;
+            -moz-border-radius: 0 !important;
+        }
+
+        .profile-success-modal-backdrop {
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            background-color: rgba(0, 0, 0, 0.5) !important;
+        }
+
+        .swal2-backdrop-show {
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            background-color: rgba(0, 0, 0, 0.5) !important;
+        }
+    </style>
 @endsection
 
 @push('scripts')
     <script src="https://kit.fontawesome.com/a2e0ad2a6a.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="{{ asset('js/profile.js') }}"></script>
 @endpush

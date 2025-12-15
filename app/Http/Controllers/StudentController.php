@@ -7,6 +7,8 @@ use App\Models\StudentAcademic;
 use App\Models\Submission;
 use App\Models\RubricCategory;
 use App\Models\SubmissionReview;
+use App\Models\AssessorCompiledScore;
+use App\Models\FinalReview;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Support\Facades\Auth;
@@ -179,35 +181,67 @@ class StudentController extends Controller
             return back()->withErrors(['student_number' => 'Academic table not found.']);
         }
 
-        // Validate only real columns / foreign keys
-        // Validate only real columns / foreign keys
+        // Validate: COR is now REQUIRED when updating academic details
         $data = $request->validate([
+            'year_level' => ['required', 'integer', 'in:1,2,3,4,5,6,7,8'],
+            'cor' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:6144'], // 6 MB
             'student_number' => ['nullable', 'string', 'max:20'],
-            'year_level' => ['nullable', 'integer', 'in:1,2,3,4,5,6,7,8'],
-
             'college_id'     => ['nullable', 'integer', 'exists:colleges,id'],
             'program_id'     => ['nullable', 'integer', 'exists:programs,id'],
             'major_id'       => ['nullable', 'integer', 'exists:majors,id'],
+        ], [
+            'cor.required' => 'Certificate of Registration (COR) is required to update academic details.',
+            'year_level.required' => 'Year level is required.',
         ]);
 
         // Current academic row if any
         /** @var \App\Models\StudentAcademic|null $current */
         $current = StudentAcademic::where('user_id', $user->id)->first();
 
-        // --- Compute expected graduation year ---
-        // Take first 4 digits of student_number as entry year.
-        // Infer total years from year_level to support 4th, 5th+ year programs.
-        $expectedGradYear = null;
-        $numberForCalc = $data['student_number']
-            ?? ($current->student_number ?? null);
+        // --- Upload COR file ---
+        $corPath = $current?->certificate_of_registration_path;
+        
+        if ($request->hasFile('cor')) {
+            // Delete old COR if exists
+            if ($corPath && Storage::disk('public')->exists($corPath)) {
+                Storage::disk('public')->delete($corPath);
+            }
+            
+            // Store new COR
+            $corPath = $request->file('cor')->store('student_cors', 'public');
+            
+            // Log to user_documents if table exists
+            if (Schema::hasTable('user_documents')) {
+                // Delete old COR documents
+                DB::table('user_documents')
+                    ->where('user_id', $user->id)
+                    ->where('doc_type', 'cor')
+                    ->delete();
+                
+                // Store new COR document
+                DB::table('user_documents')->insert([
+                    'user_id'      => $user->id,
+                    'doc_type'     => 'cor',
+                    'storage_path' => $corPath,
+                    'meta'         => json_encode([
+                        'uploaded_via' => 'academic_update',
+                        'uploaded_at'  => now()->toDateTimeString(),
+                        'original_filename' => $request->file('cor')->getClientOriginalName(),
+                    ]),
+                    'created_at'   => now(),
+                    'updated_at'   => now(),
+                ]);
+            }
+        }
 
-        // Default to 4 years if we can't infer better
+        // --- Compute expected graduation year ---
+        $expectedGradYear = null;
+        $numberForCalc = $data['student_number'] ?? ($current->student_number ?? null);
         $yearLevelRaw = $data['year_level'] ?? ($current->year_level ?? null);
-        $totalYears   = 4;
+        $totalYears = 4;
 
         if (is_numeric($yearLevelRaw)) {
             $level = (int) $yearLevelRaw;
-            // Trust reasonable levels only; clamp between 4 and 10
             if ($level >= 4 && $level <= 10) {
                 $totalYears = $level;
             }
@@ -220,46 +254,23 @@ class StudentController extends Controller
             }
         }
 
+        // Always set to 'under_review' when updating academic details with COR
+        // This ensures it appears in the admin revalidation queue
+        $newEligibility = 'under_review';
 
-        // Determine if program/major changed (forces revalidation)
-        $programChanged = isset($data['program_id']) && $current
-            && (int) $current->program_id !== (int) $data['program_id'];
-
-        $majorChanged = isset($data['major_id']) && $current
-            && (int) $current->major_id !== (int) $data['major_id'];
-
-        // Exceeded expected year?
-        $nowYear  = (int) now()->year;
-        $oldExpected = $current ? $current->expected_grad_year : null;
-        $baseExpected = $expectedGradYear ?? $oldExpected;
-        $exceeded = $baseExpected ? ($nowYear > $baseExpected) : false;
-
-        // Decide new eligibility_status
-        // - If exceeded OR program/major changed → under_review
-        // - Else → eligible
-        $oldEligibility = $current ? ($current->eligibility_status ?? 'eligible') : 'eligible';
-
-        if ($exceeded) {
-            $newEligibility = 'needs_revalidation';
-        } elseif ($programChanged || $majorChanged) {
-            $newEligibility = 'under_review';
-        } else {
-            $newEligibility = 'eligible';
-        }
-
-        // Build payload (fall back to current values when fields are omitted)
+        // Build payload
         $payload = [
             'user_id'            => $user->id,
             'student_number'     => $data['student_number'] ?? ($current->student_number ?? null),
             'college_id'         => $data['college_id'] ?? ($current->college_id ?? null),
             'program_id'         => $data['program_id'] ?? ($current->program_id ?? null),
             'major_id'           => $data['major_id'] ?? ($current->major_id ?? null),
-            'year_level'         => $data['year_level'] ?? ($current->year_level ?? null),
+            'year_level'         => $data['year_level'],
             'graduate_prior'     => $current->graduate_prior ?? null,
-            'expected_grad_year' => $baseExpected,
-            'eligibility_status' => $newEligibility,
-            // Keep revalidated_at as-is here; you probably have a separate flow to set it.
-            'revalidated_at'     => $current->revalidated_at ?? null,
+            'expected_grad_year' => $expectedGradYear ?? ($current->expected_grad_year ?? null),
+            'eligibility_status' => $newEligibility, // Always 'under_review' for admin review
+            'certificate_of_registration_path' => $corPath, // Update COR path
+            'revalidated_at'     => null, // Reset revalidation timestamp
         ];
 
         if ($current) {
@@ -270,22 +281,20 @@ class StudentController extends Controller
             $academic = StudentAcademic::create($payload);
         }
 
-        // 🔹 SYSTEM LOG: PROFILE UPDATE (Academic Info)
+        // Keep account limited until admin approves
+        $user->is_account_limited = true;
+        $user->save();
+
+        // System log
         $userName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
         \App\Models\SystemMonitoringAndLog::record(
             $user->role,
             $userName ?: $user->email,
             'Update',
-            "Updated academic information."
+            "Updated academic information and uploaded COR. Status set to 'under_review' for admin validation."
         );
 
-        // Messaging hint for UX
-        $msg = $newEligibility === 'needs_revalidation'
-            ? 'Academic information saved. Your eligibility requires revalidation.'
-            : ($newEligibility === 'under_review'
-                ? 'Academic information saved. Your eligibility is now under review.'
-                : 'Academic information saved.');
-
+        $msg = 'Your academic details and COR have been submitted for review. You will receive an email notification once the administrator has reviewed your submission.';
 
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
@@ -438,6 +447,13 @@ class StudentController extends Controller
 
         // Optional: log to user_documents with NEW column names
         if (Schema::hasTable('user_documents')) {
+            // Delete old COR documents for this user
+            DB::table('user_documents')
+                ->where('user_id', $user->id)
+                ->where('doc_type', 'cor')
+                ->delete();
+            
+            // Store new COR document with original filename
             DB::table('user_documents')->insert([
                 'user_id'      => $user->id,
                 'doc_type'     => 'cor',
@@ -445,6 +461,7 @@ class StudentController extends Controller
                 'meta'         => json_encode([
                     'uploaded_via' => 'profile_page',
                     'uploaded_at'  => $now->toDateTimeString(),
+                    'original_filename' => $request->file('cor')->getClientOriginalName(),
                 ]),
                 'created_at'   => $now,
                 'updated_at'   => $now,
@@ -515,8 +532,51 @@ class StudentController extends Controller
             abort(404, 'File not found.');
         }
 
+        // Try to get original filename from user_documents table
+        $originalFilename = null;
+        if (Schema::hasTable('user_documents')) {
+            $doc = DB::table('user_documents')
+                ->where('user_id', $user->id)
+                ->where('doc_type', 'cor')
+                ->where('storage_path', $path)
+                ->orderBy('created_at', 'desc')
+                ->first();
+            
+            if ($doc && !empty($doc->meta)) {
+                $meta = json_decode($doc->meta, true);
+                if (is_array($meta) && isset($meta['original_filename']) && !empty($meta['original_filename'])) {
+                    $originalFilename = $meta['original_filename'];
+                }
+            }
+        }
+
+        // Generate filename: use original if available, otherwise use student number
+        $fileExtension = pathinfo($path, PATHINFO_EXTENSION);
+        if ($originalFilename) {
+            // Use original filename but ensure correct extension matches the stored file
+            $originalExt = pathinfo($originalFilename, PATHINFO_EXTENSION);
+            if (strtolower($originalExt) === strtolower($fileExtension)) {
+                // Extension matches, use original filename as-is
+                $filename = $originalFilename;
+            } else {
+                // Extension doesn't match, use original name with correct extension
+                $filename = pathinfo($originalFilename, PATHINFO_FILENAME) . '.' . $fileExtension;
+            }
+        } else {
+            // Fallback to student number format
+            $studentNumber = $academic->student_number ?? 'COR';
+            $filename = 'COR_' . $studentNumber . '.' . $fileExtension;
+        }
+        
+        // Sanitize filename for safe use in headers
+        $filename = preg_replace('/[^a-zA-Z0-9._-]/', '_', $filename);
+
         return response()->file(
-            Storage::disk('public')->path($path)
+            Storage::disk('public')->path($path),
+            [
+                'Content-Disposition' => 'inline; filename="' . $filename . '"',
+                'Content-Type' => Storage::disk('public')->mimeType($path) ?: 'application/pdf',
+            ]
         );
     }
 
@@ -544,50 +604,47 @@ class StudentController extends Controller
         // 1) Load rubric categories in display order
         $categories = RubricCategory::orderBy('order_no')->get();
 
-        // 2) Get all reviews for this student's APPROVED submissions (from all assessors)
-        $reviews = SubmissionReview::query()
-            ->whereHas('submission', function ($q) use ($user) {
-                $q->where('user_id', $user->id)
-                    ->where('status', 'approved'); // only approved submissions count
-            })
-            ->with(['submission.category'])
+        // 2) Get compiled scores from assessors (OFFICIAL SOURCE OF TRUTH)
+        // This ensures points match exactly what assessors assigned and stored
+        // Each compiled score represents one assessor's total for one category
+        // We sum across all assessors to get the student's total per category
+        $compiledScores = AssessorCompiledScore::where('student_id', $user->id)
+            ->with('category')
             ->get();
 
-        // 3) Sum scores per category key
+        // 3) Check for admin final review decision (for reference)
+        // Note: Admin decisions don't change the compiled scores, but we track them
+        $finalReview = FinalReview::whereHas('assessorFinalReview', function($q) use ($user) {
+            $q->where('student_id', $user->id);
+        })->latest('reviewed_at')->first();
+
+        // 4) Sum scores per category key from compiled scores
+        // This aggregates all assessors' compiled scores for each category
         $scoresByCategoryKey = [];
-        $reviewsBySubmission = $reviews->groupBy('submission_id');
-
-        foreach ($reviewsBySubmission as $submissionReviews) {
-            $review = $submissionReviews->sortByDesc('reviewed_at')->first();
-
-            if (!isset($review->score) || $review->score === null) {
-                continue;
-            }
-
-            $submission = $review->submission;
-            if (!$submission) {
-                continue;
-            }
-
-            $category = $submission->category
-                ?: ($review->rubric_category_id
-                    ? RubricCategory::find($review->rubric_category_id)
-                    : null);
-
+        foreach ($compiledScores as $compiled) {
+            $category = $compiled->category;
             if (!$category) {
                 continue;
             }
-
+            
             $key = $category->key;
-
+            
             if (!isset($scoresByCategoryKey[$key])) {
                 $scoresByCategoryKey[$key] = 0.0;
             }
-
-            $scoresByCategoryKey[$key] += (float) $review->score;
+            
+            // Use the official compiled total_score (already validated and capped by assessor)
+            // This ensures accuracy and matches exactly what assessors see in their dashboard
+            $scoresByCategoryKey[$key] += (float) $compiled->total_score;
         }
 
-        // 4) Build perfData
+        // 5) If admin has rejected the student, optionally zero out scores
+        // (Uncomment the next 3 lines if you want to show 0 points when admin rejects)
+        // if ($finalReview && $finalReview->decision === 'not_qualified') {
+        //     $scoresByCategoryKey = [];
+        // }
+
+        // 6) Build perfData
         $roman          = [1 => 'I', 2 => 'II', 3 => 'III', 4 => 'IV', 5 => 'V', 6 => 'VI'];
         $perfCategories = [];
         $totalEarned    = 0.0;

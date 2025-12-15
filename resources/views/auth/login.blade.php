@@ -23,6 +23,61 @@
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
+    <script>
+        // Refresh CSRF token function
+        function refreshCsrfToken() {
+            return fetch('{{ route("login.show") }}', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newToken = doc.querySelector('meta[name="csrf-token"]')?.content;
+                if (newToken) {
+                    // Update meta tag
+                    const metaTag = document.querySelector('meta[name="csrf-token"]');
+                    if (metaTag) {
+                        metaTag.setAttribute('content', newToken);
+                    }
+                    // Update all CSRF token inputs
+                    document.querySelectorAll('input[name="_token"]').forEach(input => {
+                        input.value = newToken;
+                    });
+                    return newToken;
+                }
+                return null;
+            })
+            .catch(error => {
+                console.error('Failed to refresh CSRF token:', error);
+                return null;
+            });
+        }
+
+        // Handle 419 errors globally
+        document.addEventListener('DOMContentLoaded', function() {
+            // Intercept form submissions to refresh token if needed
+            document.querySelectorAll('form').forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    // Refresh token before submission if form has been on page for a while
+                    const formAge = Date.now() - (window.formLoadTime || Date.now());
+                    if (formAge > 60000) { // If form has been on page for more than 1 minute
+                        e.preventDefault();
+                        refreshCsrfToken().then(() => {
+                            form.submit();
+                        });
+                    }
+                });
+            });
+
+            // Store page load time
+            window.formLoadTime = Date.now();
+        });
+    </script>
+
     @yield('head')
 </head>
 
@@ -100,14 +155,10 @@
                                 </span>
 
                                 <input type="email" id="email_display"
-                                    class="form-control @error('email') is-invalid @enderror"
+                                    class="form-control"
                                     placeholder="e.g. juandelacruz001@usep.edu.ph"
                                     value="{{ old('email', $rememberedEmail ?? '') }}" required inputmode="email"
                                     autocomplete="off" spellcheck="false" pattern="^[a-zA-Z0-9._%+\-]+@usep\.edu\.ph$">
-
-                                @error('email')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
                             </div>
                         </div>
 
@@ -162,7 +213,7 @@
                         <div class="text-center mt-2">
                             <small class="text-light signup-link-text">
                                 Don't have an account?
-                                <a href="{{ route('register.show') }}">Sign Up</a>
+                                <a href="#" id="openSignupOverlay">Sign Up</a>
                             </small>
                         </div>
                     </form>
@@ -413,7 +464,7 @@
                 aria-hidden="true"
                 data-otp-followup="{{ $isOtpMessage && (session('show_otp_modal') || session()->has('otp_pending_user_id')) ? 'true' : 'false' }}">
                 <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content border-0">
+                    <div class="modal-content border-0 login-success-modal-content">
                         <div class="modal-header bg-success text-white border-0">
                             <h5 class="modal-title d-flex align-items-center gap-2" id="loginSuccessModalLabel">
                                 <i class="fas fa-check-circle"></i>
@@ -474,6 +525,129 @@
         </div>
     </div>
 
+    {{-- =============== SIGNUP OVERLAY (INLINE) =============== --}}
+    <div class="signup-overlay" id="signupOverlay" aria-hidden="true">
+        <div class="signup-modal">
+            <button type="button" class="signup-close" id="closeSignupOverlay" aria-label="Close">&times;</button>
+            <h4 class="signup-title mb-1">Sign up now</h4>
+            <p class="signup-login-link mb-3">
+                Already have account?
+                <a href="{{ route('login.show') }}">Login here</a>
+            </p>
+
+            <form method="POST" action="{{ route('register.store') }}" id="signupFormInline" novalidate>
+                @csrf
+
+                <div class="row g-3 mb-2">
+                    <div class="col-md-4">
+                        <label class="form-label" for="first_name_inline">First Name <span class="required">*</span></label>
+                        <input id="first_name_inline" type="text" name="first_name" class="form-control" required autocomplete="given-name">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="middle_name_inline">Middle Name</label>
+                        <input id="middle_name_inline" type="text" name="middle_name" class="form-control" autocomplete="additional-name">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="last_name_inline">Last Name <span class="required">*</span></label>
+                        <input id="last_name_inline" type="text" name="last_name" class="form-control" required autocomplete="family-name">
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label" for="email_address_inline">USeP Email <span class="required">*</span></label>
+                    <input id="email_address_inline" type="email" name="email_address" class="form-control" placeholder="example@usep.edu.ph" required autocomplete="email">
+                </div>
+
+                <div class="row g-3 mb-2">
+                    <div class="col-md-6">
+                        <label class="form-label" for="contact_inline">Contact Number <span class="required">*</span></label>
+                        <input id="contact_inline" type="text" name="contact" class="form-control" placeholder="09XXXXXXXXX" required autocomplete="tel">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="birth_date_inline">Birth Date</label>
+                        <input id="birth_date_inline" type="date" name="birth_date" class="form-control">
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-2">
+                    <div class="col-md-6">
+                        <label class="form-label" for="password_inline">Password <span class="required">*</span></label>
+                        <input id="password_inline" type="password" name="password" class="form-control" required autocomplete="new-password">
+                        <div id="signupPasswordFeedback" class="signup-password-feedback" aria-live="polite"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="password_confirmation_inline">Confirm Password <span class="required">*</span></label>
+                        <input id="password_confirmation_inline" type="password" name="password_confirmation" class="form-control" required autocomplete="new-password">
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                    <small class="form-text text-muted" style="font-size: 0.75rem;">
+                        Use 8 or more characters with a mix of letters, numbers, and symbols.
+                    </small>
+                </div>
+
+                <div class="mb-2 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="showPasswordInline">
+                    <label class="form-check-label" for="showPasswordInline">Show password</label>
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="privacy_agree" id="privacy_agree_inline" value="1" required>
+                        <label class="form-check-label" for="privacy_agree_inline" style="font-size:0.8rem;">
+                            By continuing, you agree to the University of Southeastern Philippines' Data Privacy Statement.
+                            Read it through this <a href="https://www.usep.edu.ph/usep-data-privacy-statement/" target="_blank">link</a>.
+                            <span class="required">*</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="text-end">
+                    <button type="submit" class="btn btn-signup-inline">Sign Up</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- Privacy Agreement Error Modal --}}
+    <div class="modal fade" id="privacyAgreementErrorModal" tabindex="-1" aria-labelledby="privacyAgreementErrorModalLabel" aria-hidden="true"
+        data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content login-error-modal-content border-0">
+                <div class="login-error-modal-body">
+                    <div class="login-error-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <h3 class="login-error-title">Privacy Agreement Required</h3>
+                    <p class="login-error-text">You must agree to the Data Privacy Statement to continue.</p>
+                    <button type="button" class="btn login-error-ok-btn" data-bs-dismiss="modal">
+                        Okay
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Success Modal for Signup --}}
+    <div id="signupSuccessModal" class="signup-success-modal-overlay" style="display: none;">
+        <div class="signup-success-modal-content">
+            <button type="button" class="signup-success-modal-close" id="signupSuccessModalClose">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="signup-success-modal-icon">
+                <i class="fas fa-bell"></i>
+            </div>
+            <h5 class="signup-success-modal-title">Your application is now<br>pending for approval!</h5>
+            <div class="signup-success-modal-body">
+                <p>Wait for approval from the admin. If your sign-up for SLEA<br>is approved, a message will be sent to your email.</p>
+            </div>
+            <button type="button" class="signup-success-modal-btn" id="signupSuccessModalOk">
+                Okay
+            </button>
+        </div>
+    </div>
+
     {{-- Scripts --}}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ asset('js/login.js') }}"></script>
@@ -507,16 +681,27 @@
                 @if ($errors->any() && !$errors->has('otp'))
                     var errorModalEl = document.getElementById('loginErrorModal');
                     if (errorModalEl) {
+                        var modal = new bootstrap.Modal(errorModalEl);
+                        
                         errorModalEl.addEventListener('shown.bs.modal', function () {
                             var backdrop = document.querySelector('.modal-backdrop');
                             if (backdrop) {
                                 backdrop.style.backdropFilter = 'blur(5px)';
                                 backdrop.style.webkitBackdropFilter = 'blur(5px)';
+                                backdrop.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
                                 backdrop.classList.add('login-error-backdrop');
                             }
                         });
 
-                        new bootstrap.Modal(errorModalEl).show();
+                        errorModalEl.addEventListener('hide.bs.modal', function () {
+                            var backdrop = document.querySelector('.modal-backdrop');
+                            if (backdrop) {
+                                backdrop.style.backdropFilter = '';
+                                backdrop.style.webkitBackdropFilter = '';
+                            }
+                        });
+
+                        modal.show();
                     }
                     return;
                 @endif
@@ -525,8 +710,20 @@
                 @if (session('status'))
                     var successModalEl = document.getElementById('loginSuccessModal');
                     if (successModalEl) {
-                        var successModal = new bootstrap.Modal(successModalEl);
+                        var successModal = new bootstrap.Modal(successModalEl, {
+                            backdrop: true
+                        });
                         var isOtpFollowup = successModalEl.getAttribute('data-otp-followup') === 'true';
+
+                        // Add blur to backdrop when modal is shown
+                        successModalEl.addEventListener('shown.bs.modal', function () {
+                            var backdrop = document.querySelector('.modal-backdrop');
+                            if (backdrop) {
+                                backdrop.style.backdropFilter = 'blur(10px)';
+                                backdrop.style.webkitBackdropFilter = 'blur(10px)';
+                                backdrop.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                            }
+                        });
 
                         if (isOtpFollowup) {
                             successModalEl.addEventListener('hidden.bs.modal', function () {
@@ -541,13 +738,272 @@
                     return;
                 @endif
 
-            // 6) OTP modal direct open
+            // 6) OTP modal direct open (skip for admin accounts)
             @if (session('show_otp_modal') || session()->has('otp_pending_user_id'))
-                new bootstrap.Modal(document.getElementById('otpModal')).show();
-                return;
+                @php
+                    $pendingUserId = session('otp_pending_user_id');
+                    $shouldShowOtp = true;
+                    if ($pendingUserId) {
+                        $pendingUser = \App\Models\User::find($pendingUserId);
+                        if ($pendingUser && $pendingUser->isAdmin()) {
+                            $shouldShowOtp = false;
+                            // Clear OTP session data for admin
+                            session()->forget(['otp_pending_user_id', 'otp_context', 'otp_remember_me', 'otp_display_email', 'show_otp_modal']);
+                        }
+                    }
+                @endphp
+                @if ($shouldShowOtp)
+                    new bootstrap.Modal(document.getElementById('otpModal')).show();
+                    return;
+                @endif
             @endif
 
 });
+    </script>
+
+    {{-- Signup overlay controls --}}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const overlay = document.getElementById('signupOverlay');
+            const openLink = document.getElementById('openSignupOverlay');
+            const closeBtn = document.getElementById('closeSignupOverlay');
+            const showPw = document.getElementById('showPasswordInline');
+            const pw = document.getElementById('password_inline');
+            const pwc = document.getElementById('password_confirmation_inline');
+            const pwFeedback = document.getElementById('signupPasswordFeedback');
+            const signupForm = document.getElementById('signupFormInline');
+
+            function openSignup(e) {
+                if (e) e.preventDefault();
+                if (!overlay) return;
+                overlay.classList.add('active');
+                overlay.setAttribute('aria-hidden', 'false');
+                document.body.classList.add('signup-overlay-open');
+                // Focus first field
+                const first = document.getElementById('first_name_inline');
+                if (first) { first.focus(); }
+            }
+
+            function closeSignup(e) {
+                if (e) e.preventDefault();
+                if (!overlay) return;
+                overlay.classList.remove('active');
+                overlay.setAttribute('aria-hidden', 'true');
+                document.body.classList.remove('signup-overlay-open');
+            }
+
+            openLink?.addEventListener('click', openSignup);
+            closeBtn?.addEventListener('click', closeSignup);
+            overlay?.addEventListener('click', function (evt) {
+                if (evt.target === overlay) {
+                    closeSignup();
+                }
+            });
+            document.addEventListener('keyup', function (evt) {
+                if (evt.key === 'Escape' && overlay?.classList.contains('active')) {
+                    closeSignup();
+                }
+            });
+
+            showPw?.addEventListener('change', function () {
+                const newType = this.checked ? 'text' : 'password';
+                if (pw) pw.type = newType;
+                if (pwc) pwc.type = newType;
+            });
+
+            // Password requirements validation (keep layout stable by reserving space for message)
+            function getPasswordError(password) {
+                if (!password) return null;
+                if (password.length < 8) return 'Password must be at least 8 characters.';
+                if (!/[A-Za-z]/.test(password)) return 'Password must include at least one letter.';
+                if (!/[0-9]/.test(password)) return 'Password must include at least one number.';
+                if (!/[^A-Za-z0-9]/.test(password)) return 'Password must include at least one symbol.';
+                return null;
+            }
+
+            function setPasswordValidity() {
+                if (!pw || !pwFeedback) return true;
+                const error = getPasswordError(pw.value);
+
+                if (error) {
+                    pw.classList.add('is-invalid');
+                    pwFeedback.textContent = error;
+                    pwFeedback.classList.add('show');
+                    return false;
+                }
+
+                pw.classList.remove('is-invalid');
+                pwFeedback.textContent = '';
+                pwFeedback.classList.remove('show');
+                return true;
+            }
+
+            pw?.addEventListener('input', setPasswordValidity);
+            pw?.addEventListener('blur', setPasswordValidity);
+
+            // Success modal handlers
+            const signupSuccessModal = document.getElementById('signupSuccessModal');
+            const signupSuccessModalOk = document.getElementById('signupSuccessModalOk');
+            const signupSuccessModalClose = document.getElementById('signupSuccessModalClose');
+
+            function showSignupSuccessModal() {
+                if (signupSuccessModal) {
+                    signupSuccessModal.style.display = 'flex';
+                    document.body.style.overflow = 'hidden';
+                    // Close signup overlay
+                    closeSignup();
+                }
+            }
+
+            function hideSignupSuccessModal() {
+                if (signupSuccessModal) {
+                    signupSuccessModal.style.display = 'none';
+                    document.body.style.overflow = '';
+                }
+            }
+
+            signupSuccessModalOk?.addEventListener('click', function() {
+                hideSignupSuccessModal();
+                window.location.reload();
+            });
+
+            signupSuccessModalClose?.addEventListener('click', function() {
+                hideSignupSuccessModal();
+                window.location.reload();
+            });
+
+            signupSuccessModal?.addEventListener('click', function(e) {
+                if (e.target === signupSuccessModal) {
+                    hideSignupSuccessModal();
+                    window.location.reload();
+                }
+            });
+
+            // Handle signup form submission with AJAX
+            signupForm?.addEventListener('submit', async function (e) {
+                e.preventDefault();
+
+                // Validate password
+                const ok = setPasswordValidity();
+                if (!ok) {
+                    pw?.focus();
+                    return;
+                }
+
+                // Check privacy agreement
+                const privacyCheckbox = document.getElementById('privacy_agree_inline');
+                if (!privacyCheckbox || !privacyCheckbox.checked) {
+                    if (privacyCheckbox) {
+                        privacyCheckbox.classList.add('is-invalid');
+                    }
+                    // Show custom modal instead of browser alert
+                    const privacyErrorModalEl = document.getElementById('privacyAgreementErrorModal');
+                    const privacyErrorModal = new bootstrap.Modal(privacyErrorModalEl, {
+                        backdrop: 'static'
+                    });
+                    
+                    // Ensure modal appears above signup overlay
+                    privacyErrorModalEl.style.zIndex = '2100';
+                    
+                    // Add blur to backdrop when modal is shown
+                    privacyErrorModalEl.addEventListener('shown.bs.modal', function () {
+                        // Find the backdrop (it should be the last one created)
+                        const backdrops = document.querySelectorAll('.modal-backdrop');
+                        const backdrop = backdrops[backdrops.length - 1];
+                        if (backdrop) {
+                            backdrop.style.zIndex = '2099';
+                            backdrop.style.backdropFilter = 'blur(5px)';
+                            backdrop.style.webkitBackdropFilter = 'blur(5px)';
+                            backdrop.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                            backdrop.classList.add('login-error-backdrop', 'privacy-agreement-backdrop');
+                        }
+                        // Ensure modal dialog is on top
+                        const modalDialog = privacyErrorModalEl.querySelector('.modal-dialog');
+                        if (modalDialog) {
+                            modalDialog.style.zIndex = '2101';
+                        }
+                    });
+
+                    privacyErrorModalEl.addEventListener('hidden.bs.modal', function () {
+                        const backdrops = document.querySelectorAll('.modal-backdrop');
+                        const backdrop = backdrops[backdrops.length - 1];
+                        if (backdrop) {
+                            backdrop.style.backdropFilter = '';
+                            backdrop.style.webkitBackdropFilter = '';
+                        }
+                        // Focus on privacy checkbox after modal closes
+                        if (privacyCheckbox) {
+                            privacyCheckbox.focus();
+                        }
+                    });
+
+                    privacyErrorModal.show();
+                    return;
+                }
+
+                const formData = new FormData(signupForm);
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+                const submitBtn = signupForm.querySelector('button[type="submit"]');
+
+                // Disable submit button
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Submitting...';
+                }
+
+                try {
+                    const response = await fetch(signupForm.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': csrfToken,
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    // Re-enable submit button
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Sign Up';
+                    }
+
+                    const contentType = response.headers.get('content-type');
+                    const isJson = contentType && contentType.includes('application/json');
+
+                    if (response.status === 422) {
+                        // Validation errors
+                        if (isJson) {
+                            const data = await response.json();
+                            if (data.errors) {
+                                // Show first error
+                                const firstError = Object.values(data.errors)[0][0];
+                                alert(firstError);
+                            }
+                        }
+                        return;
+                    }
+
+                    if (response.ok && isJson) {
+                        const data = await response.json();
+                        if (data.success || data.ok) {
+                            showSignupSuccessModal();
+                            return;
+                        }
+                    }
+
+                    if (response.ok) {
+                        showSignupSuccessModal();
+                        return;
+                    }
+
+                    alert('Registration failed. Please try again.');
+                } catch (error) {
+                    console.error('Registration error:', error);
+                    alert('An error occurred during registration. Please try again.');
+                }
+            });
+        });
     </script>
 
     {{-- Password show/hide --}}

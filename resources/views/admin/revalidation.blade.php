@@ -7,9 +7,8 @@
         @include('partials.sidebar')
 
         <main class="main-content">
-
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="mb-0">Student Revalidation Queue</h2>
+            <div class="page-header">
+                <h1>Student Revalidation Queue</h1>
             </div>
 
             {{-- Flash messages --}}
@@ -36,17 +35,17 @@
                     There are currently no students flagged for revalidation.
                 </div>
             @else
-                <div class="table-responsive mt-3">
-                    <table class="table table-bordered align-middle mb-0">
-                        <thead class="table-light">
+                <div class="submissions-table-container">
+                    <table class="table submissions-table">
+                        <thead>
                             <tr>
-                                <th style="width: 70px;">ID</th>
+                                <th>ID</th>
                                 <th>Name</th>
                                 <th>Email</th>
                                 <th>Expected Grad Year</th>
                                 <th>Eligibility Status</th>
                                 <th>Last Updated</th>
-                                <th style="width: 260px;">Actions</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -54,6 +53,8 @@
                                 @php
                                     // $row is StudentAcademic, with related User
                                     $user = $row->user;
+                                    // Refresh the academic record to ensure we have the latest COR
+                                    $row->refresh();
                                 @endphp
 
                                 <tr>
@@ -82,27 +83,29 @@
                                     <td>{{ \Carbon\Carbon::parse($row->updated_at)->format('M d, Y') }}</td>
 
                                     <td>
-                                        {{-- View COR button (only if student has uploaded one) --}}
-                                        @if (method_exists($row, 'hasCor') ? $row->hasCor() : !empty($row->certificate_of_registration_path))
-                                            <a href="{{ route('admin.revalidation.cor', $user->id) }}"
-                                                class="btn btn-outline-primary btn-sm me-1" target="_blank">
-                                                View COR
-                                            </a>
-                                        @else
-                                            <span class="badge bg-secondary me-1">No COR</span>
-                                        @endif
+                                        <div class="action-buttons-group">
+                                            {{-- View COR button (only if student has uploaded one) --}}
+                                            @if (method_exists($row, 'hasCor') ? $row->hasCor() : !empty($row->certificate_of_registration_path))
+                                                <a href="{{ route('admin.revalidation.cor', $user->id) }}"
+                                                    class="btn btn-outline-primary btn-sm" target="_blank" title="View Updated COR">
+                                                    <i class="fas fa-file-pdf"></i> View COR
+                                                </a>
+                                            @else
+                                                <span class="badge bg-secondary">No COR</span>
+                                            @endif
 
-                                        {{-- Approve button --}}
-                                        <button type="button" class="btn btn-success btn-sm me-1" data-bs-toggle="modal"
-                                            data-bs-target="#approveRevalModal{{ $user->id }}">
-                                            Approve
-                                        </button>
+                                            {{-- Approve button --}}
+                                            <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal"
+                                                data-bs-target="#approveRevalModal{{ $user->id }}" title="Approve Revalidation">
+                                                <i class="fas fa-check"></i> Approve
+                                            </button>
 
-                                        {{-- Reject button --}}
-                                        <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal"
-                                            data-bs-target="#rejectRevalModal{{ $user->id }}">
-                                            Reject
-                                        </button>
+                                            {{-- Reject button --}}
+                                            <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal"
+                                                data-bs-target="#rejectRevalModal{{ $user->id }}" title="Reject Revalidation">
+                                                <i class="fas fa-times"></i> Reject
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
 
@@ -198,3 +201,63 @@
         </main>
     </div>
 @endsection
+
+@push('styles')
+    <style>
+        /* Ensure table is expanded and content fits properly */
+        .submissions-table-container {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .submissions-table {
+            width: 100%;
+            min-width: 1000px; /* Ensure minimum width for content */
+        }
+
+        .submissions-table th,
+        .submissions-table td {
+            white-space: nowrap;
+            padding: 12px 15px;
+        }
+
+        /* Allow email and name to wrap if needed */
+        .submissions-table td:nth-child(2),
+        .submissions-table td:nth-child(3) {
+            white-space: normal;
+            min-width: 150px;
+            max-width: 250px;
+        }
+
+        /* Actions column - allow buttons to fit */
+        .submissions-table th:last-child,
+        .submissions-table td:last-child {
+            white-space: normal;
+            min-width: 280px;
+        }
+
+        .action-buttons-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        .action-buttons-group .btn {
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        /* Ensure COR button shows it's the updated version */
+        .action-buttons-group .btn-outline-primary {
+            border-color: #7b0000;
+            color: #7b0000;
+        }
+
+        .action-buttons-group .btn-outline-primary:hover {
+            background-color: #7b0000;
+            color: #fff;
+        }
+    </style>
+@endpush

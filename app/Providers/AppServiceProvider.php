@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
+use App\Models\College;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -39,11 +40,20 @@ class AppServiceProvider extends ServiceProvider
                 $sleaAwarded = ($sleaApplicationStatus === 'qualified');
             }
 
+            /** Get colleges with programs for sidebar (admin only) */
+            $collegesWithPrograms = [];
+            if ($role === 'admin') {
+                $collegesWithPrograms = College::with(['programs' => function($query) {
+                    $query->orderBy('name');
+                }])->orderBy('name')->get();
+            }
+
             /** Make available globally */
             $view->with([
                 'currentRole'           => $role,
                 'sleaApplicationStatus' => $sleaApplicationStatus,
                 'sleaAwarded'           => $sleaAwarded,
+                'sidebarColleges'       => $collegesWithPrograms,
             ]);
         });
 

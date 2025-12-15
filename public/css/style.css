@@ -35,6 +35,7 @@
 .sidebar ul li.has-submenu {
     position: relative;
     z-index: 9999;
+    overflow: visible;
 }
 
 .sidebar ul li .submenu {
@@ -59,6 +60,15 @@
 }
 
 .sidebar ul li.has-submenu:hover > .submenu {
+    display: block;
+}
+
+/* Nested submenu support */
+.sidebar ul li .submenu li.has-submenu {
+    position: relative;
+}
+
+.sidebar ul li .submenu li.has-submenu:hover > .submenu {
     display: block;
 }
 /* Fix dropdown link text color and remove underline */
@@ -213,9 +223,9 @@
       position:fixed;
       top:65px;
       left:0;
+      bottom:0;
       width:260px;
-      min-height:calc(100vh - 80px);
-      height: 100%;
+      height:calc(100vh - 65px);
       background:#7b0000;
       color:#fff;
       display:flex;
@@ -224,7 +234,6 @@
       transition: none;
       z-index: 1000;
       overflow: visible;
-
     }
 
     body.dark-mode .sidebar {
@@ -251,13 +260,14 @@
       width:8px; height:8px;
     }
 
-    .sidebar ul { list-style:none; padding:0; margin-top:5px; padding-bottom: 10px; }
+    .sidebar ul { list-style:none; padding:0; margin-top:5px; padding-bottom: 10px; overflow: visible; }
     .sidebar ul li {
       display:flex; align-items:center; gap:10px;
-      padding:12px; border-radius:6px; cursor:pointer;
+      padding:8px 12px; border-radius:6px; cursor:pointer;
       transition: none;
       font-size: 16px;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
+      overflow: visible;
     }
 /* Sidebar default state */
 .sidebar ul li {
@@ -278,6 +288,22 @@
     background: none; /* no background on hover */
     color: #F9BD3D;   /* text turns gold */
     cursor: pointer;
+}
+
+/* Ensure sidebar links and text are fully visible */
+.sidebar ul li a {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    flex: 1;
+}
+
+.sidebar ul li a span {
+    flex: 1;
+    min-width: 0;
+    white-space: normal;
+    overflow: visible;
 }
 
     .sidebar .dark-toggle {
@@ -1323,9 +1349,9 @@ body.dark-mode .submission-table tbody tr:hover td {
 
 /* Enhanced Export Button */
 .btn-export-enhanced {
-  background: linear-gradient(135deg, #7b0000 0%, #9a0000 100%);
+  background: #7b0000;
   color: #fff;
-  border: none;
+  border: 1px solid #7b0000;
   padding: 12px 24px;
   border-radius: 8px;
   font-size: 14px;
@@ -1336,37 +1362,21 @@ body.dark-mode .submission-table tbody tr:hover td {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 4px 12px rgba(123, 0, 0, 0.3);
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-export-enhanced::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s;
+  box-shadow: 0 2px 4px rgba(123, 0, 0, 0.2);
 }
 
 .btn-export-enhanced:hover {
-  background: linear-gradient(135deg, #9a0000 0%, #b30000 100%);
+  background: #5c0000;
+  border-color: #5c0000;
   color: #fff;
   text-decoration: none;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(123, 0, 0, 0.4);
-}
-
-.btn-export-enhanced:hover::before {
-  left: 100%;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(123, 0, 0, 0.3);
 }
 
 .btn-export-enhanced:active {
   transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(123, 0, 0, 0.3);
+  box-shadow: 0 2px 4px rgba(123, 0, 0, 0.2);
 }
 
 /* Icon-only View Button */
@@ -7534,4 +7544,207 @@ body.dark-mode .status-pending {
   width: 95vw !important;       /* take almost full screen */
   max-width: 1400px !important; /* cap on large monitors */
   margin: 1.5rem auto !important;
+}
+
+/* ====== SESSION TIMEOUT MODAL STYLES ====== */
+.session-timeout-modal {
+  backdrop-filter: blur(5px) !important;
+  -webkit-backdrop-filter: blur(5px) !important;
+  background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+.session-timeout-dialog {
+  max-width: 500px;
+  width: 90%;
+  margin: 0 auto;
+}
+
+.session-timeout-content {
+  border-radius: 0 !important;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: none !important;
+  height: auto !important;
+}
+
+.session-timeout-header {
+  flex-shrink: 0;
+  padding: 20px 25px;
+  border-bottom: 1px solid #dee2e6;
+  border-radius: 0 !important;
+}
+
+.session-timeout-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-timeout-body {
+  flex: 1 1 auto;
+  padding: 25px;
+  overflow: visible !important;
+  max-height: none !important;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.session-timeout-message {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #333;
+  text-align: center;
+}
+
+.session-timeout-progress {
+  height: 8px;
+  border-radius: 0;
+  background-color: #e9ecef;
+  overflow: hidden;
+  margin: 10px 0;
+}
+
+.session-timeout-progress .progress-bar {
+  border-radius: 0;
+  transition: width 0.3s ease;
+}
+
+.session-timeout-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #6c757d;
+  text-align: center;
+}
+
+.session-timeout-footer {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 25px;
+  border-top: 1px solid #dee2e6;
+  border-radius: 0 !important;
+  background: #f8f9fa;
+}
+
+.session-timeout-btn {
+  min-width: 140px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all 0.2s ease;
+}
+
+.session-timeout-btn i {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.session-timeout-btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-timeout-btn.btn-secondary {
+  background-color: #6c757d;
+  border-color: #6c757d;
+  color: #fff;
+}
+
+.session-timeout-btn.btn-secondary:hover {
+  background-color: #5a6268;
+  border-color: #545b62;
+  color: #fff;
+}
+
+.session-timeout-btn.btn-success {
+  background-color: #28a745;
+  border-color: #28a745;
+  color: #fff;
+}
+
+.session-timeout-btn.btn-success:hover {
+  background-color: #218838;
+  border-color: #1e7e34;
+  color: #fff;
+}
+
+/* Dark mode support */
+body.dark-mode .session-timeout-content {
+  background-color: #3a3a3a;
+  color: #f0f0f0;
+}
+
+body.dark-mode .session-timeout-header {
+  background: #ffc107 !important;
+  color: #000 !important;
+  border-color: #ffc107;
+}
+
+body.dark-mode .session-timeout-body {
+  background-color: #3a3a3a;
+  color: #f0f0f0;
+}
+
+body.dark-mode .session-timeout-message {
+  color: #f0f0f0;
+}
+
+body.dark-mode .session-timeout-hint {
+  color: #adb5bd;
+}
+
+body.dark-mode .session-timeout-footer {
+  background: #2a2a2a;
+  border-color: #555;
+}
+
+body.dark-mode .session-timeout-progress {
+  background-color: #555;
+}
+
+/* Ensure no scrollbar */
+.session-timeout-content,
+.session-timeout-body,
+.session-timeout-footer {
+  overflow: visible !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+  .session-timeout-dialog {
+    width: 95%;
+    margin: 0 auto;
+  }
+
+  .session-timeout-btn {
+    min-width: 120px;
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+
+  .session-timeout-message {
+    font-size: 15px;
+  }
+
+  .session-timeout-hint {
+    font-size: 12px;
+  }
 }

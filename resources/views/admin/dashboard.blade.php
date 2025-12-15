@@ -39,7 +39,7 @@
         }
 
         .dash-grid.top {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
         .dash-grid.mid {
@@ -51,10 +51,6 @@
         }
 
         @media (max-width: 1200px) {
-            .dash-grid.top {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-
             .dash-grid.charts {
                 grid-template-columns: 1fr;
             }
@@ -220,16 +216,6 @@
                                 <div class="value">{{ $roleCounts['assessor'] }}</div>
                             </div>
                             <div class="icon"><i class="fas fa-user-tie"></i></div>
-                        </div>
-                    </div>
-
-                    <div class="dash-card">
-                        <div class="pad dash-kpi">
-                            <div>
-                                <div class="label">Approved Admins</div>
-                                <div class="value">{{ $roleCounts['admin'] }}</div>
-                            </div>
-                            <div class="icon"><i class="fas fa-shield-halved"></i></div>
                         </div>
                     </div>
                 </div>

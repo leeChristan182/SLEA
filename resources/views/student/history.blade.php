@@ -105,11 +105,12 @@
 
                                     {{-- View file --}}
                                     <td>
-                                        <button class="history-btn view-btn"
-                                            data-file="{{ route('student.submissions.preview', $submission->id) }}"
-                                            title="View Submission">
+                                        <a href="{{ route('student.submissions.preview', $submission->id) }}"
+                                            target="_blank"
+                                            class="history-btn view-btn"
+                                            title="View Submission in New Tab">
                                             <i class="fas fa-eye"></i>
-                                        </button>
+                                        </a>
                                     </td>
                                 </tr>
                             @empty
@@ -174,15 +175,6 @@
                     </div>
                 @endif
 
-                {{-- Slide-in file viewer (just the file) --}}
-                <div id="pdfViewerContainer" class="pdf-viewer-container hidden">
-                    <iframe id="pdfViewer" src="" frameborder="0"></iframe>
-                </div>
-
-                {{-- Floating Close Button --}}
-                <button id="closeViewer" class="close-viewer-btn hidden" title="Close Preview">
-                    <i class="fas fa-times"></i>
-                </button>
             </main>
         </div>
     </div>
@@ -336,7 +328,7 @@
             font-weight: 500;
         }
 
-        /* View button - Icon only, maroon */
+        /* View button - Icon only, maroon - now a link */
         .history-btn {
             background: #8B0000;
             color: #fff;
@@ -353,6 +345,7 @@
             justify-content: center;
             min-width: 36px;
             height: 36px;
+            text-decoration: none;
         }
 
         .history-btn:hover {
@@ -382,81 +375,6 @@
             color: #f1f1f1;
         }
 
-        /* Viewer panel */
-        .pdf-viewer-container {
-            position: fixed;
-            top: 80px;
-            right: 0;
-            width: 50%;
-            height: calc(100vh - 80px);
-            background: #fff;
-            box-shadow: -3px 0 10px rgba(0, 0, 0, 0.25);
-            z-index: 1100;
-            display: flex;
-            flex-direction: column;
-            border-left: 2px solid #ddd;
-            transition: transform 0.3s ease-in-out;
-            transform: translateX(100%);
-        }
-
-        .pdf-viewer-container.active {
-            transform: translateX(0);
-        }
-
-        .pdf-viewer-container iframe {
-            flex: 1;
-            width: 100%;
-            height: 100%;
-        }
-
-        body.dark-mode .pdf-viewer-container {
-            background: #2d2d2d;
-            border-left: 2px solid #555;
-        }
-
-        body.dark-mode .pdf-viewer-container iframe {
-            background: #2d2d2d;
-        }
-
-        /* Close button */
-        .close-viewer-btn {
-            position: fixed;
-            top: 90px;
-            right: 52%;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: #c0392b;
-            color: #fff;
-            border: none;
-            font-size: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-            z-index: 1200;
-            transition: opacity 0.2s, transform 0.3s ease;
-        }
-
-        .close-viewer-btn.hidden {
-            opacity: 0;
-            pointer-events: none;
-            transform: scale(0.8);
-        }
-
-        .close-viewer-btn:hover {
-            background: #a93226;
-        }
-
-        body.dark-mode .close-viewer-btn {
-            background: #dc2626;
-            color: #fff;
-        }
-
-        body.dark-mode .close-viewer-btn:hover {
-            background: #b91c1c;
-        }
 
         /* Pagination Styles */
         .pagination-wrapper {
@@ -562,29 +480,8 @@
     {{-- =============== JS =============== --}}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const viewerContainer = document.getElementById('pdfViewerContainer');
-            const viewerFrame = document.getElementById('pdfViewer');
-            const closeBtn = document.getElementById('closeViewer');
-
-            // Open file viewer
-            document.querySelectorAll('.view-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const fileUrl = btn.getAttribute('data-file');
-
-                    viewerFrame.src = fileUrl;
-                    viewerContainer.classList.add('active');
-                    closeBtn.classList.remove('hidden');
-                    document.body.classList.add('collapsed'); // auto-collapse sidebar if you use that class
-                });
-            });
-
-            // Close viewer
-            closeBtn.addEventListener('click', () => {
-                viewerContainer.classList.remove('active');
-                closeBtn.classList.add('hidden');
-                viewerFrame.src = '';
-                document.body.classList.remove('collapsed');
-            });
+            // View button now opens in new tab via target="_blank"
+            // No additional JavaScript needed - the link handles it
         });
     </script>
 

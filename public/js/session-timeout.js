@@ -139,37 +139,48 @@ resetTimers() {
 
         const modal = document.createElement('div');
         modal.id = 'session-warning-modal';
-        modal.className = 'modal fade show';
-        modal.style.display = 'block';
+        modal.className = 'modal fade show session-timeout-modal';
+        modal.style.display = 'flex';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
         modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+        modal.style.backdropFilter = 'blur(5px)';
+        modal.style.webkitBackdropFilter = 'blur(5px)';
         modal.style.zIndex = '1055';
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100%';
+        modal.style.height = '100%';
 
         modal.innerHTML = `
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header bg-warning text-dark">
-                        <h5 class="modal-title mb-0">
+            <div class="modal-dialog modal-dialog-centered session-timeout-dialog">
+                <div class="modal-content session-timeout-content">
+                    <div class="modal-header bg-warning text-dark session-timeout-header">
+                        <h5 class="modal-title mb-0 session-timeout-title">
                             <i class="fas fa-exclamation-triangle me-2"></i>
                             Session Timeout Warning
                         </h5>
                     </div>
-                    <div class="modal-body">
-                        <p>${message}</p>
-                        <div class="progress mb-3">
+                    <div class="modal-body session-timeout-body">
+                        <p class="session-timeout-message">${message}</p>
+                        <div class="progress session-timeout-progress">
                             <div class="progress-bar bg-warning" role="progressbar"
                                  style="width:0%" id="timeout-progress"></div>
                         </div>
-                        <p class="text-muted small mb-0">
-                            Click <strong>"Stay Logged In"</strong> to continue your session,
+                        <p class="text-muted small session-timeout-hint">
+                            Click <strong>"Stay"</strong> to continue your session,
                             or you will be automatically logged out.
                         </p>
                     </div>
-                    <div class="modal-footer d-flex flex-column flex-sm-row gap-2">
-                        <button type="button" class="btn btn-secondary" id="logout-now">
-                            <i class="fas fa-sign-out-alt me-1"></i> Logout Now
+                    <div class="modal-footer session-timeout-footer">
+                        <button type="button" class="btn btn-secondary session-timeout-btn" id="logout-now">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span>Log Out</span>
                         </button>
-                        <button type="button" class="btn btn-primary" id="stay-logged-in">
-                            <i class="fas fa-clock me-1"></i> Stay Logged In
+                        <button type="button" class="btn btn-success session-timeout-btn" id="stay-logged-in">
+                            <i class="fas fa-clock"></i>
+                            <span>Stay</span>
                         </button>
                     </div>
                 </div>
