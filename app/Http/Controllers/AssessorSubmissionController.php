@@ -124,6 +124,12 @@ class AssessorSubmissionController extends Controller
                 'organizing_body'      => $submission->meta['organizing_body'] ?? null,
                 'description'          => $submission->description ?? null,
                 'auto_generated_score' => $submission->auto_score ?? null,
+                'application_status'   => $submission->application_status ?? null,
+                'application_status_label' => match ($submission->application_status ?? null) {
+                    'for_final_application' => 'For Final Application',
+                    'for_tracking'          => 'For Tracking',
+                    default                 => null,
+                },
 
                 'documents'            => $documents,
 
@@ -375,6 +381,9 @@ class AssessorSubmissionController extends Controller
             abort(403);
         }
 
+        if (!isset($attachments[$index])) {
+            abort(404);
+        }
 
         $file = $attachments[$index];
         if (empty($file['path']) || !Storage::disk('student_docs')->exists($file['path'])) {
@@ -384,8 +393,18 @@ class AssessorSubmissionController extends Controller
         $path = Storage::disk('student_docs')->path($file['path']);
         $mime = $file['mime'] ?? null;
 
+        // Preserve the original filename for browser preview (tab title / PDF header)
+        $downloadName = $file['original'] ?? basename($file['path']);
+        $downloadName = (string) $downloadName;
+        $downloadName = preg_replace('/[^a-zA-Z0-9._ -]/', '_', $downloadName);
+        $downloadName = trim($downloadName);
+        if ($downloadName === '') {
+            $downloadName = basename($file['path']);
+        }
+
         return response()->file($path, [
-            'Content-Type' => $mime ?: null,
+            'Content-Type'        => $mime ?: null,
+            'Content-Disposition' => 'inline; filename="' . $downloadName . '"',
         ]);
     }
 

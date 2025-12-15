@@ -14,6 +14,11 @@ class CollegeController extends Controller
     {
         $query = College::query();
 
+        // Filter by college if selected
+        if ($collegeFilter = $request->input('college_filter')) {
+            $query->where('id', $collegeFilter);
+        }
+
         if ($search = $request->input('q')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', '%' . $search . '%')

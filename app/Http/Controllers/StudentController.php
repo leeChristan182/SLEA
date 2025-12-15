@@ -682,14 +682,41 @@ class StudentController extends Controller
             'categories' => $perfCategories,
         ];
 
-        // Always read latest status from DB
-        $status = \App\Models\StudentAcademic::where('user_id', $user->id)
-            ->value('slea_application_status');
+        // 7) Submission-based flags (for better student messaging)
+        $hasSubmissionsTable = \Illuminate\Support\Facades\Schema::hasTable('submissions');
+        $hasApplicationStatusColumn = $hasSubmissionsTable
+            && \Illuminate\Support\Facades\Schema::hasColumn('submissions', 'application_status');
 
-        // Fallback to relationship value just in case
-        if ($status === null && $academic->slea_application_status !== null) {
-            $status = $academic->slea_application_status;
+        $submissionCount = 0;
+        $finalApplicationCount = 0;
+        if ($hasSubmissionsTable) {
+            $submissionCount = \App\Models\Submission::where('user_id', $user->id)->count();
+
+            if ($hasApplicationStatusColumn) {
+                $finalApplicationCount = \App\Models\Submission::where('user_id', $user->id)
+                    ->where('application_status', 'for_final_application')
+                    ->count();
+            }
         }
+
+        $targetPoints = (float) ($perfData['totals']['max'] ?? 0);
+        $earnedPoints = (float) ($perfData['totals']['earned'] ?? 0);
+        $hasReachedTargetPoints = $targetPoints > 0 ? ($earnedPoints + 1e-9 >= $targetPoints) : false;
+
+        // Always read latest status from DB, but if there is a final decision, sync it first
+        if ($finalReview) {
+            $expectedStatus = $finalReview->decision === 'approved'
+                ? 'qualified'
+                : 'not_qualified';
+
+            if ($academic->slea_application_status !== $expectedStatus) {
+                $academic->slea_application_status = $expectedStatus;
+                $academic->save();
+            }
+        }
+
+        $status = \App\Models\StudentAcademic::where('user_id', $user->id)
+            ->value('slea_application_status') ?? $academic->slea_application_status;
 
         Log::info('Student performance page loaded', [
             'user_id'                   => $user->id,
@@ -708,6 +735,10 @@ class StudentController extends Controller
             'ready_for_rating'        => (bool) $academic->ready_for_rating,
             'currentRole'             => $currentRole,
             'sleaAwarded'             => $sleaAwarded,
+            'submissionCount'         => $submissionCount,
+            'finalApplicationCount'   => $finalApplicationCount,
+            'targetPoints'            => $targetPoints,
+            'hasReachedTargetPoints'  => $hasReachedTargetPoints,
         ]);
     }
 

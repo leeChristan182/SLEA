@@ -24,26 +24,50 @@
             <!-- Filter Section -->
             <div class="filter-section mb-4">
                 <form method="GET" action="{{ route('admin.colleges.index') }}" id="filterForm">
-                    <div class="filter-row d-flex justify-content-between align-items-end flex-wrap gap-2">
-                        <div class="d-flex align-items-end gap-2 flex-wrap">
-                            <div class="filter-item">
-                                <label for="q">Search</label>
-                                <div class="search-input-group">
-                                    <input type="text" name="q" id="q" class="filter-input search-input-with-btn"
-                                        placeholder="Search by name or code..." value="{{ request('q') }}">
-                                    <button type="submit" class="btn-search-maroon search-btn-attached">
-                                        <i class="fas fa-search"></i>
-                                    </button>
-                                </div>
+                    <div class="filter-row d-flex align-items-end flex-wrap gap-2">
+                        <div class="filter-item">
+                            <label for="college_filter">College</label>
+                            <select name="college_filter" id="college_filter" class="filter-select" onchange="document.getElementById('filterForm').submit()">
+                                <option value="">All Colleges</option>
+                                @foreach ($allColleges as $college)
+                                    <option value="{{ $college->id }}" {{ request('college_filter') == $college->id ? 'selected' : '' }}>
+                                        {{ $college->code ? $college->code . ' - ' : '' }}{{ $college->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="filter-item">
+                            <label for="q">Search</label>
+                            <div class="search-input-group">
+                                <input type="text" name="q" id="q" class="filter-input search-input-with-btn"
+                                    placeholder="Search by name..." value="{{ request('q') }}">
+                                <button type="submit" class="btn-search-maroon search-btn-attached">
+                                    <i class="fas fa-search"></i>
+                                </button>
                             </div>
                         </div>
 
                         <div class="filter-actions d-flex align-items-center gap-2">
-                            <button type="button" class="btn-export-enhanced" onclick="openCollegeModal()">
-                                <i class="fas fa-plus"></i> Add College
+                            <button type="button"
+                                class="btn-export-enhanced btn-icon-only"
+                                onclick="openCollegeModal()"
+                                title="Add College"
+                                aria-label="Add College">
+                                <span class="btn-icon-stack" aria-hidden="true">
+                                    <i class="fas fa-plus"></i>
+                                    <i class="fas fa-school"></i>
+                                </span>
                             </button>
-                            <button type="button" class="btn-export-enhanced" onclick="openProgramModal()">
-                                <i class="fas fa-plus"></i> Add Program
+                            <button type="button"
+                                class="btn-export-enhanced btn-icon-only"
+                                onclick="openProgramModal()"
+                                title="Add Program"
+                                aria-label="Add Program">
+                                <span class="btn-icon-stack" aria-hidden="true">
+                                    <i class="fas fa-plus"></i>
+                                    <i class="fas fa-book"></i>
+                                </span>
                             </button>
                             <a href="{{ route('admin.colleges.index') }}" class="btn btn-secondary">
                                 <i class="fas fa-times"></i> Clear
@@ -823,6 +847,122 @@
         .filter-section {
             flex-shrink: 0;
             margin-bottom: 1rem;
+        }
+
+        /* Search input + icon button should stay on the same row */
+        .search-input-group {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            width: 260px;
+            max-width: 100%;
+        }
+
+        .search-input-group .search-input-with-btn {
+            flex: 1 1 auto;
+            min-width: 0;
+            width: auto !important; /* override global fixed width on .filter-input */
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+            height: 38px; /* match search button height */
+            padding: 0.5rem 0.75rem; /* align text vertically */
+        }
+
+        .search-input-group .search-btn-attached {
+            flex: 0 0 38px;
+            width: 38px;
+            min-width: 38px;
+            height: 38px;
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+
+        /* Add buttons styling - match organizations management */
+        .filter-section .btn-export-enhanced {
+            background: #7E0308 !important;
+            color: #fff !important;
+            border: 1px solid #7E0308 !important;
+            padding: 10px 20px !important;
+            border-radius: 6px !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            text-decoration: none !important;
+            transition: all 0.3s ease !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 6px !important;
+            height: 38px !important;
+            box-shadow: none !important;
+            width: auto !important;
+            min-width: auto !important;
+            position: relative !important;
+            overflow: visible !important;
+            white-space: nowrap !important;
+            line-height: 1.2 !important;
+        }
+
+        .filter-section .btn-export-enhanced i {
+            font-size: 13px !important;
+            line-height: 1 !important;
+        }
+
+        .filter-section .btn-export-enhanced::before {
+            display: none !important;
+        }
+
+        .filter-section .btn-export-enhanced:hover {
+            background-color: #5a0206 !important;
+            border-color: #5a0206 !important;
+            color: #fff !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 8px rgba(126, 3, 8, 0.3) !important;
+            text-decoration: none !important;
+        }
+
+        .filter-section .btn-export-enhanced:active {
+            transform: translateY(0) !important;
+            box-shadow: 0 2px 4px rgba(126, 3, 8, 0.2) !important;
+        }
+
+        /* Icon-only Add buttons - compact design */
+        .btn-export-enhanced.btn-icon-only {
+            width: 48px !important; /* give icon stack a bit more room */
+            height: 38px !important;
+            padding: 0 !important;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 48px !important;
+            gap: 0 !important;
+            overflow: visible !important; /* prevent icon clipping */
+        }
+
+        .btn-export-enhanced.btn-icon-only .btn-icon-stack {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            line-height: 1;
+            padding: 1px 2px; /* micro padding to avoid glyph clipping */
+        }
+
+        .btn-export-enhanced.btn-icon-only .btn-icon-stack i:first-child {
+            font-size: 10px; /* slightly smaller to avoid clipping */
+            line-height: 1;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .btn-export-enhanced.btn-icon-only .btn-icon-stack i:last-child {
+            font-size: 12px; /* slightly smaller to avoid clipping */
+            line-height: 1;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        /* Extra safety: prevent FA glyph bounds from being clipped */
+        .btn-export-enhanced.btn-icon-only .btn-icon-stack i {
+            transform: translateY(0.5px);
         }
 
         /* Center and constrain table container (no flex sizing to avoid inner scroll) */

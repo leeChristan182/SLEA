@@ -122,6 +122,18 @@ class FinalReviewController extends Controller
      */
     public function storeDecision(Request $request, AssessorFinalReview $assessorFinalReview)
     {
+        // Lock decisions once already made (admin cannot change it afterwards)
+        $assessorFinalReview->loadMissing('finalReview');
+        if (
+            $assessorFinalReview->finalReview &&
+            !empty($assessorFinalReview->finalReview->decision)
+        ) {
+            return back()->with('error', 'This final review already has a decision and can no longer be changed.');
+        }
+        if (in_array($assessorFinalReview->status, ['finalized'], true)) {
+            return back()->with('error', 'This final review is already finalized and can no longer be changed.');
+        }
+
         $data = $request->validate([
             'decision' => ['required', 'in:approved,not_qualified'],
         ]);
@@ -188,18 +200,12 @@ class FinalReviewController extends Controller
                     // Reload student to get fresh relationship
                     $student->load('studentAcademic');
 
-                    // Check if student has any accepted submissions with 'for_final_application'
-                    $hasFinalApplication = \App\Models\Submission::where('user_id', $student->id)
-                        ->where('application_status', 'for_final_application')
-                        ->where('status', 'accepted') // aligned with new enum
-                        ->exists();
-
                     // Get or create student academic record
                     $studentAcademic = $student->studentAcademic;
 
                     if (!$studentAcademic) {
                         // If no record yet, set directly to final status based on decision
-                        $status = ($data['decision'] === 'approved' && $hasFinalApplication)
+                        $status = ($data['decision'] === 'approved')
                             ? 'qualified'
                             : 'not_qualified';
 
@@ -210,11 +216,9 @@ class FinalReviewController extends Controller
                     } else {
                         // We are at ADMIN FINAL REVIEW stage.
 
-                        // If admin APPROVES *and* it's truly a final application → qualified
-                        if ($data['decision'] === 'approved' && $hasFinalApplication) {
+                        // Admin decision is the source of truth at this stage
+                        if ($data['decision'] === 'approved') {
                             $studentAcademic->slea_application_status = 'qualified';
-                        } elseif ($data['decision'] === 'approved') {
-                            // Approved but not final application: keep whatever status it currently has.
                         } else {
                             // Admin marks NOT QUALIFIED
                             $studentAcademic->slea_application_status = 'not_qualified';
@@ -227,10 +231,9 @@ class FinalReviewController extends Controller
                     }
 
                     \Log::info('Updated student academic status', [
-                        'student_id'            => $student->id,
-                        'status'                => $studentAcademic->slea_application_status,
-                        'decision'              => $data['decision'],
-                        'has_final_application' => $hasFinalApplication,
+                        'student_id' => $student->id,
+                        'status'     => $studentAcademic->slea_application_status,
+                        'decision'   => $data['decision'],
                     ]);
                 }
             });

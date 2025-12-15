@@ -28,7 +28,8 @@
                         <div class="d-flex align-items-end gap-2 flex-wrap">
                             <div class="filter-item">
                                 <label for="college_filter">College</label>
-                                <select name="college_filter" id="college_filter" class="filter-select">
+                                <select name="college_filter" id="college_filter" class="filter-select"
+                                    onchange="document.getElementById('filterForm').submit()">
                                     <option value="">All Colleges</option>
                                     @foreach ($colleges as $college)
                                         <option value="{{ $college->id }}" {{ request('college_filter') == $college->id ? 'selected' : '' }}>

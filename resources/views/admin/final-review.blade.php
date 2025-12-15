@@ -9,12 +9,15 @@
 
         <main class="main-content">
             <div class="page-header">
-                <h1>Graduating Student Leaders - Admin Final Review</h1>
+                <h1>Final Review</h1>
             </div>
 
             {{-- Flash messages --}}
             @if (session('status'))
-                <div class="alert alert-success">{{ session('status') }}</div>
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    {{ session('status') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
             @endif
 
             @if (session('error'))
@@ -261,7 +264,7 @@
     {{-- Admin View Summary Modal --}}
     <div class="modal fade admin-final-modal" {{-- <==extra class to scope overrides --}} id="adminViewSummaryModal"
         tabindex="-1" aria-labelledby="adminViewSummaryModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-dialog modal-dialog-centered modal-lg admin-final-dialog">
             <div class="modal-content final-modal">
                 <div class="modal-header">
                     <h5 class="modal-title" id="adminViewSummaryModalLabel">
@@ -337,11 +340,11 @@
 
                 <div class="modal-footer">
                     <div class="decision-buttons-group">
-                        <button type="button" class="btn btn-success admin-decision-btn" id="adminApproveBtn">
-                            <i class="fas fa-check-circle"></i> Qualified
+                        <button type="button" class="btn btn-success admin-decision-btn" id="adminApproveBtn" title="Qualified" aria-label="Qualified">
+                            <i class="fas fa-check-circle"></i>
                         </button>
-                        <button type="button" class="btn btn-danger admin-decision-btn" id="adminNotQualifiedBtn">
-                            <i class="fas fa-times-circle"></i> Not Qualified
+                        <button type="button" class="btn btn-danger admin-decision-btn" id="adminNotQualifiedBtn" title="Not Qualified" aria-label="Not Qualified">
+                            <i class="fas fa-times-circle"></i>
                         </button>
                     </div>
                 </div>
@@ -445,6 +448,7 @@
                     const breakdownRaw = button.getAttribute('data-breakdown') || '[]';
 
                     modalEl.dataset.afrId = afrId || '';
+                    modalEl.dataset.decisionKey = decisionKey || 'pending';
 
                     // Header
                     document.getElementById('adminSummaryStudentName').textContent = name;
@@ -466,6 +470,17 @@
                                 ? 'Not qualified'
                                 : 'Pending';
                     document.getElementById('adminSummaryDecision').textContent = decisionLabel;
+
+                    // Lock decision buttons once already decided
+                    const isLocked = decisionKey !== 'pending';
+                    if (approveBtn) {
+                        approveBtn.disabled = isLocked;
+                        approveBtn.title = isLocked ? 'Decision already made' : 'Qualified';
+                    }
+                    if (notQualBtn) {
+                        notQualBtn.disabled = isLocked;
+                        notQualBtn.title = isLocked ? 'Decision already made' : 'Not Qualified';
+                    }
 
                     // Category rows
                     const tbody = document.getElementById('adminSummaryCategoryRows');
@@ -539,6 +554,11 @@
 
             function submitDecision(decisionKey) {
                 const afrId = modalEl?.dataset.afrId || '';
+                const currentDecision = modalEl?.dataset.decisionKey || 'pending';
+                if (currentDecision !== 'pending') {
+                    alert('Decision already made. This final review can no longer be changed.');
+                    return;
+                }
                 if (!afrId) {
                     alert('Missing review ID.');
                     return;
@@ -562,6 +582,21 @@
                     submitDecision('not_qualified');
                 });
             }
+
+            // Auto-close success alerts after 3 seconds
+            setTimeout(() => {
+                document.querySelectorAll('.alert.alert-success').forEach((el) => {
+                    try {
+                        if (window.bootstrap?.Alert) {
+                            window.bootstrap.Alert.getOrCreateInstance(el).close();
+                        } else {
+                            el.remove();
+                        }
+                    } catch (e) {
+                        el.remove();
+                    }
+                });
+            }, 3000);
         });
     </script>
 @endpush
@@ -579,14 +614,32 @@
         }
 
         .admin-final-modal .modal-dialog {
-            max-width: 1200px !important;
-            width: 95vw !important;
+            --bs-modal-width: 1100px;
+            max-width: 1100px !important;
+            width: min(95vw, 1100px) !important;
+            margin: 1.5rem auto !important;
+        }
+
+        /* Ensure modal is centered and a bit wider with breathing room */
+        .admin-final-modal .modal-dialog.admin-final-dialog {
+            --bs-modal-width: 1100px;
+            max-width: 1100px !important;
+            width: min(95vw, 1100px) !important;
             margin: 1.5rem auto !important;
         }
 
         .admin-final-modal .modal-content {
-            border-radius: 12px !important;
+            border-radius: 0 !important; /* remove corner radius */
             max-height: 85vh;
+            margin: 0 auto;
+        }
+
+        /* Keep footer visible and prevent overlap with body content */
+        .admin-final-modal .modal-content.final-modal {
+            display: flex !important;
+            flex-direction: column !important;
+            max-height: 85vh !important;
+            overflow: hidden !important;
         }
 
         .admin-final-modal .modal-body {
@@ -594,7 +647,58 @@
             overflow-y: auto;
         }
 
+        .admin-final-modal .modal-body {
+            flex: 1 1 auto !important;
+            overflow-y: auto !important; /* if needed, scroll inside modal (no visible scrollbar) */
+            padding: 12px 18px !important;
+        }
+
+        /* Hide scrollbar but keep scroll */
+        .admin-final-modal .modal-body {
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE/Edge legacy */
+        }
+        .admin-final-modal .modal-body::-webkit-scrollbar {
+            width: 0;
+            height: 0;
+        }
+
+        /* Center header block + score pill */
+        .admin-final-modal .modal-student-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 8px;
+            margin-bottom: 0.75rem; /* reduce big gap */
+        }
+
+        /* Reduce extra spacing below the table so content stays tight */
+        .admin-final-modal .table-responsive {
+            margin-bottom: 0.5rem !important;
+        }
+
+        /* Smaller + centered score pill */
+        .admin-final-modal .summary-score-pill {
+            text-align: center;
+            padding: 0.42rem 1.0rem;
+            border-radius: 999px;
+        }
+        .admin-final-modal .summary-score-pill .label {
+            font-size: 0.62rem;
+            letter-spacing: 0.05em;
+        }
+        .admin-final-modal .summary-score-pill .value {
+            font-size: 1.2rem;
+            font-weight: 800;
+        }
+
         /* Final Review Specific Styles */
+        .final-review-container {
+            max-width: 1400px;
+            width: min(95vw, 1400px);
+        }
+
         .page-header h1 {
             color: #7E0308;
             font-size: 2rem;
@@ -771,16 +875,16 @@
         }
 
         .admin-decision-btn {
-            min-width: 160px;
-            padding: 0.6rem 1.5rem;
-            font-size: 0.95rem;
+            min-width: 56px;
+            padding: 0.6rem 0.85rem;
+            font-size: 1.1rem;
             font-weight: 600;
             white-space: nowrap;
             text-align: center;
             display: inline-flex;
             justify-content: center;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.35rem;
             border-radius: 6px;
             transition: all 0.2s ease;
         }

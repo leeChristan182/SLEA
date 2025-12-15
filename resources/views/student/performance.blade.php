@@ -41,18 +41,120 @@
                     </div>
                 @endif
 
-                <!-- Performance Overview Title -->
-                <div class="performance-overview-title">
-                    <h2>Performance Overview</h2>
-                </div>
-
                 <!-- Total Score Card -->
                 <section class="po-card po-score">
-                    <div class="po-medal">
+                    <div class="po-medal {{ ($slea_application_status ?? null) === 'qualified' ? 'po-medal-awarded' : '' }}">
                         <i class="fas fa-medal"></i>
                     </div>
                     <div class="po-points" id="totalPoints">0</div>
                     <div class="po-sub">Total Accumulated<br>Points</div>
+                </section>
+
+                <!-- SLEA Application Status -->
+                <section class="po-card po-slea-status">
+                    <h3 class="po-title">SLEA Application Status</h3>
+
+                    @php
+                        $status = $slea_application_status ?? null;
+                        $ready = $ready_for_rating ?? false;
+                        $submissionCount = (int) ($submissionCount ?? 0);
+                        $finalApplicationCount = (int) ($finalApplicationCount ?? 0);
+                        $targetPoints = (float) ($targetPoints ?? 0);
+                        $hasReachedTargetPoints = (bool) ($hasReachedTargetPoints ?? false);
+                    @endphp
+
+                    {{-- ADMIN FINAL DECISION FIRST --}}
+                    @if ($status === 'qualified')
+                        <p class="po-slea-text">
+                            <strong>Status:</strong>
+                            <span class="po-slea-badge po-slea-badge-awarded">Qualified</span>
+                        </p>
+                        <p class="po-slea-text">
+                            <strong>Congratulations!</strong> You have been recommended to receive the Student Leadership
+                            Excellence Award for your graduation.
+                        </p>
+                        <p class="po-slea-note mt-1">
+                            Please coordinate with OSAS for award confirmation and graduation arrangements.
+                        </p>
+
+                    @elseif ($status === 'not_qualified')
+                        <p class="po-slea-text">
+                            <strong>Status:</strong>
+                            <span class="po-slea-badge po-slea-badge-rejected">Not Qualified</span>
+                        </p>
+                        <p class="po-slea-note mt-1">
+                            Your application has been reviewed and did not meet the requirements for the Student Leadership
+                            Excellence Award.
+                        </p>
+
+                    @elseif ($status === 'pending_assessor_evaluation')
+                        <p class="po-slea-text">
+                            <strong>Status:</strong>
+                            <span class="po-slea-badge po-slea-badge-ready">Pending Assessor Evaluation</span>
+                        </p>
+                        <p class="po-slea-text">
+                            Your application has been submitted and is currently queued for review by your assessor.
+                        </p>
+
+                    @elseif ($status === 'pending_administrative_validation')
+                        <p class="po-slea-text">
+                            <strong>Status:</strong>
+                            <span class="po-slea-badge po-slea-badge-pending">Pending Administrative Validation</span>
+                        </p>
+                        <p class="po-slea-note mt-1">
+                            Your application passed assessor evaluation and is now pending final review by the administrator.
+                            No further action is needed from you at this time.
+                        </p>
+
+                    {{-- NO SUBMISSIONS AT ALL --}}
+                    @elseif ($submissionCount === 0)
+                        <p class="po-slea-text">
+                            You have not yet submitted any documents for the Student Leadership Excellence Award.
+                        </p>
+                        <p class="po-slea-note mt-2">
+                            Submit your documents in the Submit section and select "For Final Application" to apply for the
+                            award.
+                        </p>
+
+                    {{-- HAS SUBMISSIONS BUT STILL BUILDING POINTS --}}
+                    @elseif (!$hasReachedTargetPoints)
+                        <p class="po-slea-text">
+                            You already have <strong>{{ $submissionCount }}</strong> submission(s).
+                            Keep submitting to reach the target score for SLEA.
+                        </p>
+                        <p class="po-slea-note mt-2">
+                            Current score: <strong>{{ number_format($perfData['totals']['earned'] ?? 0, 2) }}</strong>
+                            / {{ number_format($targetPoints, 2) }} points.
+                        </p>
+                        @if ($finalApplicationCount === 0)
+                            <p class="po-slea-note mt-2">
+                                When you’re ready to apply for the award, submit in the Submit section and select
+                                <strong>"For Final Application"</strong>.
+                            </p>
+                        @endif
+
+                    {{-- REACHED TARGET POINTS (READY TO APPLY) --}}
+                    @elseif ($hasReachedTargetPoints)
+                        <p class="po-slea-text">
+                            <strong>Congratulations!</strong> You have reached the target score for SLEA.
+                        </p>
+                        @if ($finalApplicationCount === 0)
+                            <p class="po-slea-note mt-2">
+                                To proceed with your award application, submit your documents and select
+                                <strong>"For Final Application"</strong>.
+                            </p>
+                        @else
+                            <p class="po-slea-note mt-2">
+                                Your submissions are ready for evaluation. Please wait for updates from your assessor/admin.
+                            </p>
+                        @endif
+
+                    {{-- FALLBACK --}}
+                    @else
+                        <p class="po-slea-text">
+                            Your SLEA status is currently being processed.
+                        </p>
+                    @endif
                 </section>
 
                 <!-- Overall Progress -->
@@ -71,91 +173,6 @@
                 <section class="po-card">
                     <h3 class="po-title">Points Per Categories</h3>
                     <div id="categoryList" class="po-category-list"></div>
-                </section>
-
-                <!-- SLEA Application Status -->
-                <section class="po-card po-slea-status">
-                    <h3 class="po-title">SLEA Application Status</h3>
-
-                    @php
-                        $status = $slea_application_status ?? null;
-                        $ready = $ready_for_rating ?? false;
-                    @endphp
-
-                    {{-- NO APPLICATION AT ALL --}}
-                    @if(!$status && !$ready)
-                        <p class="po-slea-text">
-                            You have not yet submitted any documents for the Student Leadership Excellence Award.
-                        </p>
-                        <p class="po-slea-note mt-2">
-                            Submit your documents in the Submit section and select "For Final Application" to apply for the
-                            award.
-                        </p>
-
-                        {{-- INCOMPLETE / PENDING DOCUMENTS --}}
-                    @elseif($status === 'incomplete' && !$ready)
-                        <p class="po-slea-text">
-                            You have started your Student Leadership Excellence Award application, but your documents are still
-                            under initial review.
-                        </p>
-                        <p class="po-slea-note mt-2">
-                            Please wait for your assessor to review your submissions. You’ll see updates here once they are
-                            evaluated.
-                        </p>
-
-
-                        {{-- PENDING ASSESSOR EVALUATION --}}
-                    @elseif ($status === 'pending_assessor_evaluation')
-                        <p class="po-slea-text">
-                            <strong>Status:</strong>
-                            <span class="po-slea-badge po-slea-badge-ready">Pending Assessor Evaluation</span>
-                        </p>
-                        <p class="po-slea-text">
-                            Your application has been submitted and is currently queued for review by your assessor.
-                        </p>
-
-                        {{-- PENDING ADMINISTRATIVE VALIDATION --}}
-                    @elseif ($status === 'pending_administrative_validation')
-                        <p class="po-slea-text">
-                            <strong>Status:</strong>
-                            <span class="po-slea-badge po-slea-badge-pending">Pending Administrative Validation</span>
-                        </p>
-                        <p class="po-slea-note mt-1">
-                            Your application passed assessor evaluation and is now pending final review by the administrator.
-                            No further action is needed from you at this time.
-                        </p>
-
-                        {{-- QUALIFIED --}}
-                    @elseif ($status === 'qualified')
-                        <p class="po-slea-text">
-                            <strong>Status:</strong>
-                            <span class="po-slea-badge po-slea-badge-awarded">Qualified</span>
-                        </p>
-                        <p class="po-slea-text">
-                            <strong>Congratulations!</strong> You have been recommended to receive the Student Leadership
-                            Excellence Award for your graduation.
-                        </p>
-                        <p class="po-slea-note mt-1">
-                            Please coordinate with OSAS for award confirmation and graduation arrangements.
-                        </p>
-
-                        {{-- NOT QUALIFIED --}}
-                    @elseif ($status === 'not_qualified')
-                        <p class="po-slea-text">
-                            <strong>Status:</strong>
-                            <span class="po-slea-badge po-slea-badge-rejected">Not Qualified</span>
-                        </p>
-                        <p class="po-slea-note mt-1">
-                            Your application has been reviewed and did not meet the requirements for the Student Leadership
-                            Excellence Award.
-                        </p>
-
-                        {{-- FALLBACK --}}
-                    @else
-                        <p class="po-slea-text">
-                            Your SLEA status is currently being processed.
-                        </p>
-                    @endif
                 </section>
             </main>
 
@@ -266,6 +283,8 @@
     .performance-page .main-content {
         max-width: 100%;
         width: 100%;
+        /* Reduce the visual gap under the fixed header */
+        padding-top: 20px !important;
     }
 
     .performance-page .po-score {
@@ -287,6 +306,19 @@
         background: #f3f4f6;
         color: #7b0000;
         font-size: 28px;
+    }
+
+    /* Medal turns gold when admin finalized student as qualified */
+    .performance-page .po-medal.po-medal-awarded {
+        background: #ffd700;
+        color: #7b0000;
+        border: 2px solid #e6c200;
+    }
+
+    body.dark-mode .performance-page .po-medal.po-medal-awarded {
+        background: #ffd700;
+        color: #2a2a2a;
+        border-color: #e6c200;
     }
 
     body.dark-mode .performance-page .po-medal {

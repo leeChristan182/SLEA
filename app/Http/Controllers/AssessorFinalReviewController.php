@@ -31,11 +31,22 @@ class AssessorFinalReviewController extends Controller
             ->where('slea_application_status', 'pending_administrative_validation') // enum key
             ->pluck('user_id');
 
+        // IMPORTANT: After the assessor submits/rejects, we still want the student to remain visible in this table.
+        // So we include all students that already have an AssessorFinalReview row for this assessor.
+        $existingStudentIds = AssessorFinalReview::query()
+            ->where('assessor_id', $assessor->id)
+            ->pluck('student_id');
+
+        $studentIdsToShow = $eligibleStudentIds
+            ->merge($existingStudentIds)
+            ->unique()
+            ->values();
+
         // Group compiled scores for those students only
         // Group compiled scores for those students only
         $compiledByStudent = AssessorCompiledScore::with(['student'])
             ->where('assessor_id', $assessor->id)
-            ->whereIn('student_id', $eligibleStudentIds)
+            ->whereIn('student_id', $studentIdsToShow)
             ->orderBy('student_id')
             ->get()
             ->groupBy('student_id');
@@ -132,7 +143,7 @@ class AssessorFinalReviewController extends Controller
             'compiledScores.category',
         ])
             ->where('assessor_id', $assessor->id)
-            ->whereIn('student_id', $eligibleStudentIds)
+            ->whereIn('student_id', $studentIdsToShow)
             ->orderBy('student_id')
             ->get();
 
@@ -148,6 +159,14 @@ class AssessorFinalReviewController extends Controller
         /** @var User $assessor */
         $assessor = Auth::user();
         abort_unless($assessor && $assessor->isAssessor(), 403);
+
+        // Prevent re-submission once a decision was already made
+        $existing = AssessorFinalReview::where('assessor_id', $assessor->id)
+            ->where('student_id', $studentId)
+            ->first();
+        if ($existing && in_array($existing->status, ['queued_for_admin', 'finalized'], true)) {
+            return back()->with('error', 'This entry is already submitted/finalized and can no longer be changed.');
+        }
 
         $remarks = $request->input('remarks');
 
@@ -225,6 +244,14 @@ class AssessorFinalReviewController extends Controller
         /** @var User $assessor */
         $assessor = Auth::user();
         abort_unless($assessor && $assessor->isAssessor(), 403);
+
+        // Prevent re-submission once a decision was already made
+        $existing = AssessorFinalReview::where('assessor_id', $assessor->id)
+            ->where('student_id', $student->id)
+            ->first();
+        if ($existing && in_array($existing->status, ['queued_for_admin', 'finalized'], true)) {
+            return back()->with('error', 'This entry is already submitted/finalized and can no longer be changed.');
+        }
 
         // Optional remarks from modal textarea
         $remarks = $request->input('remarks');

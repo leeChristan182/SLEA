@@ -84,8 +84,20 @@
 
                                     {{-- Status --}}
                                     <td>
-                                        <span class="history-status {{ strtolower($status) }}">
-                                            {{ strtoupper($status) }}
+                                        @php
+                                            $statusKey = strtolower(trim((string) $status));
+                                            $statusLabel = strtoupper(str_replace('_', ' ', $statusKey));
+                                            $badgeClass = match ($statusKey) {
+                                                'accepted', 'approved' => 'bg-success',
+                                                'pending', 'under review', 'under_review' => 'bg-warning text-dark',
+                                                'rejected' => 'bg-danger',
+                                                'returned', 'return' => 'bg-secondary',
+                                                'flagged', 'flag' => 'bg-info text-dark',
+                                                default => 'bg-secondary',
+                                            };
+                                        @endphp
+                                        <span class="badge rounded-pill {{ $badgeClass }}">
+                                            {{ $statusLabel }}
                                         </span>
                                     </td>
 

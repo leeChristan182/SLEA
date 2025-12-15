@@ -6,7 +6,7 @@
 @endsection
 
 @section('content')
-<div class="container">
+<div class="container-fluid assessor-pending-submissions-page">
     @include('partials.sidebar')
 
     <main class="main-content">
@@ -173,6 +173,10 @@
                                         <span class="value" id="modalSleaSection">-</span>
                                     </div>
                                     <div class="detail-row">
+                                        <span class="label">SLEA Category:</span>
+                                        <span class="value" id="modalSleaCategory">-</span>
+                                    </div>
+                                    <div class="detail-row">
                                         <span class="label">Subsection:</span>
                                         <span class="value" id="modalSubsection">-</span>
                                     </div>
@@ -191,6 +195,10 @@
                                     <div class="detail-row">
                                         <span class="label">Description:</span>
                                         <span class="value" id="modalDescription">-</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="label">Application Status:</span>
+                                        <span class="value" id="modalApplicationStatus">-</span>
                                     </div>
                                 </div>
                             </div>
@@ -336,6 +344,23 @@
 </div>
 
 <link rel="stylesheet" href="{{ asset('css/pending-submissions.css') }}">
+<style>
+    /* This app uses a fixed header; most pages rely on .container { margin-top:80px } (style.css).
+       This view uses container-fluid for full-width tables, so apply the same offset here. */
+    .assessor-pending-submissions-page {
+        margin-top: 80px;
+    }
+
+    /* Expand table container to match the width feel of the assessor "All Submissions" page */
+    .assessor-pending-submissions-page .submissions-table-container {
+        width: 100%;
+        max-width: none;
+    }
+
+    .assessor-pending-submissions-page .submissions-table {
+        width: 100%;
+    }
+</style>
 <script src="{{ asset('js/admin_pagination.js') }}"></script>
 <script src="{{ asset('js/pending-submission.js') }}"></script>
 @endsection

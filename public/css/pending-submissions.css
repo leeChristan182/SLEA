@@ -103,6 +103,38 @@
             line-height: 1;
         }
 
+        /* Search input group (used by Academic/Programs/Organizations pages)
+           Ensure the input and the attached search button have the exact same height. */
+        .search-input-group {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            max-width: 100%;
+        }
+
+        .search-input-group .search-input-with-btn {
+            height: 38px;
+            padding: 0.5rem 0.75rem;
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .search-input-group .search-btn-attached {
+            height: 38px;
+            width: 38px;
+            min-width: 38px;
+            padding: 0;
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .search-input-group .search-btn-attached i {
+            line-height: 1;
+        }
+
         /* Clear button */
         .btn-clear {
             background-color: #6c757d;
@@ -672,13 +704,14 @@
             display: block !important;
         }
 
+        /* Review Submission modal: wider + taller but still fits within one viewport */
         #submissionModal .modal-dialog {
-            max-width: 60vw !important;
-            width: 60vw !important;
-            margin: 1.75rem auto !important;
+            width: min(92vw, 1200px) !important;
+            max-width: 1200px !important;
+            margin: 1.25rem auto !important;
             display: flex !important;
             align-items: center !important;
-            min-height: calc(100% - 3.5rem) !important;
+            min-height: calc(100% - 2.5rem) !important;
             position: relative !important;
         }
 
@@ -686,11 +719,11 @@
             background-color: #fff !important;
             margin: 0 !important;
             padding: 0 !important;
-            border-radius: 15px !important;
+            border-radius: 0 !important; /* remove corner radius */
             width: 100% !important;
             max-width: none !important;
-            max-height: 70vh !important;
-            overflow-y: auto !important;
+            max-height: 90vh !important; /* fit within viewport */
+            overflow: hidden !important; /* avoid double scrollbars */
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
             display: flex !important;
             flex-direction: column !important;
@@ -730,10 +763,11 @@
 
         .modal-body {
             padding: 2rem;
-            flex: 1;
-            overflow-y: auto;
+            flex: 1 1 auto;
+            overflow-y: auto; /* single scrollbar lives here */
             display: flex;
             flex-direction: column;
+            min-height: 0; /* required for flex+overflow */
         }
 
         .submission-content {
@@ -1240,26 +1274,28 @@ body.dark-mode .score-pill {
 
         #submissionModal .btn-close {
             background: #dc3545 !important;
-            color: white !important;
-            border-radius: 4px !important;
-            width: 24px !important;
-            height: 24px !important;
-            display: flex !important;
+            color: #fff !important;
+            border-radius: 0 !important; /* match square modal */
+            width: 32px !important;
+            height: 32px !important;
+            display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
-            font-size: 14px !important;
             border: none !important;
             transition: all 0.2s ease !important;
             opacity: 1 !important;
             background-image: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
 
         #submissionModal .btn-close::before {
-            content: "�" !important;
-            font-size: 18px !important;
-            font-weight: bold !important;
-            color: white !important;
+            content: "×" !important;
+            font-size: 22px !important;
+            font-weight: 700 !important;
+            color: #fff !important;
             line-height: 1 !important;
+            display: block;
         }
 
         #submissionModal .btn-close:hover {

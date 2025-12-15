@@ -392,31 +392,17 @@
 
     function handleClearClick(event) {
         event.preventDefault();
-        document.getElementById('searchInput').value = '';
+        // Reset UI controls
+        const searchInput = document.getElementById('searchInput');
         const roleFilter = document.getElementById('roleFilter');
         const statusFilter = document.getElementById('statusFilter');
-        const form = document.createElement('form');
-        form.method = 'GET';
-        form.action = window.location.pathname;
 
-        if (roleFilter.value) {
-            const roleInput = document.createElement('input');
-            roleInput.type = 'hidden';
-            roleInput.name = 'role';
-            roleInput.value = roleFilter.value;
-            form.appendChild(roleInput);
-        }
+        if (searchInput) searchInput.value = '';
+        if (roleFilter) roleFilter.value = '';
+        if (statusFilter) statusFilter.value = '';
 
-        if (statusFilter.value) {
-            const statusInput = document.createElement('input');
-            statusInput.type = 'hidden';
-            statusInput.name = 'status';
-            statusInput.value = statusFilter.value;
-            form.appendChild(statusInput);
-        }
-
-        document.body.appendChild(form);
-        form.submit();
+        // Navigate to the base page (clears query params so inputs don't repopulate)
+        window.location.href = window.location.pathname;
     }
 
     function applyFilters() {

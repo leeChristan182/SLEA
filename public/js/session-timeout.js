@@ -3,10 +3,10 @@
  * - warningTime: time AFTER idle starts when warning modal appears
  * - timeoutTime: TOTAL idle time before logout
  */
-// Put this early in DOMContentLoaded
+// Auth detection (match layouts/app.blade.php)
 const isAuthenticated =
-  document.querySelector('meta[name="auth"]')?.content === '1'
-  || document.body?.dataset?.auth === '1'; // pick one convention
+  document.querySelector('meta[name="user-authenticated"]')?.content === 'true'
+  || document.body?.classList?.contains('authenticated');
 
 if (!isAuthenticated) {
   // Clear ONLY your app keys (don’t nuke all localStorage)
@@ -244,7 +244,9 @@ resetTimers() {
 
     async sendKeepAlive() {
         try {
-            const response = await fetch('/check-session', {
+            // IMPORTANT: this endpoint must refresh server-side activity (last_activity)
+            // so the user does not get logged out immediately after clicking "Stay".
+            const response = await fetch('/keep-alive', {
                 method: 'GET',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
@@ -258,6 +260,10 @@ resetTimers() {
             if (!contentType.includes('application/json')) throw new Error('Keep-alive got non-JSON');
 
             const data = await response.json();
+            if (data && typeof data.csrf_token === 'string') {
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                if (meta) meta.setAttribute('content', data.csrf_token);
+            }
             if (!data.authenticated) this.handleTimeout();
         } catch (err) {
             console.error('Keep-alive failed:', err);

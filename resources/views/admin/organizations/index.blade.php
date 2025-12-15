@@ -27,7 +27,8 @@
                         <div class="d-flex align-items-end gap-2 flex-wrap">
                             <div class="filter-item">
                                 <label for="cluster_filter">Cluster</label>
-                                <select name="cluster_filter" id="cluster_filter" class="filter-select">
+                                <select name="cluster_filter" id="cluster_filter" class="filter-select"
+                                    onchange="document.getElementById('filterForm').submit()">
                                     <option value="">All Clusters</option>
                                     @foreach ($clusters as $cluster)
                                         <option value="{{ $cluster->id }}" {{ request('cluster_filter') == $cluster->id ? 'selected' : '' }}>

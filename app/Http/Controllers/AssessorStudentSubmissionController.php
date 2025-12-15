@@ -96,7 +96,10 @@ class AssessorStudentSubmissionController extends Controller
 
         try {
             // Load student + academic info
-            $student = User::with('studentAcademic.program.college')->findOrFail($studentId);
+            $student = User::with([
+                'studentAcademic.program.college',
+                'studentAcademic.major',
+            ])->findOrFail($studentId);
             $acad    = $student->studentAcademic;
 
             // All APPROVED / REJECTED submissions for this student, reviewed by this assessor
@@ -185,6 +188,11 @@ class AssessorStudentSubmissionController extends Controller
                 ?? $acad->college
                 ?? '—';
 
+            $majorName = optional($acad?->major)->name
+                ?? $acad->major_name
+                ?? $acad->major
+                ?? '—';
+
             return response()->json([
                 'student' => [
                     'id'         => $student->id,
@@ -200,6 +208,8 @@ class AssessorStudentSubmissionController extends Controller
                     'studentAcademic' => $acad ? [
                         'slea_application_status' => $acad->slea_application_status,
                         'ready_for_rating'        => (bool) ($acad->ready_for_rating ?? false),
+                        // Make sure modals show accurate Major (matches student profile)
+                        'major'                  => $majorName,
                     ] : null,
                 ],
                 'submissions'         => $categorizedSubmissions,

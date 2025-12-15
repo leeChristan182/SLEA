@@ -218,7 +218,12 @@
     }
 
     /* LAYOUT */
-    .container { display:flex; margin-top:80px; }
+    /* Keep header offset on app pages, including full-width pages using container-fluid */
+    .container,
+    .container-fluid {
+      display: flex;
+      margin-top: 80px;
+    }
     .sidebar {
       position:fixed;
       top:65px;

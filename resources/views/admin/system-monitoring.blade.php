@@ -381,20 +381,30 @@
                 });
             }
 
-            // Auto-submit on filter change (optional - can be removed if you want manual submit only)
-            // if (roleFilter) {
-            //     roleFilter.addEventListener('change', function() {
-            //         syncFormInputs();
-            //         filterForm.submit();
-            //     });
-            // }
+            // Auto-submit on filter change (better UX)
+            function autoSubmitOnChange(el) {
+                if (!el || !filterForm) return;
+                el.addEventListener('change', function () {
+                    syncFormInputs();
+                    filterForm.submit();
+                });
+            }
 
-            // if (activityFilter) {
-            //     activityFilter.addEventListener('change', function() {
-            //         syncFormInputs();
-            //         filterForm.submit();
-            //     });
-            // }
+            autoSubmitOnChange(roleFilter);
+            autoSubmitOnChange(activityFilter);
+            autoSubmitOnChange(fromDate);
+            autoSubmitOnChange(toDate);
+
+            // Allow Enter key to trigger search (input is not inside a form)
+            if (searchInput && filterForm) {
+                searchInput.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        syncFormInputs();
+                        filterForm.submit();
+                    }
+                });
+            }
         });
     </script>
     <script src="{{ asset('js/admin_pagination.js') }}"></script>

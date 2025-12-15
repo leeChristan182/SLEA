@@ -149,22 +149,37 @@
                                 </td>
                                 <td>
                                     <div class="action-buttons-group">
-                                        <button type="button" class="btn btn-submit-admin" data-bs-toggle="modal"
-                                            data-bs-target="#viewSummaryModal" data-student-id="{{ $student->id ?? '' }}"
-                                            data-student-number="{{ $studentNumber }}" data-student-name="{{ $studentName }}"
-                                            data-program="{{ $programName }}" data-college="{{ $collegeName }}"
-                                            data-major="{{ $majorName }}"
-                                            data-score="{{ number_format($item->total_score ?? 0, 2) }}"
-                                            data-total-max="{{ $item->max_possible ?? $breakdown->sum('max_points') }}"
-                                            data-status="{{ $statusLabel }}" data-breakdown='@json($breakdown)'
-                                            title="Submit to Admin">
-                                            <i class="fas fa-check-circle"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-reject-final"
-                                            data-student-id="{{ $student->id ?? '' }}" data-student-name="{{ $studentName }}"
-                                            title="Reject">
-                                            <i class="fas fa-times-circle"></i>
-                                        </button>
+                                        @php
+                                            $isLocked = in_array($statusKey, ['queued_for_admin', 'finalized'], true);
+                                        @endphp
+
+                                        @if($isLocked)
+                                            <button type="button" class="btn btn-submit-admin" disabled
+                                                title="Decision already submitted">
+                                                <i class="fas fa-check-circle"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-reject-final" disabled
+                                                title="Decision already submitted">
+                                                <i class="fas fa-times-circle"></i>
+                                            </button>
+                                        @else
+                                            <button type="button" class="btn btn-submit-admin" data-bs-toggle="modal"
+                                                data-bs-target="#viewSummaryModal" data-student-id="{{ $student->id ?? '' }}"
+                                                data-student-number="{{ $studentNumber }}" data-student-name="{{ $studentName }}"
+                                                data-program="{{ $programName }}" data-college="{{ $collegeName }}"
+                                                data-major="{{ $majorName }}"
+                                                data-score="{{ number_format($item->total_score ?? 0, 2) }}"
+                                                data-total-max="{{ $item->max_possible ?? $breakdown->sum('max_points') }}"
+                                                data-status="{{ $statusLabel }}" data-breakdown='@json($breakdown)'
+                                                title="Submit to Admin">
+                                                <i class="fas fa-check-circle"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-reject-final"
+                                                data-student-id="{{ $student->id ?? '' }}" data-student-name="{{ $studentName }}"
+                                                title="Reject">
+                                                <i class="fas fa-times-circle"></i>
+                                            </button>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>
@@ -212,7 +227,7 @@
     </form>
     {{-- View Summary Modal --}}
     <div class="modal fade" id="viewSummaryModal" tabindex="-1" aria-labelledby="viewSummaryModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content final-modal">
                 <div class="modal-header">
                     <h5 class="modal-title" id="viewSummaryModalLabel">View Summary</h5>
@@ -346,6 +361,23 @@
         };
 
         document.addEventListener('DOMContentLoaded', function () {
+            // Auto-dismiss success alerts after 3 seconds
+            setTimeout(() => {
+                document.querySelectorAll('.alert.alert-success.alert-dismissible').forEach((el) => {
+                    try {
+                        // Prefer Bootstrap's Alert API if available
+                        if (window.bootstrap?.Alert) {
+                            const inst = window.bootstrap.Alert.getOrCreateInstance(el);
+                            inst.close();
+                            return;
+                        }
+                    } catch (e) { /* noop */ }
+
+                    // Fallback: click the close button
+                    el.querySelector('[data-bs-dismiss="alert"]')?.click();
+                });
+            }, 3000);
+
             const table = document.getElementById('finalReviewTable');
             const statusFilter = document.getElementById('statusFilter');
             const sortSelect = document.getElementById('sortSelect');
@@ -643,6 +675,7 @@
             if (rejectButtons && rejectForm) {
                 rejectButtons.forEach(button => {
                     button.addEventListener('click', function () {
+                        if (this.disabled) return;
                         const studentId = this.getAttribute('data-student-id');
                         const studentName = this.getAttribute('data-student-name') || 'this student';
 
@@ -676,7 +709,7 @@
                         if (typeof Swal !== 'undefined') {
                             Swal.fire({
                                 title: 'Reject Student?',
-                                text: `Are you sure you want to reject ${studentName}? This will mark the student as not qualified and remove them from your final review list.`,
+                                text: `Are you sure you want to reject ${studentName}? This will mark the student as not qualified.`,
                                 icon: 'warning',
                                 showCancelButton: true,
                                 confirmButtonColor: '#dc3545',
@@ -1307,7 +1340,7 @@
         /* MODAL UI */
 
         .final-modal {
-            border-radius: 18px;
+            border-radius: 0 !important; /* remove corner radius */
         }
 
         .modal-student-header {
@@ -1372,8 +1405,16 @@
         }
 
         #viewSummaryModal .modal-content.final-modal {
-            border-radius: 22px !important;
+            border-radius: 0 !important; /* remove corner radius */
             padding: 20px 28px !important;
+        }
+
+        /* Keep footer visible and prevent overlap with body content */
+        #viewSummaryModal .modal-content.final-modal {
+            display: flex !important;
+            flex-direction: column !important;
+            max-height: 85vh !important;
+            overflow: hidden !important;
         }
 
         /* Modal header refinements */
@@ -1384,21 +1425,32 @@
 
         /* Stretch student header spacing */
         .modal-student-header {
-            margin-bottom: 1.8rem !important;
+            margin-bottom: 0.75rem !important; /* reduce big gap above table/threshold */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 8px; /* tighter spacing */
+        }
+
+        /* Reduce extra spacing below the table so threshold sits closer */
+        #viewSummaryModal .table-responsive {
+            margin-bottom: 0.5rem !important;
         }
 
         /* Bigger Final Score badge */
         .summary-score-pill {
-            padding: 0.7rem 1.6rem !important;
-            border-radius: 50px !important;
+            padding: 0.42rem 1.0rem !important; /* smaller */
+            border-radius: 999px !important;
+            text-align: center !important;
         }
 
         .summary-score-pill .label {
-            font-size: 0.75rem !important;
+            font-size: 0.62rem !important;
         }
 
         .summary-score-pill .value {
-            font-size: 1.7rem !important;
+            font-size: 1.2rem !important; /* smaller */
             font-weight: 800 !important;
         }
 
@@ -1410,8 +1462,8 @@
 
         .summary-table th,
         .summary-table td {
-            padding: 10px 12px !important;
-            font-size: 0.95rem !important;
+            padding: 8px 10px !important;
+            font-size: 0.88rem !important;
             border-color: #ddd !important;
         }
 
@@ -1434,15 +1486,54 @@
         }
 
         #viewSummaryModal .modal-body {
-            max-height: 70vh !important;
-            overflow-y: auto !important;
-            padding-right: 10px !important;
+            flex: 1 1 auto !important;
+            overflow-y: auto !important; /* if needed, scroll inside modal (no visible scrollbar) */
+            padding: 12px 18px !important;
+        }
+
+        /* Hide scrollbar but keep scroll */
+        #viewSummaryModal .modal-body {
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE/Edge legacy */
+        }
+        #viewSummaryModal .modal-body::-webkit-scrollbar {
+            width: 0;
+            height: 0;
+        }
+
+        /* Tighten text spacing inside modal */
+        #viewSummaryModal .modal-body p {
+            margin-bottom: 0.5rem !important;
+            line-height: 1.25 !important;
+        }
+
+        #viewSummaryModal .modal-student-header p {
+            margin: 0 !important;
+            line-height: 1.2 !important;
+        }
+
+        /* Reduce spacing around threshold + conduct section */
+        #viewSummaryModal .threshold-info {
+            margin-top: 0.25rem !important;
+            margin-bottom: 0.5rem !important;
+        }
+
+        #viewSummaryModal .good-conduct-section {
+            padding-top: 0.5rem !important;
+            margin-top: 0.75rem !important;
+        }
+
+        /* Make remarks box shorter so modal doesn't need to scroll */
+        #viewSummaryModal textarea.form-control {
+            height: 64px !important;
+            min-height: 64px !important;
+            resize: none !important;
         }
 
         /* Adjust footer */
         #viewSummaryModal .modal-footer {
             border-top: none !important;
-            padding-top: 0 !important;
+            padding: 10px 18px 14px !important;
         }
 
         /* Make the submit button nicer */

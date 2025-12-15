@@ -73,6 +73,23 @@ Route::get('/check-session', function () {
     ]);
 })->name('check-session');
 
+// Used by SessionTimeout.js when the user explicitly clicks "Stay / Extend session"
+// This should refresh server-side activity so the user won't be logged out right after extending.
+Route::get('/keep-alive', function (\Illuminate\Http\Request $request) {
+    if (!Auth::check()) {
+        return response()->json(['authenticated' => false], 401);
+    }
+
+    // Refresh server-side activity timestamp (used by App\Http\Middleware\SessionTimeout)
+    $request->session()->put('last_activity', time());
+
+    return response()->json([
+        'authenticated' => true,
+        // handy for clients that want to refresh CSRF after long idle
+        'csrf_token'    => csrf_token(),
+    ]);
+})->middleware('auth')->name('keep-alive');
+
 
 /*
 |--------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+
 @extends('layouts.app')
 
 @section('title', 'Criteria and Points System')
@@ -18,17 +19,16 @@
         $totalPages = 5;
     @endphp
 
-    <div class="container" style="margin-top: 0 !important;">
+    <div class="container rubric-wide-container-student" style="margin-top: 0 !important;">
         @include('partials.sidebar')
 
-        <main class="main-content" style="padding-top: 100px !important;">
+        <main class="main-content" style="padding-top: 48px !important;">
             @php
                 // Determine initial page (default to 1 since no filter)
                 $initialPage = 1;
             @endphp
 
             <div class="rubric-main-container" x-data="rubricPager(@json($pageTitles), {{ $initialPage }})">
-                <div class="page-header"><h1>Criteria and Points System</h1></div>
 
                 {{-- Current rubric label (same style as admin-side pages) --}}
                 <div class="current-page-label">
@@ -122,6 +122,11 @@
             color: #212529 !important;
         }
 
+        .rubric-wide-container-student {
+            max-width: 1400px;
+            width: min(95vw, 1400px);
+        }
+
         body.dark-mode .main-content {
             background: #2a2a2a !important;
             color: #f0f0f0 !important;
@@ -130,7 +135,7 @@
         .rubric-main-container {
             width: 100%;
             margin-top: 0 !important;
-            padding-top: 24px !important; /* 1 inch gap from header */
+            padding-top: 48px !important; /* 0.5 inch gap from header */
             padding: 24px 20px 20px 20px;
             background: transparent;
             color: inherit;
@@ -139,23 +144,6 @@
         body.dark-mode .rubric-main-container {
             background: transparent !important;
             color: #f0f0f0 !important;
-        }
-
-        .page-header {
-            margin-bottom: 24px;
-            padding-bottom: 0;
-        }
-
-        .page-header h1 {
-            font-size: 28px;
-            font-weight: 700;
-            color: #7b0000 !important;
-            margin: 0;
-            padding: 0;
-        }
-
-        body.dark-mode .page-header h1 {
-            color: #f9bd3d !important;
         }
 
         .current-page-label {
@@ -244,8 +232,9 @@
             text-align: left;
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: stretch;
             color: #212529 !important;
+            width: 100%;
         }
 
         body.dark-mode .rubric-section {
@@ -261,7 +250,7 @@
             border-bottom: 2px solid #7b0000;
             text-align: left;
             width: 100%;
-            max-width: 1200px;
+            max-width: none;
         }
 
         body.dark-mode .rubric-heading {
@@ -276,7 +265,7 @@
             text-align: left;
             line-height: 1.6;
             width: 100%;
-            max-width: 1200px;
+            max-width: none;
         }
 
         body.dark-mode .rubric-category-description {
@@ -437,6 +426,16 @@
             max-height: none !important;
         }
 
+        /* Placeholder cells used instead of rowspan to keep borders consistent */
+        .rubric-main-container .rubric-section .manage-table td.rubric-merged-placeholder,
+        .rubric-main-container .rubric-section .table-wrap .manage-table td.rubric-merged-placeholder,
+        .rubric-main-container .table-wrap .manage-table td.rubric-merged-placeholder,
+        .rubric-section .table-wrap .manage-table td.rubric-merged-placeholder {
+            background: inherit !important;
+            color: transparent !important;
+            user-select: none;
+        }
+
         .rubric-main-container .rubric-section .manage-table tbody td:not(:last-child),
         .rubric-main-container .rubric-section .table-wrap .manage-table tbody td:not(:last-child),
         .rubric-main-container .table-wrap .manage-table tbody td:not(:last-child),
@@ -488,7 +487,6 @@
         .rubric-main-container .rubric-section .table-wrap .manage-table tbody tr:nth-child(even) td,
         .rubric-main-container .table-wrap .manage-table tbody tr:nth-child(even) td,
         .rubric-section .table-wrap .manage-table tbody tr:nth-child(even) td {
-            background: #f8f9fa !important;
             color: #212529 !important;
         }
 

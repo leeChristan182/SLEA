@@ -247,24 +247,23 @@
     {{-- =============== PRIVACY MODAL =============== --}}
     <div class="modal fade" id="privacyModal" tabindex="-1" aria-labelledby="privacyModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content text-center bg-dark text-light shadow-lg border-0 overflow-hidden"
-                style="border-radius: 0 !important;">
+            <div class="modal-content text-center privacy-modal-card shadow-lg border-0 overflow-hidden">
                 <div class="modal-body px-5 py-5 d-flex flex-column align-items-center" style="min-height:460px;">
                     <img src="{{ asset('images/security-illustration.png') }}" alt="Security" class="mb-4"
                         style="max-width:230px;">
-                    <p class="mb-4 fs-5 px-3">
-                        By continuing to use the <strong>Student Portal</strong>, you agree to the
+                    <p class="mb-4 fs-5 px-3 text-dark">
+                        By continuing to use this platform, you agree to the
                         <a href="https://www.usep.edu.ph/usep-data-privacy-statement/" target="_blank"
-                            class="text-decoration-none text-danger fw-semibold">
+                            class="text-decoration-none privacy-link fw-semibold">
                             University of Southeastern Philippines’ Data Privacy Statement
                         </a>.
                     </p>
-                    <button type="button" class="btn btn-danger px-5 py-2 rounded-pill fw-bold mt-auto"
+                    <button type="button" class="btn btn-maroon px-5 py-2 rounded-pill fw-bold mt-auto"
                         data-bs-dismiss="modal">
                         CONTINUE
                     </button>
                 </div>
-                <div class="w-100" style="height:12px;background-color:#C84848;"></div>
+                <div class="w-100 privacy-accent-bar"></div>
             </div>
         </div>
     </div>

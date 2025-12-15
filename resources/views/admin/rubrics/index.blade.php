@@ -18,7 +18,7 @@
     $totalPages = 5;
 @endphp
 
-<div class="container" style="margin-top: 0 !important;">
+<div class="container rubric-wide-container-admin" style="margin-top: 0 !important;">
     @include('partials.sidebar')
 
     <main class="main-content" style="padding-top: 0 !important; margin-top: 0 !important;">
@@ -29,7 +29,6 @@
         @endphp
 
         <div class="rubric-main-container" x-data="rubricPager(@json($pageTitles), {{ $initialPage }})">
-            <div class="page-header"><h1>Scoring Rubric Configuration </h1> </div>
 
             {{-- Current rubric label (same style as student-side pages) --}}
             <div class="current-page-label">
@@ -131,6 +130,11 @@
         color: #212529 !important;
     }
 
+    .rubric-wide-container-admin {
+        max-width: 1400px;
+        width: min(95vw, 1400px);
+    }
+
     body.dark-mode .main-content {
         background: #2a2a2a !important;
         color: #f0f0f0 !important;
@@ -139,7 +143,7 @@
     .rubric-main-container {
         width: 100%;
         margin-top: 0 !important;
-        padding-top: 24px !important; /* 1 inch gap from header */
+        padding-top: 48px !important; /* 0.5 inch gap from header */
         padding: 24px 20px 20px 20px;
         background: transparent;
         color: inherit;
@@ -316,10 +320,19 @@
         flex-wrap: nowrap !important;
     }
 
-    .submissions-table tbody td:last-child,
-    .manage-table tbody td:last-child {
+    .submissions-table tbody td:last-child {
         text-align: center !important;
         vertical-align: middle !important;
+        padding: 12px 8px !important;
+        width: 120px !important;
+        min-width: 120px !important;
+        max-width: 120px !important;
+    }
+
+    /* For rubric tables with merged (rowspan) cells, keep actions aligned to the specific entry row */
+    .manage-table tbody td:last-child {
+        text-align: center !important;
+        vertical-align: top !important;
         padding: 12px 8px !important;
         width: 120px !important;
         min-width: 120px !important;
@@ -443,8 +456,9 @@
         text-align: left;
         display: flex;
         flex-direction: column;
-        align-items: center;
+        align-items: stretch;
         color: #212529 !important;
+        width: 100%;
     }
 
     body.dark-mode .rubric-section {
@@ -460,7 +474,11 @@
         border-bottom: 2px solid #7b0000;
         text-align: left;
         width: 100%;
-        max-width: 1200px;
+        max-width: none;
+    }
+
+    .rubric-section .manage-table {
+        width: 100% !important;
     }
 
     body.dark-mode .rubric-heading {
@@ -475,7 +493,7 @@
         text-align: left;
         line-height: 1.6;
         width: 100%;
-        max-width: 1200px;
+        max-width: none;
     }
 
     body.dark-mode .rubric-category-description {
@@ -485,7 +503,7 @@
     /* Table container - centered */
     .rubric-section .submissions-table-container {
         width: 100%;
-        max-width: 1200px;
+        max-width: none;
         margin: 0 auto;
     }
 
@@ -591,6 +609,13 @@
 
     .manage-table tbody td:not(:last-child) {
         vertical-align: top;
+    }
+
+    /* Placeholder cells used instead of rowspan to keep borders consistent */
+    .manage-table td.rubric-merged-placeholder {
+        background: inherit !important;
+        color: transparent !important;
+        user-select: none;
     }
 
     /* Notes column - left alignment (5th column) */

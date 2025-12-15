@@ -53,7 +53,7 @@
             <li class="{{ request()->routeIs('student.criteria') ? 'active' : '' }}">
                 <a href="{{ route('student.criteria') }}"
                     style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
-                    <i class="fas fa-list-check"></i><span>Criteria</span>
+                    <i class="fas fa-clipboard-list"></i><span>Criteria</span>
                 </a>
             </li>
         @endif
@@ -151,7 +151,7 @@
                     <li class="{{ request()->routeIs('admin.colleges.index') ? 'active' : '' }}">
                         <a href="{{ route('admin.colleges.index') }}">Academic Management</a>
                     </li>
-                    <li class="{{ request()->routeIs('admin.organizations.index') ? 'active' : '' }}">
+            <li class="{{ request()->routeIs('admin.organizations.index') ? 'active' : '' }}">
                         <a href="{{ route('admin.organizations.index') }}">Organization Management</a>
                     </li>
                 </ul>

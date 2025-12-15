@@ -16,7 +16,7 @@
     <style>
         /* ===================== DASHBOARD CSS ===================== */
         .dash-wrap {
-            padding: 18px 18px 30px;
+            padding: 8px 18px 20px;
         }
 
         .dash-title {
@@ -39,7 +39,7 @@
         }
 
         .dash-grid.top {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
         }
 
         .dash-grid.mid {
@@ -47,7 +47,8 @@
         }
 
         .dash-grid.charts {
-            grid-template-columns: 1.1fr 1.6fr;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 18px;
         }
 
         @media (max-width: 1200px) {
@@ -72,6 +73,7 @@
             border: 1px solid rgba(0, 0, 0, .08);
             box-shadow: 0 6px 22px rgba(0, 0, 0, .06);
             overflow: hidden;
+            margin-bottom: 12px;
         }
 
         body.dark-mode .dash-card {
@@ -138,7 +140,7 @@
         }
 
         .chart-wrap {
-            padding: 12px 16px 16px;
+            padding: 18px 18px 20px;
         }
 
         .chart-head {
@@ -181,6 +183,35 @@
         canvas {
             max-width: 100% !important;
         }
+
+        .subtext {
+            font-size: 13px;
+            color: rgba(0,0,0,.6);
+        }
+
+        body.dark-mode .subtext {
+            color: rgba(255,255,255,.7);
+        }
+
+        .btn-link-chip {
+            padding: 6px 10px;
+            border-radius: 10px;
+            background: rgba(123,0,0,0.08);
+            color: #7b0000;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        .btn-link-chip:hover {
+            background: rgba(123,0,0,0.14);
+            color: #7b0000;
+        }
+
+        body.dark-mode .btn-link-chip {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+        }
     </style>
 @endsection
 
@@ -190,12 +221,7 @@
 
         <main class="main-content">
             <div class="dash-wrap">
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-                    <div>
-                        <h2 class="dash-title mb-1">Dashboard</h2>
-                        <div class="dash-subtitle">Users, SLEA results, and score distribution</div>
-                    </div>
-                </div>
+                {{-- Header removed per request --}}
 
                 {{-- TOP KPI CARDS --}}
                 <div class="dash-grid top mb-3">
@@ -218,6 +244,32 @@
                             <div class="icon"><i class="fas fa-user-tie"></i></div>
                         </div>
                     </div>
+
+                    <div class="dash-card">
+                        <div class="pad dash-kpi">
+                            <div>
+                                <div class="label">New Submissions</div>
+                                <div class="value">{{ $initialValidationQueueCount }}</div>
+                                <div class="subtext">Pending in Initial Validation queue</div>
+                            </div>
+                            <div class="text-end">
+                                <a class="btn-link-chip" href="{{ url('/admin/initial-validation') }}">View Queue</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dash-card">
+                        <div class="pad dash-kpi">
+                            <div>
+                                <div class="label">Pending Approval Queue</div>
+                                <div class="value">{{ $pendingApproval }}</div>
+                                <div class="subtext">Validated, awaiting final approval</div>
+                            </div>
+                            <div class="text-end">
+                                <a class="btn-link-chip" href="{{ url('/admin/final-review') }}">View Queue</a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {{-- SLEA STATUS --}}
@@ -225,7 +277,7 @@
                     <div class="dash-card">
                         <div class="pad dash-kpi">
                             <div>
-                                <div class="label">SLEA Qualified (StudentAcademic)</div>
+                                <div class="label">SLEA Qualified</div>
                                 <div class="value">{{ $qualifiedCount }}</div>
                             </div>
                             <div class="icon"><i class="fas fa-award"></i></div>
@@ -237,7 +289,7 @@
                             <div class="w-100">
                                 <div class="d-flex align-items-center justify-content-between">
                                     <div>
-                                        <div class="label">SLEA Not Qualified (StudentAcademic)</div>
+                                        <div class="label">SLEA Not Qualified</div>
                                         <div class="value">{{ $notQualifiedCount }}</div>
                                     </div>
                                     <div class="icon"><i class="fas fa-circle-xmark"></i></div>
@@ -247,7 +299,33 @@
                     </div>
                 </div>
 
-                {{-- CHARTS (BOTH 1 and 2) --}}
+                {{-- Submission Insights --}}
+                <div class="dash-grid charts mt-3">
+                    <div class="dash-card">
+                        <div class="chart-wrap">
+                            <div class="chart-head mb-2">
+                                <div class="chart-title">College Submission Breakdown</div>
+                                <div class="chart-meta">Total: <b>{{ $collegeTotal }}</b></div>
+                            </div>
+                            <canvas id="collegePieChart" height="230"></canvas>
+                            @if(empty($collegeData))
+                                <div class="dash-alert mt-2">No submissions yet.</div>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="dash-card">
+                        <div class="chart-wrap">
+                            <div class="chart-head mb-2">
+                                <div class="chart-title">Submission Status</div>
+                                <div class="chart-meta">Workflow health</div>
+                            </div>
+                            <canvas id="statusDonutChart" height="230"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- CHARTS (Admin Decisions & Scores) --}}
                 <div class="dash-grid charts">
                     {{-- Admin Final Decisions --}}
                     <div class="dash-card">
@@ -288,6 +366,9 @@
     <script>
         const finalDecisions = @json($finalDecisions);
         const scores = @json($scores);
+        const collegeLabels = @json($collegeLabels);
+        const collegeData = @json($collegeData);
+        const submissionStatus = @json($submissionStatus);
 
         // --- Admin Final Decisions doughnut ---
         new Chart(document.getElementById('finalDecisionsChart'), {
@@ -347,6 +428,76 @@
                 scales: {
                     y: { beginAtZero: true, ticks: { precision: 0 } }
                 }
+            }
+        });
+
+        // --- College submission breakdown (Pie) ---
+        if (collegeLabels.length && collegeData.length) {
+            new Chart(document.getElementById('collegePieChart'), {
+                type: 'pie',
+                data: {
+                    labels: collegeLabels,
+                    datasets: [{
+                        data: collegeData,
+                        backgroundColor: [
+                            '#7b0000','#b30000','#f9bd3d','#ff8c42','#4f46e5',
+                            '#0ea5e9','#10b981','#f472b6','#6366f1','#f97316'
+                        ],
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    const total = collegeData.reduce((a,b)=>a+b,0) || 1;
+                                    const val = ctx.parsed;
+                                    const pct = ((val/total)*100).toFixed(1);
+                                    return `${ctx.label}: ${val} (${pct}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- Submission status (Donut) ---
+        const statusLabels = ['Approved','Rejected','In Review','Complete'];
+        const statusValues = [
+            submissionStatus.approved || 0,
+            submissionStatus.rejected || 0,
+            submissionStatus.in_review || 0,
+            submissionStatus.complete || 0,
+        ];
+
+        new Chart(document.getElementById('statusDonutChart'), {
+            type: 'doughnut',
+            data: {
+                labels: statusLabels,
+                datasets: [{
+                    data: statusValues,
+                    backgroundColor: ['#16a34a','#dc2626','#f59e0b','#2563eb']
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const total = statusValues.reduce((a,b)=>a+b,0) || 1;
+                                const val = ctx.parsed;
+                                const pct = ((val/total)*100).toFixed(1);
+                                return `${ctx.label}: ${val} (${pct}%)`;
+                            }
+                        }
+                    }
+                },
+                cutout: '55%'
             }
         });
     </script>

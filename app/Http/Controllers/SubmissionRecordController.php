@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Submission;
 use App\Models\RubricCategory;
 use App\Models\AssessorFinalReview;
+use App\Models\RubricSubsection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SubmissionRecordController extends Controller
 {
@@ -81,19 +83,20 @@ class SubmissionRecordController extends Controller
         // ------------ VALIDATION ------------
         $rules = [
             'rubric_category_id'   => ['required', 'exists:rubric_categories,id'],
-            'rubric_section_id'    => ['nullable', 'exists:rubric_sections,section_id'],
-            'rubric_subsection_id' => ['nullable', 'exists:rubric_subsections,sub_section_id'],
+            'rubric_section_id'    => ['required', 'exists:rubric_sections,section_id'],
+            'rubric_subsection_id' => ['required', 'exists:rubric_subsections,sub_section_id'],
 
             'activity_title'       => ['required', 'string', 'max:191'],
             'description'          => ['nullable', 'string'],
 
-            'activity_type'        => ['nullable', 'string', 'max:100'],
-            'role_in_activity'     => ['nullable', 'string', 'max:191'],
-            'date_of_activity'     => ['nullable', 'date'],
-            'organizing_body'      => ['nullable', 'string', 'max:191'],
+            'activity_type'        => ['required', 'string', 'max:100'],
+            'role_in_activity'     => ['nullable', 'string', 'max:191', 'required_without:role_in_activity_text'],
+            'role_in_activity_text'=> ['nullable', 'string', 'max:191', 'required_without:role_in_activity'],
+            'date_of_activity'     => ['required', 'date'],
+            'organizing_body'      => ['required', 'string', 'max:191'],
             'note'                 => ['nullable', 'string'],
             'term' => [
-                'nullable',
+                'required',
                 function ($attribute, $value, $fail) {
                     if ($value && $value !== '') {
                         // Check format: YYYY - YYYY (with spaces around hyphen)
@@ -114,7 +117,11 @@ class SubmissionRecordController extends Controller
                 },
             ],
             'issued_by'            => ['nullable', 'string', 'max:191'],
-            'document_type'        => ['nullable', 'string', 'max:50'],
+            'document_type'        => ['required', 'string', 'max:50'],
+
+            // Conditional fields (required only for specific subsections)
+            'cluster_id'           => ['nullable', 'integer'],
+            'organization_id'      => ['nullable', 'integer'],
 
             'attachments'   => ['required'],
             'attachments.*' => ['file', 'max:5120', 'mimes:jpeg,jpg,png,pdf'],
@@ -129,6 +136,27 @@ class SubmissionRecordController extends Controller
 
         // ✅ From here on $data['application_status'] is always defined when column exists
         $data = $request->validate($rules);
+
+        // Extra conditional validation: require cluster + organization for specific subsections (SCO)
+        $sub = RubricSubsection::find($data['rubric_subsection_id']);
+        if ($sub && $sub->key === 'leadership.campus_government.student_orgs') {
+            if (empty($data['cluster_id'])) {
+                throw ValidationException::withMessages([
+                    'cluster_id' => ['Cluster is required for this subsection.'],
+                ]);
+            }
+            if (empty($data['organization_id'])) {
+                throw ValidationException::withMessages([
+                    'organization_id' => ['Organization is required for this subsection.'],
+                ]);
+            }
+        }
+
+        // Normalize role in activity (dropdown or text)
+        $roleInActivity = $data['role_in_activity'] ?? null;
+        if (!$roleInActivity) {
+            $roleInActivity = $data['role_in_activity_text'] ?? null;
+        }
 
         // ------------ FILE UPLOADS ------------
         $filesMeta = [];
@@ -162,13 +190,15 @@ class SubmissionRecordController extends Controller
             'attachments'          => $filesMeta,
             'meta'                 => [
                 'activity_type'    => $data['activity_type']    ?? null,
-                'role_in_activity' => $data['role_in_activity'] ?? null,
+                'role_in_activity' => $roleInActivity,
                 'date_of_activity' => $data['date_of_activity'] ?? null,
                 'organizing_body'  => $data['organizing_body']  ?? null,
                 'note'             => $data['note']             ?? null,
                 'term'             => $data['term']             ?? null,
                 'issued_by'        => $data['issued_by']        ?? null,
                 'document_type'    => $data['document_type']    ?? null,
+                'cluster_id'       => $data['cluster_id']       ?? null,
+                'organization_id'  => $data['organization_id']  ?? null,
             ],
 
             'status'       => 'pending',

@@ -31,6 +31,7 @@ use App\Mail\InitialValidationApprovedMail;
 use App\Mail\InitialValidationRejectedMail;
 use App\Mail\RevalidationApprovedMail;
 use App\Mail\RevalidationRejectedMail;
+use App\Models\Submission;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Illuminate\Support\Facades\Log;
 use App\Models\AssessorFinalReview;
@@ -90,13 +91,73 @@ class AdminController extends Controller
             'not_qualified' => (int) ($decisionCounts['not_qualified'] ?? 0),
         ];
 
+        // D) Initial Validation Queue count (must match /admin/initial-validation)
+        $initialValidationQueueCount = User::query()
+            ->where('status', User::STATUS_APPROVED)
+            ->whereIn('role', [User::ROLE_STUDENT, User::ROLE_ASSESSOR])
+            ->where(function ($q) {
+                // Students: approved + account-limited
+                $q->where(function ($s) {
+                    $s->where('role', User::ROLE_STUDENT)
+                        ->where('is_account_limited', true)
+                        // Initial Validation is for NEW profile completion only
+                        ->where(function ($p) {
+                            $p->where('profile_completed', false)
+                                ->orWhereNull('profile_completed');
+                        });
+                })
+                // Assessors: approved + incomplete (profile_completed=false OR missing assessorInfo)
+                ->orWhere(function ($a) {
+                    $a->where('role', User::ROLE_ASSESSOR)
+                        ->where(function ($x) {
+                            $x->where('profile_completed', false)
+                                ->orWhereDoesntHave('assessorInfo');
+                        });
+                });
+            })
+            ->count();
+
+        // Status distribution (donut)
+        $statusCounts = Submission::select('status', DB::raw('COUNT(*) as total'))
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        // Pending Approval Queue should match items queued for admin final review
+        $pendingApproval = AssessorFinalReview::where('status', 'queued_for_admin')->count();
+
+        $submissionStatus = [
+            'approved'  => (int) ($statusCounts['approved'] ?? 0),
+            'rejected'  => (int) ($statusCounts['rejected'] ?? 0),
+            'in_review' => (int) ($statusCounts['in_review'] ?? $statusCounts['pending'] ?? 0),
+            'complete'  => (int) ($statusCounts['complete'] ?? $statusCounts['completed'] ?? 0),
+        ];
+
+        // College breakdown (pie)
+        $collegeBreakdownRaw = Submission::query()
+            ->join('student_academic', 'student_academic.user_id', '=', 'submissions.user_id')
+            ->join('colleges', 'colleges.id', '=', 'student_academic.college_id')
+            ->select('colleges.name as college', DB::raw('COUNT(*) as total'))
+            ->groupBy('colleges.name')
+            ->orderByDesc('total')
+            ->get();
+
+        $collegeLabels = $collegeBreakdownRaw->pluck('college')->toArray();
+        $collegeData   = $collegeBreakdownRaw->pluck('total')->toArray();
+        $collegeTotal  = array_sum($collegeData);
+
         return view('admin.dashboard', compact(
             'roleCounts',
             'qualifiedCount',
             'notQualifiedCount',
             'scores',
             'avgScore',
-            'finalDecisions'
+            'finalDecisions',
+            'initialValidationQueueCount',
+            'submissionStatus',
+            'collegeLabels',
+            'collegeData',
+            'collegeTotal',
+            'pendingApproval'
         ));
     }
 
@@ -485,12 +546,17 @@ class AdminController extends Controller
             ->whereIn('role', [User::ROLE_STUDENT, User::ROLE_ASSESSOR])
 
             // ✅ Queue rules:
-            // - Students: approved + account-limited
+            // - Students: approved + account-limited + NEW profile completion only (profile_completed=false)
             // - Assessors: approved + incomplete (profile_completed=false OR missing assessorInfo)
             ->where(function ($q) {
                 $q->where(function ($s) {
                     $s->where('role', User::ROLE_STUDENT)
-                        ->where('is_account_limited', true);
+                        ->where('is_account_limited', true)
+                        // IMPORTANT: exclude academic revalidation updates
+                        ->where(function ($p) {
+                            $p->where('profile_completed', false)
+                                ->orWhereNull('profile_completed');
+                        });
                 })
                     ->orWhere(function ($a) {
                         $a->where('role', User::ROLE_ASSESSOR)
@@ -840,6 +906,10 @@ class AdminController extends Controller
         // Include both 'needs_revalidation' and 'under_review' statuses
         // Refresh to ensure we get the latest COR paths
         $rows = StudentAcademic::with(['user'])
+            // Revalidation is ONLY for already-validated students (academic updates), not new profile completion
+            ->whereHas('user', function ($q) {
+                $q->where('profile_completed', true);
+            })
             ->whereIn('eligibility_status', ['needs_revalidation', 'under_review'])
             ->orderByDesc('updated_at')
             ->paginate(20)
@@ -1069,6 +1139,24 @@ class AdminController extends Controller
             ! Schema::hasTable('users')
         ) {
             return collect();
+        }
+
+        // Sync student_academic status with latest admin final decisions before building the report
+        if (Schema::hasTable('final_reviews')) {
+            $finals = DB::table('final_reviews as fr')
+                ->join('assessor_final_reviews as afr', 'afr.id', '=', 'fr.assessor_final_review_id')
+                ->join('student_academic as sa', 'sa.user_id', '=', 'afr.student_id')
+                ->select('sa.user_id', 'fr.decision', 'sa.slea_application_status')
+                ->get();
+
+            foreach ($finals as $row) {
+                $expected = $row->decision === 'approved' ? 'qualified' : 'not_qualified';
+                if ($row->slea_application_status !== $expected) {
+                    DB::table('student_academic')
+                        ->where('user_id', $row->user_id)
+                        ->update(['slea_application_status' => $expected]);
+                }
+            }
         }
 
         $hasSleaStatus = Schema::hasColumn('student_academic', 'slea_application_status');

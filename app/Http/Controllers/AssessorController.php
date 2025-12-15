@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use App\Models\AssessorInfo;
 use App\Models\AssessorFinalReview;
+use App\Models\Submission;
 
 class AssessorController extends Controller
 {
@@ -36,10 +37,15 @@ class AssessorController extends Controller
             'finalized' => (int) ($statusCounts[AssessorFinalReview::STATUS_FINALIZED] ?? $statusCounts['finalized'] ?? 0),
         ];
 
+        // Pending submissions queue (must match /assessor/submissions/pending-submissions)
+        $pendingQueueCount = (int) Submission::query()
+            ->where('status', 'pending')
+            ->count();
+
         // Individual reviews list (latest first)
         // Adjust relations/columns to match your schema (see notes below).
         $reviews = AssessorFinalReview::query()
-            ->with(['student.user']) // if you have student->user relationship
+            ->with(['student']) // student is a User relation
             ->where('assessor_id', $assessorId)
             ->orderByDesc('updated_at')
             ->paginate(12);
@@ -68,7 +74,7 @@ class AssessorController extends Controller
             $chartData[] = (int) ($monthlyFinalized[$month] ?? 0);
         }
 
-        return view('assessor.dashboard', compact('reviewStats', 'reviews', 'chartLabels', 'chartData'));
+        return view('assessor.dashboard', compact('reviewStats', 'reviews', 'chartLabels', 'chartData', 'pendingQueueCount'));
     }
 
     // GET /assessor/profile

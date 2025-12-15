@@ -365,11 +365,21 @@ window.openSubmissionModal = window.openSubmissionModal || async function (submi
                 : '-'
         );
         setText('modalSleaSection', submission.slea_section || '-');
+        setText('modalSleaCategory', (rubric && rubric.category) ? rubric.category : '-');
         setText('modalSubsection', submission.subsection || '-');
         setText('modalRole', submission.role_in_activity || '-');
         setText('modalActivityDate', submission.activity_date || '-');
         setText('modalOrganizingBody', submission.organizing_body || '-');
         setText('modalDescription', submission.description || '-');
+        setText(
+            'modalApplicationStatus',
+            submission.application_status_label
+                || (submission.application_status === 'for_final_application'
+                    ? 'For Final Application'
+                    : (submission.application_status === 'for_tracking'
+                        ? 'For Tracking'
+                        : '-'))
+        );
 
         setText(
             'modalAutoScore',

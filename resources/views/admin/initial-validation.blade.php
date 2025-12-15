@@ -517,6 +517,8 @@
                         text: statusText,
                         confirmButtonColor: icon === 'success' ? '#28a745' : '#0d6efd',
                         confirmButtonText: 'OK',
+                        timer: 3000,
+                        timerProgressBar: true,
                         allowOutsideClick: true,
                         allowEscapeKey: true
                     });
@@ -675,20 +677,20 @@
             
             // Small delay to ensure modal is closed before showing confirmation
             setTimeout(() => {
-                Swal.fire({
-                    title: 'Approve Validation?',
-                    html: `Approve initial validation for <strong>${userName}</strong>?`,
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#28a745',
-                    cancelButtonColor: '#6c757d',
-                    confirmButtonText: 'Yes, Approve',
-                    cancelButtonText: 'Cancel',
+            Swal.fire({
+                title: 'Approve Validation?',
+                html: `Approve initial validation for <strong>${userName}</strong>?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, Approve',
+                cancelButtonText: 'Cancel',
                     reverseButtons: true,
                     allowOutsideClick: false,
                     allowEscapeKey: true
-                }).then((r) => {
-                    if (r.isConfirmed) {
+            }).then((r) => {
+                if (r.isConfirmed) {
                         // Create and submit form programmatically
                         const form = document.createElement('form');
                         form.method = 'POST';
@@ -702,8 +704,8 @@
                         
                         document.body.appendChild(form);
                         form.submit();
-                    }
-                });
+                }
+            });
             }, 100);
         }
 
@@ -720,20 +722,20 @@
             
             // Small delay to ensure modal is closed before showing confirmation
             setTimeout(() => {
-                Swal.fire({
-                    title: 'Reject Validation?',
-                    html: `Reject initial validation for <strong>${userName}</strong>?`,
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#dc3545',
-                    cancelButtonColor: '#6c757d',
-                    confirmButtonText: 'Yes, Reject',
-                    cancelButtonText: 'Cancel',
+            Swal.fire({
+                title: 'Reject Validation?',
+                html: `Reject initial validation for <strong>${userName}</strong>?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, Reject',
+                cancelButtonText: 'Cancel',
                     reverseButtons: true,
                     allowOutsideClick: false,
                     allowEscapeKey: true
-                }).then((r) => {
-                    if (r.isConfirmed) {
+            }).then((r) => {
+                if (r.isConfirmed) {
                         // Create and submit form programmatically
                         const form = document.createElement('form');
                         form.method = 'POST';
@@ -747,8 +749,8 @@
                         
                         document.body.appendChild(form);
                         form.submit();
-                    }
-                });
+                }
+            });
             }, 100);
         }
     </script>

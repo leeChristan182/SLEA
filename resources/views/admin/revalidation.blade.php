@@ -3,7 +3,7 @@
 @section('title', 'Student Revalidation Queue')
 
 @section('content')
-    <div class="container">
+    <div class="container-fluid revalidation-page">
         @include('partials.sidebar')
 
         <main class="main-content">
@@ -30,25 +30,27 @@
                 </div>
             @endif
 
-            @if ($rows->isEmpty())
-                <div class="alert alert-info mt-3">
-                    There are currently no students flagged for revalidation.
-                </div>
-            @else
-                <div class="submissions-table-container">
-                    <table class="table submissions-table">
-                        <thead>
+            <div class="submissions-table-container">
+                <table class="table submissions-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Expected Grad Year</th>
+                            <th class="text-center">Eligibility Status</th>
+                            <th>Last Updated</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if ($rows->isEmpty())
                             <tr>
-                                <th>ID</th>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Expected Grad Year</th>
-                                <th>Eligibility Status</th>
-                                <th>Last Updated</th>
-                                <th>Actions</th>
+                                <td colspan="7" class="text-center py-4 text-muted">
+                                    There are currently no students flagged for revalidation.
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody>
+                        @else
                             @foreach ($rows as $row)
                                 @php
                                     // $row is StudentAcademic, with related User
@@ -63,7 +65,7 @@
                                     <td>{{ $user->last_name }}, {{ $user->first_name }}</td>
                                     <td>{{ $user->email }}</td>
                                     <td>{{ $row->expected_grad_year ?? '—' }}</td>
-                                    <td>
+                                    <td class="text-center">
                                         @php
                                             $status = (string) $row->eligibility_status;
                                         @endphp
@@ -118,7 +120,7 @@
                                                 @csrf
 
                                                 <div class="modal-header bg-success text-white">
-                                                    <h5 class="modal-title" id="approveRevalLabel{{ $user->id }}">
+                                                    <h5 class="modal-title text-white" id="approveRevalLabel{{ $user->id }}">
                                                         Approve Student Revalidation
                                                     </h5>
                                                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
@@ -130,7 +132,7 @@
                                                         Are you sure you want to mark this student as
                                                         <strong>eligible</strong> again?
                                                     </p>
-                                                    <p class="mb-0">
+                                                    <p class="mb-0 text-center">
                                                         <strong>{{ $user->last_name }}, {{ $user->first_name }}</strong><br>
                                                         <small class="text-muted">{{ $user->email }}</small>
                                                     </p>
@@ -140,7 +142,7 @@
                                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                                                         Cancel
                                                     </button>
-                                                    <button type="submit" class="btn btn-success">
+                                                    <button type="submit" class="btn btn-success text-nowrap px-4 reval-confirm-btn">
                                                         Yes, Approve
                                                     </button>
                                                 </div>
@@ -189,10 +191,13 @@
                                 </div>
 
                             @endforeach
-                        </tbody>
-                    </table>
                 </div>
+                        @endif
+                    </tbody>
+                </table>
+            </div>
 
+            @if (!$rows->isEmpty())
                 <div class="mt-3">
                     {{ $rows->links() }}
                 </div>
@@ -203,61 +208,78 @@
 @endsection
 
 @push('styles')
+    {{-- Match the exact table UI used across admin pages --}}
+    <link rel="stylesheet" href="{{ asset('css/pending-submissions.css') }}">
+
     <style>
-        /* Ensure table is expanded and content fits properly */
+        /* This app uses a fixed header; most pages rely on .container { margin-top:80px }.
+           This view uses container-fluid for full width, so we must apply the same offset. */
+        .revalidation-page {
+            margin-top: 80px;
+        }
+
+        /* Expand table/container naturally (no hard width caps) */
         .submissions-table-container {
-            width: 100%;
+            width: 100% !important;
+            max-width: none !important;
             overflow-x: auto;
         }
 
         .submissions-table {
-            width: 100%;
-            min-width: 1000px; /* Ensure minimum width for content */
+            width: 100% !important;
+            table-layout: auto !important;
         }
 
-        .submissions-table th,
-        .submissions-table td {
-            white-space: nowrap;
-            padding: 12px 15px;
+        /* Table title bar (maroon) */
+        .table-title-bar {
+            background: #8B0000;
+            color: #fff;
+            font-weight: 700;
+            padding: 12px 16px;
+            font-size: 1rem;
+            border-bottom: 1px solid #fff;
         }
 
-        /* Allow email and name to wrap if needed */
-        .submissions-table td:nth-child(2),
-        .submissions-table td:nth-child(3) {
-            white-space: normal;
-            min-width: 150px;
-            max-width: 250px;
+        body.dark-mode .table-title-bar {
+            background: #8B0000;
+            color: #fff;
         }
 
-        /* Actions column - allow buttons to fit */
-        .submissions-table th:last-child,
-        .submissions-table td:last-child {
-            white-space: normal;
-            min-width: 280px;
-        }
-
+        /* Actions: vertical stack with spacing so buttons aren't too close */
         .action-buttons-group {
             display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: flex-start;
+            flex-direction: column;
+            gap: 12px; /* requested spacing */
+            align-items: stretch;
         }
 
         .action-buttons-group .btn {
+            width: 100%;
             white-space: nowrap;
-            flex-shrink: 0;
         }
 
-        /* Ensure COR button shows it's the updated version */
-        .action-buttons-group .btn-outline-primary {
-            border-color: #7b0000;
-            color: #7b0000;
+        /* Approve modal: ensure title stays white and button text doesn't wrap */
+        .revalidation-page .modal-header.bg-success .modal-title {
+            color: #fff !important;
         }
 
-        .action-buttons-group .btn-outline-primary:hover {
-            background-color: #7b0000;
-            color: #fff;
+        .revalidation-page .modal-footer .reval-confirm-btn {
+            white-space: nowrap;
+            min-width: 120px;
         }
     </style>
+@endpush
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const alerts = document.querySelectorAll('.alert.alert-success');
+    alerts.forEach(alert => {
+        setTimeout(() => {
+            const instance = bootstrap.Alert.getOrCreateInstance(alert);
+            instance.close();
+        }, 3000);
+    });
+});
+</script>
 @endpush

@@ -37,8 +37,8 @@
                     <h3>SLEA Classification</h3>
                     <div class="sr-grid">
                         <div class="sr-field">
-                            <label for="docType">Document Type</label>
-                            <select id="docType" name="document_type">
+                            <label for="docType">Document Type <span style="color: red;">*</span></label>
+                            <select id="docType" name="document_type" required>
                                 <option value="">Select document type</option>
                                 <option value="certificate">Certificate</option>
                                 <option value="appointment">Appointment</option>
@@ -63,16 +63,16 @@
 
                         {{-- Rubric Section --}}
                         <div class="sr-field">
-                            <label for="sectionSelect">Section</label>
-                            <select id="sectionSelect" name="rubric_section_id" disabled>
+                            <label for="sectionSelect">Section <span style="color: red;">*</span></label>
+                            <select id="sectionSelect" name="rubric_section_id" required disabled>
                                 <option value="">Select section</option>
                             </select>
                         </div>
 
                         {{-- Rubric Subsection --}}
                         <div class="sr-field">
-                            <label for="subSection">Subsection</label>
-                            <select id="subSection" name="rubric_subsection_id" disabled>
+                            <label for="subSection">Subsection <span style="color: red;">*</span></label>
+                            <select id="subSection" name="rubric_subsection_id" required disabled>
                                 <option value="">Select subsection</option>
                             </select>
                         </div>
@@ -114,15 +114,16 @@
                                 required>
                         </div>
                         <div class="sr-field">
-                            <label for="type">Type of Activity</label>
+                            <label for="type">Type of Activity <span style="color:red">*</span></label>
                             <input
                                 id="type"
                                 name="activity_type"
                                 type="text"
-                                placeholder="e.g., Seminar / Workshop">
+                                placeholder="e.g., Seminar / Workshop"
+                                required>
                         </div>
                         <div class="sr-field">
-                            <label for="role">Role in Activity</label>
+                            <label for="role">Role in Activity <span style="color:red">*</span></label>
                             {{-- Dropdown for SCO and Community Based subsections --}}
                             <select
                                 id="role"
@@ -139,19 +140,21 @@
                                 style="display: none;">
                         </div>
                         <div class="sr-field">
-                            <label for="date">Date of Activity</label>
+                            <label for="date">Date of Activity <span style="color:red">*</span></label>
                             <input
                                 id="date"
                                 name="date_of_activity"
-                                type="date">
+                                type="date"
+                                required>
                         </div>
                         <div class="sr-field">
-                            <label for="orgBody">Organizing Body</label>
+                            <label for="orgBody">Organizing Body <span style="color:red">*</span></label>
                             <input
                                 id="orgBody"
                                 name="organizing_body"
                                 type="text"
-                                placeholder="e.g., OSAS">
+                                placeholder="e.g., OSAS"
+                                required>
                         </div>
                         <div class="sr-field">
                             <label for="note">Note (optional)</label>
@@ -162,7 +165,7 @@
                                 placeholder="Any additional info">
                         </div>
                         <div class="sr-field">
-                            <label for="term">Term (School Year)</label>
+                            <label for="term">Term (School Year) <span style="color:red">*</span></label>
                             <input
                                 id="term"
                                 name="term"
@@ -879,6 +882,7 @@
             });
 
             sleaSectionSelect.disabled = false;
+            sleaSectionSelect.required = true;
         };
 
         const populateSubsections = (categoryId, sectionId) => {
@@ -916,6 +920,7 @@
             });
 
             sleaSubSelect.disabled = false;
+            sleaSubSelect.required = true;
         };
 
         if (sleaCatSelect) {
@@ -1119,7 +1124,7 @@
                 roleSelect.style.display = 'none';
                 roleText.style.display = '';
                 roleSelect.required = false;
-                roleText.required = false;
+                roleText.required = true;
                 roleSelect.value = '';
             } else if (isCampusBasedSubsection(subsectionKey)) {
                 // Show dropdown for campus-based subsections (load from rubric_options)
@@ -1143,7 +1148,7 @@
                 roleSelect.style.display = 'none';
                 roleText.style.display = '';
                 roleSelect.required = false;
-                roleText.required = false;
+                roleText.required = true;
                 roleSelect.value = '';
             }
         }
@@ -1183,9 +1188,37 @@
 
         btnStep1Next?.addEventListener('click', () => {
             const category = sleaCatSelect.value;
+            const docType = document.getElementById('docType')?.value || '';
+            const section = sleaSectionSelect?.value || '';
+            const subsection = sleaSubSelect?.value || '';
+
+            if (!docType) {
+                showErrorModal('Please select a document type before continuing.');
+                return;
+            }
             if (!category) {
                 showErrorModal('Please select a SLEA category before continuing.');
                 return;
+            }
+            if (!section) {
+                showErrorModal('Please select a section before continuing.');
+                return;
+            }
+            if (!subsection) {
+                showErrorModal('Please select a subsection before continuing.');
+                return;
+            }
+
+            // If cluster/org fields are shown, they are required
+            if (clusterField && clusterField.style.display !== 'none') {
+                if (!clusterSelect?.value) {
+                    showErrorModal('Please select a cluster before continuing.');
+                    return;
+                }
+                if (!organizationSelect?.value) {
+                    showErrorModal('Please select an organization before continuing.');
+                    return;
+                }
             }
             showStep(2);
         });
@@ -1196,6 +1229,43 @@
             const title = document.getElementById('title').value.trim();
             if (!title) {
                 showErrorModal('Please enter the title of activity before continuing.');
+                return;
+            }
+            const type = document.getElementById('type')?.value?.trim() || '';
+            if (!type) {
+                showErrorModal('Please enter the type of activity before continuing.');
+                return;
+            }
+
+            // Role: either dropdown or text depending on subsection
+            const roleValue = (roleSelect && roleSelect.style.display !== 'none') ? (roleSelect.value || '') : '';
+            const roleTextValue = (roleText && roleText.style.display !== 'none') ? (roleText.value || '').trim() : '';
+            if (!roleValue && !roleTextValue) {
+                showErrorModal('Please provide the role in activity before continuing.');
+                return;
+            }
+
+            const dateVal = document.getElementById('date')?.value || '';
+            if (!dateVal) {
+                showErrorModal('Please select the date of activity before continuing.');
+                return;
+            }
+
+            const orgBody = document.getElementById('orgBody')?.value?.trim() || '';
+            if (!orgBody) {
+                showErrorModal('Please enter the organizing body before continuing.');
+                return;
+            }
+
+            const term = document.getElementById('term')?.value?.trim() || '';
+            if (!term) {
+                showErrorModal('Please enter the term (school year) before continuing.');
+                return;
+            }
+
+            const applicationStatus = document.getElementById('applicationStatus')?.value || '';
+            if (!applicationStatus) {
+                showErrorModal('Please select an application status before continuing.');
                 return;
             }
             showStep(3);
@@ -1277,14 +1347,14 @@
         };
 
         const tryAddFile = (f) => {
-                if (!acceptExt.test(f.name)) {
+            if (!acceptExt.test(f.name)) {
                     showErrorModal('Only JPG, PNG, or PDF allowed.');
-                    return;
-                }
-                if (f.size > maxSize) {
+                return;
+            }
+            if (f.size > maxSize) {
                     showErrorModal('File exceeds 5MB.');
-                    return;
-                }
+                return;
+            }
             files.push({
                 name: f.name,
                 file: f
@@ -1345,14 +1415,87 @@
             // Validate required fields
             const title = document.getElementById('title').value.trim();
             const category = document.getElementById('sleacat').value;
+            const docType = document.getElementById('docType')?.value || '';
+            const section = sleaSectionSelect?.value || '';
+            const subsection = sleaSubSelect?.value || '';
             if (!title) {
                 showErrorModal('Please enter the title of activity.');
                 showStep(2);
                 return;
             }
+            if (!docType) {
+                showErrorModal('Please select a document type.');
+                showStep(1);
+                return;
+            }
             if (!category) {
                 showErrorModal('Please select a SLEA category.');
                 showStep(1);
+                return;
+            }
+            if (!section) {
+                showErrorModal('Please select a section.');
+                showStep(1);
+                return;
+            }
+            if (!subsection) {
+                showErrorModal('Please select a subsection.');
+                showStep(1);
+                return;
+            }
+            if (clusterField && clusterField.style.display !== 'none') {
+                if (!clusterSelect?.value) {
+                    showErrorModal('Please select a cluster.');
+                    showStep(1);
+                    return;
+                }
+                if (!organizationSelect?.value) {
+                    showErrorModal('Please select an organization.');
+                    showStep(1);
+                    return;
+                }
+            }
+
+            const type = document.getElementById('type')?.value?.trim() || '';
+            if (!type) {
+                showErrorModal('Please enter the type of activity.');
+                showStep(2);
+                return;
+            }
+
+            const roleValue = (roleSelect && roleSelect.style.display !== 'none') ? (roleSelect.value || '') : '';
+            const roleTextValue = (roleText && roleText.style.display !== 'none') ? (roleText.value || '').trim() : '';
+            if (!roleValue && !roleTextValue) {
+                showErrorModal('Please provide the role in activity.');
+                showStep(2);
+                return;
+            }
+
+            const dateVal = document.getElementById('date')?.value || '';
+            if (!dateVal) {
+                showErrorModal('Please select the date of activity.');
+                showStep(2);
+                return;
+            }
+
+            const orgBody = document.getElementById('orgBody')?.value?.trim() || '';
+            if (!orgBody) {
+                showErrorModal('Please enter the organizing body.');
+                showStep(2);
+                return;
+            }
+
+            const term = document.getElementById('term')?.value?.trim() || '';
+            if (!term) {
+                showErrorModal('Please enter the term (school year).');
+                showStep(2);
+                return;
+            }
+
+            const applicationStatus = document.getElementById('applicationStatus')?.value || '';
+            if (!applicationStatus) {
+                showErrorModal('Please select an application status.');
+                showStep(2);
                 return;
             }
             renderDraftList();
@@ -1467,7 +1610,7 @@
                     closeModal(modalConfirm);
                     // Small delay to ensure modals are closed before showing success
                     setTimeout(() => {
-                        openModal(modalSuccess);
+                    openModal(modalSuccess);
                     }, 100);
 
                     setTimeout(() => {

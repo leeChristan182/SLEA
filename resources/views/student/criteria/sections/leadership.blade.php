@@ -174,10 +174,13 @@
                                         <tbody>
                                             @foreach ($positions as $index => $pos)
                                                 <tr>
+                                                    {{-- Avoid rowspan so grid lines stay consistent across columns --}}
                                                     @if($index === 0)
-                                                        <td rowspan="{{ $rowCount }}">
+                                                        <td>
                                                             <strong>{{ $subsection->sub_section }}</strong>
                                                         </td>
+                                                    @else
+                                                        <td class="rubric-merged-placeholder">&nbsp;</td>
                                                     @endif
                                                     <td>
                                                         @if($isRateBased && $index === 0)
@@ -199,8 +202,9 @@
                                                             {{ rtrim(rtrim(number_format($pos->points, 2), '0'), '.') }}
                                                         @endif
                                                     </td>
+                                                    {{-- Evidence / Notes: print once, but keep cell per row to avoid "random" borders --}}
                                                     @if($index === 0)
-                                                        <td rowspan="{{ $rowCount }}">
+                                                        <td>
                                                             @if(!empty($rawEvidence))
                                                                 <div class="evidence-notes-content">
                                                                     @foreach ($evidenceLines as $idx => $line)
@@ -216,7 +220,7 @@
                                                                 —
                                                             @endif
                                                         </td>
-                                                        <td rowspan="{{ $rowCount }}">
+                                                        <td>
                                                             @if(!empty($rawNotes))
                                                                 <div class="evidence-notes-content">
                                                                     @foreach ($notesLines as $idx => $line)
@@ -232,6 +236,9 @@
                                                                 —
                                                             @endif
                                                         </td>
+                                                    @else
+                                                        <td class="rubric-merged-placeholder">&nbsp;</td>
+                                                        <td class="rubric-merged-placeholder">&nbsp;</td>
                                                     @endif
                                                 </tr>
                                             @endforeach

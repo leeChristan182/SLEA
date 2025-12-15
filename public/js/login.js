@@ -330,33 +330,16 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // === PRIVACY MODAL (with localStorage ack) ===
-// === PRIVACY MODAL (once per TAB session) ===
-setTimeout(() => {
-  const modalEl = document.getElementById('privacyModal');
-  if (!modalEl || typeof bootstrap === 'undefined') return;
+    // === PRIVACY MODAL (always show on load/refresh/new tab) ===
+    setTimeout(() => {
+        const modalEl = document.getElementById('privacyModal');
+        if (!modalEl || typeof bootstrap === 'undefined') return;
 
-  const STORAGE_KEY = 'slea_privacy_ack'; // no versioning needed now
+        // Always show; no storage checks so it appears on every refresh/new tab
+        const privacyModal =
+            bootstrap.Modal.getInstance(modalEl) ||
+            new bootstrap.Modal(modalEl, { backdrop: 'static', keyboard: false });
 
-  // sessionStorage = resets when tab/browser closes
-  if (sessionStorage.getItem(STORAGE_KEY) === '1') return;
-
-  if (modalEl.classList.contains('show')) return;
-
-  const privacyModal =
-    bootstrap.Modal.getInstance(modalEl) ||
-    new bootstrap.Modal(modalEl, { backdrop: 'static', keyboard: false });
-
-  modalEl.addEventListener('hidden.bs.modal', () => {
-    sessionStorage.setItem(STORAGE_KEY, '1');
-
-    document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
-    document.body.classList.remove('modal-open');
-    document.body.style.removeProperty('padding-right');
-  }, { once: true });
-
-  privacyModal.show();
-}, 100);
-
-
+        privacyModal.show();
+    }, 100);
 });

@@ -63,6 +63,7 @@
     </style>
 
     @yield('head')
+    @stack('styles')
 </head>
 
 <body class="d-flex flex-column min-vh-100
@@ -132,11 +133,9 @@
             }
 
             const totalMs = (window.SLEA_SESSION?.lifetime_seconds ?? (10 * 60)) * 1000;
-            const warnBeforeMin = window.SLEA_SESSION?.warn_before_minutes ?? 5;
 
-            // warningTime = when warning appears AFTER idle started
-            // Example: lifetime 10min, warnBefore 2min => warningTime = 8min
-            const warningTimeMs = Math.max(5 * 1000, totalMs - (warnBeforeMin * 60 * 1000));
+            // Always show extend-session prompt at 10 minutes of inactivity (or 60s before timeout if shorter)
+            const warningTimeMs = Math.max(60 * 1000, Math.min(totalMs - 60 * 1000, 10 * 60 * 1000));
 
             window.__sessionTimeout = new SessionTimeout({
                 warningTime: warningTimeMs,

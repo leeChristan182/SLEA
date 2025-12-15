@@ -27,7 +27,7 @@
         }
 
         .dash-grid.kpis {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
         }
 
         @media (max-width: 992px) {
@@ -88,6 +88,37 @@
 
         body.dark-mode .kpi .icon {
             background: rgba(255, 255, 255, .08);
+            color: #fff;
+        }
+
+        /* Pill-style maroon CTA (View Queue) */
+        .btn-pill-maroon {
+            background: rgba(123, 0, 0, 0.12);
+            color: #7b0000;
+            border: none;
+            border-radius: 999px;
+            padding: 8px 18px;
+            font-weight: 700;
+            font-size: 14px;
+            transition: all 0.15s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-pill-maroon:hover {
+            background: rgba(123, 0, 0, 0.18);
+            color: #7b0000;
+        }
+
+        body.dark-mode .btn-pill-maroon {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }
+
+        body.dark-mode .btn-pill-maroon:hover {
+            background: rgba(255, 255, 255, 0.22);
             color: #fff;
         }
 
@@ -230,11 +261,24 @@
                     <div class="dash-card">
                         <div class="pad kpi">
                             <div>
+                                <div class="label">Pending Submissions Queue</div>
+                                <div class="value">{{ $pendingQueueCount }}</div>
+                                <div class="muted mt-1">Assigned to you and not started</div>
+                            </div>
+                            <div class="icon" style="background: rgba(123,0,0,.12); color:#7b0000;">
+                                <i class="fas fa-inbox"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dash-card">
+                        <div class="pad kpi">
+                            <div>
                                 <div class="label">Pending Reviews</div>
                                 <div class="value">{{ $reviewStats['pending'] }}</div>
                                 <div class="muted mt-1">Not yet submitted / not finalized</div>
                             </div>
-                            <div class="icon"><i class="fas fa-hourglass-half"></i></div>
+                            <div class="icon" style="background: rgba(123,0,0,.12); color:#7b0000;"><i class="fas fa-hourglass-half"></i></div>
                         </div>
                     </div>
 
@@ -245,7 +289,7 @@
                                 <div class="value">{{ $reviewStats['submitted'] }}</div>
                                 <div class="muted mt-1">Submitted but not finalized</div>
                             </div>
-                            <div class="icon"><i class="fas fa-paper-plane"></i></div>
+                            <div class="icon" style="background: rgba(123,0,0,.12); color:#7b0000;"><i class="fas fa-paper-plane"></i></div>
                         </div>
                     </div>
 
@@ -256,7 +300,7 @@
                                 <div class="value">{{ $reviewStats['finalized'] }}</div>
                                 <div class="muted mt-1">Completed assessments</div>
                             </div>
-                            <div class="icon"><i class="fas fa-circle-check"></i></div>
+                            <div class="icon" style="background: rgba(123,0,0,.12); color:#7b0000;"><i class="fas fa-circle-check"></i></div>
                         </div>
                     </div>
                 </div>
@@ -308,12 +352,11 @@
                                     <tr>
                                         <td>#{{ $r->id }}</td>
                                         <td>
-                                            {{-- adjust if your relations differ --}}
                                             <div class="fw-semibold">
-                                                {{ optional(optional($r->student)->user)->name ?? '—' }}
+                                                {{ optional($r->student)->name ?? '—' }}
                                             </div>
                                             <div class="muted">
-                                                {{ optional(optional($r->student)->user)->email ?? '' }}
+                                                {{ optional($r->student)->email ?? '' }}
                                             </div>
                                         </td>
                                         <td>
@@ -329,7 +372,7 @@
                                         </td>
                                         <td>
                                             {{-- Replace route name with your actual assessor review route --}}
-                                            <a href="{{ route('assessor.final-reviews.show', $r->id) }}"
+                                            <a href="{{ route('assessor.final-review.index') }}"
                                                 class="btn btn-sm btn-outline-primary">
                                                 {{ strtolower($r->status) === 'finalized' ? 'View' : 'Continue' }}
                                             </a>

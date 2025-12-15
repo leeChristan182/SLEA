@@ -3,7 +3,7 @@
 @section('title', 'Award Report')
 
 @section('content')
-    <div class="container">
+    <div class="container award-report-container">
         @include('partials.sidebar')
 
         <main class="main-content">
@@ -181,6 +181,11 @@
 
     <link rel="stylesheet" href="{{ asset('css/pending-submissions.css') }}">
     <style>
+        .award-report-container {
+            max-width: 1400px;
+            width: min(95vw, 1400px);
+        }
+
         /* Award Report Specific Styles */
         .program-title {
             font-size: 1.25rem;
@@ -271,13 +276,13 @@
             'College of Technology': ['BS Industrial Technology', 'BS Food Technology', 'BS Electronics Technology']
         };
 
-        function updatePrograms() {
+        function updatePrograms(preserveSelectedProgram = false) {
             const collegeSelect = document.getElementById('college');
             const programSelect = document.getElementById('program');
             const collegeHidden = document.getElementById('collegeHidden');
             const programHidden = document.getElementById('programHidden');
             const selectedCollege = collegeSelect.value;
-            const currentProgram = '{{ request('program') }}';
+            const currentProgram = preserveSelectedProgram ? '{{ request('program') }}' : '';
 
             // Update hidden input
             if (collegeHidden) {
@@ -328,7 +333,7 @@
 
         // Handle form submission
         document.addEventListener('DOMContentLoaded', function () {
-            updatePrograms();
+            updatePrograms(true);
 
             // Sync visible inputs with hidden form inputs
             const collegeSelect = document.getElementById('college');
@@ -338,7 +343,15 @@
 
             if (collegeSelect) {
                 collegeSelect.addEventListener('change', function () {
-                    updatePrograms();
+                    // Reset program options (and selection) when college changes
+                    updatePrograms(false);
+
+                    // Auto-submit so results refresh immediately
+                    const collegeHidden = document.getElementById('collegeHidden');
+                    const programHidden = document.getElementById('programHidden');
+                    if (collegeHidden) collegeHidden.value = collegeSelect.value;
+                    if (programHidden) programHidden.value = programSelect ? programSelect.value : '';
+                    if (filterForm) filterForm.submit();
                 });
             }
 
@@ -348,6 +361,9 @@
                     if (programHidden) {
                         programHidden.value = programSelect.value;
                     }
+
+                    // Auto-submit so results refresh immediately
+                    if (filterForm) filterForm.submit();
                 });
             }
 
@@ -356,6 +372,15 @@
                     const searchHidden = document.getElementById('searchHidden');
                     if (searchHidden) {
                         searchHidden.value = searchInput.value;
+                    }
+                });
+
+                // Allow Enter key to trigger search (input is not inside a form)
+                searchInput.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const btn = document.getElementById('searchBtn');
+                        if (btn) btn.click();
                     }
                 });
             }
@@ -381,11 +406,7 @@
             // Handle filter dropdown changes - auto-submit
             if (collegeSelect) {
                 collegeSelect.addEventListener('change', function () {
-                    updatePrograms();
-                    // Optionally auto-submit on college change
-                    // const collegeHidden = document.getElementById('collegeHidden');
-                    // if (collegeHidden) collegeHidden.value = collegeSelect.value;
-                    // filterForm.submit();
+                    // handled above (kept for backward compatibility)
                 });
             }
         });
