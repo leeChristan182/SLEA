@@ -64,12 +64,21 @@
                 form.addEventListener('submit', function (e) {
                     // Refresh token before submission if form has been on page for a while
                     const formAge = Date.now() - (window.formLoadTime || Date.now());
-                    if (formAge > 60000) { // If form has been on page for more than 1 minute
+                    if (formAge > 60000) {
                         e.preventDefault();
                         refreshCsrfToken().then(() => {
-                            form.submit();
+                            // ✅ triggers a normal submit event (so login.js listeners still run)
+                            if (typeof form.requestSubmit === 'function') {
+                                form.requestSubmit();
+                            } else {
+                                // fallback for older browsers
+                                const btn = form.querySelector('button[type="submit"], input[type="submit"]');
+                                if (btn) btn.click();
+                                else form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+                            }
                         });
                     }
+
                 });
             });
 
@@ -666,45 +675,7 @@
     {{-- Scripts --}}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ asset('js/login.js') }}"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const privacyEl = document.getElementById('privacyModal');
-            if (!privacyEl || typeof bootstrap === 'undefined') return;
 
-            // ✅ If already accepted, never show again
-            const accepted = localStorage.getItem('slea_privacy_accepted') === '1';
-            if (accepted) return;
-
-            // ✅ If ANY other modal should open (from your session-driven logic), skip privacy
-            const shouldOpenOtherModal =
-        {{ session('show_disabled_modal') ? 'true' : 'false' }} ||
-        {{ session('show_reset_modal') ? 'true' : 'false' }} ||
-        {{ session('show_forgot_modal') ? 'true' : 'false' }} ||
-        {{ ($errors->any() && !$errors->has('otp')) ? 'true' : 'false' }} ||
-        {{ session('status') ? 'true' : 'false' }} ||
-        {{ (session('show_otp_modal') || session()->has('otp_pending_user_id')) ? 'true' : 'false' }};
-
-            if (shouldOpenOtherModal) return;
-
-            // ✅ If a modal is already open (race condition), skip privacy
-            const otherOpenModal = document.querySelector('.modal.show:not(#privacyModal)');
-            if (otherOpenModal) return;
-
-            // Show privacy only now
-            const privacyModal =
-                bootstrap.Modal.getInstance(privacyEl) ||
-                new bootstrap.Modal(privacyEl, { backdrop: 'static', keyboard: false });
-
-            privacyModal.show();
-
-            // ✅ Mark accepted on Continue
-            document.getElementById('privacyContinueBtn')?.addEventListener('click', () => {
-                localStorage.setItem('slea_privacy_accepted', '1');
-            }, { once: true });
-        });
-    </script>
-
-    {{-- Auto-open modals based on session flags --}}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
 
@@ -731,88 +702,41 @@
 
                 // 4) Generic login errors (but NOT otp)
                 @if ($errors->any() && !$errors->has('otp'))
-                    var errorModalEl = document.getElementById('loginErrorModal');
-                    if (errorModalEl) {
-                        var modal = new bootstrap.Modal(errorModalEl);
-
-                        errorModalEl.addEventListener('shown.bs.modal', function () {
-                            var backdrop = document.querySelector('.modal-backdrop');
-                            if (backdrop) {
-                                backdrop.style.backdropFilter = 'blur(5px)';
-                                backdrop.style.webkitBackdropFilter = 'blur(5px)';
-                                backdrop.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-                                backdrop.classList.add('login-error-backdrop');
-                            }
-                        });
-
-                        errorModalEl.addEventListener('hide.bs.modal', function () {
-                            var backdrop = document.querySelector('.modal-backdrop');
-                            if (backdrop) {
-                                backdrop.style.backdropFilter = '';
-                                backdrop.style.webkitBackdropFilter = '';
-                            }
-                        });
-
-                        modal.show();
-                    }
+                    const errorModalEl = document.getElementById('loginErrorModal');
+                    if (errorModalEl) new bootstrap.Modal(errorModalEl).show();
                     return;
                 @endif
 
-                // 5) Success modal (then OTP follow-up if needed)
+                // 5) Success modal
                 @if (session('status'))
-                    var successModalEl = document.getElementById('loginSuccessModal');
-                    if (successModalEl) {
-                        var successModal = new bootstrap.Modal(successModalEl, {
-                            backdrop: true
-                        });
-                        var isOtpFollowup = successModalEl.getAttribute('data-otp-followup') === 'true';
-
-                        // Add blur to backdrop when modal is shown
-                        successModalEl.addEventListener('shown.bs.modal', function () {
-                            var backdrop = document.querySelector('.modal-backdrop');
-                            if (backdrop) {
-                                backdrop.style.backdropFilter = 'blur(10px)';
-                                backdrop.style.webkitBackdropFilter = 'blur(10px)';
-                                backdrop.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-                            }
-                        });
-
-                        if (isOtpFollowup) {
-                            successModalEl.addEventListener('hidden.bs.modal', function () {
-                                setTimeout(function () {
-                                    new bootstrap.Modal(document.getElementById('otpModal')).show();
-                                }, 100);
-                            }, { once: true });
-                        }
-
-                        successModal.show();
-                    }
+                    const successModalEl = document.getElementById('loginSuccessModal');
+                    if (successModalEl) new bootstrap.Modal(successModalEl).show();
                     return;
                 @endif
 
-            // 6) OTP modal direct open (skip for admin accounts)
+            // 6) OTP modal
             @if (session('show_otp_modal') || session()->has('otp_pending_user_id'))
-                    @php
-                        $pendingUserId = session('otp_pending_user_id');
-                        $shouldShowOtp = true;
-                        if ($pendingUserId) {
-                            $pendingUser = \App\Models\User::find($pendingUserId);
-                            if ($pendingUser && $pendingUser->isAdmin()) {
-                                $shouldShowOtp = false;
-                                // Clear OTP session data for admin
-                                session()->forget(['otp_pending_user_id', 'otp_context', 'otp_remember_me', 'otp_display_email', 'show_otp_modal']);
-                            }
-                        }
-                    @endphp
-                  @if ($shouldShowOtp)
-                     newbootstrap.Modal(document.getElementById('otpModal')).show();
-                                return;
-                @endif
+                new bootstrap.Modal(document.getElementById('otpModal')).show();
+                return;
             @endif
 
-});
-    </script>
+    // 7) If signup overlay is open, skip privacy
+    const overlayOpen =
+                document.body.classList.contains('signup-overlay-open') ||
+                document.getElementById('signupOverlay')?.classList.contains('active');
 
+            if (overlayOpen) return;
+
+            // 8) Show privacy modal (every refresh)
+            const privacyEl = document.getElementById('privacyModal');
+            if (privacyEl && typeof bootstrap !== 'undefined') {
+                const otherOpenModal = document.querySelector('.modal.show:not(#privacyModal)');
+                if (!otherOpenModal) {
+                    new bootstrap.Modal(privacyEl, { backdrop: 'static', keyboard: false }).show();
+                }
+            }
+        });
+    </script>
     {{-- Signup overlay controls --}}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
@@ -914,16 +838,16 @@
                 }
             }
 
-              signupSuccessModalOk?.addEventListener('click', function() {
+            signupSuccessModalOk?.addEventListener('click', function () {
                 hideSignupSuccessModal();
                 window.location.reload();
             });
 
-              signupSuccessModalClose?.addEventListener('click', function() {
+            signupSuccessModalClose?.addEventListener('click', function () {
                 hideSignupSuccessModal();
                 window.location.reload();
             });
-              signupSuccessModal?.addEventListener('click', function(e) {
+            signupSuccessModal?.addEventListener('click', function (e) {
                 if (e.target === signupSuccessModal) {
                     hideSignupSuccessModal();
                     window.location.reload();
