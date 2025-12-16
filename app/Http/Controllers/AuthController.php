@@ -203,15 +203,26 @@ class AuthController extends Controller
 
     protected function redirectAfterLogin(User $user)
     {
+        if ($user->role === User::ROLE_ASSESSOR) {
+            $assessorSubmitted =
+                $user->assessorInfo &&
+                !empty($user->assessorInfo->office_unit) &&
+                !empty($user->assessorInfo->position);
+
+            if (! $assessorSubmitted) {
+                return redirect()->route('profile.complete.assessor');
+            }
+        }
+
         return match ($user->role) {
             User::ROLE_ADMIN    => redirect()->route('admin.dashboard'),
             User::ROLE_ASSESSOR => redirect()->route('assessor.profile'),
             User::ROLE_STUDENT  => redirect()->route('student.profile'),
-            default             => redirect()
-                ->route('login.show')
+            default             => redirect()->route('login.show')
                 ->withErrors(['email' => 'Your account role has not been assigned yet.']),
         };
     }
+
 
 
     public function logout(Request $request)

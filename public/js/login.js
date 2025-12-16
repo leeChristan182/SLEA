@@ -330,16 +330,30 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // === PRIVACY MODAL (always show on load/refresh/new tab) ===
-    setTimeout(() => {
-        const modalEl = document.getElementById('privacyModal');
-        if (!modalEl || typeof bootstrap === 'undefined') return;
+// === PRIVACY MODAL (show only when appropriate) ===
+setTimeout(() => {
+  const modalEl = document.getElementById('privacyModal');
+  if (!modalEl || typeof bootstrap === 'undefined') return;
 
-        // Always show; no storage checks so it appears on every refresh/new tab
-        const privacyModal =
-            bootstrap.Modal.getInstance(modalEl) ||
-            new bootstrap.Modal(modalEl, { backdrop: 'static', keyboard: false });
+  // 1) Don't show again if already accepted/dismissed
+  const accepted = localStorage.getItem('slea_privacy_accepted') === '1';
+  const dismissed = localStorage.getItem('slea_privacy_dismissed') === '1';
+  if (accepted || dismissed) return;
 
-        privacyModal.show();
-    }, 100);
+  // 2) If any OTHER modal is already open (OTP, Forgot Password, Errors etc.), skip privacy
+  //    (Bootstrap adds .modal.show when visible)
+  const otherOpenModal = document.querySelector('.modal.show:not(#privacyModal)');
+  if (otherOpenModal) return;
+
+  // 3) If server-side validation errors exist, skip (so error messages are visible)
+  const hasErrors = document.querySelector('.alert-danger, .invalid-feedback, .is-invalid');
+  if (hasErrors) return;
+
+  const privacyModal =
+    bootstrap.Modal.getInstance(modalEl) ||
+    new bootstrap.Modal(modalEl, { backdrop: 'static', keyboard: false });
+
+  privacyModal.show();
+}, 100);
+
 });

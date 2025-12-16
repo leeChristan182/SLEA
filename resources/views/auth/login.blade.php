@@ -32,36 +32,36 @@
                     'X-Requested-With': 'XMLHttpRequest'
                 }
             })
-            .then(response => response.text())
-            .then(html => {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const newToken = doc.querySelector('meta[name="csrf-token"]')?.content;
-                if (newToken) {
-                    // Update meta tag
-                    const metaTag = document.querySelector('meta[name="csrf-token"]');
-                    if (metaTag) {
-                        metaTag.setAttribute('content', newToken);
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newToken = doc.querySelector('meta[name="csrf-token"]')?.content;
+                    if (newToken) {
+                        // Update meta tag
+                        const metaTag = document.querySelector('meta[name="csrf-token"]');
+                        if (metaTag) {
+                            metaTag.setAttribute('content', newToken);
+                        }
+                        // Update all CSRF token inputs
+                        document.querySelectorAll('input[name="_token"]').forEach(input => {
+                            input.value = newToken;
+                        });
+                        return newToken;
                     }
-                    // Update all CSRF token inputs
-                    document.querySelectorAll('input[name="_token"]').forEach(input => {
-                        input.value = newToken;
-                    });
-                    return newToken;
-                }
-                return null;
-            })
-            .catch(error => {
-                console.error('Failed to refresh CSRF token:', error);
-                return null;
-            });
+                    return null;
+                })
+                .catch(error => {
+                    console.error('Failed to refresh CSRF token:', error);
+                    return null;
+                });
         }
 
         // Handle 419 errors globally
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Intercept form submissions to refresh token if needed
             document.querySelectorAll('form').forEach(form => {
-                form.addEventListener('submit', function(e) {
+                form.addEventListener('submit', function (e) {
                     // Refresh token before submission if form has been on page for a while
                     const formAge = Date.now() - (window.formLoadTime || Date.now());
                     if (formAge > 60000) { // If form has been on page for more than 1 minute
@@ -154,8 +154,7 @@
                                     <i class="fa-solid fa-envelope"></i>
                                 </span>
 
-                                <input type="email" id="email_display"
-                                    class="form-control"
+                                <input type="email" id="email_display" class="form-control"
                                     placeholder="e.g. juandelacruz001@usep.edu.ph"
                                     value="{{ old('email', $rememberedEmail ?? '') }}" required inputmode="email"
                                     autocomplete="off" spellcheck="false" pattern="^[a-zA-Z0-9._%+\-]+@usep\.edu\.ph$">
@@ -258,10 +257,11 @@
                             University of Southeastern Philippines’ Data Privacy Statement
                         </a>.
                     </p>
-                    <button type="button" class="btn btn-maroon px-5 py-2 rounded-pill fw-bold mt-auto"
-                        data-bs-dismiss="modal">
+                    <button type="button" id="privacyContinueBtn"
+                        class="btn btn-maroon px-5 py-2 rounded-pill fw-bold mt-auto" data-bs-dismiss="modal">
                         CONTINUE
                     </button>
+
                 </div>
                 <div class="w-100 privacy-accent-bar"></div>
             </div>
@@ -539,28 +539,37 @@
 
                 <div class="row g-3 mb-2">
                     <div class="col-md-4">
-                        <label class="form-label" for="first_name_inline">First Name <span class="required">*</span></label>
-                        <input id="first_name_inline" type="text" name="first_name" class="form-control" required autocomplete="given-name">
+                        <label class="form-label" for="first_name_inline">First Name <span
+                                class="required">*</span></label>
+                        <input id="first_name_inline" type="text" name="first_name" class="form-control" required
+                            autocomplete="given-name">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label" for="middle_name_inline">Middle Name</label>
-                        <input id="middle_name_inline" type="text" name="middle_name" class="form-control" autocomplete="additional-name">
+                        <input id="middle_name_inline" type="text" name="middle_name" class="form-control"
+                            autocomplete="additional-name">
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label" for="last_name_inline">Last Name <span class="required">*</span></label>
-                        <input id="last_name_inline" type="text" name="last_name" class="form-control" required autocomplete="family-name">
+                        <label class="form-label" for="last_name_inline">Last Name <span
+                                class="required">*</span></label>
+                        <input id="last_name_inline" type="text" name="last_name" class="form-control" required
+                            autocomplete="family-name">
                     </div>
                 </div>
 
                 <div class="mb-2">
-                    <label class="form-label" for="email_address_inline">USeP Email <span class="required">*</span></label>
-                    <input id="email_address_inline" type="email" name="email_address" class="form-control" placeholder="example@usep.edu.ph" required autocomplete="email">
+                    <label class="form-label" for="email_address_inline">USeP Email <span
+                            class="required">*</span></label>
+                    <input id="email_address_inline" type="email" name="email_address" class="form-control"
+                        placeholder="example@usep.edu.ph" required autocomplete="email">
                 </div>
 
                 <div class="row g-3 mb-2">
                     <div class="col-md-6">
-                        <label class="form-label" for="contact_inline">Contact Number <span class="required">*</span></label>
-                        <input id="contact_inline" type="text" name="contact" class="form-control" placeholder="09XXXXXXXXX" required autocomplete="tel">
+                        <label class="form-label" for="contact_inline">Contact Number <span
+                                class="required">*</span></label>
+                        <input id="contact_inline" type="text" name="contact" class="form-control"
+                            placeholder="09XXXXXXXXX" required autocomplete="tel">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label" for="birth_date_inline">Birth Date</label>
@@ -571,12 +580,15 @@
                 <div class="row g-3 mb-2">
                     <div class="col-md-6">
                         <label class="form-label" for="password_inline">Password <span class="required">*</span></label>
-                        <input id="password_inline" type="password" name="password" class="form-control" required autocomplete="new-password">
+                        <input id="password_inline" type="password" name="password" class="form-control" required
+                            autocomplete="new-password">
                         <div id="signupPasswordFeedback" class="signup-password-feedback" aria-live="polite"></div>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label" for="password_confirmation_inline">Confirm Password <span class="required">*</span></label>
-                        <input id="password_confirmation_inline" type="password" name="password_confirmation" class="form-control" required autocomplete="new-password">
+                        <label class="form-label" for="password_confirmation_inline">Confirm Password <span
+                                class="required">*</span></label>
+                        <input id="password_confirmation_inline" type="password" name="password_confirmation"
+                            class="form-control" required autocomplete="new-password">
                     </div>
                 </div>
 
@@ -593,10 +605,13 @@
 
                 <div class="mb-3">
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="privacy_agree" id="privacy_agree_inline" value="1" required>
+                        <input class="form-check-input" type="checkbox" name="privacy_agree" id="privacy_agree_inline"
+                            value="1" required>
                         <label class="form-check-label" for="privacy_agree_inline" style="font-size:0.8rem;">
-                            By continuing, you agree to the University of Southeastern Philippines' Data Privacy Statement.
-                            Read it through this <a href="https://www.usep.edu.ph/usep-data-privacy-statement/" target="_blank">link</a>.
+                            By continuing, you agree to the University of Southeastern Philippines' Data Privacy
+                            Statement.
+                            Read it through this <a href="https://www.usep.edu.ph/usep-data-privacy-statement/"
+                                target="_blank">link</a>.
                             <span class="required">*</span>
                         </label>
                     </div>
@@ -610,8 +625,8 @@
     </div>
 
     {{-- Privacy Agreement Error Modal --}}
-    <div class="modal fade" id="privacyAgreementErrorModal" tabindex="-1" aria-labelledby="privacyAgreementErrorModalLabel" aria-hidden="true"
-        data-bs-backdrop="static">
+    <div class="modal fade" id="privacyAgreementErrorModal" tabindex="-1"
+        aria-labelledby="privacyAgreementErrorModalLabel" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content login-error-modal-content border-0">
                 <div class="login-error-modal-body">
@@ -639,7 +654,8 @@
             </div>
             <h5 class="signup-success-modal-title">Your application is now<br>pending for approval!</h5>
             <div class="signup-success-modal-body">
-                <p>Wait for approval from the admin. If your sign-up for SLEA<br>is approved, a message will be sent to your email.</p>
+                <p>Wait for approval from the admin. If your sign-up for SLEA<br>is approved, a message will be sent to
+                    your email.</p>
             </div>
             <button type="button" class="signup-success-modal-btn" id="signupSuccessModalOk">
                 Okay
@@ -650,6 +666,43 @@
     {{-- Scripts --}}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ asset('js/login.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const privacyEl = document.getElementById('privacyModal');
+            if (!privacyEl || typeof bootstrap === 'undefined') return;
+
+            // ✅ If already accepted, never show again
+            const accepted = localStorage.getItem('slea_privacy_accepted') === '1';
+            if (accepted) return;
+
+            // ✅ If ANY other modal should open (from your session-driven logic), skip privacy
+            const shouldOpenOtherModal =
+        {{ session('show_disabled_modal') ? 'true' : 'false' }} ||
+        {{ session('show_reset_modal') ? 'true' : 'false' }} ||
+        {{ session('show_forgot_modal') ? 'true' : 'false' }} ||
+        {{ ($errors->any() && !$errors->has('otp')) ? 'true' : 'false' }} ||
+        {{ session('status') ? 'true' : 'false' }} ||
+        {{ (session('show_otp_modal') || session()->has('otp_pending_user_id')) ? 'true' : 'false' }};
+
+            if (shouldOpenOtherModal) return;
+
+            // ✅ If a modal is already open (race condition), skip privacy
+            const otherOpenModal = document.querySelector('.modal.show:not(#privacyModal)');
+            if (otherOpenModal) return;
+
+            // Show privacy only now
+            const privacyModal =
+                bootstrap.Modal.getInstance(privacyEl) ||
+                new bootstrap.Modal(privacyEl, { backdrop: 'static', keyboard: false });
+
+            privacyModal.show();
+
+            // ✅ Mark accepted on Continue
+            document.getElementById('privacyContinueBtn')?.addEventListener('click', () => {
+                localStorage.setItem('slea_privacy_accepted', '1');
+            }, { once: true });
+        });
+    </script>
 
     {{-- Auto-open modals based on session flags --}}
     <script>
@@ -681,7 +734,7 @@
                     var errorModalEl = document.getElementById('loginErrorModal');
                     if (errorModalEl) {
                         var modal = new bootstrap.Modal(errorModalEl);
-                        
+
                         errorModalEl.addEventListener('shown.bs.modal', function () {
                             var backdrop = document.querySelector('.modal-backdrop');
                             if (backdrop) {
@@ -739,21 +792,21 @@
 
             // 6) OTP modal direct open (skip for admin accounts)
             @if (session('show_otp_modal') || session()->has('otp_pending_user_id'))
-                @php
-                    $pendingUserId = session('otp_pending_user_id');
-                    $shouldShowOtp = true;
-                    if ($pendingUserId) {
-                        $pendingUser = \App\Models\User::find($pendingUserId);
-                        if ($pendingUser && $pendingUser->isAdmin()) {
-                            $shouldShowOtp = false;
-                            // Clear OTP session data for admin
-                            session()->forget(['otp_pending_user_id', 'otp_context', 'otp_remember_me', 'otp_display_email', 'show_otp_modal']);
+                    @php
+                        $pendingUserId = session('otp_pending_user_id');
+                        $shouldShowOtp = true;
+                        if ($pendingUserId) {
+                            $pendingUser = \App\Models\User::find($pendingUserId);
+                            if ($pendingUser && $pendingUser->isAdmin()) {
+                                $shouldShowOtp = false;
+                                // Clear OTP session data for admin
+                                session()->forget(['otp_pending_user_id', 'otp_context', 'otp_remember_me', 'otp_display_email', 'show_otp_modal']);
+                            }
                         }
-                    }
-                @endphp
-                @if ($shouldShowOtp)
-                    new bootstrap.Modal(document.getElementById('otpModal')).show();
-                    return;
+                    @endphp
+                  @if ($shouldShowOtp)
+                     newbootstrap.Modal(document.getElementById('otpModal')).show();
+                                return;
                 @endif
             @endif
 
@@ -861,17 +914,16 @@
                 }
             }
 
-            signupSuccessModalOk?.addEventListener('click', function() {
+              signupSuccessModalOk?.addEventListener('click', function() {
                 hideSignupSuccessModal();
                 window.location.reload();
             });
 
-            signupSuccessModalClose?.addEventListener('click', function() {
+              signupSuccessModalClose?.addEventListener('click', function() {
                 hideSignupSuccessModal();
                 window.location.reload();
             });
-
-            signupSuccessModal?.addEventListener('click', function(e) {
+              signupSuccessModal?.addEventListener('click', function(e) {
                 if (e.target === signupSuccessModal) {
                     hideSignupSuccessModal();
                     window.location.reload();
@@ -900,10 +952,10 @@
                     const privacyErrorModal = new bootstrap.Modal(privacyErrorModalEl, {
                         backdrop: 'static'
                     });
-                    
+
                     // Ensure modal appears above signup overlay
                     privacyErrorModalEl.style.zIndex = '2100';
-                    
+
                     // Add blur to backdrop when modal is shown
                     privacyErrorModalEl.addEventListener('shown.bs.modal', function () {
                         // Find the backdrop (it should be the last one created)

@@ -494,15 +494,15 @@
             const statusAlert = document.querySelector('.alert-success');
             if (statusAlert) {
                 const statusText = statusAlert.textContent.trim();
-                const isSuccess = statusText.toLowerCase().includes('successfully') || 
+                const isSuccess = statusText.toLowerCase().includes('successfully') ||
                                  statusText.toLowerCase().includes('approved') ||
                                  statusText.toLowerCase().includes('rejected');
-                
+
                 if (isSuccess) {
                     // Determine icon and title based on message
                     let icon = 'success';
                     let title = 'Success';
-                    
+
                     if (statusText.toLowerCase().includes('rejected')) {
                         icon = 'info';
                         title = 'Validation Rejected';
@@ -510,7 +510,7 @@
                         icon = 'success';
                         title = 'Validation Approved';
                     }
-                    
+
                     Swal.fire({
                         icon: icon,
                         title: title,
@@ -592,7 +592,6 @@
                             <h6 style="margin:0 0 8px;"><strong>Assessor Info</strong></h6>
                             <div><strong>Office/Unit:</strong> ${esc(a.office_unit)}</div>
                             <div><strong>Position:</strong> ${esc(a.position)}</div>
-                            <div><strong>Designation:</strong> ${esc(a.designation)}</div>
                         `;
                     }
 
@@ -667,14 +666,14 @@
         function confirmApprove(userName) {
             const approveForm = document.getElementById('approveFormModal');
             if (!approveForm) return;
-            
+
             // Store form action and CSRF token before closing modal
             const formAction = approveForm.action;
             const csrfToken = approveForm.querySelector('input[name="_token"]')?.value;
-            
+
             // Close the view modal first
             closeValidationModal();
-            
+
             // Small delay to ensure modal is closed before showing confirmation
             setTimeout(() => {
             Swal.fire({
@@ -695,13 +694,13 @@
                         const form = document.createElement('form');
                         form.method = 'POST';
                         form.action = formAction;
-                        
+
                         const tokenInput = document.createElement('input');
                         tokenInput.type = 'hidden';
                         tokenInput.name = '_token';
                         tokenInput.value = csrfToken;
                         form.appendChild(tokenInput);
-                        
+
                         document.body.appendChild(form);
                         form.submit();
                 }
@@ -712,14 +711,14 @@
         function confirmReject(userName) {
             const rejectForm = document.getElementById('rejectFormModal');
             if (!rejectForm) return;
-            
+
             // Store form action and CSRF token before closing modal
             const formAction = rejectForm.action;
             const csrfToken = rejectForm.querySelector('input[name="_token"]')?.value;
-            
+
             // Close the view modal first
             closeValidationModal();
-            
+
             // Small delay to ensure modal is closed before showing confirmation
             setTimeout(() => {
             Swal.fire({
@@ -740,13 +739,13 @@
                         const form = document.createElement('form');
                         form.method = 'POST';
                         form.action = formAction;
-                        
+
                         const tokenInput = document.createElement('input');
                         tokenInput.type = 'hidden';
                         tokenInput.name = '_token';
                         tokenInput.value = csrfToken;
                         form.appendChild(tokenInput);
-                        
+
                         document.body.appendChild(form);
                         form.submit();
                 }

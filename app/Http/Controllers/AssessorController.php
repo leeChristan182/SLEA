@@ -82,15 +82,18 @@ class AssessorController extends Controller
     {
         /** @var User $user */
         $user = Auth::user();
-        
+
         // Refresh user data from database to ensure we have latest state
         $user->refresh();
-        
+
+        // Load assessor info (office/position, etc.)
+        $user->load('assessorInfo');
+
         // If account is no longer limited (approved), clear waiting modal session flags
-        if (!$user->is_account_limited) {
+        if (! $user->is_account_limited) {
             session()->forget(['show_waiting_modal', 'requirements_submitted']);
         }
-        
+
         return view('assessor.profile', compact('user'));
     }
 

@@ -140,6 +140,32 @@
                         </div>
                     </div>
                 </div>
+                @php
+                    $ai = $user->assessorInfo;
+                    $adminApproved = ($user->is_account_limited === false) && ($user->profile_completed === true);
+                @endphp
+
+                <div class="profile-card">
+                    <div class="card-content">
+                        <h2 class="card-title">Assessor Information</h2>
+
+                        <div class="info-grid">
+                            <div class="info-field">
+                                <label class="field-label">Office / Unit</label>
+                                <input type="text" class="field-input"
+                                    value="{{ $adminApproved ? ($ai->office_unit ?? '—') : 'Pending admin approval' }}"
+                                    readonly>
+                            </div>
+
+                            <div class="info-field">
+                                <label class="field-label">Position</label>
+                                <input type="text" class="field-input"
+                                    value="{{ $adminApproved ? ($ai->position ?? '—') : 'Pending admin approval' }}"
+                                    readonly>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Change Password Card -->
                 <div class="profile-card">
@@ -277,18 +303,18 @@
         // If is_account_limited is false, they've been approved and shouldn't see the modal
         // Refresh user to get latest database state
         $user->refresh();
-        $hasSubmittedRequirements = $user->assessorInfo && 
-                                    !empty($user->assessorInfo->office_unit) && 
-                                    !empty($user->assessorInfo->position);
-        
+        $hasSubmittedRequirements = $user->assessorInfo &&
+            !empty($user->assessorInfo->office_unit) &&
+            !empty($user->assessorInfo->position);
+
         // Only show modal if:
         // 1. Account is still limited (not approved yet)
         // 2. Has submitted requirements
         // 3. Session flag is set (for first-time submission)
-        $shouldShowModal = ($user->is_account_limited && $hasSubmittedRequirements) && 
-                          (session('show_waiting_modal') || session('requirements_submitted'));
+        $shouldShowModal = ($user->is_account_limited && $hasSubmittedRequirements) &&
+            (session('show_waiting_modal') || session('requirements_submitted'));
     @endphp
-    
+
     @if($shouldShowModal)
         <script>
             document.addEventListener('DOMContentLoaded', function () {
@@ -302,9 +328,9 @@
                     icon: icon,
                     title: title,
                     html: `
-                        <p>${statusMsg}</p>
-                        <p>Please wait for <strong>Admin validation</strong> before accessing other features.</p>
-                    `,
+                                                                                <p>${statusMsg}</p>
+                                                                                <p>You can continue viewing tasks, but final submission may be restricted until validation</p>
+                                                                            `,
                     allowOutsideClick: false,
                     allowEscapeKey: false,
                     showConfirmButton: true,
