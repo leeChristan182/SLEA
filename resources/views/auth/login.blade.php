@@ -710,7 +710,28 @@
                 // 5) Success modal
                 @if (session('status'))
                     const successModalEl = document.getElementById('loginSuccessModal');
-                    if (successModalEl) new bootstrap.Modal(successModalEl).show();
+                    if (successModalEl) {
+                        // If this success message is for OTP, show OTP input modal immediately after closing.
+                        // (Prevents the OTP modal from being skipped due to the early return below.)
+                        const shouldOpenOtp = successModalEl.getAttribute('data-otp-followup') === 'true';
+                        if (shouldOpenOtp) {
+                            successModalEl.addEventListener('hidden.bs.modal', function () {
+                                const otpEl = document.getElementById('otpModal');
+                                if (!otpEl) return;
+
+                                const otpModal = new bootstrap.Modal(otpEl);
+                                otpModal.show();
+
+                                // Focus the OTP input for convenience
+                                setTimeout(() => {
+                                    const otpInput = otpEl.querySelector('input[name="otp"]');
+                                    otpInput?.focus?.();
+                                }, 150);
+                            }, { once: true });
+                        }
+
+                        new bootstrap.Modal(successModalEl).show();
+                    }
                     return;
                 @endif
 
