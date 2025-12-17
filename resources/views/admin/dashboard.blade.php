@@ -186,17 +186,17 @@
 
         .subtext {
             font-size: 13px;
-            color: rgba(0,0,0,.6);
+            color: rgba(0, 0, 0, .6);
         }
 
         body.dark-mode .subtext {
-            color: rgba(255,255,255,.7);
+            color: rgba(255, 255, 255, .7);
         }
 
         .btn-link-chip {
             padding: 6px 10px;
             border-radius: 10px;
-            background: rgba(123,0,0,0.08);
+            background: rgba(123, 0, 0, 0.08);
             color: #7b0000;
             text-decoration: none;
             font-weight: 700;
@@ -204,13 +204,23 @@
         }
 
         .btn-link-chip:hover {
-            background: rgba(123,0,0,0.14);
+            background: rgba(123, 0, 0, 0.14);
             color: #7b0000;
         }
 
         body.dark-mode .btn-link-chip {
-            background: rgba(255,255,255,0.08);
+            background: rgba(255, 255, 255, 0.08);
             color: #fff;
+        }
+
+        body.dark-mode .btn-link-chip:hover {
+            background: rgba(255, 255, 255, 0.14);
+            color: #fff;
+        }
+
+        .btn-link-chip:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(123, 0, 0, 0.1);
         }
     </style>
 @endsection
@@ -246,26 +256,26 @@
                     </div>
 
                     <div class="dash-card">
-                        <div class="pad dash-kpi">
-                            <div>
+                        <div class="pad dash-kpi" style="flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 0;">
                                 <div class="label">New Submissions</div>
                                 <div class="value">{{ $initialValidationQueueCount }}</div>
                                 <div class="subtext">Pending in Initial Validation queue</div>
                             </div>
-                            <div class="text-end">
+                            <div style="display: flex; align-items: center;">
                                 <a class="btn-link-chip" href="{{ url('/admin/initial-validation') }}">View Queue</a>
                             </div>
                         </div>
                     </div>
 
                     <div class="dash-card">
-                        <div class="pad dash-kpi">
-                            <div>
+                        <div class="pad dash-kpi" style="flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 0;">
                                 <div class="label">Pending Approval Queue</div>
                                 <div class="value">{{ $pendingApproval }}</div>
                                 <div class="subtext">Validated, awaiting final approval</div>
                             </div>
-                            <div class="text-end">
+                            <div style="display: flex; align-items: center;">
                                 <a class="btn-link-chip" href="{{ url('/admin/final-review') }}">View Queue</a>
                             </div>
                         </div>
@@ -440,8 +450,8 @@
                     datasets: [{
                         data: collegeData,
                         backgroundColor: [
-                            '#7b0000','#b30000','#f9bd3d','#ff8c42','#4f46e5',
-                            '#0ea5e9','#10b981','#f472b6','#6366f1','#f97316'
+                            '#7b0000', '#b30000', '#f9bd3d', '#ff8c42', '#4f46e5',
+                            '#0ea5e9', '#10b981', '#f472b6', '#6366f1', '#f97316'
                         ],
                     }]
                 },
@@ -452,9 +462,9 @@
                         tooltip: {
                             callbacks: {
                                 label: (ctx) => {
-                                    const total = collegeData.reduce((a,b)=>a+b,0) || 1;
+                                    const total = collegeData.reduce((a, b) => a + b, 0) || 1;
                                     const val = ctx.parsed;
-                                    const pct = ((val/total)*100).toFixed(1);
+                                    const pct = ((val / total) * 100).toFixed(1);
                                     return `${ctx.label}: ${val} (${pct}%)`;
                                 }
                             }
@@ -465,7 +475,7 @@
         }
 
         // --- Submission status (Donut) ---
-        const statusLabels = ['Approved','Rejected','In Review','Complete'];
+        const statusLabels = ['Approved', 'Rejected', 'In Review', 'Complete'];
         const statusValues = [
             submissionStatus.approved || 0,
             submissionStatus.rejected || 0,
@@ -479,7 +489,7 @@
                 labels: statusLabels,
                 datasets: [{
                     data: statusValues,
-                    backgroundColor: ['#16a34a','#dc2626','#f59e0b','#2563eb']
+                    backgroundColor: ['#16a34a', '#dc2626', '#f59e0b', '#2563eb']
                 }]
             },
             options: {
@@ -489,9 +499,9 @@
                     tooltip: {
                         callbacks: {
                             label: (ctx) => {
-                                const total = statusValues.reduce((a,b)=>a+b,0) || 1;
+                                const total = statusValues.reduce((a, b) => a + b, 0) || 1;
                                 const val = ctx.parsed;
-                                const pct = ((val/total)*100).toFixed(1);
+                                const pct = ((val / total) * 100).toFixed(1);
                                 return `${ctx.label}: ${val} (${pct}%)`;
                             }
                         }

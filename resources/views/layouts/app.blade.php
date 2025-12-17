@@ -86,7 +86,7 @@
     @if(session('account_disabled'))
         <div id="accountDisabledModal" class="modal" style="display:flex;">
             <div class="modal-content" style="max-width:500px;margin:auto;background:white;border-radius:8px;
-                    padding:30px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+                        padding:30px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
                 <div class="modal-header" style="text-align:center;margin-bottom:20px;">
                     <div style="font-size:48px;color:#dc3545;margin-bottom:15px;">
                         <i class="fas fa-user-slash"></i>
@@ -143,6 +143,7 @@
                 checkInterval: 30 * 1000
             });
 
+            const warnBeforeMin = window.SLEA_SESSION?.warn_before_minutes;
             console.log('[SessionTimeout] enabled', { totalMs, warningTimeMs, warnBeforeMin });
         });
     </script>
