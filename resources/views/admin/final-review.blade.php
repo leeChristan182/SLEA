@@ -4,7 +4,7 @@
 @section('title', 'Final Review - Admin Dashboard')
 
 @section('content')
-    <div class="container">
+     <div class="container final-review-container">
         @include('partials.sidebar')
 
         <main class="main-content">
