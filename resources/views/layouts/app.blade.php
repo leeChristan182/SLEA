@@ -11,10 +11,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     {{-- Prevent caching (for back/forward issues) --}}
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
+    {{-- Prevent white flash on navigation before CSS loads --}}
+    <style>
+        html,
+        body {
+            background: #f8f9fa;
+        }
 
+        body.dark-mode {
+            background: #2a2a2a;
+        }
+    </style>
     {{-- CSRF --}}
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
@@ -86,7 +96,7 @@
     @if(session('account_disabled'))
         <div id="accountDisabledModal" class="modal" style="display:flex;">
             <div class="modal-content" style="max-width:500px;margin:auto;background:white;border-radius:8px;
-                        padding:30px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+                                padding:30px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
                 <div class="modal-header" style="text-align:center;margin-bottom:20px;">
                     <div style="font-size:48px;color:#dc3545;margin-bottom:15px;">
                         <i class="fas fa-user-slash"></i>
