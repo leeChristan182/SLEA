@@ -12,9 +12,9 @@ class Program extends Model
     protected $table = 'programs';
 
     protected $fillable = [
-        'program_name',   // ex: "BS in Computer Science"
+        'name',   // ex: "BS in Computer Science"
         'college_id',
-        'code',           // optional
+        'code',   // optional
     ];
 
     public $timestamps = true;
@@ -33,11 +33,11 @@ class Program extends Model
     // Scopes
     public function scopeNamed($q, string $name)
     {
-        return $q->where('program_name', $name);
+        return $q->where('name', $name);
     }
 
     public function scopeAlphabetical($q)
     {
-        return $q->orderBy('program_name');
+        return $q->orderBy('name');
     }
 }

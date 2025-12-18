@@ -117,37 +117,38 @@ class PositionSeeder extends Seeder
             ],
         ];
 
-        // Clear existing positions
-        DB::table('positions')->truncate();
+        $seededKeys = [];
 
-        // Insert positions by leadership type
         foreach ($positionsByType as $typeKey => $positions) {
             $leadershipTypeId = $leadershipTypes[$typeKey] ?? null;
 
             if (!$leadershipTypeId) {
-                $this->command?->warn("⚠️ Leadership type '{$typeKey}' not found; skipping positions.");
+                $this->command?->warn("⚠️ Leadership type '{$typeKey}' not found; skipping.");
                 continue;
             }
 
             foreach ($positions as $pos) {
+                $key = Str::slug($pos['name'], '_') . '_' . $typeKey;
+                $seededKeys[] = $key;
+
                 DB::table('positions')->updateOrInsert(
                     [
                         'leadership_type_id' => $leadershipTypeId,
-                        'name' => $pos['name']
+                        'name'               => $pos['name'],
                     ],
                     [
-                        'key' => Str::slug($pos['name'], '_') . '_' . $typeKey,
-                        'rank_order' => $pos['rank'],
+                        'key'          => $key,
+                        'rank_order'   => $pos['rank'],
                         'is_executive' => $pos['exec'],
-                        'is_elected' => true,
-                        'created_at' => now(),
-                        'updated_at' => now(),
+                        'is_elected'   => true,
+                        'updated_at'   => now(),
+                        'created_at'   => now(), // safe even if existing; ignored by updateOrInsert insert path
                     ]
                 );
             }
         }
 
 
-        $this->command?->info('✅ Positions seeded by leadership type.');
+        $this->command?->info('✅ Positions seeded by leadership type (no truncate).');
     }
 }

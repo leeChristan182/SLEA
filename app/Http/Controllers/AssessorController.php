@@ -11,17 +11,89 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use App\Models\AssessorInfo;
+use App\Models\AssessorFinalReview;
+use App\Models\Submission;
 
 class AssessorController extends Controller
 {
     /* =========================
      | PROFILE
      * ========================= */
+    public function dashboard()
+    {
+        $assessorId = Auth::id();
+
+        // Status counts for THIS assessor
+        $statusCounts = AssessorFinalReview::query()
+            ->where('assessor_id', $assessorId)
+            ->select('status', DB::raw('COUNT(*) as total'))
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $reviewStats = [
+            'pending'   => (int) ($statusCounts[AssessorFinalReview::STATUS_DRAFT] ?? $statusCounts['draft'] ?? 0),
+            'submitted' => (int) ($statusCounts[AssessorFinalReview::STATUS_QUEUED_FOR_ADMIN] ?? $statusCounts['queued_for_admin'] ?? 0),
+            'finalized' => (int) ($statusCounts[AssessorFinalReview::STATUS_FINALIZED] ?? $statusCounts['finalized'] ?? 0),
+        ];
+
+        // Pending submissions queue (must match /assessor/submissions/pending-submissions)
+        $pendingQueueCount = (int) Submission::query()
+            ->where('status', 'pending')
+            ->count();
+
+        // Individual reviews list (latest first)
+        // Adjust relations/columns to match your schema (see notes below).
+        $reviews = AssessorFinalReview::query()
+            ->with(['student']) // student is a User relation
+            ->where('assessor_id', $assessorId)
+            ->orderByDesc('updated_at')
+            ->paginate(12);
+
+        // Chart data: Monthly finalized reviews for the last 12 months
+        $monthlyFinalized = AssessorFinalReview::query()
+            ->where('assessor_id', $assessorId)
+            ->where('status', AssessorFinalReview::STATUS_FINALIZED)
+            ->select(
+                DB::raw('DATE_FORMAT(updated_at, "%Y-%m") as month'),
+                DB::raw('COUNT(*) as count')
+            )
+            ->where('updated_at', '>=', now()->subMonths(12))
+            ->groupBy('month')
+            ->orderBy('month')
+            ->pluck('count', 'month')
+            ->toArray();
+
+        // Generate labels and data for the last 12 months
+        $chartLabels = [];
+        $chartData = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $month = now()->subMonths($i)->format('Y-m');
+            $monthLabel = now()->subMonths($i)->format('M Y');
+            $chartLabels[] = $monthLabel;
+            $chartData[] = (int) ($monthlyFinalized[$month] ?? 0);
+        }
+
+        return view('assessor.dashboard', compact('reviewStats', 'reviews', 'chartLabels', 'chartData', 'pendingQueueCount'));
+    }
 
     // GET /assessor/profile
     public function profile()
     {
+        /** @var User $user */
         $user = Auth::user();
+
+        // Refresh user data from database to ensure we have latest state
+        $user->refresh();
+
+        // Load assessor info (office/position, etc.)
+        $user->load('assessorInfo');
+
+        // If account is no longer limited (approved), clear waiting modal session flags
+        if (! $user->is_account_limited) {
+            session()->forget(['show_waiting_modal', 'requirements_submitted']);
+        }
+
         return view('assessor.profile', compact('user'));
     }
 
@@ -31,17 +103,56 @@ class AssessorController extends Controller
         /** @var User $user */
         $user = Auth::user();
 
-        $data = $request->validate([
-            'first_name' => ['required', 'string', 'max:50'],
-            'last_name'  => ['required', 'string', 'max:50'],
-            'middle_name' => ['nullable', 'string', 'max:50'],
-            'email'      => ['required', 'email', 'max:100', Rule::unique('users', 'email')->ignore($user->id)],
-            'contact'    => ['nullable', 'string', 'max:20'],
-        ]);
+        try {
+            $data = $request->validate([
+                'first_name' => ['required', 'string', 'max:50'],
+                'last_name'  => ['required', 'string', 'max:50'],
+                'middle_name' => ['nullable', 'string', 'max:50'],
+                'email'      => ['required', 'email', 'max:100', Rule::unique('users', 'email')->ignore($user->id)],
+                'contact' => [
+                    'required',
+                    'regex:' . config('slea.phone_regex'),
+                ],
+                'birth_date' => [
+                    'nullable',
+                    'date',
+                    'before:today',
+                    'after_or_equal:' . now()->subYears(100)->toDateString(),
+                    'before_or_equal:' . now()->subYears(15)->toDateString(),
+                ]
+            ]);
 
-        $user->update($data);
+            $user->update($data);
 
-        return back()->with('status', 'Profile updated.');
+            // 🔹 SYSTEM LOG: PROFILE UPDATE
+            $userName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+            \App\Models\SystemMonitoringAndLog::record(
+                $user->role,
+                $userName ?: $user->email,
+                'Update',
+                "Updated profile information."
+            );
+
+            // Return JSON response for AJAX requests
+            if ($request->ajax() || $request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Profile updated successfully.',
+                ]);
+            }
+
+            return back()->with('status', 'Profile updated.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Return JSON response for validation errors on AJAX requests
+            if ($request->ajax() || $request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed.',
+                    'errors' => $e->errors(),
+                ], 422);
+            }
+            throw $e;
+        }
     }
 
     // PATCH /assessor/password
@@ -60,6 +171,14 @@ class AssessorController extends Controller
         $user = Auth::user();
 
         if (! Hash::check($request->current_password, $user->password)) {
+            // Return JSON response for AJAX requests
+            if ($request->ajax() || $request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Your current password is incorrect.',
+                    'errors' => ['current_password' => ['Your current password is incorrect.']],
+                ], 422);
+            }
             return back()->withErrors(['current_password' => 'Your current password is incorrect.']);
         }
 
@@ -79,6 +198,27 @@ class AssessorController extends Controller
 
         $user->password = $request->password; // model mutator will hash
         $user->save();
+        AssessorInfo::where('user_id', $user->id)->update([
+            'temporary_password_hash' => null,
+            'must_change_password'    => false,
+        ]);
+
+        // 🔹 SYSTEM LOG: PASSWORD CHANGE
+        $userName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+        \App\Models\SystemMonitoringAndLog::record(
+            $user->role,
+            $userName ?: $user->email,
+            'Update',
+            "Changed password."
+        );
+
+        // Return JSON response for AJAX requests
+        if ($request->ajax() || $request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Password updated successfully.',
+            ]);
+        }
 
         return back()->with('status', 'Password updated.');
     }
@@ -113,9 +253,15 @@ class AssessorController extends Controller
             Storage::disk('public')->delete($user->profile_picture_path);
         }
 
-        $user->update(['profile_picture_path' => $path]);
+        // Update database with new path
+        $user->profile_picture_path = $path;
+        $user->save();
 
-        $avatarUrl = asset('storage/' . $path);
+        // Refresh user model to ensure we have the latest data
+        $user->refresh();
+
+        // Generate avatar URL with cache-busting parameter
+        $avatarUrl = asset('storage/' . $path) . '?v=' . time();
 
         if ($request->ajax() || $request->expectsJson()) {
             return response()->json([

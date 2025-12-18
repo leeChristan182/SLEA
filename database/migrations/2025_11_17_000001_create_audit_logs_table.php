@@ -16,7 +16,7 @@ return new class extends Migration {
             $table->json('old_values')->nullable();
             $table->json('new_values')->nullable();
             $table->ipAddress('ip_address')->nullable();
-            $table->string('user_agent', 255)->nullable();
+            $table->string('user_agent', 191)->nullable();
             $table->timestamps();
         });
     }

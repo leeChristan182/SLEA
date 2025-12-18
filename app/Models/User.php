@@ -6,15 +6,17 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Support\Str;
 
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
     // --- Roles (match user_roles.key) ---
-    public const ROLE_ADMIN    = 'admin';
-    public const ROLE_ASSESSOR = 'assessor';
-    public const ROLE_STUDENT  = 'student';
+    public const ROLE_ADMIN     = 'admin';
+    public const ROLE_ASSESSOR   = 'assessor';
+    public const ROLE_STUDENT   = 'student';
+    public const ROLE_UNASSIGNED = 'unassigned';
 
     // --- Statuses (match user_statuses.key) ---
     public const STATUS_PENDING  = 'pending';
@@ -23,6 +25,7 @@ class User extends Authenticatable
     public const STATUS_DISABLED = 'disabled';
 
     protected $fillable = [
+        'user_code',
         'first_name',
         'last_name',
         'middle_name',
@@ -33,7 +36,9 @@ class User extends Authenticatable
         'profile_picture_path',
         'role',
         'status',
+        'profile_completed',
     ];
+
 
     // Keep contact & birth_date hidden (from your unmerged version)
     protected $hidden = [
@@ -47,6 +52,8 @@ class User extends Authenticatable
         'email_verified_at'    => 'datetime',
         'birth_date'           => 'date',
         'otp_last_verified_at' => 'datetime', // IMPORTANT for OTP freshness
+        'is_account_limited'   => 'boolean',
+        'profile_completed'    => 'boolean',
     ];
 
     /**
@@ -117,6 +124,11 @@ class User extends Authenticatable
         return $this->role === self::ROLE_STUDENT;
     }
 
+    public function requiresProfileCompletion(): bool
+    {
+        // If the column exists, it's cast to boolean, so just invert it.
+        return !$this->profile_completed;
+    }
     // --- Status helpers ---
     public function isApproved(): bool
     {
@@ -162,6 +174,37 @@ class User extends Authenticatable
     public function scopeStudents($q)
     {
         return $q->where('role', self::ROLE_STUDENT);
+    }
+    public function ensureUserCode(): void
+    {
+        if (!empty($this->user_code)) return;
+
+        // generate until unique (rare collision, but safe)
+        do {
+            $code = static::makeUserCode($this->role);
+            $exists = static::where('user_code', $code)->exists();
+        } while ($exists);
+
+        $this->user_code = $code;
+    }
+
+
+    public static function makeUserCode(?string $role): string
+    {
+        $prefix = match ($role) {
+            self::ROLE_ADMIN     => 'ADM',
+            self::ROLE_ASSESSOR  => 'ASC',
+            self::ROLE_STUDENT   => 'STU',
+            self::ROLE_UNASSIGNED => 'USR',
+            default              => 'USR',
+        };
+
+        $year = now()->format('Y');
+
+        // 6-char random alphanumeric suffix, uppercase
+        $suffix = strtoupper(Str::random(6));
+
+        return "{$prefix}-{$year}-{$suffix}";
     }
 
     // --- Transitions ---
@@ -219,6 +262,11 @@ class User extends Authenticatable
 
     public function needsLoginOtp(): bool
     {
+        // Admin accounts don't need OTP verification
+        if ($this->isAdmin()) {
+            return false;
+        }
+
         // First time ever = force OTP
         if (is_null($this->otp_last_verified_at)) {
             return true;
@@ -227,6 +275,13 @@ class User extends Authenticatable
         $days = config('auth.otp.login_fresh_days', 30);
 
         return $this->otp_last_verified_at->lt(now()->subDays($days));
+    }
+    public function isOtpVerifiedFresh(): bool
+    {
+        if (is_null($this->otp_last_verified_at)) return false;
+
+        $days = config('auth.otp.login_fresh_days', 30);
+        return $this->otp_last_verified_at->gte(now()->subDays($days));
     }
 
     /**
@@ -317,6 +372,10 @@ class User extends Authenticatable
     {
         return $this->hasOne(\App\Models\StudentAcademic::class);
     }
+    public function studentLeaderships()
+    {
+        return $this->hasMany(\App\Models\StudentLeadership::class, 'user_id');
+    }
 
     public function submissions()
     {
@@ -332,6 +391,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(\App\Models\UserDocument::class);
     }
+
+    public function assessorInfo()
+    {
+        return $this->hasOne(\App\Models\AssessorInfo::class);
+    }
+
     /**
      * Get the student’s latest Certificate of Registration (COR).
      */
@@ -348,8 +413,22 @@ class User extends Authenticatable
      */
     public function hasCor(): bool
     {
-        return $this->documents()
-            ->where('doc_type', 'cor')
-            ->exists();
+        return (bool) ($this->studentAcademic?->certificate_of_registration_path);
+    }
+    public function setContactAttribute($value)
+    {
+        $contact = preg_replace('/\D/', '', $value);
+
+        // +639XXXXXXXXX → 09XXXXXXXXX
+        if (str_starts_with($contact, '639')) {
+            $contact = '0' . substr($contact, 2);
+        }
+
+        // 9XXXXXXXXX → 09XXXXXXXXX
+        if (str_starts_with($contact, '9')) {
+            $contact = '0' . $contact;
+        }
+
+        $this->attributes['contact'] = $contact;
     }
 }

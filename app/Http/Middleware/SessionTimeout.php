@@ -5,49 +5,49 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Support\Facades\Auth;
 
 class SessionTimeout
 {
     public function handle(Request $request, Closure $next): Response
     {
+        // ✅ Always allow check-session to pass (so polling doesn't count as activity)
+        if ($request->is('check-session')) {
+            return $next($request);
+        }
+
         // Only apply to authenticated users
-        if (auth()->check()) {
+        if (Auth::check()) {
             $lastActivity = $request->session()->get('last_activity');
-            $currentTime = time();
-            $timeout = config('session.lifetime', 120) * 60; // Convert minutes to seconds
+            $now = time();
 
-            // Update last activity time
-            $request->session()->put('last_activity', $currentTime);
+            // session.lifetime is MINUTES
+            $timeoutSeconds = (int) config('session.lifetime', 120) * 60;
 
-            // Check if session has expired
-            if ($lastActivity && ($currentTime - $lastActivity) > $timeout) {
-                // Log the timeout
-                \App\Models\SystemMonitoringAndLog::create([
-                    'log_id' => null,
-                    'user_role' => auth()->user()->user_role,
-                    'user_name' => auth()->user()->name,
-                    'activity_type' => 'session_timeout',
-                    'description' => "Session timed out due to inactivity: " . auth()->user()->email,
-                ]);
-
-                // Logout the user
-                auth()->logout();
+            // If expired -> logout and redirect/JSON
+            if ($lastActivity && ($now - $lastActivity) > $timeoutSeconds) {
+                Auth::logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();
 
-                // Redirect to login with timeout message
-                if ($request->expectsJson()) {
+                if ($request->expectsJson() || $request->wantsJson()) {
                     return response()->json([
-                        'error' => 'Session expired due to inactivity',
-                        'redirect_url' => route('login.show')
+                        'authenticated' => false,
+                        'message' => 'Session expired due to inactivity.',
+                        'redirect_url' => route('login.show'),
                     ], 401);
                 }
 
-                return redirect()->route('login.show')
+                return redirect()
+                    ->route('login.show')
                     ->with('error', 'Your session has expired due to inactivity. Please log in again.');
             }
+
+            // ✅ only update last_activity for real page navigation / actions
+            $request->session()->put('last_activity', $now);
         }
 
+        // ✅ ALWAYS return response
         return $next($request);
     }
 }

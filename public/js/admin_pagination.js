@@ -43,31 +43,54 @@ class AdminPagination {
 
     // Find existing pagination container or create one
     findOrCreatePaginationContainer(table) {
-        // Look for existing unified-pagination container
-        let container = table.closest('.page-content, .program-section, .manage-account, .approve-reject, .submission-oversight, .award-report, .system-monitoring, .final-review').querySelector('.unified-pagination');
+        // First, look for existing pagination container with data attribute
+        let paginationContainer = document.querySelector('[data-pagination-container]');
         
-        if (!container) {
-            // Create new pagination container
-            container = document.createElement('div');
-            container.className = 'unified-pagination';
-            container.innerHTML = `
-                <button class="btn-nav" id="prevBtn" disabled>
-                    <i class="fas fa-chevron-left"></i> Previous
-                </button>
-                <span class="pagination-pages" id="paginationPages">
-                    <!-- Dynamic pages will be generated here -->
-                </span>
-                <button class="btn-nav" id="nextBtn">
-                    Next <i class="fas fa-chevron-right"></i>
-                </button>
-            `;
-            
-            // Insert after the table
-            const tableWrap = table.closest('.table-wrap') || table.parentElement;
-            tableWrap.insertAdjacentElement('afterend', container);
+        if (paginationContainer) {
+            // Return the unified-pagination div inside it
+            return paginationContainer.querySelector('.unified-pagination') || paginationContainer;
+        }
+        
+        // Look for existing unified-pagination container
+        const parent = table.closest('.page-content, .program-section, .manage-account, .approve-reject, .submission-oversight, .award-report, .system-monitoring, .final-review, .main-content');
+        if (parent) {
+            const existing = parent.querySelector('.unified-pagination');
+            if (existing) return existing;
+        }
+        
+        // Create new pagination container structure
+        paginationContainer = document.createElement('div');
+        paginationContainer.className = 'pagination-container';
+        paginationContainer.setAttribute('data-pagination-container', '');
+        
+        const unifiedPagination = document.createElement('div');
+        unifiedPagination.className = 'unified-pagination';
+        unifiedPagination.innerHTML = `
+            <button class="btn-nav" id="prevBtn" disabled>
+                <i class="fas fa-chevron-left"></i> Previous
+            </button>
+            <span class="pagination-pages" id="paginationPages">
+                <!-- Dynamic pages will be generated here -->
+            </span>
+            <button class="btn-nav" id="nextBtn">
+                Next <i class="fas fa-chevron-right"></i>
+            </button>
+        `;
+        
+        const paginationInfo = document.createElement('div');
+        paginationInfo.className = 'pagination-info';
+        paginationContainer.appendChild(paginationInfo);
+        paginationContainer.appendChild(unifiedPagination);
+        
+        // Insert after the table container
+        const tableContainer = table.closest('.submissions-table-container') || table.parentElement;
+        if (tableContainer) {
+            tableContainer.insertAdjacentElement('afterend', paginationContainer);
+        } else {
+            table.insertAdjacentElement('afterend', paginationContainer);
         }
 
-        return container;
+        return unifiedPagination;
     }
 
     // Update pagination info display
@@ -89,6 +112,8 @@ class AdminPagination {
 
         paginationPages.innerHTML = '';
 
+        if (this.totalPages === 0) return;
+
         // Show max 5 page buttons
         let startPage = Math.max(1, this.currentPage - 2);
         let endPage = Math.min(this.totalPages, startPage + 4);
@@ -100,7 +125,7 @@ class AdminPagination {
 
         for (let i = startPage; i <= endPage; i++) {
             const pageBtn = document.createElement('button');
-            pageBtn.className = 'btn-page';
+            pageBtn.className = 'page-btn';
             if (i === this.currentPage) {
                 pageBtn.classList.add('active');
             }
@@ -231,6 +256,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Final Review
     if (document.querySelector('.final-review-table')) {
         initializeAdminPagination('.final-review-table', 10);
+    }
+
+    // Pending Submissions (Assessor)
+    if (document.querySelector('.submissions-table') || document.querySelector('table.submissions-table')) {
+        initializeAdminPagination('.submissions-table', 5);
     }
 });
 

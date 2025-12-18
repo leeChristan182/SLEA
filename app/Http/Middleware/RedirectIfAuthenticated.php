@@ -18,8 +18,8 @@ class RedirectIfAuthenticated
                 $user = Auth::guard($guard)->user();
 
                 $route = match ($user->role) {
-                    'admin'    => 'admin.profile',
-                    'assessor' => 'assessor.profile',
+                    'admin'    => 'admin.dashboard',
+                    'assessor' => 'assessor.dashboard',
                     default    => 'student.profile',
                 };
 

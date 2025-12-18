@@ -16,7 +16,7 @@ return new class extends Migration {
 
         // Status of an individual submitted evidence/record
         Schema::create('submission_statuses', function (Blueprint $t) {
-            $t->string('key', 32)->primary();
+            $t->string('key', 191)->primary();
         });
 
         DB::table('submission_statuses')->insert(array_map(fn($k) => ['key' => $k], [
@@ -112,15 +112,15 @@ return new class extends Migration {
 
         // Overall SLEA application status (student_academic.slea_application_status)
         Schema::create('slea_application_statuses', function (Blueprint $t) {
-            $t->string('key', 32)->primary();
+            $t->string('key', 191)->primary();
         });
 
         DB::table('slea_application_statuses')->insert(array_map(fn($k) => ['key' => $k], [
-            'not_ready',          // default for eligible students
-            'ready_for_assessor', // student clicked "ready to be rated"
-            'for_admin_review',   // passed assessor threshold; waiting for admin
-            'awarded',            // approved for SLEA
-            'not_qualified',      // finished process but did not qualify
+            'incomplete',                      // default for eligible students
+            'pending_assessor_evaluation',    // student clicked "ready to be rated"
+            'pending_administrative_validation', // passed assessor threshold; waiting for admin
+            'qualified',                       // approved for SLEA
+            'not_qualified',                  // finished process but did not qualify
         ]));
 
         /*

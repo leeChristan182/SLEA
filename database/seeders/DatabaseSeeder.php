@@ -8,6 +8,7 @@ use Database\Seeders\UsersAdminSeeder;
 use Database\Seeders\CollegesProgramsMajorsSeeder;
 use Database\Seeders\ClusterSeeder;
 use Database\Seeders\LeadershipTypeSeeder;
+use Database\Seeders\LeadershipStatusSeeder;
 use Database\Seeders\OrganizationSeeder;
 use Database\Seeders\PositionSeeder;
 use Database\Seeders\RubricCategorySeeder;
@@ -20,7 +21,6 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // 🔒 Disable foreign key checks for SQLite/MySQL
-        DB::statement('PRAGMA foreign_keys = OFF;');
         // For MySQL, use: DB::statement('SET FOREIGN_KEY_CHECKS=0;');
 
         // Call all your seeders safely
@@ -38,7 +38,6 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // 🔓 Re-enable foreign key checks
-        DB::statement('PRAGMA foreign_keys = ON;');
         // For MySQL: DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
     }

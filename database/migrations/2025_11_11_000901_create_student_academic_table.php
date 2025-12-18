@@ -34,7 +34,7 @@ return new class extends Migration {
                 ->nullOnDelete();
 
             // Misc
-            $table->string('year_level', 20);
+            $table->integer('year_level')->nullable();
             $table->unsignedSmallInteger('graduate_prior')->nullable();
 
             // Extra fields used in your app (optional but consistent)

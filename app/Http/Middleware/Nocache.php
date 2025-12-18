@@ -10,8 +10,14 @@ class NoCache
     {
         $response = $next($request);
 
-        return $response->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
-            ->header('Pragma', 'no-cache')
-            ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
+        /**
+         * Reduce "white flash" between navigations by allowing the browser to keep a cached copy
+         * but always revalidate it. This keeps security reasonable while avoiding full reload feel.
+         */
+        $response->headers->set('Cache-Control', 'private, no-cache, must-revalidate, max-age=0');
+        $response->headers->set('Pragma', 'no-cache');
+        $response->headers->set('Expires', '0');
+
+        return $response;
     }
 }

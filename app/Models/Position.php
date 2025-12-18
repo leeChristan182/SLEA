@@ -10,7 +10,7 @@ class Position extends Model
     use HasFactory;
 
     // Matches PositionSeeder columns
-    protected $fillable = ['name', 'key', 'rank_order', 'is_executive', 'is_elected'];
+    protected $fillable = ['name', 'key', 'rank_order', 'is_executive', 'is_elected', 'leadership_type_id'];
 
     protected $casts = [
         'rank_order'   => 'integer',

@@ -6,7 +6,7 @@
 @endsection
 
 @section('content')
-<div class="container">
+<div class="container-fluid assessor-pending-submissions-page">
     @include('partials.sidebar')
 
     <main class="main-content">
@@ -14,19 +14,9 @@
             <h1>Pending Submissions</h1>
         </div>
 
-        <!-- Filter and Search Controls -->
+        <!-- Search and Sort Controls -->
         <div class="controls-section">
             <div class="filter-controls">
-                <div class="filter-group">
-                    <label for="filterSelect">Filter</label>
-                    <select id="filterSelect" class="form-select">
-                        <option value="">None</option>
-                        <option value="recent">Recent</option>
-                        <option value="overdue">Overdue</option>
-                        <option value="priority">Priority</option>
-                    </select>
-                </div>
-
                 <div class="filter-group">
                     <label for="sortSelect">Sort by</label>
                     <select id="sortSelect" class="form-select">
@@ -46,7 +36,12 @@
                         class="form-control"
                         placeholder="Search submissions..."
                     >
-                    <i class="fas fa-search search-icon"></i>
+                    <button type="button" id="searchBtn" class="btn-search-maroon search-btn-attached" title="Search" onclick="handleSearchClick(event)">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    <button type="button" id="clearBtn" class="btn-clear" title="Clear search" onclick="handleClearClick(event)">
+                        Clear
+                    </button>
                 </div>
             </div>
         </div>
@@ -82,7 +77,8 @@
                             <td>
                                 <button
                                     class="btn btn-view"
-                                    onclick="openSubmissionModal({{ $submission->id }})"
+                                    data-submission-id="{{ $submission->id }}"
+                                    onclick="openSubmissionModalFromButton(this)"
                                     title="View Submission"
                                 >
                                     <i class="fas fa-eye"></i>
@@ -177,6 +173,10 @@
                                         <span class="value" id="modalSleaSection">-</span>
                                     </div>
                                     <div class="detail-row">
+                                        <span class="label">SLEA Category:</span>
+                                        <span class="value" id="modalSleaCategory">-</span>
+                                    </div>
+                                    <div class="detail-row">
                                         <span class="label">Subsection:</span>
                                         <span class="value" id="modalSubsection">-</span>
                                     </div>
@@ -195,6 +195,10 @@
                                     <div class="detail-row">
                                         <span class="label">Description:</span>
                                         <span class="value" id="modalDescription">-</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="label">Application Status:</span>
+                                        <span class="value" id="modalApplicationStatus">-</span>
                                     </div>
                                 </div>
                             </div>
@@ -340,6 +344,23 @@
 </div>
 
 <link rel="stylesheet" href="{{ asset('css/pending-submissions.css') }}">
+<style>
+    /* This app uses a fixed header; most pages rely on .container { margin-top:80px } (style.css).
+       This view uses container-fluid for full-width tables, so apply the same offset here. */
+    .assessor-pending-submissions-page {
+        margin-top: 80px;
+    }
+
+    /* Expand table container to match the width feel of the assessor "All Submissions" page */
+    .assessor-pending-submissions-page .submissions-table-container {
+        width: 100%;
+        max-width: none;
+    }
+
+    .assessor-pending-submissions-page .submissions-table {
+        width: 100%;
+    }
+</style>
 <script src="{{ asset('js/admin_pagination.js') }}"></script>
 <script src="{{ asset('js/pending-submission.js') }}"></script>
 @endsection

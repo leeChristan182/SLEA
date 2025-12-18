@@ -1,242 +1,415 @@
 @extends('layouts.app')
 
-@section('title', 'SLEA Awards Report')
+@section('title', 'Award Report')
 
 @section('content')
-<div class="container">
-    @include('partials.sidebar')
+    <div class="container award-report-container">
+        @include('partials.sidebar')
 
-    <main class="main-content awards-report-page">
-
-        {{-- Page header --}}
-        <div class="page-header d-flex flex-wrap justify-content-between align-items-center mb-3">
-            <div>
-                <h1 class="mb-1">SLEA Awards Report</h1>
-                <p class="text-muted mb-0">
-                    View and export qualified student leaders based on their final compiled scores.
-                </p>
+        <main class="main-content">
+            <div class="page-header">
+                <h1>Award Report</h1>
             </div>
 
-            <div class="d-flex gap-2 flex-wrap">
-                {{-- Export PDF button --}}
-                <a href="{{ route('admin.pdf.award-report.pdf', request()->query()) }}"
-                   class="btn btn-danger btn-sm">
-                    <i class="fa-solid fa-file-pdf me-1"></i> Export PDF
-                </a>
-            </div>
-        </div>
+            {{-- Flash Messages --}}
+            @if(session('status'))
+                <div class="alert alert-success">{{ session('status') }}</div>
+            @endif
 
-        {{-- Filters --}}
-        <section class="card mb-3 p-3">
-            <form method="GET" action="{{ route('admin.award-report') }}" id="filterForm">
-                <div class="row g-2 align-items-end">
-                    {{-- Search --}}
-                    <div class="col-md-3">
-                        <label for="q" class="form-label mb-1">Search</label>
-                        <input type="text"
-                               name="q"
-                               id="q"
-                               class="form-control form-control-sm"
-                               placeholder="Search by name or student no."
-                               value="{{ request('q') }}">
-                    </div>
+            @if($errors->any())
+                <div class="alert alert-danger">
+                    <ul class="mb-0">
+                        @foreach($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
 
-                    {{-- College --}}
-                    <div class="col-md-3">
-                        <label for="college_id" class="form-label mb-1">College</label>
-                        <select name="college_id" id="college_id" class="form-select form-select-sm">
+            {{-- Controls Section --}}
+            <div class="controls-section">
+                <div class="filter-controls">
+                    <div class="filter-group">
+                        <label for="college">College</label>
+                        <select name="college" id="college" class="form-select" onchange="updatePrograms()">
                             <option value="">All Colleges</option>
-                            @foreach($colleges as $college)
-                                <option value="{{ $college->id }}"
-                                    @selected(request('college_id') == $college->id)>
-                                    {{ $college->code ?? $college->name }}
-                                </option>
-                            @endforeach
+                            <option value="College of Education" @selected(request('college') === 'College of Education')>
+                                College of Education</option>
+                            <option value="College of Engineering" @selected(request('college') === 'College of Engineering')>
+                                College of Engineering</option>
+                            <option value="College of Information and Computing" @selected(request('college') === 'College of Information and Computing')>College of Information and Computing</option>
+                            <option value="College of Business Administration" @selected(request('college') === 'College of Business Administration')>College of Business Administration</option>
+                            <option value="College of Arts and Science" @selected(request('college') === 'College of Arts and Science')>College of Arts and Science</option>
+                            <option value="College of Applied Economics" @selected(request('college') === 'College of Applied Economics')>College of Applied Economics</option>
+                            <option value="College of Technology" @selected(request('college') === 'College of Technology')>
+                                College of Technology</option>
                         </select>
                     </div>
 
-                    {{-- Program --}}
-                    <div class="col-md-3">
-                        <label for="program_id" class="form-label mb-1">Program</label>
-                        <select name="program_id" id="program_id" class="form-select form-select-sm">
+                    <div class="filter-group">
+                        <label for="program">Program</label>
+                        <select name="program" id="program" class="form-select">
                             <option value="">All Programs</option>
-                            @foreach($programs as $program)
-                                <option value="{{ $program->id }}"
-                                    @selected(request('program_id') == $program->id)>
-                                    {{ $program->code ?? $program->name }}
-                                </option>
-                            @endforeach
+                            <!-- Programs will be populated dynamically based on selected college -->
                         </select>
                     </div>
+                </div>
 
-                    {{-- Min Score --}}
-                    <div class="col-md-2">
-                        <label for="min_score" class="form-label mb-1">Min Score (%)</label>
-                        <select name="min_score" id="min_score" class="form-select form-select-sm">
-                            <option value="">Any</option>
-                            @foreach([70, 80, 85, 90] as $cutoff)
-                                <option value="{{ $cutoff }}"
-                                    @selected((string)request('min_score') === (string)$cutoff)>
-                                    ≥ {{ $cutoff }}%
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    {{-- Apply --}}
-                    <div class="col-md-1 d-flex">
-                        <button type="submit"
-                                class="btn btn-primary btn-sm ms-auto w-100">
-                            Apply
+                <div class="search-controls">
+                    <div class="search-group">
+                        <input type="text" name="search" id="search" class="form-control"
+                            placeholder="Search by name or ID..." value="{{ request('search') }}">
+                        <button type="button" class="btn-search-maroon search-btn-attached" id="searchBtn" title="Search">
+                            <i class="fas fa-search"></i>
                         </button>
+                        <button type="button" class="btn-export-pdf" onclick="exportReport()" id="exportBtn"
+                            title="Export PDF">
+                            <i class="fas fa-file-pdf"></i> Export
+                        </button>
+                        <a href="{{ route('admin.award-report') }}" class="btn-clear" title="Clear filters">
+                            Clear
+                        </a>
                     </div>
                 </div>
+            </div>
 
-                {{-- Award level quick filter tabs (optional) --}}
-                <div class="mt-3 d-flex flex-wrap gap-2 small">
-                    @php
-                        $currentLevel = request('award_level');
-                        $tabBaseQuery = request()->except('award_level', 'page');
-                    @endphp
-
-                    <span class="me-2 fw-semibold text-muted">Filter by award:</span>
-
-                    <a href="{{ route('admin.award-report', $tabBaseQuery) }}"
-                       class="badge rounded-pill px-3 py-2 {{ $currentLevel === null ? 'bg-primary text-white' : 'bg-light text-muted' }}">
-                        All
-                    </a>
-
-                    <a href="{{ route('admin.award-report', array_merge($tabBaseQuery, ['award_level' => 'gold'])) }}"
-                       class="badge rounded-pill px-3 py-2 {{ $currentLevel === 'gold' ? 'bg-warning text-dark' : 'bg-light text-muted' }}">
-                        Gold
-                    </a>
-
-                    <a href="{{ route('admin.award-report', array_merge($tabBaseQuery, ['award_level' => 'silver'])) }}"
-                       class="badge rounded-pill px-3 py-2 {{ $currentLevel === 'silver' ? 'bg-secondary text-white' : 'bg-light text-muted' }}">
-                        Silver
-                    </a>
-
-                    <a href="{{ route('admin.award-report', array_merge($tabBaseQuery, ['award_level' => 'qualified'])) }}"
-                       class="badge rounded-pill px-3 py-2 {{ $currentLevel === 'qualified' ? 'bg-success text-white' : 'bg-light text-muted' }}">
-                        SLEA Qualified
-                    </a>
-
-                    <a href="{{ route('admin.award-report', array_merge($tabBaseQuery, ['award_level' => 'tracking'])) }}"
-                       class="badge rounded-pill px-3 py-2 {{ $currentLevel === 'tracking' ? 'bg-info text-dark' : 'bg-light text-muted' }}">
-                        Tracking
-                    </a>
-                </div>
+            {{-- Filter Form (used by search button) --}}
+            <form method="GET" action="{{ route('admin.award-report') }}" id="filterForm" style="display: none;">
+                <input type="hidden" name="college" id="collegeHidden" value="{{ request('college') }}">
+                <input type="hidden" name="program" id="programHidden" value="{{ request('program') }}">
+                <input type="hidden" name="search" id="searchHidden" value="{{ request('search') }}">
             </form>
-        </section>
 
-        {{-- Summary cards --}}
-        <section class="row g-3 mb-3">
-            <div class="col-md-3">
-                <div class="card h-100 border-0 shadow-sm">
-                    <div class="card-body py-3">
-                        <div class="text-muted small">Total Students</div>
-                        <div class="fs-4 fw-bold">{{ $stats['total'] ?? 0 }}</div>
-                    </div>
-                </div>
-            </div>
+            {{-- SLEA Recipients Section --}}
+            <div class="submissions-table-container">
+                <h3 class="program-title">SLEA Recipients</h3>
 
-            <div class="col-md-3">
-                <div class="card h-100 border-0 shadow-sm">
-                    <div class="card-body py-3">
-                        <div class="text-muted small">Gold Awardees</div>
-                        <div class="fs-4 fw-bold text-warning">{{ $stats['gold'] ?? 0 }}</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-3">
-                <div class="card h-100 border-0 shadow-sm">
-                    <div class="card-body py-3">
-                        <div class="text-muted small">Silver Awardees</div>
-                        <div class="fs-4 fw-bold text-secondary">{{ $stats['silver'] ?? 0 }}</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-3">
-                <div class="card h-100 border-0 shadow-sm">
-                    <div class="card-body py-3">
-                        <div class="text-muted small">SLEA Qualified</div>
-                        <div class="fs-4 fw-bold text-success">{{ $stats['qualified'] ?? 0 }}</div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        {{-- MAIN TABLE – with raw score --}}
-        <section class="card">
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
-                        <thead class="table-light">
+                <table class="table submissions-table">
+                    <thead>
+                        <tr>
+                            <th>Student ID</th>
+                            <th>Student Name</th>
+                            <th>College</th>
+                            <th>Program</th>
+                            <th>Total Points</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($students as $student)
                             <tr>
-                                <th style="width: 15%;">Student ID</th>
-                                <th style="width: 30%;">Full Name</th>
-                                <th style="width: 25%;">College</th>
-                                <th style="width: 15%;">Program</th>
-                                <th style="width: 15%;">Total Score</th>
+                                <td>{{ $student['student_id'] }}</td>
+                                <td>{{ $student['name'] }}</td>
+                                <td>{{ $student['college'] }}</td>
+                                <td>{{ $student['program'] }}</td>
+                                <td>{{ $student['points_display'] ?? number_format($student['points'] ?? 0, 2) . '/' . number_format($student['max_points'] ?? 100, 2) }}
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($students as $row)
-                                <tr>
-                                    {{-- Student ID --}}
-                                    <td>
-                                        {{ $row->student_number
-                                           ?? $row->user->studentAcademic->student_id
-                                           ?? 'N/A' }}
-                                    </td>
-
-                                    {{-- Full Name --}}
-                                    <td>
-                                        {{ $row->user->full_name ?? 'N/A' }}
-                                    </td>
-
-                                    {{-- College --}}
-                                    <td>
-                                        {{ $row->college_name
-                                           ?? $row->user->studentAcademic->college->name
-                                           ?? 'N/A' }}
-                                    </td>
-
-                                    {{-- Program --}}
-                                    <td>
-                                        {{ $row->program_code
-                                           ?? $row->user->studentAcademic->program->code
-                                           ?? 'N/A' }}
-                                    </td>
-
-                                    {{-- RAW TOTAL SCORE: x / y --}}
-                                    <td>
-                                        @php
-                                            $score = $row->raw_total_score ?? $row->total_score ?? 0;
-                                            $max   = $row->raw_max_points ?? $row->max_points ?? 0;
-                                        @endphp
-                                        {{ $score }} / {{ $max }}
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="5" class="text-center text-muted py-4">
-                                        No students match your current filters.
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-
-                {{-- Pagination --}}
-                <div class="p-2 border-top">
-                    {{ $students->appends(request()->query())->links() }}
-                </div>
+                        @empty
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">No SLEA recipients found matching the
+                                    selected filters.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
-        </section>
-    </main>
-</div>
+
+            {{-- Pagination --}}
+            @if($students->hasPages())
+                <div class="pagination-container" data-pagination-container>
+                    <div class="pagination-info">
+                        Showing {{ $students->firstItem() ?? 0 }} – {{ $students->lastItem() ?? 0 }}
+                        of {{ $students->total() }} entries
+                    </div>
+
+                    <div class="unified-pagination">
+                        @if($students->onFirstPage())
+                            <button class="btn-nav" disabled>
+                                <i class="fas fa-chevron-left"></i> Previous
+                            </button>
+                        @else
+                            <a href="{{ $students->previousPageUrl() }}" class="btn-nav">
+                                <i class="fas fa-chevron-left"></i> Previous
+                            </a>
+                        @endif
+
+                        <span class="pagination-pages">
+                            @php
+                                $currentPage = $students->currentPage();
+                                $lastPage = $students->lastPage();
+                                $start = max(1, $currentPage - 2);
+                                $end = min($lastPage, $currentPage + 2);
+                            @endphp
+
+                            @if($start > 1)
+                                <a href="{{ $students->url(1) }}" class="page-btn">1</a>
+                                @if($start > 2)
+                                    <span class="page-btn disabled">...</span>
+                                @endif
+                            @endif
+
+                            @for($i = $start; $i <= $end; $i++)
+                                @if($i == $currentPage)
+                                    <span class="page-btn active">{{ $i }}</span>
+                                @else
+                                    <a href="{{ $students->url($i) }}" class="page-btn">{{ $i }}</a>
+                                @endif
+                            @endfor
+
+                            @if($end < $lastPage)
+                                @if($end < $lastPage - 1)
+                                    <span class="page-btn disabled">...</span>
+                                @endif
+                                <a href="{{ $students->url($lastPage) }}" class="page-btn">{{ $lastPage }}</a>
+                            @endif
+                        </span>
+
+                        @if($students->hasMorePages())
+                            <a href="{{ $students->nextPageUrl() }}" class="btn-nav">
+                                Next <i class="fas fa-chevron-right"></i>
+                            </a>
+                        @else
+                            <button class="btn-nav" disabled>
+                                Next <i class="fas fa-chevron-right"></i>
+                            </button>
+                        @endif
+                    </div>
+                </div>
+            @endif
+        </main>
+    </div>
+
+    <link rel="stylesheet" href="{{ asset('css/pending-submissions.css') }}">
+    <style>
+        .award-report-container {
+            max-width: 1400px;
+            width: min(95vw, 1400px);
+        }
+
+        /* Award Report Specific Styles */
+        .program-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #7E0308;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #7E0308;
+        }
+
+        body.dark-mode .program-title {
+            color: #F9BD3D;
+            border-bottom-color: #F9BD3D;
+        }
+
+        .btn-export-pdf {
+            background-color: #7E0308;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 0.5rem 1rem;
+            height: 38px;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .btn-export-pdf:hover {
+            background-color: #5a0206;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(126, 3, 8, 0.3);
+        }
+
+        .btn-export-pdf:active {
+            transform: translateY(0);
+        }
+
+        body.dark-mode .btn-export-pdf {
+            background-color: #7E0308;
+        }
+
+        body.dark-mode .btn-export-pdf:hover {
+            background-color: #9a040a;
+        }
+
+        /* Filter group width adjustments */
+        .filter-group select {
+            width: 200px;
+            max-width: 200px;
+            min-width: 150px;
+        }
+
+        /* Search input width */
+        .search-group .form-control {
+            max-width: 300px;
+        }
+
+        /* Table adjustments for sidebar */
+        .submissions-table-container {
+            margin-top: 1.5rem;
+        }
+
+        /* Pagination info styling */
+        .pagination-info {
+            font-size: 0.9rem;
+            color: #6b7280;
+            margin-bottom: 0.75rem;
+        }
+
+        body.dark-mode .pagination-info {
+            color: #9ca3af;
+        }
+    </style>
+
+    <script>
+        // College-Program mapping
+        const collegePrograms = {
+            'College of Education': ['BTVTED', 'BPED', 'BSED', 'MAED', 'PhD Education'],
+            'College of Engineering': ['BSCE', 'BSEE', 'BSME', 'BSIE', 'BSCpE', 'BSArch'],
+            'College of Information and Computing': ['BSIT', 'BSCS', 'BSIS', 'BSEMC'],
+            'College of Business Administration': ['BSBA', 'BSA', 'BSMA', 'BSHRM', 'BSHM'],
+            'College of Arts and Science': ['BS Biology', 'BS Chemistry', 'BS Physics', 'BS Mathematics', 'BA English', 'BA History', 'BA Political Science'],
+            'College of Applied Economics': ['BS Economics', 'BS Agricultural Economics', 'BS Development Economics'],
+            'College of Technology': ['BS Industrial Technology', 'BS Food Technology', 'BS Electronics Technology']
+        };
+
+        function updatePrograms(preserveSelectedProgram = false) {
+            const collegeSelect = document.getElementById('college');
+            const programSelect = document.getElementById('program');
+            const collegeHidden = document.getElementById('collegeHidden');
+            const programHidden = document.getElementById('programHidden');
+            const selectedCollege = collegeSelect.value;
+            const currentProgram = preserveSelectedProgram ? '{{ request('program') }}' : '';
+
+            // Update hidden input
+            if (collegeHidden) {
+                collegeHidden.value = selectedCollege;
+            }
+
+            // Clear existing options
+            programSelect.innerHTML = '<option value="">All Programs</option>';
+
+            // Add programs based on selected college
+            if (selectedCollege && collegePrograms[selectedCollege]) {
+                collegePrograms[selectedCollege].forEach(program => {
+                    const option = document.createElement('option');
+                    option.value = program;
+                    option.textContent = program;
+                    if (program === currentProgram) {
+                        option.selected = true;
+                    }
+                    programSelect.appendChild(option);
+                });
+            }
+
+            // Update hidden program input
+            if (programHidden) {
+                programHidden.value = programSelect.value;
+            }
+        }
+
+        function exportReport() {
+            // Get current filter values
+            const college = document.getElementById('college').value;
+            const program = document.getElementById('program').value;
+            const search = document.getElementById('search').value;
+
+            // Build export URL with filters
+            let exportUrl = '{{ route("admin.award-report.export") }}?';
+            const params = new URLSearchParams();
+
+            if (college) params.append('college', college);
+            if (program) params.append('program', program);
+            if (search) params.append('search', search);
+
+            exportUrl += params.toString();
+
+            // Open export in new window/tab
+            window.open(exportUrl, '_blank');
+        }
+
+        // Handle form submission
+        document.addEventListener('DOMContentLoaded', function () {
+            updatePrograms(true);
+
+            // Sync visible inputs with hidden form inputs
+            const collegeSelect = document.getElementById('college');
+            const programSelect = document.getElementById('program');
+            const searchInput = document.getElementById('search');
+            const filterForm = document.getElementById('filterForm');
+
+            if (collegeSelect) {
+                collegeSelect.addEventListener('change', function () {
+                    // Reset program options (and selection) when college changes
+                    updatePrograms(false);
+
+                    // Auto-submit so results refresh immediately
+                    const collegeHidden = document.getElementById('collegeHidden');
+                    const programHidden = document.getElementById('programHidden');
+                    if (collegeHidden) collegeHidden.value = collegeSelect.value;
+                    if (programHidden) programHidden.value = programSelect ? programSelect.value : '';
+                    if (filterForm) filterForm.submit();
+                });
+            }
+
+            if (programSelect) {
+                programSelect.addEventListener('change', function () {
+                    const programHidden = document.getElementById('programHidden');
+                    if (programHidden) {
+                        programHidden.value = programSelect.value;
+                    }
+
+                    // Auto-submit so results refresh immediately
+                    if (filterForm) filterForm.submit();
+                });
+            }
+
+            if (searchInput) {
+                searchInput.addEventListener('input', function () {
+                    const searchHidden = document.getElementById('searchHidden');
+                    if (searchHidden) {
+                        searchHidden.value = searchInput.value;
+                    }
+                });
+
+                // Allow Enter key to trigger search (input is not inside a form)
+                searchInput.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const btn = document.getElementById('searchBtn');
+                        if (btn) btn.click();
+                    }
+                });
+            }
+
+            // Handle search button click
+            const searchBtn = document.getElementById('searchBtn');
+            if (searchBtn && filterForm) {
+                searchBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    // Update hidden inputs with current values
+                    const collegeHidden = document.getElementById('collegeHidden');
+                    const programHidden = document.getElementById('programHidden');
+                    const searchHidden = document.getElementById('searchHidden');
+
+                    if (collegeHidden && collegeSelect) collegeHidden.value = collegeSelect.value;
+                    if (programHidden && programSelect) programHidden.value = programSelect.value;
+                    if (searchHidden && searchInput) searchHidden.value = searchInput.value;
+
+                    filterForm.submit();
+                });
+            }
+
+            // Handle filter dropdown changes - auto-submit
+            if (collegeSelect) {
+                collegeSelect.addEventListener('change', function () {
+                    // handled above (kept for backward compatibility)
+                });
+            }
+        });
+    </script>
+    <script src="{{ asset('js/admin_pagination.js') }}"></script>
 @endsection

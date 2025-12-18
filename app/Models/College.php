@@ -12,8 +12,8 @@ class College extends Model
     protected $table = 'colleges';
 
     protected $fillable = [
-        'college_name',   // ex: "College of Arts and Sciences"
-        'code',           // optional short code, if you have it
+        'name',   // ex: "College of Arts and Sciences"
+        'code',   // optional short code, if you have it
     ];
 
     public $timestamps = true;
@@ -27,11 +27,11 @@ class College extends Model
     // Scopes
     public function scopeNamed($q, string $name)
     {
-        return $q->where('college_name', $name);
+        return $q->where('name', $name);
     }
 
     public function scopeAlphabetical($q)
     {
-        return $q->orderBy('college_name');
+        return $q->orderBy('name');
     }
 }

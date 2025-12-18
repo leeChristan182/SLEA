@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 
 class RoleMiddleware
 {
@@ -29,9 +30,9 @@ class RoleMiddleware
 
         // Wrong role → ALWAYS go to their own landing page, never back to login
         $route = match ($user->role) {
-            'admin'    => 'admin.profile',
-            'assessor' => 'assessor.profile',
-            default    => 'student.profile',
+            User::ROLE_ADMIN    => 'admin.dashboard',
+            User::ROLE_ASSESSOR => 'assessor.dashboard',
+            default             => 'student.profile',
         };
 
         return redirect()->route($route);

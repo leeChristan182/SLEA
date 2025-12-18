@@ -1,257 +1,1250 @@
-        body {
-            font-family: 'Quicksand', sans-serif;
-            background-color: #f4f6f9;
-            color: #000;
-            transition: background-color 0.3s, color 0.3s;
-        }
+html, body {
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+    font-family: 'Quicksand', sans-serif;
+    background-color: #f4f6f9;
+    color: #000;
+    transition: background-color 0.3s, color 0.3s;
+    margin: 0;
+    padding: 0;
+}
 
-        .dark-mode {
-            background-color: #1a1a1a;
-            color: #fff;
-        }
+.dark-mode {
+    background-color: #1a1a1a;
+    color: #fff;
+}
 
-        /* ====== Header ====== */
-        .header {
-            background-color: #fff;
-            padding: 0.2rem 0.8rem;
-            border-bottom: 1px solid #ccc;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            transition: background-color 0.3s ease;
-        }
+/* ====== Header ====== */
+.header-container {
+    flex-shrink: 0;
+    height: auto;
+}
 
-        .dark-mode .header {
-            background-color: #2b2b2b;
-        }
-        .header .logo-text {
+.header {
+    background-color: #fff;
+    padding: 0.3rem 0.8rem;
+    border-bottom: 1px solid #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background-color 0.3s ease;
+    min-height: 70px;
+}
+
+.dark-mode .header {
+    background-color: #2b2b2b;
+}
+
+.header .logo-text {
     color: #7E0308;
-font-family: 'Quicksand', sans-serif;
+    font-family: 'Quicksand', sans-serif;
 }
 
 .dark-mode .header .logo-text {
-    color: #fff; 
+    color: #fff;
 }
 
-        .tagline {
-            font-size: 1.05rem;
-            line-height: 1.2;
-            text-shadow: 0.5px 0.5px 1px rgba(0, 0, 0, 0.3);
-        }
+.tagline {
+    font-size: 1.05rem;
+    line-height: 1.2;
+    text-shadow: 0.5px 0.5px 1px rgba(0, 0, 0, 0.3);
+}
 
-        .dark-mode .tagline {
-            text-shadow: 0.5px 0.5px 1px rgba(255, 255, 255, 0.3);
-        }
+.dark-mode .tagline {
+    text-shadow: 0.5px 0.5px 1px rgba(255, 255, 255, 0.3);
+}
 
-        .header .tagline .gold1 {
-            color: #F9BD3D;
-        }
+.header .tagline .gold1 {
+    color: #F9BD3D;
+}
 
-        .header .tagline .maroon1 {
-            color: #7E0308;
-        }
-      .dark-mode .tagline .maroon1 {
-            color: white;
-        }
+.header .tagline .maroon1 {
+    color: #7E0308;
+}
 
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-        }
+.dark-mode .tagline .maroon1 {
+    color: white;
+}
 
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
 
-        .header .header-right .text-end {
-            margin: 0;
-            padding: 0;
-            line-height: 1.1;
-        }
+.header .header-right .text-end {
+    margin: 0;
+    padding: 0;
+    line-height: 1.1;
+}
 
-        .header .header-right small {
-            display: block;
-            color: #666;
-            margin-bottom: 0;
-        }
+.header .header-right small {
+    display: block;
+    color: #666;
+    margin-bottom: 0;
+}
 
-        .dark-mode .header .header-right small {
-            color: #ccc;
-        }
+.dark-mode .header .header-right small {
+    color: #ccc;
+}
 
-        .header .header-right a {
-            font-weight: 600;
-            color: #000;
-            text-decoration: none;
-            transition: color 0.3s ease, text-decoration 0.3s ease;
-        }
+.header .header-right a {
+    font-weight: 600;
+    color: #000;
+    text-decoration: none;
+    transition: color 0.3s ease, text-decoration 0.3s ease;
+}
 
-        .dark-mode .header .header-right a {
-            color: #fff;
-        }
+.dark-mode .header .header-right a {
+    color: #fff;
+}
 
-        .header .header-right a:hover {
-            text-decoration: underline;
-        }
+.header .header-right a:hover {
+    text-decoration: underline;
+}
 
-        .header .dark-toggle-btn {
-            background: transparent;
-            border: none;
-            font-size: 1.4rem;
-            color: #666;
-            cursor: pointer;
-        }
+/* ====== Privacy Modal (light, always) ====== */
+#privacyModal .modal-backdrop {
+    background-color: rgba(255, 255, 255, 0.85);
+}
 
-        .dark-mode .header .dark-toggle-btn {
-            color: #fff;
-        }
+.privacy-modal-card {
+    background: #fff;
+    color: #1f1f1f;
+    border-radius: 0 !important;
+}
 
-        @media (max-width: 768px) {
-            .header .header-right {
-                display: none !important;
-            }
-        }
+.privacy-modal-card .modal-body {
+    background: #fff;
+}
 
-        .login-left {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 6rem 4rem;
-            background-color: #7E0308;
-            color: #fff;
-        }
+.privacy-link {
+    color: #b30000;
+}
 
-        .dark-mode .login-left {
-            background-color: #141414;
-        }
+.privacy-link:hover {
+    color: #8f0000;
+}
 
-        .login-left h3 {
-            font-weight: bold;
-        }
+.privacy-accent-bar {
+    height: 10px;
+    background: linear-gradient(90deg, #7b0000 0%, #b30000 100%);
+}
 
-        .login-left a,
-        .footer-wrapper a {
-            font-weight: 600;
-            color: #fff;
-            text-decoration: none;
-            transition: color 0.3s ease, text-decoration 0.3s ease;
-        }
+.btn-maroon {
+    background-color: #7b0000 !important;
+    border-color: #7b0000 !important;
+    color: #fff !important;
+}
 
-        .login-left a:hover,
-        .footer-wrapper a:hover {
-            text-decoration: underline;
-        }
+.btn-maroon:hover,
+.btn-maroon:focus {
+    background-color: #5c0000 !important;
+    border-color: #5c0000 !important;
+    color: #fff !important;
+}
 
-        .dark-mode .login-left a,
-        .dark-mode .footer-wrapper a {
-            color: #fff;
-        }
+.btn-maroon:active {
+    background-color: #4a0000 !important;
+    border-color: #4a0000 !important;
+    color: #fff !important;
+}
+
+.dark-toggle-btn {
+    background: transparent;
+    border: none;
+    color: #666;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    transition: color 0.3s ease;
+}
+
+.dark-mode .dark-toggle-btn {
+    color: #ccc;
+}
+
+.dark-toggle-btn:hover {
+    color: #000;
+}
+
+.dark-mode .dark-toggle-btn:hover {
+    color: #fff;
+}
+
+/* ====== Login Layout ====== */
+.login-left {
+    background: linear-gradient(162deg, #8f0000 1%, #420000 100%, #b30000 50%);
+    padding: 1rem 2rem 0.5rem 2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: calc(100vh - 70px);
+    max-height: calc(100vh - 70px);
+    color: #fff;
+    overflow-y: hidden;
+    overflow-x: hidden;
+    position: relative;
+}
+
+.login-left::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image:
+        repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.15) 0px, transparent 1px, transparent 2px, rgba(0, 0, 0, 0.15) 3px),
+        repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.15) 0px, transparent 1px, transparent 2px, rgba(0, 0, 0, 0.15) 3px);
+    background-size: 2px 2px;
+    pointer-events: none;
+    opacity: 0.4;
+    z-index: 1;
+}
+
+.login-left > * {
+    position: relative;
+    z-index: 2;
+}
+
+.login-left > div:first-of-type {
+    margin-top: 0.5rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 0;
+    overflow-y: hidden;
+    overflow-x: hidden;
+    gap: 2rem;
+}
 
 .login-right {
-    height: 100vh;
-    overflow: hidden;
-    background-color: #fff;
+    background: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 2rem;
 }
 
 .dark-mode .login-right {
-    background-color: #2b2b2b;
+    background: #2b2b2b;
 }
 
 .mascot-wrapper {
     width: 100%;
     height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .mascot-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover; /* Fills the box completely */
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
 }
 
-
-/* Light mode: white background, black text */
-.btn-primary {
-    background-color: #F9BD3D !important;
-    color: #000 !important;
-    border: none;
-    transition: background-color 0.3s, color 0.3s;
+/* ====== Form Styles ====== */
+.login-left .form-label {
+    color: #fff;
+    margin-bottom: 0.4rem;
 }
 
-/* Hover: maroon background, white text */
-.btn-primary:hover {
-    background-color: #a19f9fee !important;
-    color: #000 !important;
+/* Ensure form fields are compact and don't push content down */
+.login-left form {
+    display: flex;
+    flex-direction: column;
 }
 
-/* Dark mode: yellow background, black text */
-.dark-mode .btn-primary {
-    background-color: #F9BD3D !important;
-    color: #000 !important;
+.login-left form > div {
+    margin-bottom: 0.5rem !important;
 }
 
-/* Dark mode hover: maroon background, white text */
-.dark-mode .btn-primary:hover {
-    background-color: #7E0308 !important;
+.login-left form .mb-2 {
+    margin-bottom: 0.5rem !important;
+}
+
+/* Ensure sign up text is small and doesn't get cut */
+.login-left form .text-center small {
+    font-size: 0.75rem !important;
+    line-height: 1.4;
+    display: inline-block;
+}
+
+.dark-mode .login-left .form-label {
+    color: #fff;
+}
+
+.login-left .text-light {
     color: #fff !important;
 }
 
-        .footer-wrapper {
-            padding: 1rem 2rem;
-            font-size: 0.875rem;
-            color: #999;
-        }
+.login-left .text-light-50 {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
 
-        .dark-mode .footer-wrapper {
-            color: #ccc;
-        }
+.login-left .form-control {
+    background-color: #fff;
+    border: 1px solid #ddd;
+}
 
-        .floating-tools {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            z-index: 9999;
-        }
+.login-left .input-group-text {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    color: #666;
+}
 
-        .floating-btn {
-            background-color: #fff;
-            color: #7E0308;
-            border: 1px solid #ccc;
-            border-radius: 50%;
-            padding: 0.6rem 0.8rem;
-            font-size: 1.3rem;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            cursor: pointer;
-            text-align: center;
-            text-decoration: none;
-            transition: background-color 0.3s, color 0.3s;
-        }
+.login-left .input-group-lg .form-control {
+    padding: 0.5rem 0.75rem;
+    font-size: 1rem;
+}
 
-        .floating-btn:hover {
-            background-color: #7E0308;
-            color: #fff;
-        }
+.login-left .input-group-lg .input-group-text {
+    padding: 0.5rem 0.75rem;
+}
 
-        .dark-mode .floating-btn {
-            background-color: #2e2e2e;
-            color: #f4f6f9;
-            border-color: #555;
-        }
+.login-left .btn-primary {
+    background-color: #F9BD3D;
+    border-color: #F9BD3D;
+    color: #000;
+    font-weight: 600;
+}
 
-        .dark-mode .floating-btn:hover {
-            background-color: #F9BD3D;
-            color: #1a1a1a;
-        }
+.login-left .btn-primary:hover {
+    background-color: #e0a82a;
+    border-color: #e0a82a;
+}
 
-        @media (max-width: 768px) {
-            .login-left {
-                flex: 1 0 100%;
-            }
+.login-submit-btn {
+    width: auto;
+    min-width: 150px;
+    padding: 0.75rem 2rem;
+    border-radius: 100px;
+}
 
-            .login-right {
-                display: none;
-            }
-        }
+.signup-link-text {
+    font-size: 14px !important;
+}
+
+.login-left .form-check-label {
+    color: #fff;
+}
+
+.login-left .btn-link {
+    color: #fff;
+}
+
+.login-left .btn-link:hover {
+    color: #F9BD3D;
+}
+
+.login-left a {
+    color: #F9BD3D;
+    text-decoration: none;
+}
+
+.login-left a:hover {
+    text-decoration: underline;
+}
+
+.welcome-section {
+    flex-shrink: 0;
+}
+
+.login-form-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.footer-wrapper {
+    margin-top: auto;
+    padding-top: 1rem;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.75rem;
+    line-height: 1.3;
+    flex-shrink: 0;
+    width: 100%;
+}
+
+.footer-wrapper a {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.footer-wrapper a:hover {
+    color: #F9BD3D;
+}
+
+/* ====== Toggle Password Button Fix ====== */
+.input-group .toggle-password,
+.input-group-text.toggle-password {
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    z-index: 10 !important;
+    position: relative !important;
+}
+
+.input-group .toggle-password:hover,
+.input-group-text.toggle-password:hover {
+    color: #495057 !important;
+}
+
+.dark-mode .input-group .toggle-password,
+.dark-mode .input-group-text.toggle-password {
+    color: #ccc !important;
+}
+
+.dark-mode .input-group .toggle-password:hover,
+.dark-mode .input-group-text.toggle-password:hover {
+    color: #fff !important;
+}
+
+/* ====== Floating Tools (Mobile) ====== */
+.floating-tools {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 1000;
+}
+
+.floating-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: #7E0308;
+    color: #fff;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.floating-btn:hover {
+    background: #5a0205;
+    transform: scale(1.1);
+}
+
+/* ====== Forgot Password Modal Styling (Light & Dark Mode Compatible) ====== */
+.forgot-password-modal-content {
+    background-color: #fff;
+    color: #000;
+    transition: background-color 0.3s, color 0.3s;
+    border-radius: 0 !important;
+}
+
+.dark-mode .forgot-password-modal-content {
+    background-color: #2b2b2b;
+    color: #fff;
+    border-radius: 0 !important;
+}
+
+.forgot-password-modal-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.dark-mode .forgot-password-modal-header {
+    background-color: #1a1a1a;
+    border-bottom-color: #444;
+}
+
+.forgot-password-modal-header .modal-title {
+    color: #000;
+}
+
+.dark-mode .forgot-password-modal-header .modal-title {
+    color: #fff;
+}
+
+.forgot-password-modal-close {
+    filter: brightness(0);
+}
+
+.dark-mode .forgot-password-modal-close {
+    filter: brightness(0) invert(1);
+}
+
+.forgot-password-modal-body {
+    color: #000;
+}
+
+.dark-mode .forgot-password-modal-body {
+    color: #fff;
+}
+
+.forgot-password-modal-body .form-label {
+    color: #000;
+}
+
+.dark-mode .forgot-password-modal-body .form-label {
+    color: #fff;
+}
+
+.forgot-password-modal-body .input-group-text {
+    background-color: #fff;
+    border-color: #dee2e6;
+    color: #495057;
+}
+
+.dark-mode .forgot-password-modal-body .input-group-text {
+    background-color: #3a3a3a;
+    border-color: #555;
+    color: #ccc;
+}
+
+.forgot-password-modal-body .form-control {
+    background-color: #fff;
+    border-color: #dee2e6;
+    color: #000;
+}
+
+.dark-mode .forgot-password-modal-body .form-control {
+    background-color: #3a3a3a;
+    border-color: #555;
+    color: #fff;
+}
+
+.forgot-password-modal-body .form-control:focus {
+    background-color: #fff;
+    border-color: #80bdff;
+    color: #000;
+}
+
+.dark-mode .forgot-password-modal-body .form-control:focus {
+    background-color: #3a3a3a;
+    border-color: #F9BD3D;
+    color: #fff;
+}
+
+/* ====== Reset Password Modal Styling (Light & Dark Mode Compatible) ====== */
+.reset-password-modal-content {
+    background-color: #fff;
+    color: #000;
+    transition: background-color 0.3s, color 0.3s;
+    border-radius: 0 !important;
+}
+
+.dark-mode .reset-password-modal-content {
+    background-color: #2b2b2b;
+    color: #fff;
+    border-radius: 0 !important;
+}
+
+.reset-password-modal-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.dark-mode .reset-password-modal-header {
+    background-color: #1a1a1a;
+    border-bottom-color: #444;
+}
+
+.reset-password-modal-header .modal-title {
+    color: #000;
+}
+
+.dark-mode .reset-password-modal-header .modal-title {
+    color: #fff;
+}
+
+.reset-password-modal-close {
+    filter: brightness(0);
+}
+
+.dark-mode .reset-password-modal-close {
+    filter: brightness(0) invert(1);
+}
+
+.reset-password-modal-body {
+    color: #000;
+}
+
+.dark-mode .reset-password-modal-body {
+    color: #fff;
+}
+
+.reset-password-modal-body .form-label {
+    color: #000;
+}
+
+.dark-mode .reset-password-modal-body .form-label {
+    color: #fff;
+}
+
+.reset-password-modal-body .input-group-text {
+    background-color: #fff;
+    border-color: #dee2e6;
+    color: #495057;
+}
+
+.dark-mode .reset-password-modal-body .input-group-text {
+    background-color: #3a3a3a;
+    border-color: #555;
+    color: #ccc;
+}
+
+.reset-password-modal-body .form-control {
+    background-color: #fff;
+    border-color: #dee2e6;
+    color: #000;
+}
+
+.dark-mode .reset-password-modal-body .form-control {
+    background-color: #3a3a3a;
+    border-color: #555;
+    color: #fff;
+}
+
+.reset-password-modal-body .form-control:focus {
+    background-color: #fff;
+    border-color: #80bdff;
+    color: #000;
+}
+
+.dark-mode .reset-password-modal-body .form-control:focus {
+    background-color: #3a3a3a;
+    border-color: #F9BD3D;
+    color: #fff;
+}
+
+.reset-password-validity-text {
+    color: #6c757d;
+}
+
+.dark-mode .reset-password-validity-text {
+    color: #999;
+}
+
+/* ====== OTP Modal Styling (Light & Dark Mode Compatible) ====== */
+.otp-modal-content {
+    background-color: #fff;
+    color: #000;
+    transition: background-color 0.3s, color 0.3s;
+    border-radius: 0 !important;
+}
+
+.dark-mode .otp-modal-content {
+    background-color: #2b2b2b;
+    color: #fff;
+    border-radius: 0 !important;
+}
+
+.otp-modal-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.dark-mode .otp-modal-header {
+    background-color: #1a1a1a;
+    border-bottom-color: #444;
+}
+
+.otp-modal-header .modal-title {
+    color: #000;
+}
+
+.dark-mode .otp-modal-header .modal-title {
+    color: #fff;
+}
+
+.otp-modal-close {
+    filter: brightness(0);
+}
+
+.dark-mode .otp-modal-close {
+    filter: brightness(0) invert(1);
+}
+
+.otp-modal-body {
+    color: #000;
+}
+
+.dark-mode .otp-modal-body {
+    color: #fff;
+}
+
+.otp-modal-body .form-label {
+    color: #000;
+}
+
+.dark-mode .otp-modal-body .form-label {
+    color: #fff;
+}
+
+.otp-validity-text {
+    color: #6c757d;
+}
+
+.dark-mode .otp-validity-text {
+    color: #999;
+}
+
+.otp-resend-link {
+    color: #ffc107;
+}
+
+.otp-resend-link:hover {
+    color: #e0a800;
+}
+
+.dark-mode .otp-resend-link {
+    color: #F9BD3D;
+}
+
+.dark-mode .otp-resend-link:hover {
+    color: #FCD34D;
+}
+
+/* ====== Responsive ====== */
+@media (max-width: 768px) {
+    .login-left {
+        min-height: 100vh;
+        padding: 1.5rem;
+    }
+
+    .login-right {
+        display: none;
+    }
+
+    .header {
+        padding: 0.5rem;
+        min-height: 60px;
+    }
+
+    .header .logo-text {
+        font-size: 1.5rem;
+    }
+
+    .tagline {
+        font-size: 0.9rem;
+    }
+}
+
+/* ====== LOGIN ERROR MODAL ====== */
+/* Blur backdrop for login error modal */
+.modal-backdrop.login-error-backdrop,
+.modal-backdrop:has(+ #loginErrorModal),
+#loginErrorModal + .modal-backdrop,
+.modal-backdrop.show {
+    backdrop-filter: blur(5px) !important;
+    -webkit-backdrop-filter: blur(5px) !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+.login-error-modal-content {
+    background-color: #fff;
+    color: #000;
+    transition: background-color 0.3s, color 0.3s;
+    border-radius: 0 !important;
+    max-width: 450px;
+    width: 90%;
+    margin: 0 auto;
+    position: relative;
+    padding: 0;
+}
+
+.dark-mode .login-error-modal-content {
+    background-color: #2b2b2b;
+    color: #fff;
+    border-radius: 0 !important;
+}
+
+.login-error-modal-close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: #000;
+    cursor: pointer;
+    z-index: 10;
+    padding: 5px 10px;
+    transition: color 0.3s;
+}
+
+.login-error-modal-close:hover {
+    color: #666;
+}
+
+.dark-mode .login-error-modal-close {
+    color: #fff;
+}
+
+.dark-mode .login-error-modal-close:hover {
+    color: #ccc;
+}
+
+.login-error-modal-body {
+    padding: 40px 30px 30px 30px;
+    text-align: center;
+}
+
+.login-error-icon {
+    margin-bottom: 20px;
+}
+
+.login-error-icon i {
+    font-size: 60px;
+    color: #dc3545;
+}
+
+.login-error-title {
+    font-size: 24px;
+    font-weight: bold;
+    color: #000;
+    margin-bottom: 15px;
+}
+
+.dark-mode .login-error-title {
+    color: #fff;
+}
+
+.login-error-text {
+    font-size: 16px;
+    color: #000;
+    margin-bottom: 10px;
+}
+
+.dark-mode .login-error-text {
+    color: #fff;
+}
+
+.login-error-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 25px 0;
+    text-align: left;
+    display: inline-block;
+}
+
+.login-error-list li {
+    font-size: 16px;
+    color: #000;
+    margin-bottom: 5px;
+}
+
+.login-error-list li::before {
+    content: "• ";
+    color: #000;
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+.dark-mode .login-error-list li {
+    color: #fff;
+}
+
+.dark-mode .login-error-list li::before {
+    color: #fff;
+}
+
+.login-error-ok-btn,
+.btn.login-error-ok-btn {
+    background-color: #28a745 !important;
+    color: #fff !important;
+    border: none !important;
+    padding: 12px 40px;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    width: auto;
+    margin: 25px auto 0 auto;
+    display: block;
+    text-align: center;
+}
+
+.login-error-ok-btn:hover,
+.btn.login-error-ok-btn:hover {
+    background-color: #218838 !important;
+    color: #fff !important;
+}
+
+.login-error-ok-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.25);
+}
+
+/* Privacy Agreement Error Modal - Must appear above signup overlay (z-index: 2000) */
+#privacyAgreementErrorModal {
+    z-index: 2100 !important;
+}
+
+#privacyAgreementErrorModal .modal-dialog {
+    z-index: 2101 !important;
+    position: relative;
+}
+
+/* Target backdrop by class added via JavaScript */
+.modal-backdrop.privacy-agreement-backdrop {
+    z-index: 2099 !important;
+    backdrop-filter: blur(5px) !important;
+    -webkit-backdrop-filter: blur(5px) !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ====== LOGIN SUCCESS MODAL ====== */
+/* Blur backdrop for login success modal */
+.modal-backdrop:has(+ #loginSuccessModal),
+#loginSuccessModal + .modal-backdrop {
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+.login-success-modal-content {
+    border-radius: 0 !important;
+    -webkit-border-radius: 0 !important;
+    -moz-border-radius: 0 !important;
+}
+
+/* Ensure backdrop blur when modal is shown */
+#loginSuccessModal.show ~ .modal-backdrop,
+.modal-backdrop.show:has(+ #loginSuccessModal.show) {
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+}
+
+/* ====== SIGNUP SUCCESS MODAL ====== */
+.signup-success-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10001;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.signup-success-modal-content {
+    background-color: #fff;
+    border-radius: 0;
+    padding: 2rem 2.5rem;
+    max-width: 500px;
+    width: 90%;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease-out;
+}
+
+.dark-mode .signup-success-modal-content {
+    background-color: #2b2b2b;
+    color: #fff;
+}
+
+.signup-success-modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #333;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease;
+}
+
+.signup-success-modal-close:hover {
+    color: #666;
+}
+
+.dark-mode .signup-success-modal-close {
+    color: #ccc;
+}
+
+.dark-mode .signup-success-modal-close:hover {
+    color: #fff;
+}
+
+.signup-success-modal-icon {
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+.signup-success-modal-icon i {
+    font-size: 4rem;
+    color: #28a745;
+    position: relative;
+}
+
+.signup-success-modal-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #000;
+    margin-bottom: 1rem;
+    line-height: 1.4;
+    font-family: 'Quicksand', sans-serif;
+}
+
+.dark-mode .signup-success-modal-title {
+    color: #fff;
+}
+
+.signup-success-modal-body {
+    margin-bottom: 1.5rem;
+}
+
+.signup-success-modal-body p {
+    font-size: 0.95rem;
+    color: #333;
+    line-height: 1.6;
+    margin: 0;
+    font-family: 'Quicksand', sans-serif;
+}
+
+.dark-mode .signup-success-modal-body p {
+    color: #ccc;
+}
+
+.signup-success-modal-btn {
+    background-color: #28a745;
+    color: #fff;
+    border: none;
+    padding: 0.75rem 3rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    font-family: 'Quicksand', sans-serif;
+}
+
+.signup-success-modal-btn:hover {
+    background-color: #218838;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+}
+
+.signup-success-modal-btn:active {
+    transform: translateY(0);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* ====== Signup Overlay ====== */
+.signup-overlay {
+    /* Scale the modal to fit smaller viewport heights without needing scrollbars */
+    --signup-modal-scale: 1;
+}
+
+@media (max-height: 820px) {
+    .signup-overlay { --signup-modal-scale: 0.95; }
+}
+@media (max-height: 740px) {
+    .signup-overlay { --signup-modal-scale: 0.9; }
+}
+@media (max-height: 680px) {
+    .signup-overlay { --signup-modal-scale: 0.85; }
+}
+
+.signup-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    background-color: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 2000;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 180ms ease, visibility 0s linear 180ms;
+}
+
+.signup-overlay.active {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: opacity 180ms ease;
+}
+
+.signup-modal {
+    background: #f8f9fa;
+    color: #000;
+    border-radius: 0;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+    width: min(960px, 94vw);
+    /* No scrollbars: modal is scaled to fit the viewport */
+    max-height: none;
+    overflow: hidden;
+    padding: 1.3rem 1.75rem 1.45rem;
+    position: relative;
+    opacity: 0;
+    transform: translateY(10px) scale(calc(var(--signup-modal-scale) - 0.02));
+    transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.signup-overlay.active .signup-modal {
+    opacity: 1;
+    transform: translateY(0) scale(var(--signup-modal-scale));
+}
+
+.dark-mode .signup-modal {
+    background: #2b2b2b;
+    color: #fff;
+}
+
+.signup-close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: transparent;
+    border: none;
+    font-size: 1.6rem;
+    line-height: 1;
+    color: #555;
+    cursor: pointer;
+}
+
+.dark-mode .signup-close {
+    color: #ccc;
+}
+
+.signup-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    text-align: left;
+}
+
+.signup-login-link {
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+    text-align: left;
+}
+
+.signup-login-link a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.signup-login-link a:hover {
+    text-decoration: underline;
+}
+
+.btn-signup-inline {
+    /* Keep class for semantic meaning; real styling is below with higher specificity */
+}
+
+.signup-modal .btn.btn-signup-inline {
+    background-color: #F9BD3D !important;
+    color: #000 !important;
+    border: 1px solid #F9BD3D !important;
+    padding: 0.7rem 2.2rem !important;
+    border-radius: 8px !important;
+    font-weight: 700 !important;
+}
+
+.signup-modal .btn.btn-signup-inline:hover {
+    background-color: #e0a82a !important;
+    border-color: #e0a82a !important;
+    color: #000 !important;
+}
+
+.required {
+    color: red;
+    font-weight: bold;
+}
+
+body.signup-overlay-open {
+    overflow: hidden;
+}
+
+@media (max-width: 576px) {
+    .signup-modal {
+        width: min(95vw, 520px);
+        padding: 1rem 1.1rem 1.15rem;
+    }
+}
+
+/* Compact spacing inside the signup modal so everything fits without scrolling */
+.signup-modal .form-label {
+    margin-bottom: 0.2rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.signup-modal .form-control {
+    padding: 0.45rem 0.75rem;
+    font-size: 0.95rem;
+}
+
+.signup-modal .row.g-3 {
+    --bs-gutter-y: 0.35rem;
+    --bs-gutter-x: 0.9rem;
+}
+
+.signup-modal .mb-2 {
+    margin-bottom: 0.45rem !important;
+}
+
+.signup-modal .mb-3 {
+    margin-bottom: 0.6rem !important;
+}
+
+/* Signup password validation message (reserved space so modal layout won't jump) */
+.signup-password-feedback {
+    font-size: 0.75rem;
+    line-height: 1.2;
+    margin-top: 0.25rem;
+    min-height: 0.9rem;
+    color: #dc3545;
+    visibility: hidden;
+}
+
+.signup-password-feedback.show {
+    visibility: visible;
+}
+
+.dark-mode .signup-password-feedback {
+    color: #f8d7da;
+}

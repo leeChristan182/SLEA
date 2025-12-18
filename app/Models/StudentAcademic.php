@@ -11,6 +11,19 @@ class StudentAcademic extends Model
 
     protected $table = 'student_academic';
 
+    // Eligibility statuses (match eligibility_statuses enum table)
+    public const ELIGIBILITY_ELIGIBLE           = 'eligible';
+    public const ELIGIBILITY_INELIGIBLE         = 'ineligible';
+    public const ELIGIBILITY_NEEDS_REVALIDATION = 'needs_revalidation';
+    public const ELIGIBILITY_UNDER_REVIEW       = 'under_review';
+
+    // SLEA application statuses (match slea_application_statuses enum table)
+    public const SLEA_STATUS_INCOMPLETE        = 'incomplete';
+    public const SLEA_STATUS_PENDING_ASSESSOR   = 'pending_assessor_evaluation';
+    public const SLEA_STATUS_PENDING_ADMIN      = 'pending_administrative_validation';
+    public const SLEA_STATUS_QUALIFIED          = 'qualified';
+    public const SLEA_STATUS_NOT_QUALIFIED      = 'not_qualified';
+    // add others if you have them (e.g. 'tracking', 'incomplete', etc.)
     protected $fillable = [
         'user_id',
         'student_number',
@@ -25,6 +38,7 @@ class StudentAcademic extends Model
         'ready_for_rating',
         'ready_for_rating_at',
         'slea_application_status',
+        'certificate_of_registration_path'
     ];
 
     protected $casts = [
@@ -65,22 +79,10 @@ class StudentAcademic extends Model
 
     public function isGraduatingThisYear(): bool
     {
-        // Primary rule: based on year_level (4th year)
-        $level = strtolower(trim((string) $this->year_level));
-
-        $isFourthYear = in_array($level, [
-            '4th year',
-            '4th yr',
-            'fourth year',
-            '4',
-            'year 4',
-        ], true);
-
-        if ($isFourthYear) {
+        if ((int) $this->year_level === 4) {
             return true;
         }
 
-        // Fallback: based on expected graduation year (if you want to keep it)
         if ($this->expected_grad_year) {
             return (int) $this->expected_grad_year === (int) now()->year;
         }
@@ -116,20 +118,20 @@ class StudentAcademic extends Model
     {
         $this->ready_for_rating        = true;
         $this->ready_for_rating_at     = now();
-        $this->slea_application_status = 'ready_for_assessor';
+        $this->slea_application_status = 'pending_assessor_evaluation';
         $this->save();
     }
     public function markReadyForAdminReview(): void
     {
         // enum from slea_application_statuses table
-        $this->slea_application_status = 'for_admin_review';
+        $this->slea_application_status = 'pending_administrative_validation';
         $this->save();
     }
     // in StudentAcademic.php
 
     public function markAwarded()
     {
-        $this->slea_application_status = 'awarded';
+        $this->slea_application_status = 'qualified';
         $this->save();
     }
 
@@ -143,10 +145,10 @@ class StudentAcademic extends Model
      */
     public function hasCor(): bool
     {
-        if (! $this->relationLoaded('user')) {
-            $this->load('user');
-        }
-
-        return $this->user ? $this->user->hasCor() : false;
+        return !empty($this->certificate_of_registration_path);
+    }
+    public function corPath(): ?string
+    {
+        return $this->certificate_of_registration_path ?: null;
     }
 }

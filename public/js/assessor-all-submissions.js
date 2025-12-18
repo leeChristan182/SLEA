@@ -11,6 +11,52 @@ let totalPages = 0;
 let initialStudentsData = [];
 
 /* -----------------------------
+   GLOBAL FALLBACK FUNCTIONS (for onclick handlers)
+----------------------------- */
+
+// Global fallback functions for search and clear buttons
+// These are called from onclick handlers in the HTML
+window.handleSearchClick = function(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    // Ensure filterAndPaginateStudents is available
+    if (typeof filterAndPaginateStudents === 'function') {
+        currentPage = 1;
+        filterAndPaginateStudents();
+    } else {
+        // Fallback: trigger the search input event
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            const searchEvent = new Event('input', { bubbles: true });
+            searchInput.dispatchEvent(searchEvent);
+        }
+    }
+};
+
+window.handleClearClick = function(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.value = '';
+        // Ensure filterAndPaginateStudents is available
+        if (typeof filterAndPaginateStudents === 'function') {
+            currentPage = 1;
+            filterAndPaginateStudents();
+        } else {
+            // Fallback: trigger the search input event
+            const searchEvent = new Event('input', { bubbles: true });
+            searchInput.dispatchEvent(searchEvent);
+        }
+        searchInput.focus();
+    }
+};
+
+/* -----------------------------
    MODAL HELPERS
 ----------------------------- */
 
@@ -256,216 +302,214 @@ async function openIndividualSubmissionModal(submissionId) {
    FETCH: STUDENT + ALL SUBMISSIONS
 ----------------------------- */
 
+// Helper function to open modal from button data attribute
+// Made global for inline onclick handlers
+window.openStudentSubmissionsModalFromButton = function(button) {
+    const studentId = button.getAttribute('data-student-id');
+    if (studentId) {
+        openStudentSubmissionsModal(parseInt(studentId));
+    }
+};
+
+// Make sure this is ASYNC
 async function openStudentSubmissionsModal(studentId) {
+    currentStudentIdForModal = studentId;
+    showModalLoading('studentSubmissionsModal');
+
+    let rawText;
+    let data;
+
     try {
-        currentStudentIdForModal = studentId; // remember which student is open
-
-        showModalLoading('studentSubmissionsModal');
-
-        const response = await fetch(`/assessor/students/${studentId}/details`);
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.error || 'Failed to fetch student details');
-        }
-
-        const student = data.student;
-        const categorizedSubmissions = data.submissions || {};
-        const categoryTotals = data.category_totals || {};
-        // Make sure it's a real number, not a string
-        const overallTotalScore = Number(data.overall_total_score ?? 0);
-
-        // Compute max possible total from all categories
-        const overallMaxScore = Object.values(categoryTotals).reduce((sum, cat) => {
-            const max = Number(cat?.max_score ?? 0);
-            return sum + (isNaN(max) ? 0 : max);
-        }, 0);
-
-        const nameTitle = document.getElementById('modalStudentNameTitle');
-        const idDetail = document.getElementById('modalStudentIdDetail');
-        const nameDetail = document.getElementById('modalStudentNameDetail');
-        const programDetail = document.getElementById('modalStudentProgramDetail');
-        const collegeDetail = document.getElementById('modalStudentCollegeDetail');
-
-        if (nameTitle) nameTitle.textContent = student.user?.name || '';
-        if (idDetail) idDetail.textContent = student.student_id || '';
-        if (nameDetail) nameDetail.textContent = student.user?.name || '';
-        if (programDetail) programDetail.textContent = student.program || '';
-        if (collegeDetail) collegeDetail.textContent = student.college || '';
-
-        const submissionsContainer = document.getElementById('categorizedSubmissionsContainer');
-        if (!submissionsContainer) return;
-
-        submissionsContainer.innerHTML = '';
-
-        const sleaSectionsOrder = [
-            'Leadership Excellence',
-            'Academic Excellence',
-         'Awards/Recognition Received',
-            'Community Involvement',
-            'Good Conduct',
-        ];
-
-        const romanNumeralMap = {
-            1: 'I',
-            2: 'II',
-            3: 'III',
-            4: 'IV',
-            5: 'V',
-        };
-
-        let sectionCounter = 1;
-        let hasSubmissions = false;
-
-        sleaSectionsOrder.forEach(section => {
-            if (categorizedSubmissions[section] && categorizedSubmissions[section].length > 0) {
-                hasSubmissions = true;
-            }
+        const response = await fetch(`/assessor/students/${studentId}/details`, {
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
         });
 
-        if (!hasSubmissions) {
-            submissionsContainer.innerHTML =
-                '<p class="text-muted text-center">No submissions found for this student.</p>';
-        } else {
-            sleaSectionsOrder.forEach(section => {
-                const sectionSubmissions = categorizedSubmissions[section] || [];
-                const totalCategoryScore = Number(categoryTotals[section]?.score ?? 0);
-                const maxCategoryScore = Number(categoryTotals[section]?.max_score ?? 0);
+        rawText = await response.text();
 
-                const sectionDiv = document.createElement('div');
-                sectionDiv.className = 'slea-category-section mb-5';
-
-                let tableRowsHtml = '';
-
-                if (sectionSubmissions.length > 0) {
-                    sectionSubmissions.forEach(submission => {
-                        const status = submission.status || 'Unknown';
-                        const normalized = (status || '').toLowerCase();
-
-                        tableRowsHtml += `
-                            <tr>
-                                <td>${submission.document_title || '-'}</td>
-                                <td>${submission.subsection || '-'}</td>
-                                <td>${submission.role_in_activity || '-'}</td>
-                                <td>${
-                                    submission.reviewed_at
-                                        ? new Date(submission.reviewed_at).toLocaleDateString()
-                                        : 'N/A'
-                                }</td>
-                                <td>${submission.assessor?.name || 'N/A'}</td>
-                                <td>
-                                    <span class="status-badge status-${normalized}">
-                                        ${status.charAt(0).toUpperCase() + status.slice(1)}
-                                    </span>
-                                </td>
-                                <td>${
-                                    submission.assessor_score != null
-                                        ? submission.assessor_score
-                                        : 'N/A'
-                                }</td>
-                            </tr>
-                        `;
-                    });
-                } else {
-                    tableRowsHtml =
-                        '<tr><td colspan="7" class="text-center">No submissions for this category.</td></tr>';
-                }
-
-                sectionDiv.innerHTML = `
-                    <h5 class="category-title mb-3">
-                        ${romanNumeralMap[sectionCounter++]}. <strong>${section}</strong>
-                    </h5>
-                    <div class="table-responsive mb-3">
-                        <table class="table submissions-table category-table">
-                            <thead>
-                                <tr>
-                                    <th>Document Title</th>
-                                    <th>Type of Activity</th>
-                                    <th>Role in Activity</th>
-                                    <th>Date Reviewed</th>
-                                    <th>Reviewed By</th>
-                                    <th>Submission Status</th>
-                                    <th>Score</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${tableRowsHtml}
-                                <tr class="category-total-row">
-                                    <td colspan="7" class="text-end">
-                                        <strong>
-                                            Total Score for ${section}:
-                                            ${totalCategoryScore.toFixed(2)}
-                                            ${
-                                                maxCategoryScore
-                                                    ? ` / ${maxCategoryScore.toFixed(2)}`
-                                                    : ''
-                                            }
-                                        </strong>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-
-                submissionsContainer.appendChild(sectionDiv);
-            });
-
-            // Overall total at bottom
-            const overallTotalDiv = document.createElement('div');
-            overallTotalDiv.className = 'overall-total-section mt-4';
-            overallTotalDiv.innerHTML = `
-                <div class="table-responsive">
-                    <table class="table overall-total-table">
-                        <tbody>
-                            <tr class="overall-total-row">
-                                <td class="text-center">
-                                    <strong>
-                                        Overall Total Score:
-                                        ${overallTotalScore.toFixed(2)}
-                                        ${
-                                            overallMaxScore
-                                                ? ` / ${overallMaxScore.toFixed(2)}`
-                                                : ''
-                                        }
-                                    </strong>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            `;
-
-            submissionsContainer.appendChild(overallTotalDiv);
-        }
-
-        // Set the ready-status note based on the main table row (if element exists)
-        const noteEl = document.getElementById('readyForRatingStatusNote');
-        if (noteEl) {
-            const row = document.querySelector(`tr[data-student-id="${studentId}"]`);
-            const statusKey = row ? row.dataset.sleaStatus : '';
-
-            if (statusKey === 'ready_assessor') {
-                noteEl.textContent = 'Current status: READY for assessor review.';
-            } else if (statusKey === 'for_admin_review') {
-                noteEl.textContent =
-                    'Current status: already sent for Admin Final Review.';
-            } else if (statusKey === 'awarded') {
-                noteEl.textContent = 'Current status: already AWARDED.';
-            } else {
-                noteEl.textContent = 'Current status: NOT yet marked as ready.';
+        // Non-2xx responses: try to pull a JSON message, otherwise use raw text
+        if (!response.ok) {
+            try {
+                const errJson = rawText ? JSON.parse(rawText) : null;
+                const msg =
+                    (errJson && (errJson.message || errJson.error)) ||
+                    `Server returned status ${response.status}`;
+                throw new Error(msg);
+            } catch (e) {
+                // rawText is not JSON
+                throw new Error(rawText || `Server returned status ${response.status}`);
             }
         }
 
-        const modalEl = document.getElementById('studentSubmissionsModal');
-        if (modalEl) {
-            const modal = new bootstrap.Modal(modalEl);
-            modal.show();
+        if (!rawText) {
+            throw new Error('Server returned an empty response.');
         }
-    } catch (error) {
-        console.error('Error fetching student submissions:', error);
-        showErrorModal('Failed to load student submissions: ' + error.message);
+
+        // Safe JSON parse with friendly error
+        try {
+            data = JSON.parse(rawText);
+        } catch (e) {
+            throw new Error(`Unexpected response format (${e.message}).`);
+        }
+    } catch (err) {
+        hideModalLoading('studentSubmissionsModal');
+        showErrorAlert(`Failed to load student submissions: ${err.message}`);
+        return;
     }
+
+    hideModalLoading('studentSubmissionsModal');
+
+    // ----- Populate modal from data -----
+    const student = data.student || {};
+    const acad    = student.studentAcademic || {};
+    const categorized = data.submissions || {};
+    const categoryTotals = data.category_totals || {};
+    const overallTotal = Number(data.overall_total_score ?? 0);
+
+    const nameTitle   = document.getElementById('modalStudentNameTitle');
+    const idDetail    = document.getElementById('modalStudentIdDetail');
+    const nameDetail  = document.getElementById('modalStudentNameDetail');
+    const programDet  = document.getElementById('modalStudentProgramDetail');
+    const collegeDet  = document.getElementById('modalStudentCollegeDetail');
+    const majorDet    = document.getElementById('modalStudentMajorDetail');
+    const statusText  = document.getElementById('currentStatusText');
+    const container   = document.getElementById('categorizedSubmissionsContainer');
+
+    if (nameTitle)  nameTitle.textContent  = student.user?.name || 'Student';
+    if (idDetail)   idDetail.textContent   = student.student_id || '—';
+    if (nameDetail) nameDetail.textContent = student.user?.name || '—';
+    if (programDet) programDet.textContent = student.program || '—';
+    if (collegeDet) collegeDet.textContent = student.college || '—';
+    if (majorDet)   majorDet.textContent   = acad.major || acad.major_name || '—';
+
+    if (statusText) {
+        const sleaStatus = acad.slea_application_status || null;
+        if (!sleaStatus) {
+            statusText.textContent = 'No application yet.';
+        } else if (sleaStatus === 'pending_assessor_evaluation') {
+            statusText.textContent = 'Pending Assessor Evaluation.';
+        } else if (sleaStatus === 'pending_administrative_validation') {
+            statusText.textContent = 'Pending Administrative Validation.';
+        } else if (sleaStatus === 'qualified') {
+            statusText.textContent = 'Qualified for SLEA.';
+        } else if (sleaStatus === 'not_qualified') {
+            statusText.textContent = 'Not qualified.';
+        } else {
+            statusText.textContent = 'Status: ' + sleaStatus;
+        }
+    }
+
+    // Render per-category submissions
+    if (container) {
+        const categoryKeys = Object.keys(categorized);
+
+        if (!categoryKeys.length) {
+            container.innerHTML =
+                '<p class="text-muted text-center">No submissions found for this student.</p>';
+        } else {
+            let html = '';
+
+            categoryKeys.forEach((label) => {
+                const rows = categorized[label] || [];
+                const totalRow = categoryTotals[label] || { score: 0, max_score: 0 };
+
+                html += `
+                    <div class="mb-3">
+                        <h6 class="fw-semibold mb-1">${label}</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered align-middle mb-1">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 40%">Document Title</th>
+                                        <th style="width: 20%">Subsection</th>
+                                        <th style="width: 15%">Status</th>
+                                        <th style="width: 10%; text-align:right;">Score</th>
+                                        <th style="width: 15%">Reviewed At</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${
+                                        rows.length
+                                            ? rows
+                                                  .map((row) => `
+                                                        <tr>
+                                                            <td>${row.document_title || '—'}</td>
+                                                            <td>${row.subsection || '—'}</td>
+                                                            <td>${row.status || '—'}</td>
+                                                            <td style="text-align:right;">${row.assessor_score ?? 0}</td>
+                                                            <td>${row.reviewed_at ? new Date(row.reviewed_at).toLocaleString() : '—'}</td>
+                                                        </tr>
+                                                    `)
+                                                  .join('')
+                                            : '<tr><td colspan="5" class="text-center text-muted">No submissions in this category.</td></tr>'
+                                    }
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <th colspan="3" class="text-end">Total</th>
+                                        <th style="text-align:right;">${totalRow.score ?? 0} / ${totalRow.max_score ?? 0}</th>
+                                        <th></th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+    }
+
+    // Show the modal
+// Show the modal
+const modalEl = document.getElementById('studentSubmissionsModal');
+if (modalEl) {
+    // Create or get the Bootstrap modal instance
+    const studentModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    studentModal.show();
+}
+
+}
+
+// ---------------------------------------------------------------------
+// Backwards-compatibility helpers for the student submissions modal.
+// Old code calls showModalLoading()/hideModalLoading(), so we define
+// safe no-op versions here to avoid ReferenceError and JS crashes.
+// ---------------------------------------------------------------------
+if (typeof window.showModalLoading !== 'function') {
+    window.showModalLoading = function () {
+        const modal = document.getElementById('studentSubmissionsModal');
+        if (!modal) return;
+
+        // Optional: show a loading element if you have one
+        const loader =
+            modal.querySelector('[data-role="modal-loading"]') ||
+            modal.querySelector('.po-modal-loading');
+
+        if (loader) {
+            loader.classList.remove('d-none');
+            loader.style.display = '';
+        }
+    };
+}
+
+if (typeof window.hideModalLoading !== 'function') {
+    window.hideModalLoading = function () {
+        const modal = document.getElementById('studentSubmissionsModal');
+        if (!modal) return;
+
+        const loader =
+            modal.querySelector('[data-role="modal-loading"]') ||
+            modal.querySelector('.po-modal-loading');
+
+        if (loader) {
+            loader.classList.add('d-none');
+            loader.style.display = 'none';
+        }
+    };
 }
 
 /* -----------------------------
@@ -480,18 +524,8 @@ async function updateReadyForRating(isReady) {
 
     const noteEl = document.getElementById('readyForRatingStatusNote');
 
-    // Optional: if you already have a confirmation modal helper, use it here.
-    // If not, this simple confirm() will do for now.
-    const confirmMsg = isReady
-        ? 'Mark this student as READY for rating?'
-        : 'Mark this student as NOT READY for rating?';
-
-    if (!window.confirm(confirmMsg)) {
-        if (noteEl) {
-            noteEl.textContent = 'Ready status change cancelled.';
-        }
-        return;
-    }
+    // Note: Confirmation is handled by showConfirmModal() before this function is called
+    // No need for native browser confirm() dialog here
 
     if (noteEl) {
         noteEl.textContent = 'Saving ready status...';
@@ -523,9 +557,9 @@ async function updateReadyForRating(isReady) {
             throw new Error(data.error || 'Failed to update ready status');
         }
 
-        const newStatusKey = data.slea_status?.key ?? (isReady ? 'ready_assessor' : 'not_ready');
+        const newStatusKey = data.slea_status?.key ?? (isReady ? 'pending_assessor_evaluation' : 'incomplete');
         const newStatusLabel =
-            data.slea_status?.label ?? (isReady ? 'Ready for assessor review' : 'Not ready');
+            data.slea_status?.label ?? (isReady ? 'Pending Assessor Evaluation' : 'Incomplete');
 
         // Update note under the buttons
         if (noteEl) {
@@ -550,22 +584,23 @@ async function updateReadyForRating(isReady) {
                 pill.className = 'slea-status-pill';
 
                 switch (newStatusKey) {
-                    case 'ready_assessor':
+                    case 'pending_assessor_evaluation':
                         pill.classList.add('slea-status-pill--ready-assessor');
                         break;
-                    case 'not_ready':
+                    case 'incomplete':
                         pill.classList.add('slea-status-pill--not-ready');
                         break;
-                    case 'for_admin_review':
+                    case 'pending_administrative_validation':
                         pill.classList.add('slea-status-pill--for-admin');
                         break;
-                    case 'awarded':
+                    case 'qualified':
                         pill.classList.add('slea-status-pill--awarded');
                         break;
                     case 'rejected':
+                    case 'not_qualified':
                         pill.classList.add('slea-status-pill--rejected');
                         break;
-                    case 'not_4th_year':
+                    case 'not_eligible':
                         pill.classList.add('slea-status-pill--not-4th');
                         break;
                     default:
@@ -577,14 +612,16 @@ async function updateReadyForRating(isReady) {
             }
         }
 
-        // Optional: show a clear success modal if you have one
-        if (typeof showSuccessModal === 'function') {
-            showSuccessModal(
-                'Ready status updated',
-                isReady
-                    ? 'Student is now marked as READY for rating.'
-                    : 'Student is now marked as NOT READY for rating.'
-            );
+        // Close the student submissions modal after successful update
+        const studentSubmissionsModalEl = document.getElementById('studentSubmissionsModal');
+        if (studentSubmissionsModalEl) {
+            const studentSubmissionsModal = bootstrap.Modal.getInstance(studentSubmissionsModalEl);
+            if (studentSubmissionsModal) {
+                // Close modal after a brief delay to show the updated status message
+                setTimeout(() => {
+                    studentSubmissionsModal.hide();
+                }, 1000);
+            }
         }
 
     } catch (error) {
@@ -869,6 +906,7 @@ function initializeStudentPage() {
                 email: (cells[2]?.textContent || '').toLowerCase(),
                 program: (cells[3]?.textContent || '').toLowerCase(),
                 college: (cells[4]?.textContent || '').toLowerCase(),
+                sleaStatus: row.dataset.sleaStatus || '', // Get status from data-slea-status attribute
             };
         });
 
@@ -877,16 +915,24 @@ function initializeStudentPage() {
 
 function filterAndPaginateStudents() {
     const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilterSelect');
     const searchTerm = (searchInput?.value || '').toLowerCase();
+    const statusValue = (statusFilter?.value || '').toLowerCase();
 
     const filteredStudents = initialStudentsData.filter(student => {
-        return (
+        // Filter by search term
+        const matchesSearch = !searchTerm || (
             student.studentId.includes(searchTerm) ||
             student.studentName.includes(searchTerm) ||
             student.email.includes(searchTerm) ||
             student.program.includes(searchTerm) ||
             student.college.includes(searchTerm)
         );
+
+        // Filter by status
+        const matchesStatus = !statusValue || student.sleaStatus === statusValue;
+
+        return matchesSearch && matchesStatus;
     });
 
     totalEntries = filteredStudents.length;
@@ -985,8 +1031,51 @@ document.addEventListener('DOMContentLoaded', function () {
     initializeStudentPage();
 
     const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const clearBtn = document.getElementById('clearBtn');
+
     if (searchInput) {
         searchInput.addEventListener('input', () => {
+            currentPage = 1;
+            filterAndPaginateStudents();
+        });
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                currentPage = 1;
+                filterAndPaginateStudents();
+            }
+        });
+    }
+
+    // Search button click
+    if (searchBtn) {
+        searchBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            currentPage = 1;
+            filterAndPaginateStudents();
+        });
+    }
+
+    // Clear button click
+    if (clearBtn) {
+        clearBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (searchInput) {
+                searchInput.value = '';
+                currentPage = 1;
+                filterAndPaginateStudents();
+                searchInput.focus();
+            }
+        });
+    }
+
+    // Add event listener for status filter dropdown
+    const statusFilter = document.getElementById('statusFilterSelect');
+    if (statusFilter) {
+        statusFilter.addEventListener('change', () => {
             currentPage = 1;
             filterAndPaginateStudents();
         });
@@ -996,13 +1085,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const readyBtn = document.getElementById('btnMarkReadyForRating');
     if (readyBtn) {
         readyBtn.addEventListener('click', function () {
-            showConfirmModal(
-                'Mark student as READY for rating?',
-                'This will mark the student as READY for rating and move them to your Final Review list.',
-                function () {
-                    updateReadyForRating(true);
-                }
-            );
+showConfirmModal(
+    'Mark student as READY for rating?',
+    'This will mark the student as READY for rating...',
+    function () {
+        updateReadyForRating(true);
+    }
+);
+
         });
     }
 

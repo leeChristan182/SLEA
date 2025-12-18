@@ -2,6 +2,14 @@
 
 @section('title', 'Student Profile')
 
+@section('head')
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta id="slea-routes" data-clusters="{{ route('ajax.clusters') }}"
+        data-organizations="{{ route('ajax.organizations') }}"
+        @if(\Illuminate\Support\Facades\Route::has('ajax.council.positions'))
+        data-council-positions="{{ route('ajax.council.positions') }}" @endif>
+@endsection
+
 @section('content')
     @php
         use Carbon\Carbon;
@@ -31,21 +39,30 @@
             @include('partials.sidebar')
 
             <main class="main-content">
-                {{-- Avatar --}}
-                <div class="avatar-container">
-                    <img src="{{ $student->profile_picture_path ? asset('storage/' . $student->profile_picture_path) : asset('images/avatars/default-avatar.png') }}"
-                        class="avatar" id="avatarPreview" alt="Avatar">
+                <!-- Profile Header Banner -->
+                <div class="profile-banner">
+                    <div class="profile-avatar">
+                        <img src="{{ $student->profile_picture_path ? asset('storage/' . $student->profile_picture_path) : asset('images/avatars/default-avatar.png') }}"
+                            alt="Profile Picture" id="profilePicture">
 
-                    <form action="{{ route('student.updateAvatar') }}" method="POST" enctype="multipart/form-data"
-                        id="avatarForm">
-                        @csrf
-                        <button class="edit-icon" type="button" onclick="document.getElementById('avatarUpload').click()"
-                            title="Change photo">
-                            <i class="fas fa-pencil-alt"></i>
+                        <form id="avatarForm" method="POST" action="{{ route('student.updateAvatar') }}"
+                            enctype="multipart/form-data">
+                            @csrf
+                            <input type="file" id="avatarUpload" name="avatar" accept="image/*" style="display:none;">
+                        </form>
+
+                        <button type="button" class="upload-photo-btn" id="uploadPhotoBtn" title="Change Profile Picture">
+                            <i class="fas fa-camera"></i>
                         </button>
-                        <input type="file" id="avatarUpload" name="avatar" accept="image/*" style="display:none;"
-                            onchange="document.getElementById('avatarForm').submit();">
-                    </form>
+                    </div>
+
+                    <h1 class="profile-name">
+                        {{ $student->first_name ?? 'N/A' }}
+                        {{ $student->last_name ?? '' }}
+                    </h1>
+                    <p class="small text-white">
+                        Student
+                    </p>
                 </div>
 
                 {{-- Personal + Academic --}}
@@ -68,7 +85,7 @@
                     {{-- Academic Information --}}
                     <div class="profile-info">
                         <h3>Academic Information</h3>
-                        <p><strong>Student Number:</strong> <span>{{ $acad->student_number ?? 'N/A' }}</span></p>
+                        <p><strong>Student ID:</strong> <span>{{ $acad->student_number ?? 'N/A' }}</span></p>
                         <p><strong>College:</strong> <span>{{ $collegeName ?? 'N/A' }}</span></p>
                         <p><strong>Program:</strong> <span>{{ $programName ?? 'N/A' }}</span></p>
                         <p><strong>Major:</strong> <span>{{ $majorName ?? 'N/A' }}</span></p>
@@ -88,44 +105,6 @@
                         @if($acad && $acad->eligibility_status !== 'eligible')
                             <small class="text-muted">Some features may be locked until revalidation is cleared.</small>
                         @endif
-                    </div>
-                </section>
-
-                {{-- Leadership Information --}}
-                {{-- Leadership Information --}}
-                <section class="profile-info" style="margin-top:24px;">
-                    <h3>Leadership Information</h3>
-
-                    <div class="table-responsive">
-                        <table class="approval-table w-100">
-                            <thead>
-                                <tr>
-                                    <th>Type</th>
-                                    <th>Organization Name</th>
-                                    <th>Organization Role</th>
-                                    <th>Term</th>
-                                    <th>Issued By</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse (($leaderships ?? []) as $lead)
-                                    <tr>
-                                        {{-- These names match what we select in StudentController@profile --}}
-                                        <td>{{ $lead->leadership_type_name ?? '—' }}</td>
-                                        <td>{{ $lead->organization_name ?? '—' }}</td>
-                                        <td>{{ $lead->position_name ?? '—' }}</td>
-                                        <td>{{ $lead->term ?? '—' }}</td>
-                                        <td>{{ $lead->issued_by ?? '—' }}</td>
-                                        <td>{{ $lead->leadership_status ?? '—' }}</td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="6" class="text-center">No leadership records found.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
                     </div>
                 </section>
 
@@ -157,28 +136,34 @@
                             <label for="password">New Password</label>
                             <div class="password-wrapper">
                                 <input id="password" name="password" type="password" required>
-                                <i class="fas fa-eye toggle-password" data-target="password"></i>
                             </div>
 
                             <label for="password_confirmation">Confirm Password</label>
                             <div class="password-wrapper">
                                 <input id="password_confirmation" name="password_confirmation" type="password" required>
-                                <i class="fas fa-eye toggle-password" data-target="password_confirmation"></i>
+                            </div>
+
+                            <div class="checkbox-field" style="margin-top: 10px;">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="showPasswordCheckbox" onchange="toggleNewPasswords()">
+                                    Show Password
+                                </label>
                             </div>
 
                             <button class="change-btn" type="submit">Change Password</button>
                         </form>
                     </div>
 
-                    {{-- Update Academic Details --}}
+                    {{-- Update Academic Details & Upload COR (Merged) --}}
                     <div class="profile-info settings-year">
                         <h3>Update Academic Details</h3>
-                        <form action="{{ route('student.updateAcademic') }}" method="POST">
+                        <form id="updateAcademicForm" action="{{ route('student.updateAcademic') }}" method="POST"
+                            enctype="multipart/form-data">
                             @csrf
 
-                            {{-- Year Level only (program & major are shown but not edited here) --}}
+                            {{-- Year Level --}}
                             <div class="form-group">
-                                <label for="year_level">Year Level</label>
+                                <label for="year_level">Year Level <span class="text-danger">*</span></label>
                                 <select id="year_level" name="year_level" required>
                                     <option value="">— Select —</option>
                                     @foreach([1 => '1st Year', 2 => '2nd Year', 3 => '3rd Year', 4 => '4th Year', 5 => '5th Year'] as $val => $label)
@@ -201,29 +186,28 @@
                                 <input id="major_display" type="text" value="{{ $majorName ?? '' }}" readonly>
                             </div>
 
-                            <button class="change-btn" type="submit">Update</button>
-                        </form>
-                    </div>
+                            {{-- COR Upload (Required) --}}
+                            <div class="form-group">
+                                <label for="cor">Certificate of Registration (COR) <span class="text-danger">*</span></label>
+                                <input type="file" id="cor" name="cor" accept=".jpg,.jpeg,.png,.pdf" required>
+                                <small class="text-muted">Max size 5MB • JPG, PNG, or PDF</small>
+                                
+                                @if(!empty($acad->certificate_of_registration_path))
+                                    <p style="margin-top:8px;">
+                                        <a href="{{ route('student.cor.view') }}" target="_blank">
+                                            View current COR
+                                        </a>
+                                    </p>
+                                @endif
+                            </div>
 
-                    {{-- Upload COR --}}
-                    {{-- Upload COR --}}
-                    <div class="profile-info settings-cor">
-                        <h3>Upload Certificate of Registration</h3>
-                        <form id="uploadCORForm" action="{{ route('student.uploadCOR') }}" method="POST"
-                            enctype="multipart/form-data">
-                            @csrf
-                            <label for="cor">Choose file</label>
-                            <input id="cor" name="cor" type="file" accept=".jpg,.jpeg,.png,.pdf" required>
-                            <small>Max size 5MB • JPG, PNG, or PDF</small>
-                            <button class="change-btn" type="submit" style="margin-top:12px;">Upload</button>
+                            <div class="alert alert-info" style="margin-top: 12px; padding: 10px 12px; border-radius: 6px; background-color: #e7f3ff; border: 1px solid #b3d9ff; color: #004085;">
+                                <i class="fas fa-info-circle"></i> 
+                                <strong>Note:</strong> After submission, your academic details and COR will be reviewed by an administrator. 
+                                You will receive an email notification once the review is complete.
+                            </div>
 
-                            @if(!empty($acad->certificate_of_registration_path))
-                                <p style="margin-top:8px;">
-                                    <a href="{{ asset('storage/' . $acad->certificate_of_registration_path) }}" target="_blank">
-                                        View uploaded COR
-                                    </a>
-                                </p>
-                            @endif
+                            <button class="change-btn" type="submit">Submit for Review</button>
                         </form>
                     </div>
 
@@ -232,8 +216,91 @@
         </div>
     </div>
 
+    {{-- Hidden logout form for limited-flow modals (separate from header logout confirm) --}}
+    <form id="limited-logout-form" method="POST" action="{{ route('logout') }}" style="display:none;">
+        @csrf
+    </form>
+
+    {{-- Success / Waiting confirmation popup after requirements submission --}}
+    @if(session('requirements_submitted') || session('show_waiting_modal'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const isFirstSubmit = {{ session('requirements_submitted') ? 'true' : 'false' }};
+                const statusMsg = @json(session('status'));
+
+                const title = isFirstSubmit ? 'Submitted Successfully' : 'Submission Under Review';
+                const icon = isFirstSubmit ? 'success' : 'info';
+
+                Swal.fire({
+                    icon: icon,
+                    title: title,
+                    html: `
+                        ${statusMsg ? `<p>${statusMsg}</p>` : ''}
+                        <p>Please wait for <strong>Admin validation</strong> before accessing other features.</p>
+                    `,
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: true,
+                    confirmButtonText: 'OK',
+                    showCancelButton: true,
+                    cancelButtonText: 'Logout',
+                    cancelButtonColor: '#dc3545',
+                    customClass: {
+                        popup: 'profile-success-modal',
+                        backdrop: 'profile-success-modal-backdrop'
+                    },
+                    didOpen: () => {
+                        // Apply blur to backdrop
+                        const backdrop = document.querySelector('.swal2-backdrop-show');
+                        if (backdrop) {
+                            backdrop.style.backdropFilter = 'blur(10px)';
+                            backdrop.style.webkitBackdropFilter = 'blur(10px)';
+                            backdrop.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                        }
+                    }
+                }).then(result => {
+                    if (result.dismiss === Swal.DismissReason.cancel) {
+                        document.getElementById('limited-logout-form')?.submit();
+                    }
+                });
+            });
+        </script>
+    @endif
+
     {{-- Styles & JS --}}
     <style>
+        /* Profile Success Modal - Remove corner radius and add blur backdrop */
+        .profile-success-modal {
+            border-radius: 0 !important;
+            -webkit-border-radius: 0 !important;
+            -moz-border-radius: 0 !important;
+        }
+
+        .profile-success-modal-backdrop {
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            background-color: rgba(0, 0, 0, 0.5) !important;
+        }
+
+        .swal2-backdrop-show {
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            background-color: rgba(0, 0, 0, 0.5) !important;
+        }
+
+        /* Academic Update Success Modal Styling */
+        .academic-update-success-modal {
+            border-radius: 0 !important;
+            -webkit-border-radius: 0 !important;
+            -moz-border-radius: 0 !important;
+        }
+
+        .academic-update-success-backdrop {
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            background-color: rgba(0, 0, 0, 0.5) !important;
+        }
+
         /* === Settings Grid Layout === */
         .student-profile-page .settings-grid {
             display: grid;
@@ -265,7 +332,7 @@
         .requirements.visible-box {
             background-color: #fff8f8;
             border: 1px solid #e5bebe;
-            border-left: 5px solid #c0392b;
+            border-left: 5px solid #8B0000;
             border-radius: 10px;
             padding: 14px 18px;
             margin: 14px 0 20px;
@@ -276,7 +343,7 @@
         .requirements.visible-box strong {
             display: block;
             font-weight: 700;
-            color: #b21d1d;
+            color: #8B0000;
             margin-bottom: 6px;
             font-size: 15px;
         }
@@ -290,7 +357,7 @@
         }
 
         #passwordChecklist li:hover {
-            color: #b21d1d;
+            color: #8B0000;
             font-weight: 500;
         }
 
@@ -318,7 +385,7 @@
 
         select:focus,
         input:focus {
-            border-color: #b21d1d;
+            border-color: #8B0000;
             outline: none;
         }
 
@@ -339,12 +406,42 @@
         }
 
         .toggle-password:hover {
-            color: #c0392b;
+            color: #8B0000;
+        }
+
+        /* === Checkbox Field === */
+        .checkbox-field {
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+            cursor: pointer;
+            accent-color: #8B0000;
+        }
+
+        .checkbox-label:hover {
+            color: #8B0000;
+        }
+
+        body.dark-mode .checkbox-label {
+            color: #f0f0f0;
         }
 
         /* === Buttons === */
         .change-btn {
-            background-color: #c0392b;
+            background-color: #8B0000;
             border: none;
             color: white;
             padding: 10px 16px;
@@ -355,17 +452,24 @@
         }
 
         .change-btn:hover {
-            background-color: #a93226;
+            background-color: #6B0000;
         }
 
         /* === Cards === */
         .profile-info,
         .change-password {
-            border-top: 3px solid #c0392b;
             background-color: white;
             box-shadow: 0 3px 6px rgba(0, 0, 0, .06);
             border-radius: 10px;
             padding: 20px;
+        }
+
+        .profile-info h3,
+        .change-password h3 {
+            color: #8B0000;
+            margin-bottom: 15px;
+            border-bottom: none !important;
+            padding-bottom: 0;
         }
 
         @media (max-width: 1200px) {
@@ -378,9 +482,11 @@
             }
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="{{ asset('js/student_profile.js') }}"></script>
 
     <script>
+        // Toggle visibility for Present Password (keep individual icon)
         document.querySelectorAll('.toggle-password').forEach(icon => {
             icon.addEventListener('click', () => {
                 const target = document.getElementById(icon.dataset.target);
@@ -390,5 +496,139 @@
                 icon.classList.toggle('fa-eye-slash', isPassword);
             });
         });
+
+        // Toggle visibility for both New Password and Confirm Password fields
+        window.toggleNewPasswords = function () {
+            const checkbox = document.getElementById('showPasswordCheckbox');
+            const passwordField = document.getElementById('password');
+            const confirmPasswordField = document.getElementById('password_confirmation');
+
+            if (checkbox && passwordField && confirmPasswordField) {
+                const showPassword = checkbox.checked;
+                passwordField.type = showPassword ? 'text' : 'password';
+                confirmPasswordField.type = showPassword ? 'text' : 'password';
+            }
+        };
     </script>
+    {{-- Add Leadership Info Modal --}}
+    <div class="modal fade" id="addLeadershipModal" tabindex="-1" aria-labelledby="addLeadershipModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                {{-- IMPORTANT: id="updateLeadershipForm" --}}
+                <form id="updateLeadershipForm" method="POST" action="{{ route('student.updateLeadership') }}">
+                    @csrf
+
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addLeadershipModalLabel">Add Leadership Information</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <input type="hidden" name="leadership[0][id]" value="">
+
+                        {{-- Leadership Type --}}
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label" for="modal_leadership_type_id">
+                                    Leadership Type <span class="required">*</span>
+                                </label>
+                                <select id="modal_leadership_type_id" name="leadership[0][leadership_type_id]"
+                                    class="form-select" required>
+                                    <option value="">Select Leadership Type</option>
+                                    @foreach($leadershipTypes ?? [] as $type)
+                                        <option value="{{ $type->id }}"
+                                            data-requires-org="{{ (int) ($type->requires_org ?? 0) }}"
+                                            data-key="{{ $type->key ?? '' }}">
+                                            {{ $type->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
+                        {{-- Cluster / Organization --}}
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-6" id="modal_cluster_wrap" style="display:none;">
+                                <label class="form-label" for="modal_cluster_id">
+                                    Cluster <span id="modal_cluster_required_star" class="required"
+                                        style="display:none;">*</span>
+                                </label>
+                                <select id="modal_cluster_id" name="leadership[0][cluster_id]" class="form-select">
+                                    <option value="">Select Cluster</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6" id="modal_org_wrap" style="display:none;">
+                                <label class="form-label" for="modal_organization_id">
+                                    Organization <span id="modal_org_required_star" class="required"
+                                        style="display:none;">*</span>
+                                </label>
+                                <select id="modal_organization_id" name="leadership[0][organization_id]"
+                                    class="form-select">
+                                    <option value="">Select Organization</option>
+                                </select>
+                                <small id="modal_org_optional_hint" class="text-muted" style="display:none;">
+                                    Optional for non-CCO.
+                                </small>
+                            </div>
+                        </div>
+
+                        {{-- Position & Leadership Status --}}
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label" for="modal_position_id">
+                                    Position Held <span class="required">*</span>
+                                </label>
+                                <select id="modal_position_id" name="leadership[0][position_id]" class="form-select"
+                                    required>
+                                    <option value="">Select Position</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label" for="modal_leadership_status">
+                                    Leadership Status <span class="required">*</span>
+                                </label>
+                                <select id="modal_leadership_status" name="leadership[0][leadership_status]"
+                                    class="form-select" required>
+                                    <option value="">Select your leadership status</option>
+                                    <option value="Active">Active (Current Officer/Leader)</option>
+                                    <option value="Inactive">Inactive (Former Officer/Leader)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {{-- Term & Issued By --}}
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label" for="modal_term">
+                                    Leadership Term (School Year) <span class="required">*</span>
+                                </label>
+                                <input id="modal_term" type="text" name="leadership[0][term]" class="form-control"
+                                    placeholder="e.g., 2023-2024" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label" for="modal_issued_by">
+                                    Issued By <span class="required">*</span>
+                                </label>
+                                <input id="modal_issued_by" type="text" name="leadership[0][issued_by]" class="form-control"
+                                    required>
+                            </div>
+                        </div>
+
+                        {{-- Optional: scope/from/to --}}
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save Leadership Info</button>
+                        </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+
 @endsection

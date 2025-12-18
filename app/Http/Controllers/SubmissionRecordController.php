@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Submission;
 use App\Models\RubricCategory;
 use App\Models\AssessorFinalReview;
+use App\Models\RubricSubsection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SubmissionRecordController extends Controller
 {
@@ -18,8 +20,7 @@ class SubmissionRecordController extends Controller
      */
     public function index()
     {
-        // TODO: later this will show “history” page
-        // For now, just show the submit form like create()
+
         return $this->create();
     }
 
@@ -72,36 +73,100 @@ class SubmissionRecordController extends Controller
             abort(404);
         }
 
+        /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        $data = $request->validate([
-            'rubric_category_id'   => ['required', 'exists:rubric_categories,id'],
-            'rubric_section_id'    => ['nullable', 'exists:rubric_sections,section_id'],
-            'rubric_subsection_id' => ['nullable', 'exists:rubric_subsections,sub_section_id'],
+        // Check which optional columns exist
+        $hasApplicationStatusColumn = Schema::hasColumn('submissions', 'application_status');
+        $hasLeadershipIdColumn = Schema::hasColumn('submissions', 'leadership_id');
 
-            'activity_title'       => ['required', 'string', 'max:255'],
+        // ------------ VALIDATION ------------
+        $rules = [
+            'rubric_category_id'   => ['required', 'exists:rubric_categories,id'],
+            'rubric_section_id'    => ['required', 'exists:rubric_sections,section_id'],
+            'rubric_subsection_id' => ['required', 'exists:rubric_subsections,sub_section_id'],
+
+            'activity_title'       => ['required', 'string', 'max:191'],
             'description'          => ['nullable', 'string'],
 
-            'activity_type'        => ['nullable', 'string', 'max:100'],
-            'role_in_activity'     => ['nullable', 'string', 'max:255'],
-            'date_of_activity'     => ['nullable', 'date'],
-            'organizing_body'      => ['nullable', 'string', 'max:255'],
+            'activity_type'        => ['required', 'string', 'max:100'],
+            'role_in_activity'     => ['nullable', 'string', 'max:191', 'required_without:role_in_activity_text'],
+            'role_in_activity_text'=> ['nullable', 'string', 'max:191', 'required_without:role_in_activity'],
+            'date_of_activity'     => ['required', 'date'],
+            'organizing_body'      => ['required', 'string', 'max:191'],
             'note'                 => ['nullable', 'string'],
-            'term'                 => ['nullable', 'string', 'max:50'],
-            'issued_by'            => ['nullable', 'string', 'max:255'],
-            'document_type'        => ['nullable', 'string', 'max:50'],
+            'term' => [
+                'required',
+                function ($attribute, $value, $fail) {
+                    if ($value && $value !== '') {
+                        // Check format: YYYY - YYYY (with spaces around hyphen)
+                        if (!preg_match('/^20\d{2}\s-\s20\d{2}$/', $value)) {
+                            $fail('The term must be in the format: YYYY - YYYY (e.g., 2023 - 2024). Make sure there are spaces before and after the hyphen.');
+                            return;
+                        }
+                        $parts = explode(' - ', $value);
+                        if (count($parts) !== 2) {
+                            $fail('The term must be in the format: YYYY - YYYY (e.g., 2023 - 2024).');
+                            return;
+                        }
+                        [$start, $end] = $parts;
+                        if ((int)$end <= (int)$start) {
+                            $fail('The ending year must be greater than the starting year.');
+                        }
+                    }
+                },
+            ],
+            'issued_by'            => ['nullable', 'string', 'max:191'],
+            'document_type'        => ['required', 'string', 'max:50'],
 
-            'attachments'          => ['required'],
-            'attachments.*'        => ['file', 'max:5120', 'mimes:jpeg,jpg,png,pdf'],
-        ]);
+            // Conditional fields (required only for specific subsections)
+            'cluster_id'           => ['nullable', 'integer'],
+            'organization_id'      => ['nullable', 'integer'],
 
-        // ---- upload files ----
+            'attachments'   => ['required'],
+            'attachments.*' => ['file', 'max:5120', 'mimes:jpeg,jpg,png,pdf'],
+        ];
+
+        if ($hasApplicationStatusColumn) {
+            $rules['application_status'] = [
+                'required',
+                'in:for_final_application,for_tracking',
+            ];
+        }
+
+        // ✅ From here on $data['application_status'] is always defined when column exists
+        $data = $request->validate($rules);
+
+        // Extra conditional validation: require cluster + organization for specific subsections (SCO)
+        $sub = RubricSubsection::find($data['rubric_subsection_id']);
+        if ($sub && $sub->key === 'leadership.campus_government.student_orgs') {
+            if (empty($data['cluster_id'])) {
+                throw ValidationException::withMessages([
+                    'cluster_id' => ['Cluster is required for this subsection.'],
+                ]);
+            }
+            if (empty($data['organization_id'])) {
+                throw ValidationException::withMessages([
+                    'organization_id' => ['Organization is required for this subsection.'],
+                ]);
+            }
+        }
+
+        // Normalize role in activity (dropdown or text)
+        $roleInActivity = $data['role_in_activity'] ?? null;
+        if (!$roleInActivity) {
+            $roleInActivity = $data['role_in_activity_text'] ?? null;
+        }
+
+        // ------------ FILE UPLOADS ------------
         $filesMeta = [];
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $file) {
-                if (! $file) continue;
+                if (! $file) {
+                    continue;
+                }
 
-                $path = $file->store('submissions', 'public');
+                $path = $file->store('submissions', 'student_docs');
 
                 $filesMeta[] = [
                     'original' => $file->getClientOriginalName(),
@@ -112,11 +177,9 @@ class SubmissionRecordController extends Controller
             }
         }
 
-        // ---- create submission ----
-        $submission = Submission::create([
+        // ------------ CREATE SUBMISSION ROW ------------
+        $submissionData = [
             'user_id'              => $user->id,
-            'leadership_id'        => null,
-
             'rubric_category_id'   => $data['rubric_category_id'],
             'rubric_section_id'    => $data['rubric_section_id'] ?? null,
             'rubric_subsection_id' => $data['rubric_subsection_id'] ?? null,
@@ -127,21 +190,79 @@ class SubmissionRecordController extends Controller
             'attachments'          => $filesMeta,
             'meta'                 => [
                 'activity_type'    => $data['activity_type']    ?? null,
-                'role_in_activity' => $data['role_in_activity'] ?? null,
+                'role_in_activity' => $roleInActivity,
                 'date_of_activity' => $data['date_of_activity'] ?? null,
                 'organizing_body'  => $data['organizing_body']  ?? null,
                 'note'             => $data['note']             ?? null,
                 'term'             => $data['term']             ?? null,
                 'issued_by'        => $data['issued_by']        ?? null,
                 'document_type'    => $data['document_type']    ?? null,
+                'cluster_id'       => $data['cluster_id']       ?? null,
+                'organization_id'  => $data['organization_id']  ?? null,
             ],
 
-            'status'       => 'pending',  // matches submission_statuses.key
+            'status'       => 'pending',
             'remarks'      => null,
             'submitted_at' => now(),
-        ]);
+        ];
 
-        // ---- REVERT RULE (safe) ----
+        // Only include leadership_id if the column exists
+        if ($hasLeadershipIdColumn) {
+            $submissionData['leadership_id'] = null;
+        }
+
+        // Only include application_status if the column exists
+        if ($hasApplicationStatusColumn) {
+            $submissionData['application_status'] = $data['application_status'];
+        }
+
+        $submission = Submission::create($submissionData);
+
+        // ------------ UPDATE student_academic BASED ON application_status ------------
+        if ($hasApplicationStatusColumn) {
+            $appStatus = $data['application_status'];   // safe now
+
+            // Ensure an academic row exists
+            $academic = \App\Models\StudentAcademic::firstOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'eligibility_status'      => 'eligible',
+                    'slea_application_status' => null,
+                    'ready_for_rating'        => false,
+                ]
+            );
+
+            if ($appStatus === 'for_final_application') {
+                // Student is explicitly applying for SLEA
+                $academic->ready_for_rating    = true;
+                $academic->ready_for_rating_at = $academic->ready_for_rating_at ?? now();
+
+                // Only bump to assessor stage if not already further
+                if (!in_array($academic->slea_application_status, [
+                    'pending_administrative_validation',
+                    'qualified',
+                    'not_qualified',
+                ], true)) {
+                    $academic->slea_application_status = 'pending_assessor_evaluation';
+                }
+            } else { // for_tracking
+                // Treat as not ready
+                $academic->ready_for_rating    = false;
+                $academic->ready_for_rating_at = null;
+
+                if (in_array($academic->slea_application_status, [
+                    null,
+                    'pending_assessor_evaluation',
+                    'incomplete',
+                ], true)) {
+                    $academic->slea_application_status = null; // or 'incomplete' if you prefer
+                }
+            }
+
+            $academic->save();
+        }
+
+        // ------------ REVERT RULE (same as before) ------------
         if (Schema::hasTable('assessor_final_reviews')) {
             AssessorFinalReview::where('student_id', $user->id)
                 ->whereIn('status', ['finalized', 'submitted'])
@@ -164,6 +285,7 @@ class SubmissionRecordController extends Controller
             ->route('student.submit')
             ->with('status', 'Submission uploaded.');
     }
+
 
     public function preview(int $id)
     {
@@ -201,11 +323,10 @@ class SubmissionRecordController extends Controller
         }
 
         // Make sure it exists on the public disk
-        if (! Storage::disk('public')->exists($path)) {
+        if (! Storage::disk('student_docs')->exists($path)) {
             abort(404, 'File not found on disk.');
         }
 
-        // Inline preview in browser (perfect for the iframe)
-        return Storage::disk('public')->response($path);
+        return Storage::disk('student_docs')->response($path);
     }
 }

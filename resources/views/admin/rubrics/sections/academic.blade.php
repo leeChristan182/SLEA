@@ -1,103 +1,136 @@
 @php
-$categoryKey = 'academic';
-$category = App\Models\RubricCategory::with(['sections.subsections'])->where('key', $categoryKey)->first();
+    $categoryKey = 'academic';
+    $category = App\Models\RubricCategory::with(['sections.subsections.options'])
+        ->where('key', $categoryKey)
+        ->first();
 @endphp
 
 <div class="rubric-section">
-    <h4 class="rubric-heading">{{ $category->order_no }}. {{ $category->title }}</h4>
+    <h4 class="rubric-heading">II. ACADEMIC EXCELLENCE</h4>
 
-    {{-- Category description --}}
-    @if(!empty($category->description))
-    <p class="rubric-category-description">{{ $category->description }}</p>
-    @endif
+    <p class="rubric-category-description">
+        This criterion shows the academic standing of the candidate for the whole duration of their
+        leadership. This shows that the student has managed its time efficiently to balance academics
+        and extracurricular activities.
+    </p>
 
-    @if($category->sections->isEmpty())
-    <p class="text-muted text-center">No sections found for this category.</p>
+    @if(!$category || $category->sections->isEmpty())
+        <p class="text-muted text-center">No sections found for this category.</p>
     @else
-    <table class="manage-table">
-        <thead>
-            <tr>
-                <th>Section</th>
-                <th>Subsection</th>
-                <th>Max Points</th>
-                <th>Evidence Needed</th>
-                <th>Notes</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($category->sections as $section)
-            @php
-            $subsections = $section->subsections;
-            $rowCount = max($subsections->count(), 1); // rowspan for section
-            $sectionPrinted = false;
-            @endphp
+        <div class="table-wrap">
+            <table class="manage-table">
+                <thead>
+                    <tr>
+                        <th>Section</th>
+                        <th>Subsection</th>
+                        <th>Max Points</th>
+                        <th>Evidence Needed</th>
+                        <th>Notes</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($category->sections as $section)
+                        @php
+                            $subsections = $section->subsections;
+                            $rowCount = max($subsections->count(), 1);
+                            $sectionPrinted = false;
+                        @endphp
 
-            @foreach($subsections as $sub)
-            <tr>
-                {{-- Section column rowspan --}}
-                @if(!$sectionPrinted)
-                <td rowspan="{{ $rowCount }}">{{ $section->title }}</td>
-                @php $sectionPrinted = true; @endphp
-                @endif
+                        @foreach($subsections as $sub)
+                            @php
+                                // 1) Base numeric values
+                                $points = $sub->max_points ?? $sub->cap_points;
 
-                <td>{{ $sub->sub_section }}</td>
-                <td>{{ $sub->max_points ?? '—' }}</td>
+                                // 2) If still null and there are options, use the max option points (e.g. GWA = 20)
+                                if (is_null($points) && $sub->relationLoaded('options')) {
+                                    $maxOption = $sub->options->max('points');
+                                    if (!is_null($maxOption)) {
+                                        $points = $maxOption;
+                                    }
+                                }
 
-                {{-- Evidence --}}
-                <td>
-                    @if(!empty($sub->evidence_needed))
-                    <ul class="mb-0">
-                        @foreach(explode("\n", $sub->evidence_needed) as $line)
-                        <li>{{ $line }}</li>
+                                $pointsDisplay = !is_null($points)
+                                    ? rtrim(rtrim(number_format($points, 2), '0'), '.')
+                                    : null;
+
+                                // 3) Evidence/notes fallback: subsection → section
+                                $evidenceSource = $sub->evidence_needed ?: $section->evidence;
+                                $notesSource = $sub->notes ?: $section->notes;
+                            @endphp
+
+                            <tr>
+                                @if(!$sectionPrinted)
+                                    <td rowspan="{{ $rowCount }}"><strong>{{ $section->title }}</strong></td>
+                                    @php $sectionPrinted = true; @endphp
+                                @endif
+
+                                <td>{{ $sub->sub_section }}</td>
+                                <td>{{ $pointsDisplay !== null ? $pointsDisplay : '—' }}</td>
+
+                                {{-- Evidence --}}
+                                <td>
+                                    @if(!empty($evidenceSource))
+                                        <div class="evidence-notes-content">
+                                            @foreach(explode("\n", $evidenceSource) as $index => $line)
+                                                @if(trim($line) !== '')
+                                                    @if($index > 0)
+                                                        <br><br>
+                                                    @endif
+                                                    {{ $line }}
+                                                @endif
+                                            @endforeach
+                                        </div>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+
+                                {{-- Notes --}}
+                                <td>
+                                    @if(!empty($notesSource))
+                                        <div class="evidence-notes-content">
+                                            @foreach(explode("\n", $notesSource) as $index => $line)
+                                                @if(trim($line) !== '')
+                                                    @if($index > 0)
+                                                        <br><br>
+                                                    @endif
+                                                    {{ $line }}
+                                                @endif
+                                            @endforeach
+                                        </div>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+
+                                <td>
+                                    <div class="action-buttons-group">
+                                        <button class="btn-edit" title="Edit" onclick="openEditSubsectionModal(
+                                                                        {{ $sub->sub_section_id }},
+                                                                        {{ $sub->section_id }},
+                                                                        '{{ addslashes($sub->sub_section) }}',
+                                                                        {{ $sub->max_points ?? '' }},
+                                                                        '{{ addslashes($sub->evidence_needed ?? '') }}',
+                                                                        '{{ addslashes($sub->notes ?? '') }}',
+                                                                        {{ $sub->order_no ?? '' }}
+                                                                    )">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+
+                                        <button class="btn-delete" title="Delete" onclick="openDeleteSubsectionModal(
+                                                                        {{ $sub->sub_section_id }},
+                                                                        '{{ addslashes($sub->sub_section) }}'
+                                                                    )">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
                         @endforeach
-                    </ul>
-                    @else
-                    —
-                    @endif
-                </td>
-
-                {{-- Notes --}}
-                <td>
-                    @if(!empty($sub->notes))
-                    <ul class="mb-0">
-                        @foreach(explode("\n", $sub->notes) as $line)
-                        <li>{{ $line }}</li>
-                        @endforeach
-                    </ul>
-                    @else
-                    —
-                    @endif
-                </td>
-            </tr>
-            @endforeach
-            @endforeach
-        </tbody>
-    </table>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
     @endif
 </div>
-
-<style>
-    .manage-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 1rem;
-    }
-
-    .manage-table th,
-    .manage-table td {
-        border: 1px solid #dee2e6;
-        padding: 0.5rem;
-        font-size: 0.9rem;
-        vertical-align: top;
-    }
-
-    .manage-table th {
-        background-color: #f8f9fa;
-        text-align: left;
-    }
-
-    /* Optional: remove row hover highlight if needed */
-    .manage-table tbody tr:hover {
-        background-color: transparent;
-    }
-</style>

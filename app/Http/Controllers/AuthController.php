@@ -14,15 +14,39 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use App\Models\SystemMonitoringAndLog;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cookie;
+use App\Models\Program;
+use App\Models\Major;
+use App\Models\Cluster;
+use App\Models\Organization;
+use App\Models\Position;
+use App\Models\LeadershipType;
+use App\Models\StudentLeadership;
+use App\Models\College;
+use App\Http\Controllers\OrganizationController;
 
 class AuthController extends Controller
 {
     /* =========================
      |  LOGIN
      * ========================= */
-    public function showLogin()
+
+    public function showLogin(Request $request)
     {
-        return view('auth.login');
+        $rememberedEmail = $request->cookie('slea_remembered_email');
+
+        // Clear OTP session data if it's for an admin account
+        if (session()->has('otp_pending_user_id')) {
+            $pendingUser = User::find(session('otp_pending_user_id'));
+            if ($pendingUser && $pendingUser->isAdmin()) {
+                session()->forget(['otp_pending_user_id', 'otp_context', 'otp_remember_me', 'otp_display_email', 'show_otp_modal']);
+            }
+        }
+
+        return view('auth.login', [
+            'rememberedEmail' => $rememberedEmail,
+        ]);
     }
 
     public function authenticate(Request $request)
@@ -37,63 +61,182 @@ class AuthController extends Controller
             'password' => $data['password'],
         ];
 
-        // First: validate credentials only (no login yet)
-        if (!Auth::validate($credentials)) {
+        // 1) Validate credentials (no login yet)
+        if (! Auth::validate($credentials)) {
             return back()
                 ->withErrors(['email' => 'Invalid credentials.'])
                 ->withInput($request->only('email'));
         }
 
-        /** @var \App\Models\User $user */
+        /** @var User $user */
         $user = User::where('email', $data['email'])->firstOrFail();
 
-        // Optional: additional checks on status, role, etc.
-        if ($user->status !== 'approved') {
+        // 2) Status check
+        if ($user->status !== User::STATUS_APPROVED) {
+            $msg = match ($user->status) {
+                User::STATUS_PENDING  => 'Your account is pending approval. Please wait for the admin to approve your account.',
+                User::STATUS_REJECTED => 'Your account was rejected. Please contact the administrator.',
+                User::STATUS_DISABLED => 'Your account is disabled. Please contact the administrator.',
+                default               => 'Your account is not approved yet.',
+            };
+
             return back()
-                ->withErrors(['email' => 'Your account is not approved yet.'])
+                ->withErrors(['email' => $msg])
                 ->withInput($request->only('email'));
         }
 
-        // Now actually log the user in
-        Auth::login($user, $request->boolean('remember'));
+        // 2.5) Role check
+        if ($user->role === User::ROLE_UNASSIGNED) {
+            return back()
+                ->withErrors(['email' => 'Your account role has not been assigned yet. Please wait for admin approval.'])
+                ->withInput($request->only('email'));
+        }
 
-        // 🔹 SYSTEM LOG: LOGIN
-        $displayName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+        // 3) Eligibility check for students (ALLOW limited users to login)
+        if (
+            $user->isStudent()
+            && ! $user->is_account_limited
+            && method_exists($user, 'canLoginToSlea')
+            && ! $user->canLoginToSlea()
+        ) {
+            return back()
+                ->withErrors(['email' => $user->loginBlockReason()])
+                ->withInput($request->only('email'));
+        }
+
+        // 4) OTP required? (USE YOUR MODEL LOGIC)
+        // Admin accounts never require OTP
+        $otpRequired = false;
+
+        if (!$user->isAdmin() && Schema::hasColumn('users', 'otp_last_verified_at')) {
+            // ✅ uses auth.otp.login_fresh_days + handles null
+            $otpRequired = $user->needsLoginOtp();
+        }
+
+        if ($otpRequired) {
+            session([
+                'otp_pending_user_id' => $user->id,
+                'otp_context'         => 'login',
+                'otp_remember_me'     => $request->boolean('remember'),
+                'otp_display_email'   => $user->email,
+            ]);
+
+            $this->sendOtp($user, 'login');
+
+            return redirect()
+                ->route('login.show')
+                ->with('status', 'We sent a one-time password (OTP) to your email.')
+                ->with('show_otp_modal', true);
+        }
+
+        // 5) No OTP required → proceed with normal login
+        $remember = $request->boolean('remember');
+
+        Auth::login($user, $remember);
+        $request->session()->regenerate();
+
+        // tie email autofill to remember-me only
+        if ($remember) {
+            Cookie::queue('slea_remembered_email', $user->email, 60 * 24 * 30);
+        } else {
+            Cookie::queue(Cookie::forget('slea_remembered_email'));
+        }
+
+        // LOG
+        $displayName = $user->full_name
+            ?? trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
 
         SystemMonitoringAndLog::record(
-            $user->role,               // 'admin', 'assessor', 'student'
+            $user->role,
             $displayName ?: $user->email,
             'Login',
             'User logged in.'
         );
 
-        // Redirect based on role...
-        if ($user->role === 'admin') {
-            return redirect()->route('admin.profile');
-        } elseif ($user->role === 'assessor') {
-            return redirect()->route('assessor.profile');
+        // ✅ Enforce limited flow *immediately* after login (not only via middleware)
+        if ($user->is_account_limited) {
+
+            // ===== ASSESSOR LIMITED FLOW =====
+            if ($user->role === User::ROLE_ASSESSOR) {
+                $assessorSubmitted =
+                    $user->assessorInfo
+                    && ! empty($user->assessorInfo->office_unit)
+                    && ! empty($user->assessorInfo->position);
+
+                // Not submitted → force complete requirements
+                if (! $assessorSubmitted) {
+                    return redirect()->route('profile.complete.assessor');
+                }
+
+                // Submitted but still limited → go to profile with waiting modal
+                return redirect()
+                    ->route('assessor.profile')
+                    ->with('show_waiting_modal', true);
+            }
+
+            // ===== STUDENT LIMITED FLOW =====
+            if ($user->role === User::ROLE_STUDENT) {
+                // If you use eligibility_status to indicate submission:
+                $studentSubmitted =
+                    $user->studentAcademic
+                    && ! empty($user->studentAcademic->eligibility_status)
+                    && in_array(
+                        $user->studentAcademic->eligibility_status,
+                        ['under_review', 'needs_revalidation', 'eligible'],
+                        true
+                    );
+
+                // Not submitted → force complete requirements
+                if (! $studentSubmitted) {
+                    return redirect()->route('profile.complete.student');
+                }
+
+                // Submitted but still limited → go to profile with waiting modal
+                return redirect()
+                    ->route('student.profile')
+                    ->with('show_waiting_modal', true);
+            }
         }
 
-        return redirect()->route('student.profile');
+        return $this->redirectAfterLogin($user);
     }
 
     protected function redirectAfterLogin(User $user)
     {
+        if ($user->role === User::ROLE_ASSESSOR) {
+            $assessorSubmitted =
+                $user->assessorInfo &&
+                !empty($user->assessorInfo->office_unit) &&
+                !empty($user->assessorInfo->position);
+
+            if (! $assessorSubmitted) {
+                return redirect()->route('profile.complete.assessor');
+            }
+        }
+
         return match ($user->role) {
-            User::ROLE_ADMIN    => redirect()->route('admin.profile'),
+            User::ROLE_ADMIN    => redirect()->route('admin.dashboard'),
             User::ROLE_ASSESSOR => redirect()->route('assessor.profile'),
-            default             => redirect()->route('student.profile'),
+            User::ROLE_STUDENT  => redirect()->route('student.profile'),
+            default             => redirect()->route('login.show')
+                ->withErrors(['email' => 'Your account role has not been assigned yet.']),
         };
     }
+
+
+
     public function logout(Request $request)
     {
-        /** @var \App\Models\User|null $user */
+        /** @var User|null $user */
         $user = Auth::user();
 
         if ($user) {
-            $displayName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+            $displayName = $user->full_name ?? trim(
+                $user->first_name . ' ' .
+                    ($user->middle_name ? $user->middle_name . ' ' : '') .
+                    $user->last_name
+            );
 
-            // 🔹 SYSTEM LOG: LOGOUT
             SystemMonitoringAndLog::record(
                 $user->role,
                 $displayName ?: $user->email,
@@ -106,198 +249,168 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success'      => true,
+                'redirect_url' => route('login'),
+            ]);
+        }
+
         return redirect()->route('login');
     }
 
     /* =========================
-     |  REGISTER (STUDENT)
+     |  REGISTER (GLOBAL)
      * ========================= */
+
     public function showRegister()
     {
-        $colleges        = $this->getCollegesList();
-        $leadershipTypes = $this->getLeadershipTypesList();
-
-        return view('auth.register', compact('colleges', 'leadershipTypes'));
+        return view('auth.register');
     }
 
     public function register(Request $request)
     {
+        // ✅ FIX: use your slea.php keys
+        $emailDomains = config('slea.email_domains', ['usep.edu.ph']); // array
+        $phoneRegex   = config('slea.phone_regex', '/^09\d{9}$/');
+
+        // build a regex that accepts ANY of the allowed domains
+        // example: user@usep.edu.ph OR user@students.usep.edu.ph
+        $domainsRegex = implode('|', array_map(fn($d) => preg_quote($d, '/'), $emailDomains));
+        $emailRuleRegex = "/^[a-zA-Z0-9._%+\-]+@($domainsRegex)$/";
+
         $rules = [
-            // Step 1
-            'last_name'     => ['required', 'string', 'max:50'],
-            'first_name'    => ['required', 'string', 'max:50'],
-            'middle_name'   => ['nullable', 'string', 'max:50'],
-            'birth_date'    => ['required', 'date', 'before:today'],
+            'last_name'   => ['required', 'string', 'max:50'],
+            'first_name'  => ['required', 'string', 'max:50'],
+            'middle_name' => ['nullable', 'string', 'max:50'],
+            'birth_date'  => [
+                'nullable',
+                'date',
+                'before:today',
+                'after_or_equal:' . now()->subYears(100)->toDateString(),
+                'before_or_equal:' . now()->subYears(15)->toDateString(),
+            ],
+
+            // NOTE: your form field is email_address, but db column is email
+            // Allow re-registration if previous account was rejected
             'email_address' => [
                 'required',
                 'email',
                 'max:100',
-                'regex:/^[a-zA-Z0-9._%+\-]+@usep\.edu\.ph$/',
-                Rule::unique('users', 'email'),
+                "regex:$emailRuleRegex",
+                Rule::unique('users', 'email')->where(function ($query) {
+                    $query->where('status', '!=', User::STATUS_REJECTED);
+                }),
             ],
-            'contact'       => ['required', 'string', 'max:20'],
 
-            // Step 2
-            'student_id'    => [
+            'contact' => [
                 'required',
                 'string',
-                'max:30',
-                // NOTE: this targets the table/column you used before the merge
-                Rule::unique('student_academic', 'student_number'),
+                "regex:$phoneRegex",
+                'max:15',
             ],
-            'college_id'    => ['required', 'integer', 'exists:colleges,id'],
-            'program_id'    => ['required', 'integer', 'exists:programs,id'],
-            'major_id'      => ['nullable', 'integer', 'exists:majors,id'],
-            'year_level'    => ['required', 'in:1,2,3,4,5'],
 
-            // Step 3
-            'leadership_type_id' => ['required', 'integer', 'exists:leadership_types,id'],
-            'position_id'        => ['required', 'integer', 'exists:positions,id'],
-            'term'               => ['required', 'string', 'max:25'],
-            'issued_by'          => ['required', 'string', 'max:150'],
-            'leadership_status'  => ['required', 'in:Active,Inactive'],
-
-            // Step 4
             'password'      => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
             'privacy_agree' => ['accepted'],
         ];
 
         $messages = [
-            'email_address.regex'  => 'Please use a valid @usep.edu.ph email address.',
-            'email_address.unique' => 'This email address is already registered. Please use a different email or try logging in.',
-            'student_id.unique'    => 'This student ID is already registered. Please check your student ID or contact support if you believe this is an error.',
+            'email_address.regex'   => 'Please use a valid institutional email address.',
+            'email_address.unique'  => 'This email address is already registered. Please use a different email or try logging in.',
+            'contact.regex'         => 'Please enter a valid Philippine mobile number in the format 09XXXXXXXXX.',
+            'privacy_agree.accepted' => 'You must agree to the Data Privacy Statement to continue.',
         ];
 
         $validated = $request->validate($rules, $messages);
 
-        // Cluster/org enforcement for CCO etc.
-        $needsOrg = $this->leadershipRequiresOrg((int) $validated['leadership_type_id']);
+        // normalize names
+        $first  = Str::title(Str::lower(trim($validated['first_name'])));
+        $last   = Str::title(Str::lower(trim($validated['last_name'])));
+        $middle = isset($validated['middle_name'])
+            ? Str::title(Str::lower(trim($validated['middle_name'])))
+            : null;
 
-        // Check if CCO is selected
-        $isCCO = DB::table('leadership_types')
-            ->where('id', (int) $validated['leadership_type_id'])
-            ->where('key', 'cco')
-            ->exists();
-
-        if ($isCCO) {
-            // CCO: cluster_id and organization_id should be "N/A" (stored as null)
-            $request->validate([
-                'cluster_id'      => ['required', 'in:N/A'],
-                'organization_id' => ['required', 'in:N/A'],
-            ]);
-            $validated['cluster_id']      = null;
-            $validated['organization_id'] = null;
-        } elseif ($needsOrg) {
-            // Other types that require org: normal validation
-            $request->validate([
-                'cluster_id'      => ['required', 'integer', 'exists:clusters,id'],
-                'organization_id' => ['required', 'integer', 'exists:organizations,id'],
-            ]);
-            $validated['cluster_id']      = (int) $request->input('cluster_id');
-            $validated['organization_id'] = (int) $request->input('organization_id');
-        } else {
-            // Types that don't require org
-            $validated['cluster_id']      = null;
-            $validated['organization_id'] = null;
+        // check lookup tables exist
+        if (!DB::table('user_roles')->where('key', User::ROLE_UNASSIGNED)->exists()) {
+            $error = 'System configuration error. Please contact support.';
+            \Log::error('Missing unassigned role in user_roles table');
+            return back()->withErrors(['register' => $error])->withInput();
         }
 
-        // Expected grad + eligibility
-        $expectedGradYear = $this->computeExpectedGradYear(
-            $validated['student_id'],
-            (int) $validated['year_level']
-        );
-        $eligibility = (now()->year > $expectedGradYear) ? 'needs_revalidation' : 'eligible';
+        if (!DB::table('user_statuses')->where('key', User::STATUS_PENDING)->exists()) {
+            $error = 'System configuration error. Please contact support.';
+            \Log::error('Missing pending status in user_statuses table');
+            return back()->withErrors(['register' => $error])->withInput();
+        }
 
         DB::beginTransaction();
         try {
-            /** @var User $user */
-            $user = User::create([
-                'first_name'           => $validated['first_name'],
-                'last_name'            => $validated['last_name'],
-                'middle_name'          => $validated['middle_name'] ?? null,
-                'email'                => $validated['email_address'],
-                'password'             => $validated['password'], // hashed by mutator
-                'contact'              => $validated['contact'],
-                'birth_date'           => $validated['birth_date'],
-                'profile_picture_path' => null,
-                'role'                 => User::ROLE_STUDENT,
-                'status'               => User::STATUS_PENDING,
-            ]);
+            // Check if a rejected user with this email exists
+            $existingRejectedUser = User::where('email', $validated['email_address'])
+                ->where('status', User::STATUS_REJECTED)
+                ->first();
 
-            // student_academic via relation
-            $user->studentAcademic()->updateOrCreate([], [
-                'student_number'     => $validated['student_id'],
-                'college_id'         => $validated['college_id'],
-                'program_id'         => $validated['program_id'],
-                'major_id'           => $validated['major_id'] ?? null,
-                'year_level'         => $validated['year_level'],
-                'expected_grad_year' => $expectedGradYear,
-                'eligibility_status' => $eligibility,
-                'revalidated_at'     => null,
-                'created_at'         => now(),
-                'updated_at'         => now(),
-            ]);
+            if ($existingRejectedUser) {
+                // Update the rejected user's record for re-registration
+                $existingRejectedUser->update([
+                    'first_name'        => $first,
+                    'last_name'         => $last,
+                    'middle_name'       => $middle,
+                    'password'          => Hash::make($validated['password']),
+                    'contact'           => $validated['contact'],
+                    'birth_date'        => $validated['birth_date'] ?? null,
+                    'role'              => User::ROLE_UNASSIGNED,
+                    'status'            => User::STATUS_PENDING,
+                    'profile_completed' => false,
+                    'user_code'         => null, // Reset user code for new registration
+                ]);
+            } else {
+                // Create a new user record
+                User::create([
+                    'first_name'        => $first,
+                    'last_name'         => $last,
+                    'middle_name'       => $middle,
+                    'email'             => $validated['email_address'],
+                    'password'          => Hash::make($validated['password']),
+                    'contact'           => $validated['contact'],
+                    'birth_date'        => $validated['birth_date'] ?? null,
+                    'profile_picture_path' => null,
 
-            // leadership record
-            if (Schema::hasTable('student_leaderships')) {
-                DB::table('student_leaderships')->insert([
-                    'user_id'            => $user->id,
-                    'leadership_type_id' => (int) $validated['leadership_type_id'],
-                    'cluster_id'         => $validated['cluster_id'],
-                    'organization_id'    => $validated['organization_id'],
-                    'position_id'        => (int) $validated['position_id'],
-                    'term'               => $validated['term'],
-                    'issued_by'          => $validated['issued_by'],
-                    'leadership_status'  => $validated['leadership_status'],
-                    'created_at'         => now(),
-                    'updated_at'         => now(),
+                    'role'              => User::ROLE_UNASSIGNED,
+                    'status'            => User::STATUS_PENDING,
+                    'profile_completed' => false,
+
+                    // If you have it in DB column:
+                    // 'is_account_limited' => true,
                 ]);
             }
 
             DB::commit();
 
-            return redirect()
-                ->route('login.show')
-                ->with('status', 'Registration received. Please wait for account approval.');
-        } catch (\Illuminate\Database\QueryException $e) {
-            DB::rollBack();
-            report($e);
+            $msg = 'Registration received. Please wait for account approval. You will receive an email notification once your account is reviewed.';
 
-            $errorMessage = $e->getMessage();
-
-            // Unique constraint handling
-            if (
-                str_contains($errorMessage, 'UNIQUE constraint failed') ||
-                str_contains($errorMessage, 'Duplicate entry') ||
-                str_contains($errorMessage, 'unique constraint')
-            ) {
-
-                if (str_contains($errorMessage, 'email') || str_contains($errorMessage, 'users.email')) {
-                    return back()
-                        ->withErrors(['email_address' => 'This email address is already registered. Please use a different email or try logging in.'])
-                        ->withInput();
-                } elseif (str_contains($errorMessage, 'student_number') || str_contains($errorMessage, 'student_id')) {
-                    return back()
-                        ->withErrors(['student_id' => 'This student ID is already registered. Please check your student ID or contact support if you believe this is an error.'])
-                        ->withInput();
-                } else {
-                    return back()
-                        ->withErrors(['register' => 'This information is already registered. Please check your details or contact support.'])
-                        ->withInput();
-                }
+            if ($request->ajax() || $request->expectsJson() || $request->wantsJson()) {
+                return response()->json([
+                    'success'  => true,
+                    'message'  => $msg,
+                    'redirect' => route('login.show'),
+                ], 200);
             }
 
-            // Generic DB error
-            return back()
-                ->withErrors(['register' => 'Could not complete registration. Please try again.'])
-                ->withInput();
+            return redirect()->route('login.show')->with('status', $msg);
         } catch (\Throwable $e) {
             DB::rollBack();
             report($e);
 
-            return back()
-                ->withErrors(['register' => 'Could not complete registration. Please try again.'])
-                ->withInput();
+            $error = 'Could not complete registration. Please try again.';
+            if ($request->ajax() || $request->expectsJson() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $error,
+                    'errors'  => ['register' => [$error]],
+                ], 500);
+            }
+            return back()->withErrors(['register' => $error])->withInput();
         }
     }
 
@@ -305,12 +418,8 @@ class AuthController extends Controller
      |  OTP / VERIFICATION
      * ========================= */
 
-    /**
-     * Generate & send OTP for given user/context.
-     */
     protected function sendOtp(User $user, string $context = 'login'): void
     {
-        // Remove existing active OTPs for this user + context
         UserOtp::where('user_id', $user->id)
             ->whereNull('used_at')
             ->where('context', $context)
@@ -331,17 +440,11 @@ class AuthController extends Controller
         );
     }
 
-    /**
-     * Alias for GET /otp if your routes still point to otp.show
-     */
     public function showOtp()
     {
         return $this->showOtpForm();
     }
 
-    /**
-     * Used by GET /otp to re-open the login page with OTP modal.
-     */
     public function showOtpForm()
     {
         if (!session()->has('otp_pending_user_id')) {
@@ -362,29 +465,30 @@ class AuthController extends Controller
         $userId  = session('otp_pending_user_id');
         $context = session('otp_context', 'login');
 
-        if (!$userId) {
-            return redirect()->route('login.show');
-        }
+        if (!$userId) return redirect()->route('login.show');
 
         /** @var User|null $user */
         $user = User::find($userId);
-        if (!$user) {
-            return redirect()->route('login.show');
-        }
+        if (!$user) return redirect()->route('login.show');
 
-        // If you use student eligibility checks, re-check them here
-        if (
-            $context === 'login' &&
-            method_exists($user, 'isStudent') &&
-            method_exists($user, 'canLoginToSlea') &&
-            $user->isStudent() &&
-            !$user->canLoginToSlea()
-        ) {
+        if ($context === 'login' && $user->role === User::ROLE_UNASSIGNED) {
+            session()->forget(['otp_pending_user_id', 'otp_remember_me', 'otp_context', 'otp_display_email']);
 
             return redirect()
                 ->route('login.show')
-                ->withErrors(['email' => $user->loginBlockReason()])
-                ->with('show_otp_modal', false);
+                ->withErrors(['email' => 'Your account role has not been assigned yet. Please wait for admin approval.']);
+        }
+
+        if (
+            $context === 'login'
+            && $user->isStudent()
+            && !$user->is_account_limited
+            && method_exists($user, 'canLoginToSlea')
+            && !$user->canLoginToSlea()
+        ) {
+            return redirect()
+                ->route('login.show')
+                ->withErrors(['email' => $user->loginBlockReason()]);
         }
 
         /** @var UserOtp|null $otpRecord */
@@ -402,7 +506,9 @@ class AuthController extends Controller
                 ->with('show_otp_modal', true);
         }
 
-        if ($otpRecord->attempts >= 5) {
+        $maxAttempts = (int) config('slea.otp_max_attempts', 5);
+
+        if ($otpRecord->attempts >= $maxAttempts) {
             return redirect()
                 ->route('login.show')
                 ->withErrors(['otp' => 'Too many incorrect attempts. Please request a new code.'])
@@ -420,22 +526,37 @@ class AuthController extends Controller
                 ->with('show_otp_modal', true);
         }
 
-        // Success
+        // ✅ success
         $otpRecord->used_at = now();
         $otpRecord->save();
 
         if ($context === 'login') {
+            // ✅ mark OTP validated
             if (Schema::hasColumn('users', 'otp_last_verified_at')) {
                 $user->otp_last_verified_at = now();
                 $user->save();
             }
 
             $remember = session('otp_remember_me', false);
-
             session()->forget(['otp_pending_user_id', 'otp_remember_me', 'otp_context', 'otp_display_email']);
 
             Auth::login($user, $remember);
             $request->session()->regenerate();
+
+            if ($remember) {
+                Cookie::queue('slea_remembered_email', $user->email, 60 * 24 * 30);
+            } else {
+                Cookie::queue(Cookie::forget('slea_remembered_email'));
+            }
+
+            $displayName = $user->full_name ?? trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+
+            SystemMonitoringAndLog::record(
+                $user->role,
+                $displayName ?: $user->email,
+                'Login',
+                'User logged in (OTP verified).'
+            );
 
             return $this->redirectAfterLogin($user);
         }
@@ -458,15 +579,11 @@ class AuthController extends Controller
         $userId  = session('otp_pending_user_id');
         $context = session('otp_context', 'login');
 
-        if (!$userId) {
-            return redirect()->route('login.show');
-        }
+        if (!$userId) return redirect()->route('login.show');
 
         /** @var User|null $user */
         $user = User::find($userId);
-        if (!$user) {
-            return redirect()->route('login.show');
-        }
+        if (!$user) return redirect()->route('login.show');
 
         $this->sendOtp($user, $context);
 
@@ -477,12 +594,11 @@ class AuthController extends Controller
     }
 
     /* =========================
-     |  FORGOT PASSWORD (OTP-BASED)
+     |  FORGOT PASSWORD (OTP)
      * ========================= */
 
     public function showForgotPasswordForm()
     {
-        // use the login page modal instead of a separate page
         return redirect()
             ->route('login.show')
             ->with('show_forgot_modal', true);
@@ -535,9 +651,7 @@ class AuthController extends Controller
         if (!$userId) {
             return redirect()
                 ->route('login.show')
-                ->withErrors([
-                    'email' => 'Your password reset session has expired. Please request a new OTP.',
-                ])
+                ->withErrors(['email' => 'Your password reset session has expired. Please request a new OTP.'])
                 ->with('show_forgot_modal', true);
         }
 
@@ -560,7 +674,6 @@ class AuthController extends Controller
             ->route('login.show')
             ->with('status', 'Your password has been updated. You can now log in.');
     }
-
     /* =========================
      |  AJAX DROPDOWNS & HELPERS
      * ========================= */
@@ -593,48 +706,52 @@ class AuthController extends Controller
 
     public function getCouncilPositions(Request $request)
     {
-        if (!Schema::hasTable('positions') || !Schema::hasTable('leadership_types')) {
+        if (!Schema::hasTable('positions')) {
             return response()->json([]);
         }
 
         $typeId = (int) $request->query('leadership_type_id');
-        $orgId  = (int) $request->query('organization_id');
-
-        // If organization_id is provided (for CCO), load positions via organization_position
-        if ($orgId && Schema::hasTable('organization_position')) {
-            $rows = DB::table('organization_position as op')
-                ->join('positions as p', 'p.id', '=', 'op.position_id')
-                ->where('op.organization_id', $orgId)
-                ->orderBy('p.rank_order')
-                ->orderBy('p.name')
-                ->select('p.id', 'p.name', 'op.alias')
-                ->get()
-                ->map(fn($r) => [
-                    'id'   => $r->id,
-                    'name' => $r->alias ?: $r->name,
-                ]);
-
-            return response()->json($rows);
+        if (!$typeId) {
+            return response()->json([]);
         }
 
-        // Load positions directly by leadership_type_id
-        if ($typeId) {
-            $rows = DB::table('positions')
-                ->where('leadership_type_id', $typeId)
-                ->orderBy('rank_order')
-                ->orderBy('name')
-                ->select('id', 'name')
-                ->get()
-                ->map(fn($r) => [
-                    'id'   => $r->id,
-                    'name' => $r->name,
-                ]);
-
-            return response()->json($rows);
-        }
-
-        return response()->json([]);
+        return DB::table('positions')
+            ->where('leadership_type_id', $typeId)
+            ->orderBy('rank_order')
+            ->orderBy('name')
+            ->select('id', 'name')
+            ->get()
+            ->map(fn($r) => [
+                'id'   => $r->id,
+                'name' => $r->name,
+            ])
+            ->values();
     }
+
+    public function getRubricOptions(Request $request)
+    {
+        if (!Schema::hasTable('rubric_options')) {
+            return response()->json([]);
+        }
+
+        $subsectionId = (int) $request->query('subsection_id');
+        if (!$subsectionId) {
+            return response()->json([]);
+        }
+
+        return DB::table('rubric_options')
+            ->where('sub_section_id', $subsectionId)
+            ->orderBy('order_no')
+            ->orderBy('label')
+            ->select('id', 'label as name')
+            ->get()
+            ->map(fn($r) => [
+                'id'   => $r->id,
+                'name' => $r->name,
+            ])
+            ->values();
+    }
+
 
     protected function councilOrgNames(): array
     {
@@ -648,7 +765,8 @@ class AuthController extends Controller
         ];
     }
 
-    public function getPositions(Request $r)
+    /* =========================
+        - public function getPositions(Request $r)
     {
         $orgId = (int) $r->query('organization_id');
         if (!$orgId || !Schema::hasTable('organization_position')) return response()->json([]);
@@ -661,26 +779,17 @@ class AuthController extends Controller
 
         return response()->json($rows);
     }
+     * ========================= */
 
     public function getClusters(Request $request)
     {
-        if (!Schema::hasTable('clusters')) {
-            return response()->json([]);
-        }
+        if (!Schema::hasTable('clusters')) return response()->json([]);
 
-        $q = DB::table('clusters')->orderBy('name');
+        $rows = DB::table('clusters')
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
-        // Only filter by leadership_type_id if that column actually exists
-        if (Schema::hasColumn('clusters', 'leadership_type_id')) {
-            $leadershipTypeId = $request->input('leadership_type_id');
-            if ($leadershipTypeId) {
-                $q->where('leadership_type_id', $leadershipTypeId);
-            }
-        }
-
-        $clusters = $q->pluck('name', 'id'); // { id: "Cluster Name", ... }
-
-        return response()->json($clusters);
+        return response()->json($rows);
     }
 
     public function getCouncilOrgs(Request $request)
@@ -703,21 +812,17 @@ class AuthController extends Controller
 
     public function getOrganizations(Request $request)
     {
-        if (!Schema::hasTable('organizations')) {
-            return response()->json([]);
-        }
+        if (!Schema::hasTable('organizations')) return response()->json([]);
 
-        $clusterId = $request->input('cluster_id');
+        $clusterId = (int) $request->input('cluster_id');
 
         $q = DB::table('organizations')->orderBy('name');
 
-        if ($clusterId) {
-            $q->where('cluster_id', $clusterId);
-        }
+        if ($clusterId) $q->where('cluster_id', $clusterId);
 
-        $organizations = $q->pluck('name', 'id'); // { id: "Org Name", ... }
+        $rows = $q->get(['id', 'name']);
 
-        return response()->json($organizations);
+        return response()->json($rows);
     }
 
     public function getLeadershipTypes()
@@ -811,16 +916,6 @@ class AuthController extends Controller
             END")
             ->get();
     }
-
-    private function leadershipRequiresOrg(?int $typeId): bool
-    {
-        if (!$typeId || !Schema::hasTable('leadership_types')) return false;
-
-        return (bool) DB::table('leadership_types')
-            ->where('id', $typeId)
-            ->value('requires_org');
-    }
-
     private function computeExpectedGradYear(string $studentId, int $yearLevel): int
     {
         if (preg_match('/^(\d{4})/', $studentId, $m)) {

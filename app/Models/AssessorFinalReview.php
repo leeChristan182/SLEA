@@ -10,7 +10,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class AssessorFinalReview extends Model
 {
     protected $table = 'assessor_final_reviews';
-
+    public const STATUS_DRAFT           = 'draft';
+    public const STATUS_QUEUED_FOR_ADMIN = 'queued_for_admin';
+    public const STATUS_FINALIZED       = 'finalized';
     protected $fillable = [
         'student_id',
         'assessor_id',

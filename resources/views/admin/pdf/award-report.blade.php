@@ -89,40 +89,35 @@
         </thead>
         <tbody>
             @forelse ($students as $row)
-                    <tr>
-                        {{-- Student ID --}}
-                        <td>
-                            {{ $row->student_number
-                ?? ($row->user->studentAcademic->student_id ?? 'N/A') }}
-                        </td>
+                <tr>
+                    {{-- Student ID --}}
+                    <td>
+                        {{ $row['student_id'] ?? 'N/A' }}
+                    </td>
 
-                        {{-- Full Name --}}
-                        <td>{{ $row->user->full_name ?? 'N/A' }}</td>
+                    {{-- Full Name --}}
+                    <td>{{ $row['name'] ?? 'N/A' }}</td>
 
-                        {{-- College --}}
-                        <td>
-                            {{ $row->college_name
-                ?? optional(optional($row->user->studentAcademic)->college)->name
-                ?? 'N/A' }}
-                        </td>
+                    {{-- College --}}
+                    <td>
+                        {{ $row['college'] ?? 'N/A' }}
+                    </td>
 
-                        {{-- Program --}}
-                        <td>
-                            {{ $row->program_code
-                ?? optional(optional($row->user->studentAcademic)->program)->code
-                ?? 'N/A' }}
-                        </td>
+                    {{-- Program --}}
+                    <td>
+                        {{ $row['program'] ?? 'N/A' }}
+                    </td>
 
-                        {{-- RAW SCORE: total_score / max_points --}}
-                        <td class="text-right">
-                            @php
-                                $score = $row->raw_total_score ?? ($row->total_score ?? 0);
-                                $max = $row->raw_max_points ?? ($row->max_points ?? 0);
-                            @endphp
+                    {{-- RAW SCORE: points / max_points --}}
+                    <td class="text-right">
+                        @php
+                            $score = $row['points'] ?? 0;
+                            $max = $row['max_points'] ?? 0;
+                        @endphp
 
-                            {{ $score }} / {{ $max }}
-                        </td>
-                    </tr>
+                        {{ number_format($score, 2) }} / {{ number_format($max, 2) }}
+                    </td>
+                </tr>
             @empty
                 <tr>
                     <td colspan="5" class="text-center" style="padding: 12px; color: #6b7280;">
@@ -131,6 +126,7 @@
                 </tr>
             @endforelse
         </tbody>
+
     </table>
 </body>
 

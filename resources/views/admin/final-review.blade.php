@@ -9,39 +9,36 @@
 
         <main class="main-content">
             <div class="page-header">
-                <h1>Graduating Student Leaders - Admin Final Review</h1>
+                <h1>Final Review</h1>
             </div>
 
             {{-- Flash messages --}}
             @if (session('status'))
-                <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
                     {{ session('status') }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             @endif
 
             @if (session('error'))
-                <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
-                    {{ session('error') }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
+                <div class="alert alert-danger">{{ session('error') }}</div>
             @endif
 
-            {{-- Filter + search --}}
-            <div class="filter-bar mb-3">
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-3">
-                        <label for="statusFilter" class="filter-label">Filter by Decision</label>
+            {{-- Controls Section --}}
+            <div class="controls-section">
+                <div class="filter-controls">
+                    <div class="filter-group">
+                        <label for="statusFilter">Filter by Decision</label>
                         <select id="statusFilter" class="form-select">
                             <option value="">All</option>
                             <option value="pending">Pending decision</option>
-                            <option value="approved">Awarded</option>
+                            <option value="approved">Qualified</option>
                             <option value="not_qualified">Not qualified</option>
                         </select>
                     </div>
 
-                    <div class="col-md-3">
-                        <label for="sortSelect" class="filter-label">Sort by</label>
+                    <div class="filter-group">
+                        <label for="sortSelect">Sort by</label>
                         <select id="sortSelect" class="form-select">
                             <option value="">None</option>
                             <option value="name">Student Name</option>
@@ -50,144 +47,208 @@
                             <option value="score-asc">Lowest Score</option>
                         </select>
                     </div>
+                </div>
 
-                    <div class="col-md-6">
-                        <label for="searchInput" class="search-label">Search</label>
-                        <div class="search-wrapper">
-                            <i class="fas fa-search search-icon"></i>
-                            <input type="text" id="searchInput" class="form-control"
-                                   placeholder="Search by ID, name, college, program, or major...">
-                        </div>
+                <div class="search-controls">
+                    <div class="search-group">
+                        <input type="text" id="searchInput" class="form-control"
+                            placeholder="Search by ID, name, college, program, or major...">
+                        <button type="button" class="btn-search-maroon search-btn-attached" id="searchBtn" title="Search">
+                            <i class="fas fa-search"></i>
+                        </button>
                     </div>
                 </div>
             </div>
 
             {{-- Table --}}
-            <div class="table-container">
-                <table class="table table-hover graduating-table" id="adminFinalReviewTable">
+            <div class="submissions-table-container">
+                <table class="table submissions-table" id="adminFinalReviewTable">
                     <thead>
-                    <tr>
-                        <th>Student ID</th>
-                        <th>Student Name</th>
-                        <th>College</th>
-                        <th>Program</th>
-                        <th>Major</th>
-                        <th>Final Score</th>
-                        <th>Decision</th>
-                        <th style="width: 80px;">Action</th>
-                    </tr>
+                        <tr>
+                            <th>Student ID</th>
+                            <th>Student Name</th>
+                            <th>College</th>
+                            <th>Program</th>
+                            <th>Major</th>
+                            <th>Final Score</th>
+                            <th>Decision</th>
+                            <th style="width: 80px;">Action</th>
+                        </tr>
                     </thead>
                     <tbody>
-                    @forelse($items as $item)
-                        @php
-                            /** @var \App\Models\AssessorFinalReview $afr */
-                            $afr      = $item;
-                            $student  = $afr->student ?? null;
-                            $academic = $student->studentAcademic ?? null;
-                            $final    = $afr->finalReview ?? null;
+                        @forelse($items as $item)
+                            @php
+                                /** @var \App\Models\AssessorFinalReview $afr */
+                                $afr = $item;
+                                $student = $afr->student ?? null;
+                                $academic = $student->studentAcademic ?? null;
+                                $final = $afr->finalReview ?? null;
 
-                            $studentNumber = $academic->student_number
-                                ?? $academic->student_id
-                                ?? $student->student_id
-                                ?? $student->id;
+                                $studentNumber = $academic->student_number
+                                    ?? $academic->student_id
+                                    ?? $student->student_id
+                                    ?? $student->id;
 
-                            $yearLevel = $academic->year_level ?? '—';
+                                $yearLevel = $academic->year_level ?? '—';
 
-                            $lastName   = $student->last_name ?? $student->lastname ?? '';
-                            $firstName  = $student->first_name ?? $student->firstname ?? '';
-                            $middleName = $student->middle_name ?? $student->middlename ?? '';
+                                $lastName = $student->last_name ?? $student->lastname ?? '';
+                                $firstName = $student->first_name ?? $student->firstname ?? '';
+                                $middleName = $student->middle_name ?? $student->middlename ?? '';
 
-                            $studentName = trim(strtoupper($lastName).', '.$firstName.' '.$middleName);
+                                $studentName = trim(strtoupper($lastName) . ', ' . $firstName . ' ' . $middleName);
 
-                            $programName = optional($academic->program)->name
-                                ?? optional($academic)->program_name
-                                ?? '—';
+                                $programName = optional($academic->program)->name
+                                    ?? optional($academic)->program_name
+                                    ?? '—';
 
-                            $collegeName = optional(optional($academic->program)->college)->short_name
-                                ?? optional(optional($academic->program)->college)->name
-                                ?? optional($academic->college)->short_name
-                                ?? optional($academic->college)->name
-                                ?? optional($academic)->college_name
-                                ?? '—';
+                                $collegeName = optional(optional($academic->program)->college)->short_name
+                                    ?? optional(optional($academic->program)->college)->name
+                                    ?? optional($academic->college)->short_name
+                                    ?? optional($academic->college)->name
+                                    ?? optional($academic)->college_name
+                                    ?? '—';
 
-                            $majorName = optional($academic->major)->name
-                                ?? optional($academic)->major_name
-                                ?? '—';
+                                $majorName = optional($academic->major)->name
+                                    ?? optional($academic)->major_name
+                                    ?? '—';
 
-                            // decision from final_reviews table (enum: approved / not_qualified)
-                            $decisionKey = $final->decision ?? null;
-                            $decisionLabels = [
-                                'approved'      => 'Awarded',
-                                'not_qualified' => 'Not qualified',
-                            ];
-                            $decisionLabel = $decisionKey
-                                ? ($decisionLabels[$decisionKey] ?? ucfirst(str_replace('_', ' ', $decisionKey)))
-                                : 'Pending';
+                                // decision from final_reviews table (enum: approved / not_qualified)
+                                $decisionKey = $final->decision ?? null;
+                                $decisionLabels = [
+                                    'approved' => 'Qualified',
+                                    'not_qualified' => 'Not qualified',
+                                ];
+                                $decisionLabel = $decisionKey
+                                    ? ($decisionLabels[$decisionKey] ?? ucfirst(str_replace('_', ' ', $decisionKey)))
+                                    : 'Pending';
 
-                            $decisionClass = match ($decisionKey) {
-                                'approved'      => 'badge-approved',
-                                'not_qualified' => 'badge-not-qualified',
-                                default         => 'badge-pending',
-                            };
+                                $decisionClass = match ($decisionKey) {
+                                    'approved' => 'badge-approved',
+                                    'not_qualified' => 'badge-not-qualified',
+                                    default => 'badge-pending',
+                                };
 
-                            $breakdown = $afr->compiledScores
-                                ? $afr->compiledScores->map(function ($cs) {
+                                // Get all categories in order and match with compiled scores
+                                $allCategories = \App\Models\RubricCategory::orderBy('order_no')->get();
+                                $compiledScores = $afr->compiledScores ?? collect();
+                                $scoresByCategory = $compiledScores->keyBy('rubric_category_id');
+
+                                // Build breakdown with all 5 categories in order
+                                $breakdown = $allCategories->map(function ($category) use ($scoresByCategory) {
+                                    $cs = $scoresByCategory->get($category->id);
                                     return [
-                                        'category'     => optional($cs->category)->title ?? '—',
-                                        'result'       => $cs->category_result,
-                                        'score'        => (float) $cs->total_score,
-                                        'max_points'   => (float) $cs->max_points,
-                                        'min_required' => (float) $cs->min_required_points,
+                                        'category' => $category->title ?? '—',
+                                        'order_no' => $category->order_no ?? 999,
+                                        'result' => $cs->category_result ?? null,
+                                        'score' => (float) ($cs->total_score ?? 0),
+                                        'max_points' => (float) ($cs->max_points ?? $category->max_points ?? 0),
+                                        'min_required' => (float) ($cs->min_required_points ?? $category->min_required_points ?? 0),
                                     ];
-                                })->values()
-                                : [];
-                        @endphp
+                                })->sortBy('order_no')->values();
+                            @endphp
 
-                        <tr class="student-row"
-                            data-decision="{{ $decisionKey ?? 'pending' }}"
-                            data-name="{{ $studentName }}"
-                            data-program="{{ $programName }}"
-                            data-score="{{ $afr->total_score ?? 0 }}">
-                            <td class="student-id-cell">{{ $studentNumber }}</td>
-                            <td class="student-name-cell">{{ $studentName }}</td>
-                            <td class="college-cell">{{ $collegeName }}</td>
-                            <td class="program-cell">{{ $programName }}</td>
-                            <td class="major-cell">{{ $majorName }}</td>
-                            <td class="score-cell">{{ number_format($afr->total_score ?? 0, 2) }}</td>
-                            <td>
-                                <span class="decision-badge {{ $decisionClass }}">
-                                    {{ $decisionLabel }}
-                                </span>
-                            </td>
-                            <td>
-                                <button type="button"
-                                        class="btn btn-view btn-action"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#adminViewSummaryModal"
-                                        data-afr-id="{{ $afr->id }}"
-                                        data-student-number="{{ $studentNumber }}"
-                                        data-student-name="{{ $studentName }}"
-                                        data-college="{{ $collegeName }}"
-                                        data-program="{{ $programName }}"
-                                        data-major="{{ $majorName }}"
-                                        data-year-level="{{ $yearLevel }}"
-                                        data-score="{{ number_format($afr->total_score ?? 0, 2) }}"
-                                        data-decision="{{ $decisionKey ?? 'pending' }}"
-                                        data-breakdown='@json($breakdown)'>
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="8" class="text-center text-muted py-4">
-                                No students queued for Admin final review.
-                            </td>
-                        </tr>
-                    @endforelse
+                            <tr class="student-row" data-decision="{{ $decisionKey ?? 'pending' }}"
+                                data-name="{{ $studentName }}" data-program="{{ $programName }}"
+                                data-score="{{ $afr->total_score ?? 0 }}">
+                                <td class="student-id-cell">{{ $studentNumber }}</td>
+                                <td class="student-name-cell">{{ $studentName }}</td>
+                                <td class="college-cell">{{ $collegeName }}</td>
+                                <td class="program-cell">{{ $programName }}</td>
+                                <td class="major-cell">{{ $majorName }}</td>
+                                <td class="score-cell">{{ number_format($afr->total_score ?? 0, 2) }}</td>
+                                <td>
+                                    <span class="decision-badge {{ $decisionClass }}">
+                                        {{ $decisionLabel }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="action-buttons-group">
+                                        <button type="button" class="btn-view btn-action" data-bs-toggle="modal"
+                                            data-bs-target="#adminViewSummaryModal" data-afr-id="{{ $afr->id }}"
+                                            data-student-number="{{ $studentNumber }}" data-student-name="{{ $studentName }}"
+                                            data-college="{{ $collegeName }}" data-program="{{ $programName }}"
+                                            data-major="{{ $majorName }}" data-year-level="{{ $yearLevel }}"
+                                            data-score="{{ number_format($afr->total_score ?? 0, 2) }}"
+                                            data-decision="{{ $decisionKey ?? 'pending' }}" data-breakdown='@json($breakdown)'
+                                            title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="8" class="text-center text-muted py-4">
+                                    No students queued for Admin final review.
+                                </td>
+                            </tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
+
+            {{-- Pagination --}}
+            @if($items->hasPages())
+                <div class="pagination-container" data-pagination-container>
+                    <div class="pagination-info">
+                        Showing {{ $items->firstItem() ?? 0 }} – {{ $items->lastItem() ?? 0 }}
+                        of {{ $items->total() }} entries
+                    </div>
+
+                    <div class="unified-pagination">
+                        @if($items->onFirstPage())
+                            <button class="btn-nav" disabled>
+                                <i class="fas fa-chevron-left"></i> Previous
+                            </button>
+                        @else
+                            <a href="{{ $items->previousPageUrl() }}" class="btn-nav">
+                                <i class="fas fa-chevron-left"></i> Previous
+                            </a>
+                        @endif
+
+                        <span class="pagination-pages">
+                            @php
+                                $currentPage = $items->currentPage();
+                                $lastPage = $items->lastPage();
+                                $start = max(1, $currentPage - 2);
+                                $end = min($lastPage, $currentPage + 2);
+                            @endphp
+
+                            @if($start > 1)
+                                <a href="{{ $items->url(1) }}" class="page-btn">1</a>
+                                @if($start > 2)
+                                    <span class="page-btn disabled">...</span>
+                                @endif
+                            @endif
+
+                            @for($i = $start; $i <= $end; $i++)
+                                @if($i == $currentPage)
+                                    <span class="page-btn active">{{ $i }}</span>
+                                @else
+                                    <a href="{{ $items->url($i) }}" class="page-btn">{{ $i }}</a>
+                                @endif
+                            @endfor
+
+                            @if($end < $lastPage)
+                                @if($end < $lastPage - 1)
+                                    <span class="page-btn disabled">...</span>
+                                @endif
+                                <a href="{{ $items->url($lastPage) }}" class="page-btn">{{ $lastPage }}</a>
+                            @endif
+                        </span>
+
+                        @if($items->hasMorePages())
+                            <a href="{{ $items->nextPageUrl() }}" class="btn-nav">
+                                Next <i class="fas fa-chevron-right"></i>
+                            </a>
+                        @else
+                            <button class="btn-nav" disabled>
+                                Next <i class="fas fa-chevron-right"></i>
+                            </button>
+                        @endif
+                    </div>
+                </div>
+            @endif
         </main>
     </div>
 
@@ -197,13 +258,13 @@
         <input type="hidden" name="decision" value="">
     </form>
 
+    <link rel="stylesheet" href="{{ asset('css/pending-submissions.css') }}">
+    <script src="{{ asset('js/admin_pagination.js') }}"></script>
+
     {{-- Admin View Summary Modal --}}
-    <div class="modal fade admin-final-modal"  {{-- <== extra class to scope overrides --}}
-         id="adminViewSummaryModal"
-         tabindex="-1"
-         aria-labelledby="adminViewSummaryModalLabel"
-         aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal fade admin-final-modal" {{-- <==extra class to scope overrides --}} id="adminViewSummaryModal"
+        tabindex="-1" aria-labelledby="adminViewSummaryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg admin-final-dialog">
             <div class="modal-content final-modal">
                 <div class="modal-header">
                     <h5 class="modal-title" id="adminViewSummaryModalLabel">
@@ -259,39 +320,31 @@
                         <div class="table-responsive">
                             <table class="table table-sm align-middle summary-table mb-0">
                                 <thead>
-                                <tr>
-                                    <th style="width:40%">Category</th>
-                                    <th style="width:30%">Score</th>
-                                    <th style="width:30%">Max Points</th>
-                                </tr>
+                                    <tr>
+                                        <th style="width:40%">Category</th>
+                                        <th style="width:30%">Score</th>
+                                        <th style="width:30%">Max Points</th>
+                                    </tr>
                                 </thead>
                                 <tbody id="adminSummaryCategoryRows">
-                                <tr class="text-muted">
-                                    <td colspan="3" class="text-center">
-                                        Category-level scores will appear here once connected to compiled scores.
-                                    </td>
-                                </tr>
+                                    <tr class="text-muted">
+                                        <td colspan="3" class="text-center">
+                                            Category-level scores will appear here once connected to compiled scores.
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
 
-                <div class="modal-footer justify-content-between">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                        Close
-                    </button>
-
-                    <div class="right-actions">
-                        <button type="button"
-                                class="btn btn-outline-danger admin-decision-btn"
-                                id="adminNotQualifiedBtn">
-                            Mark as Not Qualified
+                <div class="modal-footer">
+                    <div class="decision-buttons-group">
+                        <button type="button" class="btn btn-success admin-decision-btn" id="adminApproveBtn" title="Qualified" aria-label="Qualified">
+                            <i class="fas fa-check-circle"></i>
                         </button>
-                        <button type="button"
-                                class="btn btn-primary final-submit-btn admin-decision-btn"
-                                id="adminApproveBtn">
-                            Approve for SLEA Award
+                        <button type="button" class="btn btn-danger admin-decision-btn" id="adminNotQualifiedBtn" title="Not Qualified" aria-label="Not Qualified">
+                            <i class="fas fa-times-circle"></i>
                         </button>
                     </div>
                 </div>
@@ -303,31 +356,31 @@
 @push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const table        = document.getElementById('adminFinalReviewTable');
+            const table = document.getElementById('adminFinalReviewTable');
             const statusFilter = document.getElementById('statusFilter');
-            const sortSelect   = document.getElementById('sortSelect');
-            const searchInput  = document.getElementById('searchInput');
-            const modalEl      = document.getElementById('adminViewSummaryModal');
+            const sortSelect = document.getElementById('sortSelect');
+            const searchInput = document.getElementById('searchInput');
+            const modalEl = document.getElementById('adminViewSummaryModal');
             const decisionForm = document.getElementById('adminFinalDecisionForm');
-            const approveBtn   = document.getElementById('adminApproveBtn');
-            const notQualBtn   = document.getElementById('adminNotQualifiedBtn');
+            const approveBtn = document.getElementById('adminApproveBtn');
+            const notQualBtn = document.getElementById('adminNotQualifiedBtn');
 
             const storeUrlTemplate = @json(route('admin.final-review.decision', ['assessorFinalReview' => '__AFR__']));
 
             function applyFilters() {
                 if (!table) return;
 
-                const search   = (searchInput?.value || '').toLowerCase().trim();
+                const search = (searchInput?.value || '').toLowerCase().trim();
                 const decision = statusFilter?.value || '';
 
                 const rows = table.querySelectorAll('tbody tr.student-row');
                 rows.forEach(row => {
-                    const name    = (row.querySelector('.student-name-cell')?.textContent || '').toLowerCase();
+                    const name = (row.querySelector('.student-name-cell')?.textContent || '').toLowerCase();
                     const program = (row.querySelector('.program-cell')?.textContent || '').toLowerCase();
-                    const major   = (row.querySelector('.major-cell')?.textContent || '').toLowerCase();
-                    const idCell  = (row.querySelector('.student-id-cell')?.textContent || '').toLowerCase();
+                    const major = (row.querySelector('.major-cell')?.textContent || '').toLowerCase();
+                    const idCell = (row.querySelector('.student-id-cell')?.textContent || '').toLowerCase();
                     const college = (row.querySelector('.college-cell')?.textContent || '').toLowerCase();
-                    const rowDec  = row.dataset.decision || 'pending';
+                    const rowDec = row.dataset.decision || 'pending';
 
                     let matchesSearch =
                         !search ||
@@ -352,7 +405,7 @@
                 if (!value) return;
 
                 const tbody = table.querySelector('tbody');
-                const rows  = Array.from(tbody.querySelectorAll('tr.student-row'));
+                const rows = Array.from(tbody.querySelectorAll('tr.student-row'));
 
                 rows.sort((a, b) => {
                     if (value === 'name') {
@@ -373,9 +426,9 @@
                 rows.forEach(r => tbody.appendChild(r));
             }
 
-            if (searchInput)  searchInput.addEventListener('input', applyFilters);
+            if (searchInput) searchInput.addEventListener('input', applyFilters);
             if (statusFilter) statusFilter.addEventListener('change', applyFilters);
-            if (sortSelect)   sortSelect.addEventListener('change', applySort);
+            if (sortSelect) sortSelect.addEventListener('change', applySort);
 
             // Fill summary modal on open
             if (modalEl) {
@@ -383,18 +436,19 @@
                     const button = event.relatedTarget;
                     if (!button) return;
 
-                    const afrId       = button.getAttribute('data-afr-id');
-                    const studentNum  = button.getAttribute('data-student-number') || '—';
-                    const name        = button.getAttribute('data-student-name') || '';
-                    const program     = button.getAttribute('data-program') || '—';
-                    const college     = button.getAttribute('data-college') || '—';
-                    const major       = button.getAttribute('data-major') || '—';
-                    const yearLevel   = button.getAttribute('data-year-level') || '—';
-                    const score       = button.getAttribute('data-score') || '0.00';
+                    const afrId = button.getAttribute('data-afr-id');
+                    const studentNum = button.getAttribute('data-student-number') || '—';
+                    const name = button.getAttribute('data-student-name') || '';
+                    const program = button.getAttribute('data-program') || '—';
+                    const college = button.getAttribute('data-college') || '—';
+                    const major = button.getAttribute('data-major') || '—';
+                    const yearLevel = button.getAttribute('data-year-level') || '—';
+                    const score = button.getAttribute('data-score') || '0.00';
                     const decisionKey = button.getAttribute('data-decision') || 'pending';
                     const breakdownRaw = button.getAttribute('data-breakdown') || '[]';
 
                     modalEl.dataset.afrId = afrId || '';
+                    modalEl.dataset.decisionKey = decisionKey || 'pending';
 
                     // Header
                     document.getElementById('adminSummaryStudentName').textContent = name;
@@ -404,18 +458,29 @@
 
                     // Info grid
                     document.getElementById('adminInfoStudentNumber').textContent = studentNum;
-                    document.getElementById('adminInfoYearLevel').textContent    = yearLevel;
-                    document.getElementById('adminInfoCollege').textContent      = college;
-                    document.getElementById('adminInfoProgram').textContent      = program;
-                    document.getElementById('adminInfoMajor').textContent        = major;
+                    document.getElementById('adminInfoYearLevel').textContent = yearLevel;
+                    document.getElementById('adminInfoCollege').textContent = college;
+                    document.getElementById('adminInfoProgram').textContent = program;
+                    document.getElementById('adminInfoMajor').textContent = major;
 
                     const decisionLabel =
                         decisionKey === 'approved'
-                            ? 'Awarded'
+                            ? 'Qualified'
                             : decisionKey === 'not_qualified'
                                 ? 'Not qualified'
                                 : 'Pending';
                     document.getElementById('adminSummaryDecision').textContent = decisionLabel;
+
+                    // Lock decision buttons once already decided
+                    const isLocked = decisionKey !== 'pending';
+                    if (approveBtn) {
+                        approveBtn.disabled = isLocked;
+                        approveBtn.title = isLocked ? 'Decision already made' : 'Qualified';
+                    }
+                    if (notQualBtn) {
+                        notQualBtn.disabled = isLocked;
+                        notQualBtn.title = isLocked ? 'Decision already made' : 'Not Qualified';
+                    }
 
                     // Category rows
                     const tbody = document.getElementById('adminSummaryCategoryRows');
@@ -429,40 +494,59 @@
                     }
 
                     let totalScore = 0;
-                    let totalMax   = 0;
+                    let totalMax = 0;
 
                     if (!Array.isArray(breakdown) || breakdown.length === 0) {
                         tbody.innerHTML = `
-                            <tr class="text-muted">
-                                <td colspan="3" class="text-center">
-                                    No category breakdown available for this student.
-                                </td>
-                            </tr>`;
+                                        <tr class="text-muted">
+                                            <td colspan="3" class="text-center">
+                                                No category breakdown available for this student.
+                                            </td>
+                                        </tr>`;
                     } else {
+                        // Sort breakdown by order_no to ensure correct sequence
+                        breakdown.sort((a, b) => {
+                            const orderA = a.order_no ?? 999;
+                            const orderB = b.order_no ?? 999;
+                            return orderA - orderB;
+                        });
+
+                        // Roman numeral mapping
+                        const romanNumerals = {
+                            1: 'I',
+                            2: 'II',
+                            3: 'III',
+                            4: 'IV',
+                            5: 'V',
+                            6: 'VI',
+                        };
+
                         breakdown.forEach((row, index) => {
+                            const orderNo = row.order_no ?? (index + 1);
+                            const roman = romanNumerals[orderNo] || orderNo;
                             const catName = row.category || `Category ${index + 1}`;
-                            const sc      = parseFloat(row.score) || 0;
-                            const maxPts  = parseFloat(row.max_points) || 0;
+                            const sc = parseFloat(row.score) || 0;
+                            const maxPts = parseFloat(row.max_points) || 0;
 
                             totalScore += sc;
-                            totalMax   += maxPts;
+                            totalMax += maxPts;
 
                             const tr = document.createElement('tr');
                             tr.innerHTML = `
-                                <td>${catName}</td>
-                                <td>${sc.toFixed(2)}</td>
-                                <td>${maxPts.toFixed(2)}</td>
-                            `;
+                                            <td>${roman}. ${catName}</td>
+                                            <td>${sc.toFixed(2)}</td>
+                                            <td>${maxPts.toFixed(2)}</td>
+                                        `;
                             tbody.appendChild(tr);
                         });
 
                         const totalTr = document.createElement('tr');
                         totalTr.classList.add('summary-total-row');
                         totalTr.innerHTML = `
-                            <td><strong>Total Score</strong></td>
-                            <td><strong>${totalScore.toFixed(2)}</strong></td>
-                            <td><strong>${totalMax.toFixed(2)}</strong></td>
-                        `;
+                                        <td><strong>Total Score</strong></td>
+                                        <td><strong>${totalScore.toFixed(2)}</strong></td>
+                                        <td><strong>${totalMax.toFixed(2)}</strong></td>
+                                    `;
                         tbody.appendChild(totalTr);
                     }
                 });
@@ -470,6 +554,11 @@
 
             function submitDecision(decisionKey) {
                 const afrId = modalEl?.dataset.afrId || '';
+                const currentDecision = modalEl?.dataset.decisionKey || 'pending';
+                if (currentDecision !== 'pending') {
+                    alert('Decision already made. This final review can no longer be changed.');
+                    return;
+                }
                 if (!afrId) {
                     alert('Missing review ID.');
                     return;
@@ -493,6 +582,21 @@
                     submitDecision('not_qualified');
                 });
             }
+
+            // Auto-close success alerts after 3 seconds
+            setTimeout(() => {
+                document.querySelectorAll('.alert.alert-success').forEach((el) => {
+                    try {
+                        if (window.bootstrap?.Alert) {
+                            window.bootstrap.Alert.getOrCreateInstance(el).close();
+                        } else {
+                            el.remove();
+                        }
+                    } catch (e) {
+                        el.remove();
+                    }
+                });
+            }, 3000);
         });
     </script>
 @endpush
@@ -500,8 +604,8 @@
 @push('styles')
     <style>
         /* ------------------------------
-           Admin Final Review – override global .modal rules safely
-        ------------------------------ */
+                       Admin Final Review – override global .modal rules safely
+                    ------------------------------ */
 
         /* Only this modal: center it instead of bottom-sheet style.css behavior */
         .admin-final-modal.modal {
@@ -510,14 +614,32 @@
         }
 
         .admin-final-modal .modal-dialog {
-            max-width: 960px !important;
-            width: 95vw !important;
+            --bs-modal-width: 1100px;
+            max-width: 1100px !important;
+            width: min(95vw, 1100px) !important;
+            margin: 1.5rem auto !important;
+        }
+
+        /* Ensure modal is centered and a bit wider with breathing room */
+        .admin-final-modal .modal-dialog.admin-final-dialog {
+            --bs-modal-width: 1100px;
+            max-width: 1100px !important;
+            width: min(95vw, 1100px) !important;
             margin: 1.5rem auto !important;
         }
 
         .admin-final-modal .modal-content {
-            border-radius: 12px !important;
+            border-radius: 0 !important; /* remove corner radius */
             max-height: 85vh;
+            margin: 0 auto;
+        }
+
+        /* Keep footer visible and prevent overlap with body content */
+        .admin-final-modal .modal-content.final-modal {
+            display: flex !important;
+            flex-direction: column !important;
+            max-height: 85vh !important;
+            overflow: hidden !important;
         }
 
         .admin-final-modal .modal-body {
@@ -525,88 +647,86 @@
             overflow-y: auto;
         }
 
-        /* ---- Page header ---- */
-        .page-header {
-            margin-bottom: 1.5rem;
+        .admin-final-modal .modal-body {
+            flex: 1 1 auto !important;
+            overflow-y: auto !important; /* if needed, scroll inside modal (no visible scrollbar) */
+            padding: 12px 18px !important;
+        }
+
+        /* Hide scrollbar but keep scroll */
+        .admin-final-modal .modal-body {
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE/Edge legacy */
+        }
+        .admin-final-modal .modal-body::-webkit-scrollbar {
+            width: 0;
+            height: 0;
+        }
+
+        /* Center header block + score pill */
+        .admin-final-modal .modal-student-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 8px;
+            margin-bottom: 0.75rem; /* reduce big gap */
+        }
+
+        /* Reduce extra spacing below the table so content stays tight */
+        .admin-final-modal .table-responsive {
+            margin-bottom: 0.5rem !important;
+        }
+
+        /* Smaller + centered score pill */
+        .admin-final-modal .summary-score-pill {
+            text-align: center;
+            padding: 0.42rem 1.0rem;
+            border-radius: 999px;
+        }
+        .admin-final-modal .summary-score-pill .label {
+            font-size: 0.62rem;
+            letter-spacing: 0.05em;
+        }
+        .admin-final-modal .summary-score-pill .value {
+            font-size: 1.2rem;
+            font-weight: 800;
+        }
+
+        /* Final Review Specific Styles */
+        .final-review-container {
+            max-width: 1400px;
+            width: min(95vw, 1400px);
         }
 
         .page-header h1 {
-            color: #8B0000;
+            color: #7E0308;
             font-size: 2rem;
-            margin-bottom: 0;
             font-weight: 700;
         }
 
         body.dark-mode .page-header h1 {
-            color: #f9bd3d !important;
+            color: #F9BD3D;
         }
 
-        /* ---- Filter bar ---- */
-        .filter-bar {
-            background: #fff;
-            border-radius: 12px;
-            padding: 1rem 1.25rem;
-            margin-bottom: 1.25rem;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+        /* Filter group width adjustments */
+        .filter-group select {
+            width: 200px;
+            max-width: 200px;
+            min-width: 150px;
         }
 
-        body.dark-mode .filter-bar {
-            background: #2b2b2b;
+        /* Search input width */
+        .search-group .form-control {
+            max-width: 400px;
         }
 
-        .filter-label,
-        .search-label {
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 0.25rem;
-            color: #555;
-        }
-
-        body.dark-mode .filter-label,
-        body.dark-mode .search-label {
-            color: #ddd;
-        }
-
-        .search-wrapper {
-            position: relative;
-        }
-
-        .search-icon {
-            position: absolute;
-            left: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 0.85rem;
-            color: #999;
-        }
-
-        .search-wrapper input {
-            padding-left: 2rem;
-        }
-
-        /* ---- Table container ---- */
-        .table-container {
-            background: #fff;
-            border-radius: 12px;
-            padding: 1rem 1.25rem;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
-        }
-
-        body.dark-mode .table-container {
-            background: #2b2b2b;
-        }
-
-        .graduating-table thead th {
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            color: #666;
-            border-bottom: 2px solid #eee;
-        }
-
-        .graduating-table tbody td {
-            vertical-align: middle;
-            font-size: 0.92rem;
+        /* Action buttons group */
+        .action-buttons-group {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            align-items: center;
         }
 
         .btn-action {
@@ -614,19 +734,22 @@
             align-items: center;
             justify-content: center;
             padding: 0.35rem 0.6rem;
-            border-radius: 999px;
+            border-radius: 6px;
             border: none;
             font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
 
         .btn-view {
-            background: #8B0000;
+            background: #7E0308;
             color: #fff;
         }
 
         .btn-view:hover {
-            background: #a00000;
+            background: #5a0206;
             color: #fff;
+            transform: translateY(-1px);
         }
 
         .decision-badge {
@@ -733,20 +856,84 @@
         }
 
         /* ---- Buttons in footer ---- */
+        .modal-footer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0;
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .decision-buttons-group {
+            display: flex;
+            flex-direction: row;
+            gap: 1rem;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+
         .admin-decision-btn {
-            min-width: 210px;
-            padding: 0.55rem 1.25rem;
-            font-size: 0.95rem;
+            min-width: 56px;
+            padding: 0.6rem 0.85rem;
+            font-size: 1.1rem;
             font-weight: 600;
-            white-space: normal;
+            white-space: nowrap;
             text-align: center;
             display: inline-flex;
             justify-content: center;
             align-items: center;
+            gap: 0.35rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
         }
 
-        .final-submit-btn {
-            border-radius: 999px;
+        .admin-decision-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .admin-decision-btn.btn-success {
+            background-color: #198754;
+            border-color: #198754;
+            color: white;
+        }
+
+        .admin-decision-btn.btn-success:hover {
+            background-color: #157347;
+            border-color: #146c43;
+        }
+
+        .admin-decision-btn.btn-danger {
+            background-color: #dc3545;
+            border-color: #dc3545;
+            color: white;
+        }
+
+        .admin-decision-btn.btn-danger:hover {
+            background-color: #bb2d3b;
+            border-color: #b02a37;
+        }
+
+        @media (max-width: 768px) {
+            .modal-footer {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 1rem;
+            }
+
+            .decision-buttons-group {
+                flex-direction: row;
+                width: 100%;
+                justify-content: space-between;
+                gap: 1rem;
+            }
+
+            .admin-decision-btn {
+                flex: 1;
+                min-width: 0;
+            }
         }
 
         @media (max-width: 768px) {
@@ -762,6 +949,57 @@
 
             .summary-score-pill {
                 align-self: flex-end;
+            }
+
+            /* Close button styling for modals - matching system style */
+            .admin-final-modal .btn-close-modal {
+                background: #dc3545 !important;
+                color: white !important;
+                border: none !important;
+                border-radius: 4px !important;
+                width: 32px !important;
+                height: 32px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                font-size: 16px !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+                opacity: 1 !important;
+                padding: 0 !important;
+                background-image: none !important;
+                position: relative !important;
+                z-index: 1 !important;
+            }
+
+            /* Hide Bootstrap's default btn-close if it appears */
+            .admin-final-modal .btn-close:not(.btn-close-modal) {
+                display: none !important;
+            }
+
+            .admin-final-modal .btn-close-modal:hover {
+                background: #c82333 !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3) !important;
+                opacity: 1 !important;
+            }
+
+            .admin-final-modal .btn-close-modal:focus {
+                outline: none !important;
+                box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+            }
+
+            .admin-final-modal .btn-close-modal i {
+                font-size: 14px !important;
+                color: white !important;
+            }
+
+            body.dark-mode .admin-final-modal .btn-close-modal {
+                background: #dc3545 !important;
+            }
+
+            body.dark-mode .admin-final-modal .btn-close-modal:hover {
+                background: #c82333 !important;
             }
         }
     </style>

@@ -3,26 +3,18 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>SLEA - Student Registration</title>
+    <title>SLEA - Registration</title>
     <link rel="icon" href="{{ asset('images/osas-logo.png') }}?v={{ filemtime(public_path('images/osas-logo.png')) }}" type="image/png">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    {{-- Prevent browser from caching --}}
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    {{-- Cross-browser compatibility --}}
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="renderer" content="webkit">
     {{-- CSRF --}}
     <meta name="csrf-token" content="{{ csrf_token() }}">
-
-    {{-- Centralized route registry for register.js --}}
-    <meta id="slea-routes"
-        data-programs="{{ route('ajax.programs') }}"
-        data-majors="{{ route('ajax.majors') }}"
-        data-clusters="{{ route('ajax.clusters') }}"
-        data-organizations="{{ route('ajax.organizations') }}"
-        data-positions="{{ route('ajax.positions') }}"
-        @if(\Illuminate\Support\Facades\Route::has('ajax.council.positions'))
-        data-council-positions="{{ route('ajax.council.positions') }}"
-        @endif
-        @if(\Illuminate\Support\Facades\Route::has('ajax.academics.map'))
-        data-academics-map="{{ route('ajax.academics.map') }}"
-        @endif>
 
     <link href="{{ asset('css/header.css') }}" rel="stylesheet">
     <link href="{{ asset('css/register.css') }}" rel="stylesheet">
@@ -46,10 +38,6 @@
             </div>
 
             <div class="header-right d-flex align-items-center gap-3">
-                <div class="text-end">
-                    <small>Having Trouble?</small><br>
-                    <a href="#">Send us a message</a>
-                </div>
                 <button id="darkModeToggle" class="dark-toggle-btn" title="Toggle Dark Mode">
                     <i class="fas fa-moon"></i>
                 </button>
@@ -58,40 +46,57 @@
     </div>
 
     <!-- Registration Content -->
-    <div class="register-container">
-        <main class="flex-grow-1">
+    <div class="register-container d-flex flex-column">
+        <main class="flex-grow-1" style="overflow: hidden; min-height: 0;">
             <div class="container py-1">
-                <h4 class="text-maroon mb-1 fs-1 fw-bold">Sign Up!</h4>
-                <p class="small fs-5 fw-normal mb-1">
-                    Already have an account? <a href="{{ route('login.show') }}">Login here</a>
-                </p>
-
-                    @if ($errors->any())
-                <div class="alert alert-danger" role="alert">
-                        <strong>Please fix the following errors:</strong>
-                        <ul class="mb-0 mt-2">
-                            @foreach ($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                    @endif
+                <div class="signup-card">
+                    <h4 class="signup-title">Sign up now</h4>
+                    <p class="signup-login-link">
+                        Already have account? <a href="{{ route('login.show') }}">Login here</a>
+                    </p>
 
                     @if (session('status'))
-                <div class="alert alert-success" role="status">
-                    {{ session('status') }}
-                </div>
-                @endif
+                        <div class="alert alert-success" role="status">
+                            {{ session('status') }}
+                        </div>
+                    @endif
 
-                <form method="POST" action="{{ route('register.store') }}" novalidate>
-                    @csrf
-                    {{-- Guard hint for auth --}}
-                    <input type="hidden" name="guard" value="student">
+                    <form method="POST" action="{{ route('register.store') }}" id="registerForm" novalidate>
+                        @csrf
 
-                    <!-- Step 1: Personal Information -->
-                    <div class="form-step active">
-                        <h5 class="mb-1">Personal Information</h5>
-                        <div class="row g-3">
+                        {{-- Names --}}
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label" for="first_name">
+                                    First Name <span class="required">*</span>
+                                </label>
+                                <input
+                                    id="first_name"
+                                    type="text"
+                                    name="first_name"
+                                    class="form-control @error('first_name') is-invalid @enderror"
+                                    value="{{ old('first_name') }}"
+                                    required
+                                    autocomplete="given-name">
+                                @error('first_name')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label" for="middle_name">Middle Name</label>
+                                <input
+                                    id="middle_name"
+                                    type="text"
+                                    name="middle_name"
+                                    class="form-control @error('middle_name') is-invalid @enderror"
+                                    value="{{ old('middle_name') }}"
+                                    autocomplete="additional-name">
+                                @error('middle_name')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
                             <div class="col-md-4">
                                 <label class="form-label" for="last_name">
                                     Last Name <span class="required">*</span>
@@ -104,81 +109,34 @@
                                     value="{{ old('last_name') }}"
                                     required
                                     autocomplete="family-name">
-                                @error('last_name') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                @error('last_name')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
                             </div>
-
-                            <div class="col-md-4">
-                                <label class="form-label" for="first_name">
-                                    First Name <span class="required">*</span>
-                                </label>
-                            <input
-                                    id="first_name"
-                                type="text"
-                                name="first_name"
-                                class="form-control @error('first_name') is-invalid @enderror"
-                                value="{{ old('first_name') }}"
-                                required
-                                autocomplete="given-name">
-                            @error('first_name') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
 
-                            <div class="col-md-4">
-                                <label class="form-label" for="middle_name">Middle Name</label>
+                        {{-- Email (IMPORTANT: name=email_address) --}}
+                        <div class="mb-3">
+                            <label class="form-label" for="email_address">
+                                USeP Email <span class="required">*</span>
+                            </label>
                             <input
-                                    id="middle_name"
-                            type="text"
-                            name="middle_name"
-                            class="form-control @error('middle_name') is-invalid @enderror"
-                            value="{{ old('middle_name') }}"
-                            autocomplete="additional-name">
-                        @error('middle_name') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                    </div>
-
-                            <div class="col-md-4">
-                                <label class="form-label" for="birth_date">
-                                    Birth Date <span class="required">*</span>
-                                </label>
-                                <input
-                                    id="birth_date"
-                                    type="date"
-                                    name="birth_date"
-                                    class="form-control @error('birth_date') is-invalid @enderror"
-                                    value="{{ old('birth_date') }}"
-                                    required
-                                    autocomplete="bday">
-                                @error('birth_date') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
-
-                            <div class="col-md-4">
-                                <label class="form-label" for="age">
-                                    Age <span class="required">*</span>
-                                </label>
-                                <input
-                                    id="age"
-                                    type="text"
-                                    name="age"
-                                    class="form-control"
-                                    readonly
-                                    value="{{ old('age') }}">
-                            </div>
-
-                            <div class="col-md-4">
-                                <label class="form-label" for="email_address">
-                                    USeP Email <span class="required">*</span>
-                                </label>
-                            <input
-                                    id="email_address"
+                                id="email_address"
                                 type="email"
-                                    name="email_address"
-                                    class="form-control @error('email_address') is-invalid @enderror"
-                                    placeholder="example@usep.edu.ph"
-                                    value="{{ old('email_address') }}"
-                                    required
-                                    autocomplete="email">
-                                @error('email_address') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
+                                name="email_address"
+                                class="form-control @error('email_address') is-invalid @enderror"
+                                placeholder="example@usep.edu.ph"
+                                value="{{ old('email_address') }}"
+                                required
+                                autocomplete="email">
+                            @error('email_address')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
 
-                            <div class="col-md-4">
+                        {{-- Contact + Birth Date (your controller expects these) --}}
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
                                 <label class="form-label" for="contact">
                                     Contact Number <span class="required">*</span>
                                 </label>
@@ -187,272 +145,33 @@
                                     type="text"
                                     name="contact"
                                     class="form-control @error('contact') is-invalid @enderror"
+                                    placeholder="09XXXXXXXXX"
                                     value="{{ old('contact') }}"
-                                required
+                                    required
                                     autocomplete="tel">
-                                @error('contact') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                @error('contact')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
                             </div>
-                        </div>
-                    </div>
 
-                    <!-- Step 2: Academic Information -->
-                    <div class="form-step">
-                        <h5 class="mb-1">Academic Information</h5>
-                        <div class="row g-3">
-                            {{-- Student ID (stored as student_number in student_academic) --}}
-                            <div class="col-md-4">
-                                <label class="form-label" for="student_id">
-                                    Student ID <span class="required">*</span>
+                            <div class="col-md-6">
+                                <label class="form-label" for="birth_date">
+                                    Birth Date
                                 </label>
                                 <input
-                                    id="student_id"
-                                    type="text"
-                                    name="student_id"
-                                    class="form-control @error('student_id') is-invalid @enderror"
-                                    placeholder="e.g. 2021-00001"
-                                    value="{{ old('student_id') }}"
-                                    required
-                                    autocomplete="off">
-                                @error('student_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
-
-                            {{-- College --}}
-                            <div class="col-md-4">
-                                <label class="form-label" for="college_id">
-                                    College <span class="required">*</span>
-                                </label>
-                                <select
-                                    name="college_id"
-                                    id="college_id"
-                                    class="form-select @error('college_id') is-invalid @enderror"
-                                    required
-                                    data-old="{{ old('college_id') }}"
-                                    autocomplete="organization">
-                                    <option value="">Select College</option>
-                                    @foreach ($colleges as $c)
-                                    <option
-                                        value="{{ $c->id }}"
-                                        {{ (string)old('college_id') === (string)$c->id ? 'selected' : '' }}>
-                                        {{ $c->college_name ?? $c->name }}
-                                    </option>
-                                    @endforeach
-                                </select>
-                                @error('college_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
-
-                            {{-- Program --}}
-                            <div class="col-md-4">
-                                <label class="form-label" for="program_id">
-                                    Program <span class="required">*</span>
-                                </label>
-                                <select
-                                    name="program_id"
-                                    id="program_id"
-                                    class="form-select @error('program_id') is-invalid @enderror"
-                                    required
-                                    data-old="{{ old('program_id') }}">
-                                    <option value="">Select Program</option>
-                                    {{-- Options populated dynamically via register.js based on college --}}
-                                </select>
-                                @error('program_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
-
-                            {{-- Major --}}
-                            <div class="col-md-4">
-                                <label class="form-label" for="major_id">Major</label>
-                                <select
-                                    name="major_id"
-                                    id="major_id"
-                                    class="form-select @error('major_id') is-invalid @enderror"
-                                    data-old="{{ old('major_id') }}">
-                                    <option value="">Select Major</option>
-                                    {{-- Options populated dynamically via register.js based on program --}}
-                                </select>
-                                @error('major_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
-
-                            {{-- Year Level --}}
-                            <div class="col-md-4">
-                                <label class="form-label" for="year_level">
-                                    Year Level <span class="required">*</span>
-                                </label>
-                                <select
-                                    id="year_level"
-                                    name="year_level"
-                                    class="form-select @error('year_level') is-invalid @enderror"
-                                    required>
-                                    <option value="">--</option>
-                                    <option value="1" {{ old('year_level') == '1' ? 'selected' : '' }}>1st Year</option>
-                                    <option value="2" {{ old('year_level') == '2' ? 'selected' : '' }}>2nd Year</option>
-                                    <option value="3" {{ old('year_level') == '3' ? 'selected' : '' }}>3rd Year</option>
-                                    <option value="4" {{ old('year_level') == '4' ? 'selected' : '' }}>4th Year</option>
-                                    <option value="5" {{ old('year_level') == '5' ? 'selected' : '' }}>5th Year</option>
-                                </select>
-                                @error('year_level') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
-
-                            {{-- Expected Graduation (display only, computed via JS / helper) --}}
-                            <div class="col-md-4">
-                                <label class="form-label" for="expected_grad">
-                                    Expected Year to Graduate <span class="required">*</span>
-                                </label>
-                            <input
-                                    id="expected_grad"
-                                    type="text"
-                                    name="expected_grad"
-                                    class="form-control"
-                                    readonly
-                                    value="{{ old('expected_grad') }}">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Step 3: Leadership Involvement -->
-                    <div class="form-step form-step-scrollable">
-                        <h5 class="mb-1 step-title-fixed">Leadership Information</h5>
-
-                        <div class="step-3-scrollable-content">
-                        <div class="row g-3">
-                            {{-- Leadership Type (council list incl. LCM; CCO requires cluster/org) --}}
-                            <div class="col-md-6">
-                                <label class="form-label" for="leadership_type_id">
-                                    Leadership Type <span class="required">*</span>
-                                </label>
-                                <select
-                                    id="leadership_type_id"
-                                    name="leadership_type_id"
-                                    class="form-select @error('leadership_type_id') is-invalid @enderror"
-                                    required
-                                    data-old="{{ old('leadership_type_id') }}">
-                                    <option value="">Select Leadership Type</option>
-                                    @foreach ($leadershipTypes ?? [] as $type)
-                                    <option
-                                        value="{{ $type->id }}"
-                                        data-requires-org="{{ (int)($type->requires_org ?? 0) }}"
-                                        data-key="{{ $type->key ?? '' }}"
-                                        {{ old('leadership_type_id') == $type->id ? 'selected' : '' }}>
-                                        {{ $type->name }}
-                                    </option>
-                                    @endforeach
-                                </select>
-                                @error('leadership_type_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                <small class="text-muted d-block mt-1">
-                                    USG, OSC, LC, CCO, SCO, LGU, LCM, or EAP. For SCO (Student Clubs and Organizations), Cluster &amp; Organization are required.
-                                </small>
+                                    id="birth_date"
+                                    type="date"
+                                    name="birth_date"
+                                    class="form-control @error('birth_date') is-invalid @enderror"
+                                    value="{{ old('birth_date') }}">
+                                @error('birth_date')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
                             </div>
                         </div>
 
-                        <div class="row g-3 mt-1">
-                            {{-- Cluster (shown only when requires_org = true, e.g., CCO) --}}
-                            <div class="col-md-6" id="cluster_wrap" style="display:none;">
-                                <label class="form-label" for="cluster_id">
-                                    Cluster <span id="cluster_required_star" class="required" style="display:none;">*</span>
-                                </label>
-                                <select
-                                    id="cluster_id"
-                                    name="cluster_id"
-                                    class="form-select @error('cluster_id') is-invalid @enderror"
-                                    data-old="{{ old('cluster_id') }}">
-                                    <option value="">Select Cluster</option>
-                                </select>
-                                @error('cluster_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
-
-                            {{-- Organization (shown only when requires_org = true, e.g., CCO) --}}
-                            <div class="col-md-6" id="org_wrap" style="display:none;">
-                                <label class="form-label" for="organization_id">
-                                    Organization <span id="org_required_star" class="required" style="display:none;">*</span>
-                                </label>
-                                <select
-                                    id="organization_id"
-                                    name="organization_id"
-                                    class="form-select @error('organization_id') is-invalid @enderror"
-                                    data-old="{{ old('organization_id') }}">
-                                    <option value="">Select Organization</option>
-                                </select>
-                                <small id="org_optional_hint" class="text-muted" style="display:none;">Optional for non-CCO.</small>
-                                @error('organization_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
-                        </div>
-
-                        <div class="row g-3 mt-1">
-                            {{-- Positions --}}
-                            <div class="col-md-6">
-                                <label class="form-label" for="position_id">
-                                    Position Held <span class="required">*</span>
-                                </label>
-                                <select
-                                    id="position_id"
-                                    name="position_id"
-                                    class="form-select @error('position_id') is-invalid @enderror"
-                                required
-                                    data-old="{{ old('position_id') }}">
-                                    <option value="">Select Position</option>
-                                </select>
-                                @error('position_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
-
-                            {{-- Leadership Status --}}
-                            <div class="col-md-6">
-                                <label class="form-label" for="leadership_status">
-                                    Leadership Status <span class="required">*</span>
-                                </label>
-                                <select
-                                    id="leadership_status"
-                                    name="leadership_status"
-                                    class="form-select @error('leadership_status') is-invalid @enderror"
-                                    required>
-                                    <option value="">Select your leadership status</option>
-                                    <option value="Active" {{ old('leadership_status') === 'Active' ? 'selected' : '' }}>
-                                        Active (Current Officer/Leader)
-                                    </option>
-                                    <option value="Inactive" {{ old('leadership_status') === 'Inactive' ? 'selected' : '' }}>
-                                        Inactive (Former Officer/Leader)
-                                    </option>
-                                </select>
-                                @error('leadership_status') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
-                        </div>
-
-                        <div class="row g-3 mt-1">
-                            {{-- Term --}}
-                            <div class="col-md-6">
-                                <label class="form-label" for="term">
-                                    Leadership Term (School Year) <span class="required">*</span>
-                                </label>
-                                <input
-                                    id="term"
-                                    type="text"
-                                    name="term"
-                                    class="form-control @error('term') is-invalid @enderror"
-                                    value="{{ old('term') }}"
-                                    placeholder="e.g., 2023-2024"
-                                    required>
-                                @error('term') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
-
-                            {{-- Issued By --}}
-                            <div class="col-md-6">
-                                <label class="form-label" for="issued_by">
-                                    Issued By <span class="required">*</span>
-                                </label>
-                                <input
-                                    id="issued_by"
-                                    type="text"
-                                    name="issued_by"
-                                    class="form-control @error('issued_by') is-invalid @enderror"
-                                    value="{{ old('issued_by') }}"
-                                    required>
-                                @error('issued_by') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
-                        </div>
-                        </div> <!-- End step-3-scrollable-content -->
-                    </div>
-
-                    <!-- Step 4: Account Credentials -->
-                    <div class="form-step">
-                        <h5 class="mb-1">Login Credentials</h5>
-                        <div class="row g-3">
+                        {{-- Password + Confirm --}}
+                        <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label class="form-label" for="password">
                                     Password <span class="required">*</span>
@@ -463,109 +182,589 @@
                                     name="password"
                                     class="form-control @error('password') is-invalid @enderror"
                                     required
-                                    aria-describedby="passwordHelp">
-                                @error('password') <div class="invalid-feedback">{{ $message }}</div> @enderror
-
-                                    <ul id="passwordHelp" class="password-requirements list-unstyled mt-1 small">
-                                    <li id="length" class="text-danger">
-                                        <i class="fa-regular fa-circle-xmark me-1"></i> At least 8 characters
-                                    </li>
-                                    <li id="uppercase" class="text-danger">
-                                        <i class="fa-regular fa-circle-xmark me-1"></i> At least 1 uppercase letter
-                                    </li>
-                                    <li id="lowercase" class="text-danger">
-                                        <i class="fa-regular fa-circle-xmark me-1"></i> At least 1 lowercase letter
-                                    </li>
-                                    <li id="number" class="text-danger">
-                                        <i class="fa-regular fa-circle-xmark me-1"></i> At least 1 number
-                                    </li>
-                                    <li id="special" class="text-danger">
-                                        <i class="fa-regular fa-circle-xmark me-1"></i> At least 1 special character
-                                    </li>
-                                </ul>
+                                    autocomplete="new-password">
+                                <div id="passwordError" class="password-error-message" style="display: none;"></div>
+                                @error('password')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
                             </div>
 
                             <div class="col-md-6">
                                 <label class="form-label" for="password_confirmation">
                                     Confirm Password <span class="required">*</span>
                                 </label>
-                            <input
+                                <input
                                     id="password_confirmation"
-                                type="password"
-                                name="password_confirmation"
-                                class="form-control @error('password_confirmation') is-invalid @enderror"
-                                    required>
-                            @error('password_confirmation') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    type="password"
+                                    name="password_confirmation"
+                                    class="form-control"
+                                    required
+                                    autocomplete="new-password">
                             </div>
                         </div>
 
-                        <div class="form-check mt-2">
-                            <input
-                                class="form-check-input @error('privacy_agree') is-invalid @enderror"
-                                id="privacy_agree"
-                                type="checkbox"
-                                name="privacy_agree"
-                                {{ old('privacy_agree') ? 'checked' : '' }}
-                                required>
-                            <label class="form-check-label" for="privacy_agree">
-                                By continuing to browse this website, I agree to the University of Southeastern Philippines'
-                                <a href="https://www.usep.edu.ph/usep-data-privacy-statement/" target="_blank" rel="noopener">
-                                    Data Privacy Policy
-                                </a>.
-                            </label>
-                            @error('privacy_agree') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
-                        </div>
-                    </div>
-
-                    <!-- Step Controls -->
-                    <div class="pagination-controls d-flex justify-content-center align-items-center">
-                        <button
-                            type="button"
-                            class="btn btn-secondary px-3 py-2"
-                            id="prevBtn"
-                            onclick="nextPrev(-1)"
-                            disabled
-                            style="display: none;">
-                            Previous
-                    </button>
-
-                        <div class="page-numbers d-flex gap-1" aria-label="form steps">
-                            <span class="page-number active">1</span>
-                            <span class="page-number">2</span>
-                            <span class="page-number">3</span>
-                            <span class="page-number">4</span>
+                        <div class="mb-2">
+                            <small class="form-text text-muted" style="font-size: 0.75rem;">
+                                Use 8 or more characters with a mix of letters, numbers, and symbols.
+                            </small>
                         </div>
 
-                        <button
-                            type="button"
-                            class="btn btn-primary maroon-btn px-3 py-2"
-                            id="nextBtn"
-                            onclick="nextPrev(1)">
-                            Next
-                        </button>
-                    </div>
-                </form>
+                        {{-- Show Password --}}
+                        <div class="mb-2">
+                            <div class="form-check show-password-checkbox">
+                                <input class="form-check-input" type="checkbox" id="showPasswordCheckbox" value="1">
+                                <label class="form-check-label" for="showPasswordCheckbox">
+                                    Show password
+                                </label>
+                            </div>
+                        </div>
+
+                        {{-- Privacy --}}
+                        <div class="mb-2">
+                            <div class="form-check privacy-checkbox-wrapper">
+                                <input
+                                    class="form-check-input @error('privacy_agree') is-invalid @enderror"
+                                    type="checkbox"
+                                    name="privacy_agree"
+                                    id="privacy_agree"
+                                    value="1"
+                                    required>
+                                <label class="form-check-label privacy-text-label" for="privacy_agree">
+                                    <span class="privacy-text">
+                                        By continuing, you agree to the University of Southeastern Philippines' Data Privacy Statement.
+                                        Read it through this <a href="https://www.usep.edu.ph/usep-data-privacy-statement/" target="_blank">link</a>.
+                                        <span class="required">*</span>
+                                    </span>
+                                </label>
+                            </div>
+                            @error('privacy_agree')
+                                <div class="invalid-feedback d-block privacy-error-message">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        {{-- Submit --}}
+                        <div class="text-end">
+                            <button type="submit" class="btn btn-signup">
+                                Sign Up
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </main>
-
-    <div class="floating-tools d-md-none">
-            <button id="darkModeToggleFloating" class="floating-btn" title="Toggle Dark Mode">
-            <i class="fas fa-moon"></i>
-        </button>
-        <a href="#" class="floating-btn" title="Send us a message">
-                <i class="fa-solid fa-envelope"></i>
-        </a>
+    </div>
+    {{-- Error Modal --}}
+    <div id="errorModal" class="error-modal-overlay" style="display: none;">
+        <div class="error-modal-content">
+            <button type="button" class="error-modal-close" id="errorModalClose">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="error-modal-icon">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <h5 class="error-modal-title">Login Error!</h5>
+            <div class="error-modal-body">
+                <p class="error-modal-subtitle">Please check the following:</p>
+                <ul id="errorModalList" class="error-modal-list"></ul>
+            </div>
+            <button type="button" class="error-modal-btn" id="errorModalOk">
+                Okay
+            </button>
         </div>
     </div>
 
-    <footer id="page-footer" class="mt-auto text-center py-2 small">
-        &copy; {{ date('Y') }} University of Southeastern Philippines. All rights reserved.
-        <a href="#" target="_blank">Terms of Use</a> |
-        <a href="https://www.usep.edu.ph/usep-data-privacy-statement/" target="_blank">Privacy Policy</a>
+    {{-- Success Modal --}}
+    <div id="successModal" class="success-modal-overlay" style="display: none;">
+        <div class="success-modal-content">
+            <button type="button" class="success-modal-close" id="successModalClose">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="success-modal-icon">
+                <i class="fas fa-bell"></i>
+            </div>
+            <h5 class="success-modal-title">Your application is now<br>pending for approval!</h5>
+            <div class="success-modal-body">
+                <p>Wait for approval from the admin. If your sign-up for SLEA<br>is approved, a message will be sent to your email.</p>
+            </div>
+            <button type="button" class="success-modal-btn" id="successModalOk">
+                Okay
+            </button>
+        </div>
+    </div>
+
+    {{-- Footer --}}
+    <footer id="page-footer" class="text-center py-2">
+        <small class="text-muted">
+            &copy; {{ date('Y') }} University of Southeastern Philippines. All rights reserved.
+            <a href="https://www.usep.edu.ph/usep-data-privacy-statement/" target="_blank">Data Privacy Statement</a>
+        </small>
     </footer>
 
-    {{-- main behaviour --}}
-    <script src="{{ asset('js/register.js') }}"></script>
+    {{-- Scripts --}}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ asset('js/dark-mode.js') }}"></script>
+    {{-- register.js removed - it's for the old multi-step form, not needed for universal registration --}}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Show password checkbox functionality - Cross-browser compatible
+            const showPasswordCheckbox = document.getElementById('showPasswordCheckbox');
+            const passwordField = document.getElementById('password');
+            const passwordConfirmationField = document.getElementById('password_confirmation');
+
+            // Function to toggle password visibility
+            function togglePasswordVisibility() {
+                if (!passwordField || !passwordConfirmationField) {
+                    console.warn('Password fields not found');
+                    return;
+                }
+
+                const isChecked = showPasswordCheckbox ? showPasswordCheckbox.checked : false;
+                const newType = isChecked ? 'text' : 'password';
+
+                // Use multiple methods for cross-browser compatibility
+                try {
+                    // Direct property assignment (modern browsers)
+                    passwordField.type = newType;
+                    passwordConfirmationField.type = newType;
+                    // Also set attribute (for older browsers)
+                    passwordField.setAttribute('type', newType);
+                    passwordConfirmationField.setAttribute('type', newType);
+                } catch (e) {
+                    console.error('Error changing password type:', e);
+                    // Fallback for older browsers
+                    if (isChecked) {
+                        passwordField.setAttribute('type', 'text');
+                        passwordConfirmationField.setAttribute('type', 'text');
+                    } else {
+                        passwordField.setAttribute('type', 'password');
+                        passwordConfirmationField.setAttribute('type', 'password');
+                    }
+                }
+            }
+
+            // Toggle both passwords with checkbox - Multiple event handlers for cross-browser support
+            if (showPasswordCheckbox && passwordField && passwordConfirmationField) {
+                // Primary handler - change event (most reliable, fires after checkbox state changes)
+                showPasswordCheckbox.addEventListener('change', function(e) {
+                    e.stopPropagation();
+                    togglePasswordVisibility();
+                }, false);
+
+                // Secondary handler - click event (for better cross-browser support)
+                showPasswordCheckbox.addEventListener('click', function(e) {
+                    // Small delay to ensure checkbox state is updated first
+                    setTimeout(function() {
+                        togglePasswordVisibility();
+                    }, 10);
+                }, false);
+
+                // Handle click on label (Bootstrap default behavior)
+                const showPasswordLabel = document.querySelector('label[for="showPasswordCheckbox"]');
+                if (showPasswordLabel) {
+                    showPasswordLabel.addEventListener('click', function(e) {
+                        // Longer delay to let default checkbox toggle happen first
+                        setTimeout(function() {
+                            togglePasswordVisibility();
+                        }, 20);
+                    }, false);
+                }
+
+                // Also handle mousedown for immediate feedback
+                showPasswordCheckbox.addEventListener('mousedown', function(e) {
+                    // Don't prevent default, just prepare for toggle
+                    setTimeout(function() {
+                        togglePasswordVisibility();
+                    }, 15);
+                }, false);
+
+                // Initialize - check if checkbox is already checked (for page refresh)
+                if (showPasswordCheckbox.checked) {
+                    togglePasswordVisibility();
+                }
+            } else {
+                console.warn('Show password checkbox or password fields not found:', {
+                    checkbox: !!showPasswordCheckbox,
+                    password: !!passwordField,
+                    confirm: !!passwordConfirmationField
+                });
+            }
+
+            // Real-time password validation
+            const passwordErrorDiv = document.getElementById('passwordError');
+            const passwordRequirements = {
+                minLength: 8,
+                hasUppercase: /[A-Z]/,
+                hasLowercase: /[a-z]/,
+                hasNumber: /[0-9]/,
+                hasSpecial: /[^A-Za-z0-9]/
+            };
+
+            function validatePassword(password) {
+                const errors = [];
+
+                if (password.length < passwordRequirements.minLength) {
+                    errors.push('Password must be at least 8 characters long');
+                }
+                if (!passwordRequirements.hasUppercase.test(password)) {
+                    errors.push('Password must contain at least one uppercase letter');
+                }
+                if (!passwordRequirements.hasLowercase.test(password)) {
+                    errors.push('Password must contain at least one lowercase letter');
+                }
+                if (!passwordRequirements.hasNumber.test(password)) {
+                    errors.push('Password must contain at least one number');
+                }
+                if (!passwordRequirements.hasSpecial.test(password)) {
+                    errors.push('Password must contain at least one special character');
+                }
+
+                return errors;
+            }
+
+            if (passwordField && passwordErrorDiv) {
+                passwordField.addEventListener('input', function() {
+                    const password = this.value;
+                    const errors = validatePassword(password);
+
+                    if (password.length > 0 && errors.length > 0) {
+                        // Show error
+                        passwordField.classList.add('is-invalid');
+                        passwordErrorDiv.textContent = errors[0]; // Show first error
+                        passwordErrorDiv.style.display = 'block';
+                    } else if (password.length > 0 && errors.length === 0) {
+                        // Password is valid
+                        passwordField.classList.remove('is-invalid');
+                        passwordErrorDiv.style.display = 'none';
+                    } else {
+                        // Empty password
+                        passwordField.classList.remove('is-invalid');
+                        passwordErrorDiv.style.display = 'none';
+                    }
+                });
+
+                passwordField.addEventListener('blur', function() {
+                    const password = this.value;
+                    if (password.length > 0) {
+                        const errors = validatePassword(password);
+                        if (errors.length > 0) {
+                            passwordField.classList.add('is-invalid');
+                            passwordErrorDiv.textContent = errors[0];
+                            passwordErrorDiv.style.display = 'block';
+                        }
+                    }
+                });
+            }
+
+            // Error modal handlers - Set up once on page load
+            const errorModal = document.getElementById('errorModal');
+            const errorModalClose = document.getElementById('errorModalClose');
+            const errorModalOk = document.getElementById('errorModalOk');
+            const errorList = document.getElementById('errorModalList');
+
+            function hideErrorModal() {
+                if (errorModal) {
+                    errorModal.style.display = 'none';
+                    document.body.style.overflow = '';
+                }
+            }
+
+            // Set up error modal button handlers once
+            if (errorModalClose) {
+                errorModalClose.addEventListener('click', hideErrorModal);
+            }
+            if (errorModalOk) {
+                errorModalOk.addEventListener('click', hideErrorModal);
+            }
+            if (errorModal) {
+                errorModal.addEventListener('click', function(e) {
+                    if (e.target === errorModal) {
+                        hideErrorModal();
+                    }
+                });
+            }
+
+            // Success modal handlers
+            const successModal = document.getElementById('successModal');
+            const successModalOk = document.getElementById('successModalOk');
+            const successModalClose = document.getElementById('successModalClose');
+
+            function showSuccessModal() {
+                if (successModal) {
+                    successModal.style.display = 'flex';
+                    document.body.style.overflow = 'hidden';
+                }
+            }
+
+            function hideSuccessModal() {
+                if (successModal) {
+                    successModal.style.display = 'none';
+                    document.body.style.overflow = '';
+                    // Redirect to login page immediately
+                    window.location.href = '{{ route("login.show") }}';
+                }
+            }
+
+            // Okay button - redirect to login immediately
+            successModalOk?.addEventListener('click', function() {
+                window.location.href = '{{ route("login.show") }}';
+            });
+
+            // Close button - also redirect to login
+            successModalClose?.addEventListener('click', function() {
+                window.location.href = '{{ route("login.show") }}';
+            });
+
+            // Click on backdrop - also redirect to login
+            successModal?.addEventListener('click', function(e) {
+                if (e.target === successModal) {
+                    window.location.href = '{{ route("login.show") }}';
+                }
+            });
+
+            // Handle form submission with AJAX to show success modal
+            const registerForm = document.getElementById('registerForm');
+            if (registerForm) {
+                const submitBtn = registerForm.querySelector('button[type="submit"]');
+
+                registerForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+
+                    // Validate password before submission
+                    const password = passwordField.value;
+                    const errors = validatePassword(password);
+
+                    if (password.length > 0 && errors.length > 0) {
+                        passwordField.classList.add('is-invalid');
+                        passwordErrorDiv.textContent = errors[0];
+                        passwordErrorDiv.style.display = 'block';
+                        passwordField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        return false;
+                    }
+
+                    // Check privacy agreement
+                    const privacyCheckbox = document.getElementById('privacy_agree');
+                    if (!privacyCheckbox.checked) {
+                        privacyCheckbox.classList.add('is-invalid');
+                        privacyCheckbox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        return false;
+                    }
+
+                    const formData = new FormData(registerForm);
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+
+                    // Disable submit button to prevent double submission
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.textContent = 'Submitting...';
+                    }
+
+                    try {
+                        const response = await fetch(registerForm.action, {
+                            method: 'POST',
+                            body: formData,
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRF-TOKEN': csrfToken,
+                                'Accept': 'application/json'
+                            }
+                        });
+
+                        // Re-enable submit button
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = 'Sign Up';
+                        }
+
+                        // Check response type
+                        const contentType = response.headers.get('content-type');
+                        const isJson = contentType && contentType.includes('application/json');
+
+                        console.log('Response status:', response.status);
+                        console.log('Is JSON:', isJson);
+                        console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+                        if (response.status === 422) {
+                            // Validation errors
+                            if (isJson) {
+                                const data = await response.json();
+                                console.log('Validation error data:', data);
+
+                                if (data.errors) {
+                                    // Show error modal with specific field errors
+                                    errorList.innerHTML = '';
+
+                                    // Collect all error messages
+                                    const allErrors = [];
+                                    Object.keys(data.errors).forEach(field => {
+                                        if (Array.isArray(data.errors[field])) {
+                                            data.errors[field].forEach(msg => allErrors.push(msg));
+                                        } else {
+                                            allErrors.push(data.errors[field]);
+                                        }
+                                    });
+
+                                    // Display all errors
+                                    allErrors.forEach(errorMsg => {
+                                        const li = document.createElement('li');
+                                        li.textContent = errorMsg;
+                                        errorList.appendChild(li);
+                                    });
+
+                                    // Also show the main message if available
+                                    if (data.message && allErrors.length === 0) {
+                                        errorList.innerHTML = '<li>' + data.message + '</li>';
+                                    }
+
+                                    errorModal.style.display = 'flex';
+                                    document.body.style.overflow = 'hidden';
+                                } else if (data.message) {
+                                    // Single error message
+                                    errorList.innerHTML = '<li>' + data.message + '</li>';
+                                    errorModal.style.display = 'flex';
+                                    document.body.style.overflow = 'hidden';
+                                } else {
+                                    errorList.innerHTML = '<li>Please check all fields and try again.</li>';
+                                    errorModal.style.display = 'flex';
+                                    document.body.style.overflow = 'hidden';
+                                }
+                            } else {
+                                // Non-JSON validation error - try to get text
+                                const text = await response.text();
+                                console.error('Non-JSON validation error:', text);
+                                errorList.innerHTML = '<li>Please check all fields and try again.</li>';
+                                errorModal.style.display = 'flex';
+                                document.body.style.overflow = 'hidden';
+                            }
+                        } else if (response.status === 200 && isJson) {
+                            // Success - parse JSON response
+                            const data = await response.json();
+                            console.log('Success data:', data);
+
+                            if (data.success) {
+                                showSuccessModal();
+                            } else {
+                                // Success false but 200 status
+                                const errorMsg = data.message || 'An error occurred. Please try again.';
+                                errorList.innerHTML = '<li>' + errorMsg + '</li>';
+                                errorModal.style.display = 'flex';
+                                document.body.style.overflow = 'hidden';
+                            }
+                        } else if (response.status === 200 || response.ok) {
+                            // Success - show success modal
+                            showSuccessModal();
+                        } else {
+                            // Try to parse error response
+                            let errorMessage = 'An error occurred. Please try again.';
+                            let allErrorMessages = [];
+
+                            if (isJson) {
+                                try {
+                                    const data = await response.json();
+                                    console.log('Error response data:', data);
+
+                                    if (data.message) {
+                                        allErrorMessages.push(data.message);
+                                    }
+
+                                    if (data.errors) {
+                                        // Flatten all error messages
+                                        Object.keys(data.errors).forEach(field => {
+                                            if (Array.isArray(data.errors[field])) {
+                                                data.errors[field].forEach(msg => allErrorMessages.push(msg));
+                                            } else {
+                                                allErrorMessages.push(data.errors[field]);
+                                            }
+                                        });
+                                    }
+
+                                    // Show debug info if available (only in development)
+                                    if (data.debug) {
+                                        console.error('Debug info:', data.debug);
+                                    }
+
+                                    errorMessage = allErrorMessages.length > 0 ? allErrorMessages.join(', ') : errorMessage;
+                                } catch (e) {
+                                    console.error('Error parsing JSON response:', e);
+                                    // Try to get text response
+                                    try {
+                                        const text = await response.text();
+                                        console.error('Error response text:', text);
+                                        if (text && text.length < 500) {
+                                            errorMessage = text;
+                                        }
+                                    } catch (textError) {
+                                        console.error('Error getting text response:', textError);
+                                    }
+                                }
+                            } else {
+                                // Try to get text response
+                                try {
+                                    const text = await response.text();
+                                    console.error('Non-JSON error response:', text);
+                                    if (text && text.length < 500) {
+                                        errorMessage = text.substring(0, 200);
+                                    }
+                                } catch (textError) {
+                                    console.error('Error getting text response:', textError);
+                                }
+                            }
+
+                            // Show error modal with all error messages
+                            errorList.innerHTML = '';
+                            if (allErrorMessages.length > 0) {
+                                allErrorMessages.forEach(msg => {
+                                    const li = document.createElement('li');
+                                    li.textContent = msg;
+                                    errorList.appendChild(li);
+                                });
+                            } else {
+                                errorList.innerHTML = '<li>' + errorMessage + '</li>';
+                            }
+                            errorModal.style.display = 'flex';
+                            document.body.style.overflow = 'hidden';
+                        }
+                    } catch (error) {
+                        console.error('Registration error:', error);
+                        console.error('Error stack:', error.stack);
+
+                        // Re-enable submit button on error
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = 'Sign Up';
+                        }
+
+                        // Show detailed error message
+                        let errorMsg = 'An error occurred during registration. Please try again.';
+                        if (error.message) {
+                            errorMsg = error.message;
+                        }
+
+                        errorList.innerHTML = '<li>' + errorMsg + '</li>';
+                        errorModal.style.display = 'flex';
+                        document.body.style.overflow = 'hidden';
+                    }
+                });
+            }
+
+            // Show error modal if there are server-side errors (from validation redirect)
+            @if ($errors->any())
+                // Clear existing list items
+                errorList.innerHTML = '';
+
+                // Add error messages to list
+                @foreach ($errors->all() as $error)
+                    const li = document.createElement('li');
+                    li.textContent = '{{ addslashes($error) }}';
+                    errorList.appendChild(li);
+                @endforeach
+
+                // Show modal
+                errorModal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            @endif
+        });
+    </script>
 </body>
 
 </html>
+

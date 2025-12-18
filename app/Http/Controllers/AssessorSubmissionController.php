@@ -47,13 +47,13 @@ class AssessorSubmissionController extends Controller
             $attachments = json_decode($attachments, true) ?: [];
         }
 
-        $documents = collect($attachments)->map(function ($att, $index) {
+        $documents = collect($attachments)->map(function ($att, $index) use ($submission) {
             $mime    = $att['mime'] ?? ($att['type'] ?? '');
             $isPdf   = $mime && str_contains($mime, 'pdf');
             $isImage = $mime && str_starts_with($mime, 'image/');
 
             $path = $att['path'] ?? null;
-            $url  = $path ? Storage::url($path) : null;
+            $documentId = $submission->id . ':' . $index;
 
             return [
                 'id'                => $index,
@@ -62,10 +62,11 @@ class AssessorSubmissionController extends Controller
                 'file_size'         => $this->humanFileSize($att['size'] ?? null),
                 'is_pdf'            => $isPdf,
                 'is_image'          => $isImage,
-                'view_url'          => $url,   // 👈 JS just opens these in a new tab
-                'download_url'      => $url,
+                'view_url'          => route('assessor.documents.view', ['documentId' => $documentId]),
+                'download_url'      => route('assessor.documents.download', ['documentId' => $documentId]),
             ];
         })->values();
+
 
         $subsection = $submission->subsection;
 
@@ -123,6 +124,12 @@ class AssessorSubmissionController extends Controller
                 'organizing_body'      => $submission->meta['organizing_body'] ?? null,
                 'description'          => $submission->description ?? null,
                 'auto_generated_score' => $submission->auto_score ?? null,
+                'application_status'   => $submission->application_status ?? null,
+                'application_status_label' => match ($submission->application_status ?? null) {
+                    'for_final_application' => 'For Final Application',
+                    'for_tracking'          => 'For Tracking',
+                    default                 => null,
+                },
 
                 'documents'            => $documents,
 
@@ -164,13 +171,16 @@ class AssessorSubmissionController extends Controller
         }
 
         // Map assessor actions → submission_statuses keys
-        // (aligned with your enum migration: pending, under_review, accepted, returned, rejected, flagged)
+        // (aligned with your enum migration: pending, under_review, resubmit, flagged, qualified, unqualified, approved, rejected)
+        // App/Http/Controllers/AssessorSubmissionController.php
+
         $statusMap = [
-            'approve' => 'accepted',
+            'approve' => 'accepted',  // was 'approved'
             'reject'  => 'rejected',
-            'return'  => 'returned',
+            'return'  => 'returned',  // was 'resubmit'
             'flag'    => 'flagged',
         ];
+
         $newStatus = $statusMap[$action];
 
         DB::transaction(function () use ($submission, $user, $newStatus, $remarks, $score, $data) {
@@ -234,9 +244,12 @@ class AssessorSubmissionController extends Controller
                 'remarks'       => $remarks,
             ]);
 
-            // 4) recompute compiled score if accepted
+            // 4) recompute compiled score if ACCEPTED
             if ($newStatus === 'accepted') {
                 $this->recomputeCompiledScoreForStudentCategory($submission, $user);
+
+                // 5) Update SLEA application status based on application_status
+                $this->updateSleaStatusBasedOnSubmission($submission);
             }
         });
 
@@ -254,8 +267,9 @@ class AssessorSubmissionController extends Controller
             ->whereHas('submission', function ($q) use ($basis, $categoryId) {
                 $q->where('user_id', $basis->user_id)
                     ->where('rubric_category_id', $categoryId)
-                    ->where('status', 'accepted'); // 👈 aligned with new status
+                    ->where('status', 'accepted'); // 👈 match the new status
             })
+
             ->get();
 
         $rawTotal = $reviews->sum('score');
@@ -281,6 +295,41 @@ class AssessorSubmissionController extends Controller
         );
     }
 
+    /**
+     * Update SLEA application status based on submission's application_status
+     */
+    protected function updateSleaStatusBasedOnSubmission(Submission $submission): void
+    {
+        $student = $submission->user;
+        if (!$student) {
+            return;
+        }
+
+        $academic = $student->studentAcademic;
+        if (!$academic) {
+            return;
+        }
+
+        // Only update if submission is for final application
+        if ($submission->application_status === 'for_final_application') {
+            // Check if student has any approved submissions for final application
+            $hasApprovedFinalSubmissions = Submission::where('user_id', $student->id)
+                ->where('application_status', 'for_final_application')
+                ->where('status', 'accepted')
+                ->exists();
+
+            if ($hasApprovedFinalSubmissions) {
+                // If student has approved final application submissions, set to pending assessor evaluation
+                // (This will be updated to pending_administrative_validation when assessor submits final review)
+                if (!$academic->slea_application_status || $academic->slea_application_status === 'incomplete') {
+                    $academic->slea_application_status = 'pending_assessor_evaluation';
+                    $academic->save();
+                }
+            }
+        }
+        // If application_status is 'for_tracking', don't change SLEA status (keep as pending/incomplete)
+    }
+
     // legacy shorthand, still used by JS but now delegates to handleAction
     public function action(Request $request, Submission $submission)
     {
@@ -293,6 +342,14 @@ class AssessorSubmissionController extends Controller
         [$submissionId, $index] = explode(':', $documentId . ':');
 
         $submission  = Submission::findOrFail($submissionId);
+
+        // 🔒 very important: access control
+        $user = Auth::user();
+        if ($user->isStudent() && $submission->user_id !== $user->id) {
+            abort(403);
+        }
+        // assessors/admins are already protected by route middleware
+
         $attachments = $submission->attachments ?? [];
 
         if (!isset($attachments[$index])) {
@@ -301,14 +358,15 @@ class AssessorSubmissionController extends Controller
 
         $file = $attachments[$index];
 
-        if (empty($file['path']) || !Storage::disk('public')->exists($file['path'])) {
+        if (empty($file['path']) || !Storage::disk('student_docs')->exists($file['path'])) {
             abort(404);
         }
 
         $downloadName = $file['original'] ?? basename($file['path']);
 
-        return Storage::disk('public')->download($file['path'], $downloadName);
+        return Storage::disk('student_docs')->download($file['path'], $downloadName);
     }
+
 
     // Inline view (for iframe / image preview)
     public function viewDocument(string $documentId)
@@ -318,21 +376,35 @@ class AssessorSubmissionController extends Controller
         $submission  = Submission::findOrFail($submissionId);
         $attachments = $submission->attachments ?? [];
 
+        $user = Auth::user();
+        if ($user->isStudent() && $submission->user_id !== $user->id) {
+            abort(403);
+        }
+
         if (!isset($attachments[$index])) {
             abort(404);
         }
 
         $file = $attachments[$index];
-
-        if (empty($file['path']) || !Storage::disk('public')->exists($file['path'])) {
+        if (empty($file['path']) || !Storage::disk('student_docs')->exists($file['path'])) {
             abort(404);
         }
 
-        $path = Storage::disk('public')->path($file['path']);
+        $path = Storage::disk('student_docs')->path($file['path']);
         $mime = $file['mime'] ?? null;
 
+        // Preserve the original filename for browser preview (tab title / PDF header)
+        $downloadName = $file['original'] ?? basename($file['path']);
+        $downloadName = (string) $downloadName;
+        $downloadName = preg_replace('/[^a-zA-Z0-9._ -]/', '_', $downloadName);
+        $downloadName = trim($downloadName);
+        if ($downloadName === '') {
+            $downloadName = basename($file['path']);
+        }
+
         return response()->file($path, [
-            'Content-Type' => $mime ?: null,
+            'Content-Type'        => $mime ?: null,
+            'Content-Disposition' => 'inline; filename="' . $downloadName . '"',
         ]);
     }
 

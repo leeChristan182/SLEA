@@ -37,8 +37,8 @@
                     <h3>SLEA Classification</h3>
                     <div class="sr-grid">
                         <div class="sr-field">
-                            <label for="docType">Document Type</label>
-                            <select id="docType" name="document_type">
+                            <label for="docType">Document Type <span style="color: red;">*</span></label>
+                            <select id="docType" name="document_type" required>
                                 <option value="">Select document type</option>
                                 <option value="certificate">Certificate</option>
                                 <option value="appointment">Appointment</option>
@@ -63,17 +63,32 @@
 
                         {{-- Rubric Section --}}
                         <div class="sr-field">
-                            <label for="sectionSelect">Section</label>
-                            <select id="sectionSelect" name="rubric_section_id" disabled>
+                            <label for="sectionSelect">Section <span style="color: red;">*</span></label>
+                            <select id="sectionSelect" name="rubric_section_id" required disabled>
                                 <option value="">Select section</option>
                             </select>
                         </div>
 
                         {{-- Rubric Subsection --}}
                         <div class="sr-field">
-                            <label for="subSection">Subsection</label>
-                            <select id="subSection" name="rubric_subsection_id" disabled>
+                            <label for="subSection">Subsection <span style="color: red;">*</span></label>
+                            <select id="subSection" name="rubric_subsection_id" required disabled>
                                 <option value="">Select subsection</option>
+                            </select>
+                        </div>
+
+                        {{-- Cluster and Organization (shown only for Student Clubs and Organizations) --}}
+                        <div class="sr-field" id="clusterField" style="display: none;">
+                            <label for="clusterSelect">Cluster <span style="color: red;">*</span></label>
+                            <select id="clusterSelect" name="cluster_id">
+                                <option value="">Select Cluster</option>
+                            </select>
+                        </div>
+
+                        <div class="sr-field" id="organizationField" style="display: none;">
+                            <label for="organizationSelect">Organization <span style="color: red;">*</span></label>
+                            <select id="organizationSelect" name="organization_id">
+                                <option value="">Select Organization</option>
                             </select>
                         </div>
                     </div>
@@ -99,35 +114,47 @@
                                 required>
                         </div>
                         <div class="sr-field">
-                            <label for="type">Type of Activity</label>
+                            <label for="type">Type of Activity <span style="color:red">*</span></label>
                             <input
                                 id="type"
                                 name="activity_type"
                                 type="text"
-                                placeholder="e.g., Seminar / Workshop">
+                                placeholder="e.g., Seminar / Workshop"
+                                required>
                         </div>
                         <div class="sr-field">
-                            <label for="role">Role in Activity</label>
-                            <input
+                            <label for="role">Role in Activity <span style="color:red">*</span></label>
+                            {{-- Dropdown for SCO and Community Based subsections --}}
+                            <select
                                 id="role"
                                 name="role_in_activity"
+                                style="display: none;">
+                                <option value="">Select Position</option>
+                            </select>
+                            {{-- Text field for Trainings/Seminars --}}
+                            <input
+                                id="roleText"
+                                name="role_in_activity_text"
                                 type="text"
-                                placeholder="e.g., Participant / Speaker">
+                                placeholder="e.g., Participant / Speaker"
+                                style="display: none;">
                         </div>
                         <div class="sr-field">
-                            <label for="date">Date of Activity</label>
+                            <label for="date">Date of Activity <span style="color:red">*</span></label>
                             <input
                                 id="date"
                                 name="date_of_activity"
-                                type="date">
+                                type="date"
+                                required>
                         </div>
                         <div class="sr-field">
-                            <label for="orgBody">Organizing Body</label>
+                            <label for="orgBody">Organizing Body <span style="color:red">*</span></label>
                             <input
                                 id="orgBody"
                                 name="organizing_body"
                                 type="text"
-                                placeholder="e.g., OSAS">
+                                placeholder="e.g., OSAS"
+                                required>
                         </div>
                         <div class="sr-field">
                             <label for="note">Note (optional)</label>
@@ -138,12 +165,17 @@
                                 placeholder="Any additional info">
                         </div>
                         <div class="sr-field">
-                            <label for="term">Term</label>
+                            <label for="term">Term (School Year) <span style="color:red">*</span></label>
                             <input
                                 id="term"
                                 name="term"
                                 type="text"
-                                placeholder="AY 2024–2025">
+                                placeholder="2023 - 2024"
+                                pattern="^20\d{2}\s-\s20\d{2}$"
+                                title="Format: YYYY - YYYY (e.g., 2023 - 2024). Include spaces before and after the hyphen.">
+                            <small class="sr-field-hint" style="display: block; margin-top: 4px; color: #666; font-size: 0.875rem;">
+                                Format: YYYY - YYYY (e.g., 2023 - 2024)
+                            </small>
                         </div>
                         <div class="sr-field">
                             <label for="issuedBy">Issued by</label>
@@ -152,6 +184,17 @@
                                 name="issued_by"
                                 type="text"
                                 placeholder="e.g., OSAS">
+                        </div>
+                        <div class="sr-field">
+                            <label for="applicationStatus">Application Status <span style="color:red">*</span></label>
+                            <select
+                                id="applicationStatus"
+                                name="application_status"
+                                required>
+                                <option value="">Select application status</option>
+                                <option value="for_final_application">For Final Application</option>
+                                <option value="for_tracking">For Tracking</option>
+                            </select>
                         </div>
                     </div>
 
@@ -439,7 +482,7 @@
 
     .submit-record-page .sr-remove {
         border: none;
-        background: #dc3545;
+        background: #8B0000;
         color: #fff;
         width: 26px;
         height: 26px;
@@ -448,6 +491,11 @@
         align-items: center;
         justify-content: center;
         cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .submit-record-page .sr-remove:hover {
+        background: #6B0000;
     }
 
     .submit-record-page .sr-form h3 {
@@ -511,12 +559,12 @@
     }
 
     .submit-record-page .sr-btn-primary {
-        background: #d9534f;
+        background: #8B0000;
         color: #fff;
     }
 
     .submit-record-page .sr-btn-primary:hover {
-        background: #c73f3b;
+        background: #6B0000;
     }
 
     .submit-record-page .sr-btn-ghost {
@@ -536,6 +584,33 @@
         inset: 0;
         z-index: 3000;
     }
+    
+    /* Modal z-index hierarchy - ensure success modal is always on top */
+    .submit-record-page .sr-modal {
+        z-index: 3000;
+    }
+    
+    .submit-record-page #modalDraft {
+        z-index: 3000;
+    }
+    
+    .submit-record-page #modalConfirm {
+        z-index: 3500;
+    }
+    
+    /* Success modal should appear on top of all other modals */
+    .submit-record-page #modalSuccess {
+        z-index: 4000 !important;
+    }
+    
+    .submit-record-page #modalSuccess .sr-modal-backdrop {
+        z-index: 3999;
+    }
+    
+    .submit-record-page #modalSuccess .sr-modal-dialog {
+        position: relative;
+        z-index: 4001;
+    }
 
     .submit-record-page .sr-modal[aria-hidden="false"] {
         display: block;
@@ -544,13 +619,15 @@
     .submit-record-page .sr-modal-backdrop {
         position: absolute;
         inset: 0;
-        background: rgba(0, 0, 0, .25);
+        background: rgba(0, 0, 0, .4);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
     }
 
     .submit-record-page .sr-modal-dialog {
         position: relative;
         background: #fff;
-        border: 2px solid #222;
+        border: none;
         border-radius: 12px;
         margin: 100px auto 0;
         width: min(720px, 92%);
@@ -563,7 +640,7 @@
 
     body.dark-mode .submit-record-page .sr-modal-dialog {
         background: #2e2e2e;
-        border-color: #eee;
+        border: none;
         color: #fff;
     }
 
@@ -573,7 +650,7 @@
 
     .submit-record-page .sr-modal-title {
         text-align: center;
-        color: #c04a47;
+        color: #8B0000;
         font-weight: 800;
         margin-bottom: 6px;
     }
@@ -626,8 +703,12 @@
     }
 
     .submit-record-page .sr-pill-edit {
-        background: #e17673;
+        background: #8B0000;
         color: #fff;
+    }
+
+    .submit-record-page .sr-pill-edit:hover {
+        background: #6B0000;
     }
 
     .submit-record-page .sr-pill-x {
@@ -637,13 +718,13 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: #eee;
-        color: #444;
+        background: #8B0000;
+        color: #fff;
     }
 
     .submit-record-page .sr-pill-x:hover {
-        background: #f3b6b4;
-        color: #7b0000;
+        background: #6B0000;
+        color: #fff;
     }
 
     .submit-record-page .sr-confirm-text {
@@ -706,10 +787,52 @@
             text-align: center;
         }
     }
+
+    /* SweetAlert2 Modal Styling for Submit Page */
+    .submit-error-modal {
+        border-radius: 0 !important;
+        -webkit-border-radius: 0 !important;
+        -moz-border-radius: 0 !important;
+    }
+
+    .submit-error-backdrop,
+    .swal2-backdrop-show {
+        backdrop-filter: blur(10px) !important;
+        -webkit-backdrop-filter: blur(10px) !important;
+        background-color: rgba(0, 0, 0, 0.5) !important;
+    }
 </style>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     (() => {
+        // Helper function to show error modals with consistent styling
+        function showErrorModal(message) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Validation Error',
+                    text: message,
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#7E0308',
+                    customClass: {
+                        popup: 'submit-error-modal',
+                        backdrop: 'submit-error-backdrop'
+                    },
+                    didOpen: () => {
+                        const backdrop = document.querySelector('.swal2-backdrop-show');
+                        if (backdrop) {
+                            backdrop.style.backdropFilter = 'blur(10px)';
+                            backdrop.style.webkitBackdropFilter = 'blur(10px)';
+                            backdrop.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                        }
+                    }
+                });
+            } else {
+                // Fallback to native alert if SweetAlert2 is not loaded
+                alert(message);
+            }
+        }
         // ======== RUBRIC DROPDOWNS (Category → Section → Subsection) ========
         const sleaDataRaw = @json($categories);
         const sleaData = Array.isArray(sleaDataRaw) ? sleaDataRaw : Object.values(sleaDataRaw || {});
@@ -759,6 +882,7 @@
             });
 
             sleaSectionSelect.disabled = false;
+            sleaSectionSelect.required = true;
         };
 
         const populateSubsections = (categoryId, sectionId) => {
@@ -791,10 +915,12 @@
                 const opt = document.createElement('option');
                 opt.value = sub.sub_section_id; // PK in rubric_subsections
                 opt.textContent = sub.sub_section;
+                opt.dataset.key = sub.key || ''; // Store subsection key for mapping
                 sleaSubSelect.appendChild(opt);
             });
 
             sleaSubSelect.disabled = false;
+            sleaSubSelect.required = true;
         };
 
         if (sleaCatSelect) {
@@ -811,11 +937,228 @@
             sleaSectionSelect.addEventListener('change', () => {
                 try {
                     populateSubsections(sleaCatSelect.value, sleaSectionSelect.value);
+                    // Reset cluster/org fields when section changes
+                    handleSubsectionChange();
                 } catch (err) {
                     console.error('Error in populateSubsections:', err);
                 }
             });
         }
+
+        // ======== CLUSTER, ORGANIZATION, AND ROLE IN ACTIVITY LOGIC ========
+        const clusterField = document.getElementById('clusterField');
+        const organizationField = document.getElementById('organizationField');
+        const clusterSelect = document.getElementById('clusterSelect');
+        const organizationSelect = document.getElementById('organizationSelect');
+        const roleSelect = document.getElementById('role');
+        const roleText = document.getElementById('roleText');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+
+        // Mapping subsection keys to leadership type keys
+        const subsectionToLeadershipType = {
+            'leadership.campus_government.student_orgs': 'sco',
+            'leadership.community_based.lgu': 'lgu',
+            'leadership.community_based.non_lgu': 'lgu', // Use lgu for non-lgu as well
+        };
+
+        // Check if subsection is a training/seminar subsection
+        const isTrainingSubsection = (key) => {
+            return key && key.startsWith('leadership.trainings.');
+        };
+
+        // Check if subsection requires cluster/organization
+        const requiresClusterOrg = (key) => {
+            return key === 'leadership.campus_government.student_orgs';
+        };
+
+        // Check if subsection is campus-based (uses rubric_options instead of positions table)
+        const isCampusBasedSubsection = (key) => {
+            return key && key.startsWith('leadership.campus_government.');
+        };
+
+        // Load clusters
+        async function loadClusters() {
+            if (!clusterSelect) return;
+            clearSelect(clusterSelect, 'Loading clusters...');
+            
+            try {
+                const response = await fetch('{{ route("ajax.clusters") }}', {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': csrfToken
+                    }
+                });
+                const clusters = await response.json();
+                
+                clearSelect(clusterSelect, 'Select Cluster');
+                clusters.forEach(cluster => {
+                    const opt = document.createElement('option');
+                    opt.value = cluster.id;
+                    opt.textContent = cluster.name;
+                    clusterSelect.appendChild(opt);
+                });
+            } catch (err) {
+                console.error('Error loading clusters:', err);
+                clearSelect(clusterSelect, 'Error loading clusters');
+            }
+        }
+
+        // Load organizations based on cluster
+        async function loadOrganizations(clusterId) {
+            if (!organizationSelect) return;
+            clearSelect(organizationSelect, 'Loading organizations...');
+            
+            if (!clusterId) {
+                clearSelect(organizationSelect, 'Select Organization');
+                return;
+            }
+
+            try {
+                const response = await fetch(`{{ route("ajax.organizations") }}?cluster_id=${clusterId}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': csrfToken
+                    }
+                });
+                const orgs = await response.json();
+                
+                clearSelect(organizationSelect, 'Select Organization');
+                orgs.forEach(org => {
+                    const opt = document.createElement('option');
+                    opt.value = org.id;
+                    opt.textContent = org.name;
+                    organizationSelect.appendChild(opt);
+                });
+            } catch (err) {
+                console.error('Error loading organizations:', err);
+                clearSelect(organizationSelect, 'Error loading organizations');
+            }
+        }
+
+        // Load positions based on leadership type or subsection
+        async function loadPositions(leadershipTypeKey, subsectionId = null) {
+            if (!roleSelect) return;
+            clearSelect(roleSelect, 'Loading positions...');
+
+            try {
+                let positions = [];
+
+                // If subsection ID is provided, load from rubric_options (for campus-based subsections)
+                if (subsectionId) {
+                    const posResponse = await fetch(`{{ route("ajax.rubric.options") }}?subsection_id=${subsectionId}&_=${Date.now()}`, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': csrfToken
+                        }
+                    });
+                    positions = await posResponse.json();
+                } else if (leadershipTypeKey) {
+                    // Otherwise, use the existing logic for leadership type-based positions
+                    const ltResponse = await fetch('{{ route("ajax.leadership.types") }}?_=' + Date.now(), {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': csrfToken
+                        }
+                    });
+                    const leadershipTypes = await ltResponse.json();
+                    const leadershipType = leadershipTypes.find(lt => lt.key === leadershipTypeKey);
+                    
+                    if (!leadershipType) {
+                        clearSelect(roleSelect, 'No positions available');
+                        return;
+                    }
+
+                    // Get positions for this leadership type
+                    const posResponse = await fetch(`{{ route("ajax.council.positions") }}?leadership_type_id=${leadershipType.id}&_=${Date.now()}`, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': csrfToken
+                        }
+                    });
+                    positions = await posResponse.json();
+                } else {
+                    clearSelect(roleSelect, 'Select Position');
+                    return;
+                }
+                
+                clearSelect(roleSelect, 'Select Position');
+                positions.forEach(pos => {
+                    const opt = document.createElement('option');
+                    opt.value = pos.id;
+                    opt.textContent = pos.name;
+                    roleSelect.appendChild(opt);
+                });
+            } catch (err) {
+                console.error('Error loading positions:', err);
+                clearSelect(roleSelect, 'Error loading positions');
+            }
+        }
+
+        // Handle subsection change
+        function handleSubsectionChange() {
+            if (!sleaSubSelect) return;
+            
+            const selectedOption = sleaSubSelect.options[sleaSubSelect.selectedIndex];
+            const subsectionKey = selectedOption?.dataset.key || '';
+            const subsectionId = sleaSubSelect.value || null;
+            
+            // Handle cluster/organization fields for SCO
+            if (requiresClusterOrg(subsectionKey)) {
+                clusterField.style.display = '';
+                organizationField.style.display = '';
+                clusterSelect.required = true;
+                organizationSelect.required = true;
+                loadClusters();
+            } else {
+                clusterField.style.display = 'none';
+                organizationField.style.display = 'none';
+                clusterSelect.required = false;
+                organizationSelect.required = false;
+                clusterSelect.value = '';
+                organizationSelect.value = '';
+            }
+
+            // Handle role in activity field
+            if (isTrainingSubsection(subsectionKey)) {
+                // Show text field for trainings/seminars
+                roleSelect.style.display = 'none';
+                roleText.style.display = '';
+                roleSelect.required = false;
+                roleText.required = true;
+                roleSelect.value = '';
+            } else if (isCampusBasedSubsection(subsectionKey)) {
+                // Show dropdown for campus-based subsections (load from rubric_options)
+                roleSelect.style.display = '';
+                roleText.style.display = 'none';
+                roleSelect.required = true;
+                roleText.required = false;
+                roleText.value = '';
+                // Load positions from rubric_options using subsection ID
+                loadPositions(null, subsectionId);
+            } else if (subsectionToLeadershipType[subsectionKey]) {
+                // Show dropdown for SCO and Community Based (load from positions table)
+                roleSelect.style.display = '';
+                roleText.style.display = 'none';
+                roleSelect.required = true;
+                roleText.required = false;
+                roleText.value = '';
+                loadPositions(subsectionToLeadershipType[subsectionKey]);
+            } else {
+                // Default: show text field
+                roleSelect.style.display = 'none';
+                roleText.style.display = '';
+                roleSelect.required = false;
+                roleText.required = true;
+                roleSelect.value = '';
+            }
+        }
+
+        // Event listeners
+        sleaSubSelect?.addEventListener('change', handleSubsectionChange);
+        
+        clusterSelect?.addEventListener('change', () => {
+            loadOrganizations(clusterSelect.value);
+        });
 
         // ======== STEP WIZARD LOGIC ========
         const steps = Array.from(document.querySelectorAll('.sr-step'));
@@ -845,9 +1188,37 @@
 
         btnStep1Next?.addEventListener('click', () => {
             const category = sleaCatSelect.value;
-            if (!category) {
-                alert('Please select a SLEA category before continuing.');
+            const docType = document.getElementById('docType')?.value || '';
+            const section = sleaSectionSelect?.value || '';
+            const subsection = sleaSubSelect?.value || '';
+
+            if (!docType) {
+                showErrorModal('Please select a document type before continuing.');
                 return;
+            }
+            if (!category) {
+                showErrorModal('Please select a SLEA category before continuing.');
+                return;
+            }
+            if (!section) {
+                showErrorModal('Please select a section before continuing.');
+                return;
+            }
+            if (!subsection) {
+                showErrorModal('Please select a subsection before continuing.');
+                return;
+            }
+
+            // If cluster/org fields are shown, they are required
+            if (clusterField && clusterField.style.display !== 'none') {
+                if (!clusterSelect?.value) {
+                    showErrorModal('Please select a cluster before continuing.');
+                    return;
+                }
+                if (!organizationSelect?.value) {
+                    showErrorModal('Please select an organization before continuing.');
+                    return;
+                }
             }
             showStep(2);
         });
@@ -857,7 +1228,44 @@
         btnStep2Next?.addEventListener('click', () => {
             const title = document.getElementById('title').value.trim();
             if (!title) {
-                alert('Please enter the title of activity before continuing.');
+                showErrorModal('Please enter the title of activity before continuing.');
+                return;
+            }
+            const type = document.getElementById('type')?.value?.trim() || '';
+            if (!type) {
+                showErrorModal('Please enter the type of activity before continuing.');
+                return;
+            }
+
+            // Role: either dropdown or text depending on subsection
+            const roleValue = (roleSelect && roleSelect.style.display !== 'none') ? (roleSelect.value || '') : '';
+            const roleTextValue = (roleText && roleText.style.display !== 'none') ? (roleText.value || '').trim() : '';
+            if (!roleValue && !roleTextValue) {
+                showErrorModal('Please provide the role in activity before continuing.');
+                return;
+            }
+
+            const dateVal = document.getElementById('date')?.value || '';
+            if (!dateVal) {
+                showErrorModal('Please select the date of activity before continuing.');
+                return;
+            }
+
+            const orgBody = document.getElementById('orgBody')?.value?.trim() || '';
+            if (!orgBody) {
+                showErrorModal('Please enter the organizing body before continuing.');
+                return;
+            }
+
+            const term = document.getElementById('term')?.value?.trim() || '';
+            if (!term) {
+                showErrorModal('Please enter the term (school year) before continuing.');
+                return;
+            }
+
+            const applicationStatus = document.getElementById('applicationStatus')?.value || '';
+            if (!applicationStatus) {
+                showErrorModal('Please select an application status before continuing.');
                 return;
             }
             showStep(3);
@@ -884,8 +1292,30 @@
         const btnSubmitDraft = document.getElementById('btnSubmitDraft');
         const btnConfirmOk = document.getElementById('btnConfirmOk');
 
-        const openModal = el => el.setAttribute('aria-hidden', 'false');
-        const closeModal = el => el.setAttribute('aria-hidden', 'true');
+        const openModal = (el) => {
+            if (!el) return;
+            // Close all other modals first
+            [modalDraft, modalConfirm, modalSuccess].forEach(modal => {
+                if (modal && modal !== el) {
+                    modal.setAttribute('aria-hidden', 'true');
+                }
+            });
+            // Then open the requested modal
+            el.setAttribute('aria-hidden', 'false');
+            // Ensure it's on top by updating z-index
+            if (el.id === 'modalSuccess') {
+                el.style.zIndex = '4000';
+            } else if (el.id === 'modalConfirm') {
+                el.style.zIndex = '3500';
+            } else {
+                el.style.zIndex = '3000';
+            }
+        };
+        
+        const closeModal = (el) => {
+            if (!el) return;
+            el.setAttribute('aria-hidden', 'true');
+        };
 
         const renderQuickList = () => {
             fileList.innerHTML = files.map((f, i) => `
@@ -918,11 +1348,11 @@
 
         const tryAddFile = (f) => {
             if (!acceptExt.test(f.name)) {
-                alert('Only JPG, PNG, or PDF allowed.');
+                    showErrorModal('Only JPG, PNG, or PDF allowed.');
                 return;
             }
             if (f.size > maxSize) {
-                alert('File exceeds 5MB.');
+                    showErrorModal('File exceeds 5MB.');
                 return;
             }
             files.push({
@@ -979,20 +1409,93 @@
 
             // Validate that at least one file is added
             if (!files.length) {
-                alert('Please add at least one document before proceeding.');
+                showErrorModal('Please add at least one document before proceeding.');
                 return;
             }
             // Validate required fields
             const title = document.getElementById('title').value.trim();
             const category = document.getElementById('sleacat').value;
+            const docType = document.getElementById('docType')?.value || '';
+            const section = sleaSectionSelect?.value || '';
+            const subsection = sleaSubSelect?.value || '';
             if (!title) {
-                alert('Please enter the title of activity.');
+                showErrorModal('Please enter the title of activity.');
                 showStep(2);
                 return;
             }
-            if (!category) {
-                alert('Please select a SLEA category.');
+            if (!docType) {
+                showErrorModal('Please select a document type.');
                 showStep(1);
+                return;
+            }
+            if (!category) {
+                showErrorModal('Please select a SLEA category.');
+                showStep(1);
+                return;
+            }
+            if (!section) {
+                showErrorModal('Please select a section.');
+                showStep(1);
+                return;
+            }
+            if (!subsection) {
+                showErrorModal('Please select a subsection.');
+                showStep(1);
+                return;
+            }
+            if (clusterField && clusterField.style.display !== 'none') {
+                if (!clusterSelect?.value) {
+                    showErrorModal('Please select a cluster.');
+                    showStep(1);
+                    return;
+                }
+                if (!organizationSelect?.value) {
+                    showErrorModal('Please select an organization.');
+                    showStep(1);
+                    return;
+                }
+            }
+
+            const type = document.getElementById('type')?.value?.trim() || '';
+            if (!type) {
+                showErrorModal('Please enter the type of activity.');
+                showStep(2);
+                return;
+            }
+
+            const roleValue = (roleSelect && roleSelect.style.display !== 'none') ? (roleSelect.value || '') : '';
+            const roleTextValue = (roleText && roleText.style.display !== 'none') ? (roleText.value || '').trim() : '';
+            if (!roleValue && !roleTextValue) {
+                showErrorModal('Please provide the role in activity.');
+                showStep(2);
+                return;
+            }
+
+            const dateVal = document.getElementById('date')?.value || '';
+            if (!dateVal) {
+                showErrorModal('Please select the date of activity.');
+                showStep(2);
+                return;
+            }
+
+            const orgBody = document.getElementById('orgBody')?.value?.trim() || '';
+            if (!orgBody) {
+                showErrorModal('Please enter the organizing body.');
+                showStep(2);
+                return;
+            }
+
+            const term = document.getElementById('term')?.value?.trim() || '';
+            if (!term) {
+                showErrorModal('Please enter the term (school year).');
+                showStep(2);
+                return;
+            }
+
+            const applicationStatus = document.getElementById('applicationStatus')?.value || '';
+            if (!applicationStatus) {
+                showErrorModal('Please select an application status.');
+                showStep(2);
                 return;
             }
             renderDraftList();
@@ -1015,8 +1518,8 @@
                 tmp.onchange = ev => {
                     const nf = ev.target.files[0];
                     if (!nf) return;
-                    if (!acceptExt.test(nf.name)) return alert('Only JPG, PNG, or PDF allowed.');
-                    if (nf.size > maxSize) return alert('File exceeds 5MB.');
+                    if (!acceptExt.test(nf.name)) return showErrorModal('Only JPG, PNG, or PDF allowed.');
+                    if (nf.size > maxSize) return showErrorModal('File exceeds 5MB.');
                     files[idx] = {
                         name: nf.name,
                         file: nf
@@ -1033,6 +1536,20 @@
         btnConfirmOk.addEventListener('click', () => {
             const form = document.getElementById('submitForm');
             const fd = new FormData(form);
+
+            // Handle role_in_activity: use dropdown value if visible, otherwise use text field value
+            // Remove the text field name to avoid conflicts
+            fd.delete('role_in_activity_text');
+            if (roleSelect && roleSelect.style.display !== 'none' && roleSelect.value) {
+                // Store the position name (text) instead of ID for better readability
+                const selectedOption = roleSelect.options[roleSelect.selectedIndex];
+                fd.set('role_in_activity', selectedOption ? selectedOption.textContent : roleSelect.value);
+            } else if (roleText && roleText.style.display !== 'none' && roleText.value) {
+                fd.set('role_in_activity', roleText.value);
+            } else {
+                // If neither is visible or has value, ensure the field is set to empty
+                fd.set('role_in_activity', '');
+            }
 
             files.forEach(f => {
                 fd.append('attachments[]', f.file);
@@ -1061,19 +1578,40 @@
 
                         if (payload && payload.errors) {
                             const firstField = Object.keys(payload.errors)[0];
-                            const firstMsg = payload.errors[firstField][0];
-                            alert(firstMsg);
+                            const errorArray = payload.errors[firstField];
+                            // Safely get the first error message
+                            const firstMsg = Array.isArray(errorArray) && errorArray.length > 0 
+                                ? errorArray[0] 
+                                : (typeof errorArray === 'string' ? errorArray : 'Validation error occurred.');
+                            showErrorModal(firstMsg);
                         } else if (payload && payload.message) {
-                            alert(payload.message);
+                            showErrorModal(payload.message);
+                        } else if (typeof payload === 'string' && payload.includes('application_status')) {
+                            showErrorModal('Database migration required. Please contact the administrator to run: php artisan migrate');
                         } else {
-                            alert('There was a problem submitting your record.');
+                            // Extract a user-friendly error message
+                            let errorMsg = 'There was a problem submitting your record.';
+                            if (typeof payload === 'string') {
+                                // Try to extract a cleaner error message
+                                const match = payload.match(/SQLSTATE\[.*?\]:\s*(.+?)(?:\s*\(Connection:|$)/);
+                                if (match && match[1]) {
+                                    errorMsg = 'Database error: ' + match[1].trim();
+                                } else if (payload.length < 200) {
+                                    errorMsg = payload;
+                                }
+                            }
+                            showErrorModal(errorMsg);
                         }
                         return;
                     }
 
-                    // success
+                    // success - close all modals first, then show success
                     closeModal(modalDraft);
+                    closeModal(modalConfirm);
+                    // Small delay to ensure modals are closed before showing success
+                    setTimeout(() => {
                     openModal(modalSuccess);
+                    }, 100);
 
                     setTimeout(() => {
                         closeModal(modalSuccess);
@@ -1092,7 +1630,7 @@
                 })
                 .catch(err => {
                     console.error(err);
-                    alert('Network error while submitting.');
+                    showErrorModal('Network error while submitting.');
                 });
         });
 

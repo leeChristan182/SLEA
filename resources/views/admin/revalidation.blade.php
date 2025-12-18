@@ -3,13 +3,12 @@
 @section('title', 'Student Revalidation Queue')
 
 @section('content')
-    <div class="container">
+    <div class="container-fluid revalidation-page">
         @include('partials.sidebar')
 
         <main class="main-content">
-
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="mb-0">Student Revalidation Queue</h2>
+            <div class="page-header">
+                <h1>Student Revalidation Queue</h1>
             </div>
 
             {{-- Flash messages --}}
@@ -31,32 +30,42 @@
                 </div>
             @endif
 
-            @if ($rows->isEmpty())
-                <div class="alert alert-info mt-3">
-                    There are currently no students flagged for revalidation.
-                </div>
-            @else
-                <div class="table-responsive mt-3">
-                    <table class="table table-bordered align-middle mb-0">
-                        <thead class="table-light">
+            <div class="submissions-table-container">
+                <table class="table submissions-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Expected Grad Year</th>
+                            <th class="text-center">Eligibility Status</th>
+                            <th>Last Updated</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if ($rows->isEmpty())
                             <tr>
-                                <th style="width: 70px;">ID</th>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Expected Grad Year</th>
-                                <th>Eligibility Status</th>
-                                <th>Last Updated</th>
-                                <th style="width: 200px;">Actions</th>
+                                <td colspan="7" class="text-center py-4 text-muted">
+                                    There are currently no students flagged for revalidation.
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody>
+                        @else
                             @foreach ($rows as $row)
+                                @php
+                                    // $row is StudentAcademic, with related User
+                                    $user = $row->user;
+                                    // Refresh the academic record to ensure we have the latest COR
+                                    $row->refresh();
+                                @endphp
+
                                 <tr>
-                                    <td>{{ $row->id }}</td>
-                                    <td>{{ $row->last_name }}, {{ $row->first_name }}</td>
-                                    <td>{{ $row->email }}</td>
+                                    {{-- Show USER id, not academic id, since routes use {user} --}}
+                                    <td>{{ $user->id }}</td>
+                                    <td>{{ $user->last_name }}, {{ $user->first_name }}</td>
+                                    <td>{{ $user->email }}</td>
                                     <td>{{ $row->expected_grad_year ?? '—' }}</td>
-                                    <td>
+                                    <td class="text-center">
                                         @php
                                             $status = (string) $row->eligibility_status;
                                         @endphp
@@ -76,30 +85,42 @@
                                     <td>{{ \Carbon\Carbon::parse($row->updated_at)->format('M d, Y') }}</td>
 
                                     <td>
-                                        {{-- Approve button --}}
-                                        <button type="button" class="btn btn-success btn-sm me-1" data-bs-toggle="modal"
-                                            data-bs-target="#approveRevalModal{{ $row->id }}">
-                                            Approve
-                                        </button>
+                                        <div class="action-buttons-group">
+                                            {{-- View COR button (only if student has uploaded one) --}}
+                                            @if (method_exists($row, 'hasCor') ? $row->hasCor() : !empty($row->certificate_of_registration_path))
+                                                <a href="{{ route('admin.revalidation.cor', $user->id) }}"
+                                                    class="btn btn-outline-primary btn-sm" target="_blank" title="View Updated COR">
+                                                    <i class="fas fa-file-pdf"></i> View COR
+                                                </a>
+                                            @else
+                                                <span class="badge bg-secondary">No COR</span>
+                                            @endif
 
-                                        {{-- Reject button --}}
-                                        <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal"
-                                            data-bs-target="#rejectRevalModal{{ $row->id }}">
-                                            Reject
-                                        </button>
+                                            {{-- Approve button --}}
+                                            <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal"
+                                                data-bs-target="#approveRevalModal{{ $user->id }}" title="Approve Revalidation">
+                                                <i class="fas fa-check"></i> Approve
+                                            </button>
+
+                                            {{-- Reject button --}}
+                                            <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal"
+                                                data-bs-target="#rejectRevalModal{{ $user->id }}" title="Reject Revalidation">
+                                                <i class="fas fa-times"></i> Reject
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
 
                                 {{-- APPROVE MODAL --}}
-                                <div class="modal fade" id="approveRevalModal{{ $row->id }}" tabindex="-1"
-                                    aria-labelledby="approveRevalLabel{{ $row->id }}" aria-hidden="true">
+                                <div class="modal fade" id="approveRevalModal{{ $user->id }}" tabindex="-1"
+                                    aria-labelledby="approveRevalLabel{{ $user->id }}" aria-hidden="true">
                                     <div class="modal-dialog modal-dialog-centered">
                                         <div class="modal-content">
-                                            <form method="POST" action="{{ route('admin.revalidation.approve', $row->id) }}">
+                                            <form method="POST" action="{{ route('admin.revalidation.approve', $user->id) }}">
                                                 @csrf
 
                                                 <div class="modal-header bg-success text-white">
-                                                    <h5 class="modal-title" id="approveRevalLabel{{ $row->id }}">
+                                                    <h5 class="modal-title text-white" id="approveRevalLabel{{ $user->id }}">
                                                         Approve Student Revalidation
                                                     </h5>
                                                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
@@ -111,9 +132,9 @@
                                                         Are you sure you want to mark this student as
                                                         <strong>eligible</strong> again?
                                                     </p>
-                                                    <p class="mb-0">
-                                                        <strong>{{ $row->last_name }}, {{ $row->first_name }}</strong><br>
-                                                        <small class="text-muted">{{ $row->email }}</small>
+                                                    <p class="mb-0 text-center">
+                                                        <strong>{{ $user->last_name }}, {{ $user->first_name }}</strong><br>
+                                                        <small class="text-muted">{{ $user->email }}</small>
                                                     </p>
                                                 </div>
 
@@ -121,7 +142,7 @@
                                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                                                         Cancel
                                                     </button>
-                                                    <button type="submit" class="btn btn-success">
+                                                    <button type="submit" class="btn btn-success text-nowrap px-4 reval-confirm-btn">
                                                         Yes, Approve
                                                     </button>
                                                 </div>
@@ -131,15 +152,15 @@
                                 </div>
 
                                 {{-- REJECT MODAL --}}
-                                <div class="modal fade" id="rejectRevalModal{{ $row->id }}" tabindex="-1"
-                                    aria-labelledby="rejectRevalLabel{{ $row->id }}" aria-hidden="true">
+                                <div class="modal fade" id="rejectRevalModal{{ $user->id }}" tabindex="-1"
+                                    aria-labelledby="rejectRevalLabel{{ $user->id }}" aria-hidden="true">
                                     <div class="modal-dialog modal-dialog-centered">
                                         <div class="modal-content">
-                                            <form method="POST" action="{{ route('admin.revalidation.reject', $row->id) }}">
+                                            <form method="POST" action="{{ route('admin.revalidation.reject', $user->id) }}">
                                                 @csrf
 
                                                 <div class="modal-header bg-danger text-white">
-                                                    <h5 class="modal-title" id="rejectRevalLabel{{ $row->id }}">
+                                                    <h5 class="modal-title" id="rejectRevalLabel{{ $user->id }}">
                                                         Reject Student Revalidation
                                                     </h5>
                                                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
@@ -151,16 +172,9 @@
                                                         This will mark the student as <strong>ineligible</strong>.
                                                     </p>
                                                     <p class="mb-3">
-                                                        <strong>{{ $row->last_name }}, {{ $row->first_name }}</strong><br>
-                                                        <small class="text-muted">{{ $row->email }}</small>
+                                                        <strong>{{ $user->last_name }}, {{ $user->first_name }}</strong><br>
+                                                        <small class="text-muted">{{ $user->email }}</small>
                                                     </p>
-
-                                                    {{-- Optional comment textarea if you want to store reason in another column
-                                                    later --}}
-                                                    {{-- <div class="mb-3">
-                                                        <label class="form-label">Reason (optional)</label>
-                                                        <textarea name="reason" class="form-control" rows="3"></textarea>
-                                                    </div> --}}
                                                 </div>
 
                                                 <div class="modal-footer">
@@ -177,10 +191,13 @@
                                 </div>
 
                             @endforeach
-                        </tbody>
-                    </table>
                 </div>
+                        @endif
+                    </tbody>
+                </table>
+            </div>
 
+            @if (!$rows->isEmpty())
                 <div class="mt-3">
                     {{ $rows->links() }}
                 </div>
@@ -189,3 +206,80 @@
         </main>
     </div>
 @endsection
+
+@push('styles')
+    {{-- Match the exact table UI used across admin pages --}}
+    <link rel="stylesheet" href="{{ asset('css/pending-submissions.css') }}">
+
+    <style>
+        /* This app uses a fixed header; most pages rely on .container { margin-top:80px }.
+           This view uses container-fluid for full width, so we must apply the same offset. */
+        .revalidation-page {
+            margin-top: 80px;
+        }
+
+        /* Expand table/container naturally (no hard width caps) */
+        .submissions-table-container {
+            width: 100% !important;
+            max-width: none !important;
+            overflow-x: auto;
+        }
+
+        .submissions-table {
+            width: 100% !important;
+            table-layout: auto !important;
+        }
+
+        /* Table title bar (maroon) */
+        .table-title-bar {
+            background: #8B0000;
+            color: #fff;
+            font-weight: 700;
+            padding: 12px 16px;
+            font-size: 1rem;
+            border-bottom: 1px solid #fff;
+        }
+
+        body.dark-mode .table-title-bar {
+            background: #8B0000;
+            color: #fff;
+        }
+
+        /* Actions: vertical stack with spacing so buttons aren't too close */
+        .action-buttons-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px; /* requested spacing */
+            align-items: stretch;
+        }
+
+        .action-buttons-group .btn {
+            width: 100%;
+            white-space: nowrap;
+        }
+
+        /* Approve modal: ensure title stays white and button text doesn't wrap */
+        .revalidation-page .modal-header.bg-success .modal-title {
+            color: #fff !important;
+        }
+
+        .revalidation-page .modal-footer .reval-confirm-btn {
+            white-space: nowrap;
+            min-width: 120px;
+        }
+    </style>
+@endpush
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const alerts = document.querySelectorAll('.alert.alert-success');
+    alerts.forEach(alert => {
+        setTimeout(() => {
+            const instance = bootstrap.Alert.getOrCreateInstance(alert);
+            instance.close();
+        }, 3000);
+    });
+});
+</script>
+@endpush

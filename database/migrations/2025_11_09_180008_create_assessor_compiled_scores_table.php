@@ -22,7 +22,10 @@ return new class extends Migration {
             $table->foreign('category_result')->references('key')->on('category_results');
 
             $table->timestamps();
-            $table->unique(['student_id', 'assessor_id', 'rubric_category_id']);
+            $table->unique(
+                ['student_id', 'assessor_id', 'rubric_category_id'],
+                'acs_student_assessor_cat_uq'
+            );
         });
     }
     public function down(): void

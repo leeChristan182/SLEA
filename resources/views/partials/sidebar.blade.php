@@ -4,14 +4,6 @@
     /** Current user + role (single users table) */
     $user = Auth::user();
     $role = $user?->role; // 'admin' | 'assessor' | 'student'
-    $fullName = $user
-        ? trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name)
-        : null;
-
-    /** Avatar path */
-    $avatarPath = $user && $user->profile_picture_path
-        ? asset('storage/' . $user->profile_picture_path)
-        : asset('images/default-avatar.png');
 @endphp
 
 <!-- Overlay for mobile only -->
@@ -28,8 +20,6 @@
         <div class="menu-toggle" id="menuToggle">
             <i class="fas fa-bars"></i>
         </div>
-
-        {{-- Avatar + Name (all roles) --}}
 
     </div>
 
@@ -63,12 +53,19 @@
             <li class="{{ request()->routeIs('student.criteria') ? 'active' : '' }}">
                 <a href="{{ route('student.criteria') }}"
                     style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
-                    <i class="fas fa-list-check"></i><span>Criteria</span></a>
+                    <i class="fas fa-clipboard-list"></i><span>Criteria</span>
+                </a>
             </li>
         @endif
 
         {{-- ===================== ASSESSOR MENU ===================== --}}
         @if ($role === 'assessor')
+            <li class="{{ request()->routeIs('assessor.dashboard') ? 'active' : '' }}">
+                <a href="{{ route('assessor.dashboard') }}"
+                    style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                    <i class="fas fa-chart-line"></i><span>Dashboard</span>
+                </a>
+            </li>
             <li class="{{ request()->routeIs('assessor.profile') ? 'active' : '' }}">
                 <a href="{{ route('assessor.profile') }}"
                     style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
@@ -90,19 +87,25 @@
                 </a>
             </li>
 
-            <li class="{{ request()->routeIs('assessor.final-review.*') ? 'active' : '' }}">
+            <li class="{{ request()->routeIs('assessor.final-review*') ? 'active' : '' }}">
                 <a href="{{ route('assessor.final-review.index') }}"
                     style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
                     <i class="fas fa-clipboard-check"></i><span>Final Review</span>
                 </a>
             </li>
-
         @endif
 
 
 
         {{-- ===================== ADMIN MENU ===================== --}}
         @if ($role === 'admin')
+            <li class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+                <a href="{{ route('admin.dashboard') }}"
+                    style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
+                    <i class="fas fa-chart-line"></i><span>Dashboard</span>
+                </a>
+            </li>
+
             <li class="{{ request()->routeIs('admin.profile') ? 'active' : '' }}">
                 <a href="{{ route('admin.profile') }}"
                     style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
@@ -111,16 +114,16 @@
             </li>
 
             <li
-                class="has-submenu {{ request()->routeIs('admin.create_user') || request()->routeIs('admin.approve-reject') || request()->routeIs('admin.manage-account') ? 'open' : '' }}">
+                class="has-submenu {{ request()->routeIs('admin.create_user') || request()->routeIs('admin.approve-reject') || request()->routeIs('admin.initial-validation') || request()->routeIs('admin.manage-account') || request()->routeIs('admin.revalidation') ? 'open' : '' }}">
                 <span class="submenu-title" style="display:flex;align-items:center;gap:10px;cursor:default;">
                     <i class="fas fa-users-cog"></i><span>User Account Management</span>
                 </span>
                 <ul class="submenu">
-                    <li class="{{ request()->routeIs('admin.create_user') ? 'active' : '' }}">
-                        <a href="{{ route('admin.create_user') }}">Create Assessor's Account</a>
-                    </li>
                     <li class="{{ request()->routeIs('admin.approve-reject') ? 'active' : '' }}">
                         <a href="{{ route('admin.approve-reject') }}">Approve/Reject Account</a>
+                    </li>
+                    <li class="{{ request()->routeIs('admin.initial-validation') ? 'active' : '' }}">
+                        <a href="{{ route('admin.initial-validation') }}">Account Initial Validation</a>
                     </li>
                     <li class="{{ request()->routeIs('admin.manage-account') ? 'active' : '' }}">
                         <a href="{{ route('admin.manage-account') }}">Manage Account</a>
@@ -139,11 +142,19 @@
                 </a>
             </li>
 
+            <li
+                class="has-submenu {{ request()->routeIs('admin.organizations.index') || request()->routeIs('admin.colleges.index') || request()->routeIs('admin.programs.index') ? 'open' : '' }}">
+                <span class="submenu-title" style="display:flex;align-items:center;gap:10px;cursor:default;">
+                    <i class="fas fa-building"></i><span>Reference Data Management</span>
+                </span>
+                <ul class="submenu">
+                    <li class="{{ request()->routeIs('admin.colleges.index') ? 'active' : '' }}">
+                        <a href="{{ route('admin.colleges.index') }}">Academic Management</a>
+                    </li>
             <li class="{{ request()->routeIs('admin.organizations.index') ? 'active' : '' }}">
-                <a href="{{ route('admin.organizations.index') }}"
-                    style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
-                    <i class="fas fa-building"></i><span>Organization Management</span>
-                </a>
+                        <a href="{{ route('admin.organizations.index') }}">Organization Management</a>
+                    </li>
+                </ul>
             </li>
 
             <li class="{{ request()->routeIs('admin.final-review') ? 'active' : '' }}">
@@ -156,43 +167,22 @@
             <li class="{{ request()->routeIs('admin.award-report') ? 'active' : '' }}">
                 <a href="{{ route('admin.award-report') }}"
                     style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
-                    <i class="fas a fa-trophy"></i><span>Award Report</span>
+                    <i class="fas fa-trophy"></i><span>Award Report</span>
                 </a>
             </li>
 
             <li class="{{ request()->routeIs('admin.system-logs.*') ? 'active' : '' }}">
                 <a href="{{ route('admin.system-logs.index') }}"
                     style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;">
-                    <i class="fas fa-server"></i>
-                    <span>System Monitoring and Logs</span>
+                    <i class="fas fa-server"></i><span>System Monitoring and Logs</span>
                 </a>
             </li>
-
         @endif
     </ul>
 </aside>
 
-{{-- Avatar + mobile CSS --}}
+{{-- Mobile CSS --}}
 <style>
-    .sidebar-avatar-box {
-        text-align: center;
-        margin-top: 15px;
-    }
-
-    .sidebar-avatar {
-        width: 70px;
-        height: 70px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 2px solid #fff;
-    }
-
-    .sidebar-name {
-        font-size: 14px;
-        font-weight: 600;
-        margin-top: 6px;
-    }
-
     /* BURGER (mobile only) */
     .mobile-sidebar-toggle {
         position: fixed;
@@ -268,14 +258,5 @@
             const title = item.querySelector('.submenu-title');
             title?.addEventListener('click', () => item.classList.toggle('open'));
         });
-
-        // Keep avatar in sync with profile edits (matches unified user_profile.js)
-        try {
-            const saved = localStorage.getItem('profileImage');
-            const sidebarAvatar = document.getElementById('sidebarAvatar');
-            if (saved && sidebarAvatar) sidebarAvatar.src = saved;
-        } catch (e) {
-            /* ignore */
-        }
     });
 </script>

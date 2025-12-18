@@ -48,9 +48,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /* -------------------- AVATAR UPLOAD -------------------- */
+  const uploadPhotoBtn = document.getElementById('uploadPhotoBtn');
   const avatarInput = document.getElementById('avatarUpload');
   const avatarForm = document.getElementById('avatarForm');
-  const avatarPreview = document.getElementById('avatarPreview');
+  const profilePicture = document.getElementById('profilePicture');
+
+  const avatarPreview = document.getElementById('avatarPreview') || profilePicture;
+
+  if (uploadPhotoBtn && avatarInput) {
+    uploadPhotoBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      avatarInput.click();
+    });
+  }
 
   async function handleAvatarFile(file) {
     if (!file) return;
@@ -71,14 +81,20 @@ document.addEventListener('DOMContentLoaded', () => {
       fd.append('avatar', file);
 
       try {
-        const res = await fetch(avatarForm.action, {
-          method: 'POST',
-          headers: { 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
-          body: fd
-        });
+ const res = await fetch(avatarForm.action, {
+  method: 'POST',
+  headers: {
+    'X-CSRF-TOKEN': csrfToken,
+    'X-Requested-With': 'XMLHttpRequest',
+    'Accept': 'application/json',
+  },
+  body: fd
+});
+
         const data = await res.json();
         if (res.ok && data.success) {
-          avatarPreview.src = data.avatar_url;
+          if (avatarPreview) avatarPreview.src = data.avatar_url + '?v=' + Date.now();
+          if (profilePicture) profilePicture.src = data.avatar_url + '?v=' + Date.now();
           showToast('Avatar updated successfully');
         } else showToast(data.message || 'Upload failed', true);
       } catch (err) {
@@ -100,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   window.validatePassword = () => {
-    const val = document.getElementById('password').value;
+    const val = document.getElementById('password')?.value || '';
     const rules = {
       length: val.length >= 8,
       uppercase: /[A-Z]/.test(val),
@@ -108,10 +124,12 @@ document.addEventListener('DOMContentLoaded', () => {
       number: /\d/.test(val),
       special: /[^A-Za-z0-9]/.test(val),
     };
+    const order = Object.keys(rules);
     Object.entries(rules).forEach(([key, pass]) => {
-      const el = document.querySelector(`#passwordChecklist li:nth-child(${Object.keys(rules).indexOf(key)+1})`);
+      const idx = order.indexOf(key) + 1;
+      const el = document.querySelector(`#passwordChecklist li:nth-child(${idx})`);
       if (el) {
-        el.style.color = pass ? '#16a34a' : '#555';
+        el.style.color = pass ? '#16a34a' : '#333';
         el.style.fontWeight = pass ? '600' : '400';
       }
     });
@@ -125,11 +143,16 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const fd = new FormData(form);
       try {
-        const res = await fetch(form.action, {
-          method: 'POST',
-          headers: { 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
-          body: fd
-        });
+const res = await fetch(form.action, {
+  method: 'POST',
+  headers: {
+    'X-CSRF-TOKEN': csrfToken,
+    'X-Requested-With': 'XMLHttpRequest',
+    'Accept': 'application/json',
+  },
+  body: fd
+});
+
         const data = await res.json();
         if (res.ok && data.success) {
           showToast(data.message || successMsg);
@@ -144,10 +167,307 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  /* -------------------- CUSTOM HANDLER FOR ACADEMIC UPDATE (with modal) -------------------- */
+  const academicForm = document.querySelector('#updateAcademicForm');
+  if (academicForm) {
+    academicForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const fd = new FormData(academicForm);
+      const submitBtn = academicForm.querySelector('button[type="submit"]');
+      const originalBtnText = submitBtn?.textContent;
+      
+      // Disable button during submission
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+      }
+      
+      try {
+        const res = await fetch(academicForm.action, {
+          method: 'POST',
+          headers: {
+            'X-CSRF-TOKEN': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+          },
+          body: fd
+        });
+
+        const data = await res.json();
+        
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalBtnText;
+        }
+        
+        if (res.ok && data.success) {
+          // Show success modal with SweetAlert2
+          if (typeof Swal !== 'undefined') {
+            Swal.fire({
+              icon: 'success',
+              title: 'Submitted Successfully',
+              html: `
+                <p><strong>${data.message || 'Your academic details and COR have been submitted for review.'}</strong></p>
+                <p style="margin-top: 12px;">Please wait for <strong>Admin confirmation</strong> before accessing other features.</p>
+                <p style="margin-top: 8px; font-size: 0.9em; color: #666;">You will receive an email notification once the administrator has reviewed your submission.</p>
+              `,
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#7E0308',
+              customClass: {
+                popup: 'academic-update-success-modal',
+                backdrop: 'academic-update-success-backdrop'
+              },
+              didOpen: () => {
+                const backdrop = document.querySelector('.swal2-backdrop-show');
+                if (backdrop) {
+                  backdrop.style.backdropFilter = 'blur(10px)';
+                  backdrop.style.webkitBackdropFilter = 'blur(10px)';
+                  backdrop.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                }
+              }
+            }).then(() => {
+              // Reload page after modal is closed
+              window.location.reload();
+            });
+          } else {
+            // Fallback to toast if SweetAlert2 is not available
+            showToast(data.message || 'Academic information updated');
+            setTimeout(() => window.location.reload(), 2000);
+          }
+        } else {
+          // Show error
+          const errorMsg = data.message || data.errors ? Object.values(data.errors || {}).flat().join(', ') : 'Error saving changes';
+          if (typeof Swal !== 'undefined') {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: errorMsg,
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#7E0308',
+            });
+          } else {
+            showToast(errorMsg, true);
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalBtnText;
+        }
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Request failed. Please try again.',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#7E0308',
+          });
+        } else {
+          showToast('Request failed', true);
+        }
+      }
+    });
+  }
+
   /* -------------------- APPLY AJAX HANDLERS -------------------- */
   handleAjaxForm('#updatePersonalForm', 'Personal information updated');
-  handleAjaxForm('#updateAcademicForm', 'Academic information updated');
+  // handleAjaxForm('#updateAcademicForm', 'Academic information updated'); // Handled separately above
   handleAjaxForm('#updateLeadershipForm', 'Leadership information saved');
   handleAjaxForm('#uploadCORForm', 'Certificate of Registration uploaded');
   handleAjaxForm('#passwordChangeForm', 'Password changed successfully');
+
+  /* ============================================================
+   *  LEADERSHIP MODAL (mirror registration leadership behavior)
+   * ============================================================ */
+  const routesMeta = document.getElementById('slea-routes');
+  const clustersUrl =
+    routesMeta?.dataset.clusters || '/api/clusters';
+  const orgsUrl =
+    routesMeta?.dataset.organizations || '/api/organizations';
+  const councilPositionsUrl =
+    // prefer council-positions if defined, else fall back to positions
+    routesMeta?.dataset.councilPositions ||
+    routesMeta?.dataset.positions ||
+    '/api/council-positions';
+
+  const ltSelect = document.getElementById('modal_leadership_type_id');
+  const clusterWrap = document.getElementById('modal_cluster_wrap');
+  const orgWrap = document.getElementById('modal_org_wrap');
+  const clusterSelect = document.getElementById('modal_cluster_id');
+  const orgSelect = document.getElementById('modal_organization_id');
+  const posSelect = document.getElementById('modal_position_id');
+  const clusterStar = document.getElementById('modal_cluster_required_star');
+  const orgStar = document.getElementById('modal_org_required_star');
+  const orgOptionalHint = document.getElementById('modal_org_optional_hint');
+
+  function clearOptions(select, placeholder = 'Select') {
+    if (!select) return;
+    select.innerHTML = '';
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = placeholder;
+    select.appendChild(opt);
+  }
+
+  async function loadClusters(leadershipTypeId) {
+    if (!clusterSelect) return;
+    clearOptions(clusterSelect, 'Select Cluster');
+
+    if (!leadershipTypeId) return;
+    try {
+      const res = await fetch(`${clustersUrl}?leadership_type_id=${encodeURIComponent(leadershipTypeId)}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      const data = await res.json();
+      // data might be object {id:name} or array; normalize
+      if (Array.isArray(data)) {
+        data.forEach(row => {
+          const opt = document.createElement('option');
+          opt.value = row.id;
+          opt.textContent = row.name || row.label || row.id;
+          clusterSelect.appendChild(opt);
+        });
+      } else {
+        Object.entries(data || {}).forEach(([id, name]) => {
+          const opt = document.createElement('option');
+          opt.value = id;
+          opt.textContent = name;
+          clusterSelect.appendChild(opt);
+        });
+      }
+    } catch (err) {
+      console.error('loadClusters error', err);
+    }
+  }
+
+  async function loadOrgs(clusterId, leadershipTypeId) {
+    if (!orgSelect) return;
+    clearOptions(orgSelect, 'Select Organization');
+    if (!clusterId) return;
+    try {
+      const url = `${orgsUrl}?cluster_id=${encodeURIComponent(clusterId)}${
+        leadershipTypeId ? `&leadership_type_id=${encodeURIComponent(leadershipTypeId)}` : ''
+      }`;
+      const res = await fetch(url, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        data.forEach(row => {
+          const opt = document.createElement('option');
+          opt.value = row.id;
+          opt.textContent = row.name || row.label || row.id;
+          orgSelect.appendChild(opt);
+        });
+      } else {
+        Object.entries(data || {}).forEach(([id, name]) => {
+          const opt = document.createElement('option');
+          opt.value = id;
+          opt.textContent = name;
+          orgSelect.appendChild(opt);
+        });
+      }
+    } catch (err) {
+      console.error('loadOrgs error', err);
+    }
+  }
+
+  async function loadPositions(leadershipTypeId, organizationId = null) {
+    if (!posSelect) return;
+    clearOptions(posSelect, 'Select Position');
+    if (!leadershipTypeId && !organizationId) return;
+
+    try {
+      const params = new URLSearchParams();
+      if (leadershipTypeId) params.set('leadership_type_id', leadershipTypeId);
+      if (organizationId) params.set('organization_id', organizationId);
+
+      const res = await fetch(`${councilPositionsUrl}?${params.toString()}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      const data = await res.json();
+      (data || []).forEach(row => {
+        const opt = document.createElement('option');
+        opt.value = row.id;
+        opt.textContent = row.name || row.alias || row.label || row.id;
+        posSelect.appendChild(opt);
+      });
+    } catch (err) {
+      console.error('loadPositions error', err);
+    }
+  }
+
+  function handleLeadershipTypeChange() {
+    if (!ltSelect) return;
+    const option = ltSelect.selectedOptions[0];
+    if (!option) return;
+
+    const requiresOrg = option.dataset.requiresOrg === '1';
+    const key = option.dataset.key || '';
+    const isCCO = key === 'cco';
+
+    // Show/hide cluster + org
+    if (requiresOrg || isCCO) {
+      if (clusterWrap) clusterWrap.style.display = '';
+      if (orgWrap) orgWrap.style.display = '';
+      if (clusterStar) clusterStar.style.display = '';
+      if (orgStar) orgStar.style.display = isCCO ? '' : 'none';
+      if (orgOptionalHint) orgOptionalHint.style.display = isCCO ? 'none' : '';
+    } else {
+      if (clusterWrap) clusterWrap.style.display = 'none';
+      if (orgWrap) orgWrap.style.display = 'none';
+      if (clusterStar) clusterStar.style.display = 'none';
+      if (orgStar) orgStar.style.display = 'none';
+      if (orgOptionalHint) orgOptionalHint.style.display = 'none';
+      if (clusterSelect) clusterSelect.value = '';
+      if (orgSelect) orgSelect.value = '';
+    }
+
+    // Load clusters (if needed) and positions
+    const typeId = ltSelect.value || '';
+    if (requiresOrg || isCCO) {
+      loadClusters(typeId);
+    }
+    loadPositions(typeId, null);
+  }
+
+  ltSelect?.addEventListener('change', handleLeadershipTypeChange);
+
+  clusterSelect?.addEventListener('change', () => {
+    const cid = clusterSelect.value || '';
+    const typeId = ltSelect?.value || '';
+    if (!cid) {
+      clearOptions(orgSelect, 'Select Organization');
+      loadPositions(typeId, null);
+      return;
+    }
+    loadOrgs(cid, typeId).then(() => {
+      // Reset positions when org list changes
+      loadPositions(typeId, orgSelect?.value || null);
+    });
+  });
+
+  orgSelect?.addEventListener('change', () => {
+    const typeId = ltSelect?.value || '';
+    const orgId = orgSelect.value || '';
+    loadPositions(typeId, orgId || null);
+  });
+
+  // Reset modal on open
+  const leadershipModal = document.getElementById('addLeadershipModal');
+  if (leadershipModal) {
+    leadershipModal.addEventListener('shown.bs.modal', () => {
+      const form = document.getElementById('updateLeadershipForm');
+      if (form) form.reset();
+      clearOptions(clusterSelect, 'Select Cluster');
+      clearOptions(orgSelect, 'Select Organization');
+      clearOptions(posSelect, 'Select Position');
+      if (clusterWrap) clusterWrap.style.display = 'none';
+      if (orgWrap) orgWrap.style.display = 'none';
+      if (clusterStar) clusterStar.style.display = 'none';
+      if (orgStar) orgStar.style.display = 'none';
+      if (orgOptionalHint) orgOptionalHint.style.display = 'none';
+    });
+  }
 });
