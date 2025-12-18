@@ -11,9 +11,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     {{-- Prevent caching (for back/forward issues) --}}
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
+
+    {{-- Prevent white flash on navigation before CSS loads --}}
+    <style>
+        html, body { background: #f8f9fa; }
+        body.dark-mode { background: #2a2a2a; }
+    </style>
 
     {{-- CSRF --}}
     <meta name="csrf-token" content="{{ csrf_token() }}">

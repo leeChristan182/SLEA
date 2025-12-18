@@ -3,7 +3,7 @@
 @section('title', 'Initial Validation')
 
 @section('content')
-    <div class="container">
+    <div class="container admin-initial-validation-container">
         @include('partials.sidebar')
 
         <main class="main-content">
@@ -227,6 +227,46 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
+        /* Match other admin sections’ wider table feel (no horizontal scrollbar; wrap content instead) */
+        .admin-initial-validation-container {
+            max-width: 1400px;
+            width: min(95vw, 1400px);
+        }
+
+        .admin-initial-validation-container .submissions-table-container {
+            width: 100%;
+            overflow-x: hidden; /* keep single viewport */
+        }
+
+        .admin-initial-validation-container .submissions-table {
+            width: 100%;
+            table-layout: fixed; /* prevents overflow */
+        }
+
+        .admin-initial-validation-container .submissions-table th,
+        .admin-initial-validation-container .submissions-table td {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            white-space: normal;
+        }
+
+        /* Column sizing */
+        .admin-initial-validation-container .submissions-table th:nth-child(1),
+        .admin-initial-validation-container .submissions-table td:nth-child(1) { width: 22%; } /* Full Name */
+        .admin-initial-validation-container .submissions-table th:nth-child(2),
+        .admin-initial-validation-container .submissions-table td:nth-child(2) { width: 26%; } /* Email */
+        .admin-initial-validation-container .submissions-table th:nth-child(3),
+        .admin-initial-validation-container .submissions-table td:nth-child(3) { width: 16%; } /* Contact */
+        .admin-initial-validation-container .submissions-table th:nth-child(4),
+        .admin-initial-validation-container .submissions-table td:nth-child(4) { width: 16%; } /* Birth Date */
+        .admin-initial-validation-container .submissions-table th:nth-child(5),
+        .admin-initial-validation-container .submissions-table td:nth-child(5) { width: 10%; } /* Role */
+        .admin-initial-validation-container .submissions-table th:nth-child(6),
+        .admin-initial-validation-container .submissions-table td:nth-child(6) {
+            width: 10%;
+            white-space: nowrap;
+        } /* Actions */
+
         /* Maroon View Button - Icon Only */
         .btn-outline-maroon.view-details-btn {
             color: #7E0308;

@@ -3,7 +3,7 @@
 @section('title', 'Manage User Accounts')
 
 @section('content')
-<div class="container">
+<div class="container admin-manage-accounts-container">
     @include('partials.sidebar')
 
     <main class="main-content">
@@ -218,6 +218,49 @@
 
 <link rel="stylesheet" href="{{ asset('css/pending-submissions.css') }}">
 <style>
+    /* Match other admin sections’ wider table feel (no horizontal scrollbar; wrap content instead) */
+    .admin-manage-accounts-container {
+        max-width: 1400px;
+        width: min(95vw, 1400px);
+    }
+
+    .admin-manage-accounts-container .submissions-table-container {
+        width: 100%;
+        overflow-x: hidden; /* keep single viewport */
+    }
+
+    .admin-manage-accounts-container .submissions-table {
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    .admin-manage-accounts-container .submissions-table th,
+    .admin-manage-accounts-container .submissions-table td {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        white-space: normal;
+    }
+
+    /* Column sizing */
+    .admin-manage-accounts-container .submissions-table th:nth-child(1),
+    .admin-manage-accounts-container .submissions-table td:nth-child(1) { width: 22%; } /* Full Name */
+    .admin-manage-accounts-container .submissions-table th:nth-child(2),
+    .admin-manage-accounts-container .submissions-table td:nth-child(2) { width: 26%; } /* Email */
+    .admin-manage-accounts-container .submissions-table th:nth-child(3),
+    .admin-manage-accounts-container .submissions-table td:nth-child(3) { width: 10%; } /* Role */
+    .admin-manage-accounts-container .submissions-table th:nth-child(4),
+    .admin-manage-accounts-container .submissions-table td:nth-child(4) {
+        width: 14%;
+        white-space: nowrap;
+    } /* Status */
+    .admin-manage-accounts-container .submissions-table th:nth-child(5),
+    .admin-manage-accounts-container .submissions-table td:nth-child(5) { width: 18%; } /* Created At */
+    .admin-manage-accounts-container .submissions-table th:nth-child(6),
+    .admin-manage-accounts-container .submissions-table td:nth-child(6) {
+        width: 10%;
+        white-space: nowrap;
+    } /* Actions */
+
     /* Status badges for manage-account page */
     .status-badge {
         display: inline-block;

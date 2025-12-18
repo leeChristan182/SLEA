@@ -3,7 +3,7 @@
 @section('title', 'Account Approval')
 
 @section('content')
-<div class="container">
+<div class="container account-approval-container">
     @include('partials.sidebar')
 
     <main class="main-content">
@@ -268,6 +268,45 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <style>
+    /* Make this page width consistent with other admin tables (e.g., Final Review) */
+    .account-approval-container {
+        max-width: 1400px;
+        width: min(95vw, 1400px);
+    }
+
+    /* Ensure table fits within viewport without horizontal scrolling */
+    .account-approval-container .submissions-table-container {
+        width: 100%;
+        overflow-x: hidden; /* no horizontal scrollbar */
+    }
+
+    .account-approval-container .submissions-table {
+        width: 100%;
+        table-layout: fixed; /* keeps columns stable and prevents overflow */
+    }
+
+    .account-approval-container .submissions-table th,
+    .account-approval-container .submissions-table td {
+        overflow-wrap: anywhere; /* allow long emails to wrap */
+        word-break: break-word;
+        white-space: normal;
+    }
+
+    /* Column sizing (balanced for a single viewport) */
+    .account-approval-container .submissions-table th:nth-child(1),
+    .account-approval-container .submissions-table td:nth-child(1) { width: 18%; } /* User Code */
+    .account-approval-container .submissions-table th:nth-child(2),
+    .account-approval-container .submissions-table td:nth-child(2) { width: 22%; } /* Name */
+    .account-approval-container .submissions-table th:nth-child(3),
+    .account-approval-container .submissions-table td:nth-child(3) { width: 26%; } /* Email */
+    .account-approval-container .submissions-table th:nth-child(4),
+    .account-approval-container .submissions-table td:nth-child(4) { width: 20%; } /* Registered At */
+    .account-approval-container .submissions-table th:nth-child(5),
+    .account-approval-container .submissions-table td:nth-child(5) {
+        width: 14%;
+        white-space: nowrap; /* keep the View button on one line */
+    }
+
     .approve-inline {
         display: flex;
         gap: 8px;
