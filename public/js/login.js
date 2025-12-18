@@ -330,16 +330,26 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // === PRIVACY MODAL (always show on load/refresh/new tab) ===
-    setTimeout(() => {
-        const modalEl = document.getElementById('privacyModal');
-        if (!modalEl || typeof bootstrap === 'undefined') return;
+    // === PRIVACY MODAL (only show on actual page refresh/load, not after other modals) ===
+    // Use a flag to ensure it only shows once per page load
+    if (!window.privacyModalShown) {
+        window.privacyModalShown = true;
 
-        // Always show; no storage checks so it appears on every refresh/new tab
-        const privacyModal =
-            bootstrap.Modal.getInstance(modalEl) ||
-            new bootstrap.Modal(modalEl, { backdrop: 'static', keyboard: false });
+        setTimeout(() => {
+            const modalEl = document.getElementById('privacyModal');
+            if (!modalEl || typeof bootstrap === 'undefined') return;
 
-        privacyModal.show();
-    }, 100);
+            // Do NOT show if another modal is already open (OTP, success, etc.)
+            const anyModalOpen = document.body.classList.contains('modal-open') ||
+                document.querySelector('.modal.show, .modal.in');
+            if (anyModalOpen) {
+                return; // skip showing privacy modal during other modals
+            }
+
+            const privacyModal =
+                bootstrap.Modal.getInstance(modalEl) ||
+                new bootstrap.Modal(modalEl, { backdrop: 'static', keyboard: false });
+            privacyModal.show();
+        }, 150);
+    }
 });

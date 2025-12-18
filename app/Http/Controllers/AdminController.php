@@ -31,6 +31,7 @@ use App\Mail\InitialValidationApprovedMail;
 use App\Mail\InitialValidationRejectedMail;
 use App\Mail\RevalidationApprovedMail;
 use App\Mail\RevalidationRejectedMail;
+use App\Mail\AssessorValidationApprovedMail;
 use App\Models\Submission;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Illuminate\Support\Facades\Log;
@@ -767,7 +768,14 @@ class AdminController extends Controller
             $user->save();
 
             // (Optional) email to assessor here if you want
-            // Mail::to($user->email)->send(new AssessorValidationApprovedMail($user));
+            try {
+                Mail::to($user->email)->send(new AssessorValidationApprovedMail($user));
+            } catch (\Throwable $e) {
+                \Log::warning('Failed to send AssessorValidationApprovedMail', [
+                    'user_id' => $user->id,
+                    'error'   => $e->getMessage(),
+                ]);
+            }
 
             // System log
             $admin     = Auth::user();
@@ -1141,6 +1149,20 @@ class AdminController extends Controller
             return collect();
         }
 
+        /**
+         * Award Report denominator should be the FULL rubric total (all categories),
+         * not just the categories a student submitted/scored.
+         *
+         * Expected total in this system is 90 (e.g., 20+20+20+20+10).
+         */
+        $overallMaxPoints = 90.0;
+        if (Schema::hasTable('rubric_categories') && Schema::hasColumn('rubric_categories', 'max_points')) {
+            $overallMaxPoints = (float) DB::table('rubric_categories')->sum('max_points');
+            if ($overallMaxPoints <= 0) {
+                $overallMaxPoints = 90.0;
+            }
+        }
+
         // Sync student_academic status with latest admin final decisions before building the report
         if (Schema::hasTable('final_reviews')) {
             $finals = DB::table('final_reviews as fr')
@@ -1167,8 +1189,10 @@ class AdminController extends Controller
             'u.first_name',
             'u.last_name',
             'u.middle_name',
+            'p.id    as program_id',
             'p.name  as program_name',
             'p.code  as program_code',
+            'c.id    as college_id',
             'c.name  as college_name',
             'c.code  as college_code',
             'afr.total_score',
@@ -1190,7 +1214,8 @@ class AdminController extends Controller
             ->leftJoin('colleges as c', 'c.id', '=', 'sa.college_id')
             ->where('u.role', User::ROLE_STUDENT)
             ->whereNotNull('afr.total_score')
-            ->whereNotNull('afr.max_possible');
+            // max_possible exists but is NOT used as the report denominator anymore
+            ;
 
         if ($hasSleaStatus) {
             $query->where('sa.slea_application_status', 'qualified');
@@ -1205,19 +1230,21 @@ class AdminController extends Controller
             });
         }
 
+        // Filter by college_id if provided (from dropdown)
         if ($collegeId = $request->input('college_id')) {
             $query->where('sa.college_id', $collegeId);
         }
 
+        // Filter by program_id if provided (from dropdown)
         if ($programId = $request->input('program_id')) {
             $query->where('sa.program_id', $programId);
         }
 
         $rows = $query->get();
 
-        $mapped = $rows->map(function ($row) use ($hasSleaStatus) {
+        $mapped = $rows->map(function ($row) use ($hasSleaStatus, $overallMaxPoints) {
             $totalScore = (float) ($row->total_score ?? 0);
-            $maxPoints  = (float) ($row->max_points ?? 0);
+            $maxPoints  = (float) $overallMaxPoints;
 
             $percent = $maxPoints > 0
                 ? round(($totalScore / $maxPoints) * 100, 2)
@@ -1282,8 +1309,10 @@ class AdminController extends Controller
             $record->slea_status     = $statusLabel;
             $record->raw_total_score = $totalScore;
             $record->raw_max_points  = $maxPoints;
+            $record->program_id      = $row->program_id ?? null;
             $record->program_code    = $row->program_code;
             $record->program_name    = $row->program_name;
+            $record->college_id      = $row->college_id ?? null;
             $record->college_name    = $row->college_name;
             $record->student_number  = $row->student_number;
 
@@ -1309,21 +1338,23 @@ class AdminController extends Controller
 
     public function awardReport(Request $request)
     {
-        $college = $request->query('college');
-        $program = $request->query('program');
-        $search  = $request->query('search');
+        $collegeId = $request->query('college_id');
+        $programId = $request->query('program_id');
+        $search    = $request->query('search');
 
         $allRows = $this->buildAwardReportRows($request);
 
         $allStudents = $allRows->map(function ($row) {
             $score = $row->raw_total_score ?? 0;
-            $max   = $row->raw_max_points ?? 0;
+            $max   = $row->raw_max_points ?? 0; // This is already set to overall max (90) in buildAwardReportRows
             return [
                 'id'             => $row->user->id ?? 0,
                 'name'           => $row->user->full_name ?? 'N/A',
                 'student_id'     => $row->student_number ?? 'N/A',
                 'college'        => $row->college_name ?? 'N/A',
+                'college_id'     => $row->college_id ?? null,
                 'program'        => $row->program_name ?? 'N/A',
+                'program_id'     => $row->program_id ?? null,
                 'points'         => round($score, 2),
                 'max_points'     => round($max, 2),
                 'points_display' => number_format($score, 2) . '/' . number_format($max, 2),
@@ -1332,15 +1363,15 @@ class AdminController extends Controller
 
         $filteredStudents = $allStudents;
 
-        if ($college) {
-            $filteredStudents = array_filter($filteredStudents, function ($student) use ($college) {
-                return $student['college'] === $college;
+        if ($collegeId) {
+            $filteredStudents = array_filter($filteredStudents, function ($student) use ($collegeId) {
+                return $student['college_id'] == $collegeId;
             });
         }
 
-        if ($program) {
-            $filteredStudents = array_filter($filteredStudents, function ($student) use ($program) {
-                return $student['program'] === $program;
+        if ($programId) {
+            $filteredStudents = array_filter($filteredStudents, function ($student) use ($programId) {
+                return $student['program_id'] == $programId;
             });
         }
 
@@ -1372,20 +1403,26 @@ class AdminController extends Controller
             ]
         );
 
-        return view('admin.award-report', compact('students'));
+        // Get colleges and programs from database for dropdowns
+        $colleges = class_exists(College::class)
+            ? College::orderBy('name')->get()
+            : collect();
+
+        $programs = class_exists(Program::class)
+            ? Program::with('college')->orderBy('name')->get()
+            : collect();
+
+        return view('admin.award-report', compact('students', 'colleges', 'programs'));
     }
 
     public function exportAwardReport(Request $request)
     {
-        $college = $request->query('college');
-        $program = $request->query('program');
-        $search  = $request->query('search');
-
+        // buildAwardReportRows already handles filtering by college_id, program_id, and search
         $allRows = $this->buildAwardReportRows($request);
 
         $filteredStudents = $allRows->map(function ($row) {
             $score = $row->raw_total_score ?? 0;
-            $max   = $row->raw_max_points ?? 0;
+            $max   = $row->raw_max_points ?? 0; // This is already set to overall max (90) in buildAwardReportRows
             return [
                 'id'             => $row->user->id ?? 0,
                 'name'           => $row->user->full_name ?? 'N/A',
@@ -1397,26 +1434,6 @@ class AdminController extends Controller
                 'points_display' => number_format($score, 2) . '/' . number_format($max, 2),
             ];
         })->toArray();
-
-        if ($college) {
-            $filteredStudents = array_filter($filteredStudents, function ($student) use ($college) {
-                return $student['college'] === $college;
-            });
-        }
-
-        if ($program) {
-            $filteredStudents = array_filter($filteredStudents, function ($student) use ($program) {
-                return $student['program'] === $program;
-            });
-        }
-
-        if ($search) {
-            $searchTerm = strtolower($search);
-            $filteredStudents = array_filter($filteredStudents, function ($student) use ($searchTerm) {
-                return strpos(strtolower($student['name']), $searchTerm) !== false
-                    || strpos(strtolower($student['student_id']), $searchTerm) !== false;
-            });
-        }
 
         $filteredStudents = array_values($filteredStudents);
 

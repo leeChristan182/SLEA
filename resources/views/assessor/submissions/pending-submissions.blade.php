@@ -219,8 +219,13 @@
                             <div class="info-card">
                                 <div class="card-header">
                                     <h6 class="card-title">Rubric-based Score</h6>
+                                    <div class="small text-danger fw-bold mt-1">
+                                        Choose the descriptor that best matches the student's submission.
+                                        The selected points will be recorded as the score.
+                                    </div>
                                 </div>
                                 <div class="card-body">
+                                    <div id="rubricMismatchBanner" class="rubric-mismatch-banner d-none" role="alert"></div>
                                     <div class="rubric-score-header">
                                         <span class="score-label">Selected Score:</span>
                                         <span class="score-pill" id="modalAutoScore">Not calculated</span>
@@ -229,11 +234,6 @@
                                     <div id="rubricOptionsContainer" class="rubric-options-container">
                                         <p class="text-muted mb-0">No rubric options loaded.</p>
                                     </div>
-
-                                    <small class="remarks-note">
-                                        Choose the descriptor that best matches the student's submission.
-                                        The selected points will be recorded as the score.
-                                    </small>
                                 </div>
                             </div>
 
@@ -359,6 +359,54 @@
 
     .assessor-pending-submissions-page .submissions-table {
         width: 100%;
+    }
+
+    /* Rubric mismatch UX (assessor modal) */
+    .rubric-mismatch-banner {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px 12px;
+        margin-bottom: 12px;
+        border: 1px solid rgba(220, 53, 69, 0.35);
+        border-left: 4px solid #dc3545;
+        background: rgba(220, 53, 69, 0.06);
+        color: #842029;
+        border-radius: 10px;
+        font-weight: 600;
+        line-height: 1.35;
+    }
+    .rubric-mismatch-banner .icon {
+        flex: 0 0 auto;
+        margin-top: 1px;
+        color: #dc3545;
+    }
+    .rubric-mismatch-banner .text strong {
+        font-weight: 800;
+    }
+
+    .rubric-option {
+        border: 1px solid transparent;
+        border-radius: 10px;
+        padding: 10px 12px;
+        transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+    .rubric-option.expected {
+        border-color: rgba(25, 135, 84, 0.35);
+        background: rgba(25, 135, 84, 0.05);
+    }
+    .rubric-option.mismatch {
+        border-color: rgba(220, 53, 69, 0.6);
+        background: rgba(220, 53, 69, 0.06);
+    }
+    .rubric-option.mismatch .form-check-label,
+    .rubric-option.mismatch .form-check-label strong,
+    .rubric-option.mismatch .rubric-points {
+        color: #dc3545 !important;
+        font-weight: 700 !important;
+    }
+    .rubric-option.mismatch .form-check-input {
+        accent-color: #dc3545;
     }
 </style>
 <script src="{{ asset('js/admin_pagination.js') }}"></script>

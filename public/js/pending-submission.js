@@ -20,6 +20,99 @@ function setText(id, value) {
     if (el) el.textContent = value;
 }
 
+function normalizeCompareText(v) {
+    return String(v || '')
+        .toLowerCase()
+        .replace(/&/g, 'and')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()
+        .replace(/\s+/g, ' ');
+}
+
+function getCurrentRoleInActivityText() {
+    const roleEl = document.getElementById('modalRole');
+    const raw = roleEl ? roleEl.textContent : '';
+    const role = String(raw || '').trim();
+    return role && role !== '-' ? role : '';
+}
+
+function clearRubricMismatchUI(container) {
+    if (!container) return;
+    container.querySelectorAll('.rubric-option.mismatch').forEach(el => {
+        el.classList.remove('mismatch');
+    });
+    container.querySelectorAll('.rubric-option.expected').forEach(el => {
+        el.classList.remove('expected');
+    });
+
+    const banner = document.getElementById('rubricMismatchBanner');
+    if (banner) {
+        banner.classList.add('d-none');
+        banner.innerHTML = '';
+    }
+}
+
+function setRubricMismatchBanner({ role, selectedLabel }) {
+    const banner = document.getElementById('rubricMismatchBanner');
+    if (!banner) return;
+
+    const safeRole = role ? String(role) : '';
+    const safeSelected = selectedLabel ? String(selectedLabel) : '';
+
+    banner.innerHTML = `
+        <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
+        <div class="text">
+            <div><strong>Mismatch detected.</strong></div>
+            <div>Student’s Role in Activity is <strong>${safeRole}</strong>, but you selected <strong>${safeSelected}</strong>.</div>
+            <div>Please select the matching descriptor before submitting.</div>
+        </div>
+    `;
+    banner.classList.remove('d-none');
+}
+
+function getRoleMatchState(container) {
+    const role = getCurrentRoleInActivityText();
+    if (!role) return { enforce: false };
+
+    const roleNorm = normalizeCompareText(role);
+    if (!roleNorm) return { enforce: false };
+
+    const inputs = Array.from(container.querySelectorAll('input[name="rubric_option"]'));
+    const matchInput = inputs.find(inp =>
+        normalizeCompareText(inp.getAttribute('data-option-label') || '') === roleNorm
+    );
+
+    return {
+        enforce: Boolean(matchInput),
+        role,
+        roleNorm,
+        matchInput: matchInput || null
+    };
+}
+
+function applyRubricMismatchUI({ container, selectedInput }) {
+    if (!container || !selectedInput) return;
+
+    clearRubricMismatchUI(container);
+
+    const state = getRoleMatchState(container);
+    if (!state.enforce) return;
+
+    // Highlight the expected (matching) descriptor to guide the assessor
+    const expectedItem = state.matchInput?.closest('.rubric-option');
+    if (expectedItem) expectedItem.classList.add('expected');
+
+    // If a selection exists, highlight mismatch + show banner
+    const selectedLabel = selectedInput ? (selectedInput.getAttribute('data-option-label') || '') : '';
+    const selectedNorm = normalizeCompareText(selectedLabel);
+
+    if (selectedNorm && selectedNorm !== state.roleNorm) {
+        const item = selectedInput.closest('.rubric-option');
+        if (item) item.classList.add('mismatch');
+        setRubricMismatchBanner({ role: state.role, selectedLabel });
+    }
+}
+
 /* =========================
    MODAL HELPERS (ERROR / VALIDATION / SUCCESS)
    ========================= */
@@ -469,6 +562,7 @@ function populateRubricOptions(options) {
     if (!container) return;
 
     container.innerHTML = '';
+    clearRubricMismatchUI(container);
 
     // CASE 1: option-based rubric
     if (options && options.length > 0) {
@@ -483,7 +577,8 @@ function populateRubricOptions(options) {
                 <input class="form-check-input" type="radio"
                        name="rubric_option" id="rubric_option_${opt.id}"
                        value="${opt.points}"
-                       data-option-id="${opt.id}">
+                       data-option-id="${opt.id}"
+                       data-option-label="${String(opt.label || '').replace(/"/g, '&quot;')}">
                 <label class="form-check-label" for="rubric_option_${opt.id}">
                     <strong>${opt.label}</strong>
                     ${opt.points !== null ? ` <span class="rubric-points">(${opt.points} pts)</span>` : ''}
@@ -494,6 +589,9 @@ function populateRubricOptions(options) {
         });
 
         container.appendChild(list);
+
+        // Always highlight the expected option (if role exists among options)
+        applyRubricMismatchUI({ container, selectedInput: container.querySelector('input[name="rubric_option"]:checked') });
 
         // Update score pill when a descriptor is picked
         const radios = container.querySelectorAll('input[name="rubric_option"]');
@@ -506,6 +604,9 @@ function populateRubricOptions(options) {
                     setText('modalAutoScore', `${pts} pts`);
                 }
                 currentRubricOptionId = !isNaN(optId) ? optId : null;
+
+                // Mismatch warning: if selected descriptor doesn't match Role in Activity
+                applyRubricMismatchUI({ container, selectedInput: input });
             });
         });
 
@@ -599,6 +700,25 @@ window.handleSubmission = async function (action) {
     }
 
     const selectedOption = document.querySelector('input[name="rubric_option"]:checked');
+    const rubricContainer = document.getElementById('rubricOptionsContainer');
+
+    // Block submission if assessor picked a rubric option that mismatches the student's Role in Activity
+    if (selectedOption && rubricContainer) {
+        const state = getRoleMatchState(rubricContainer);
+        if (state.enforce) {
+            const selectedLabel = selectedOption.getAttribute('data-option-label') || '';
+            const selectedNorm = normalizeCompareText(selectedLabel);
+            if (selectedNorm && selectedNorm !== state.roleNorm) {
+                // Ensure UI clearly shows the mismatch
+                applyRubricMismatchUI({ container: rubricContainer, selectedInput: selectedOption });
+                showValidationError(
+                    `Selected rubric descriptor does not match the student's Role in Activity (${state.role}). ` +
+                    `Please select the matching descriptor before submitting.`
+                );
+                return;
+            }
+        }
+    }
 
     // Default score to 0 to avoid NULL inserts
     let totalPoints = 0;

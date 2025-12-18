@@ -950,6 +950,7 @@
             background: #cffafe;
             color: #0e7490;
             border-color: #22d3ee;
+            font-size: 0.7rem;
         }
 
         .slea-status-pill--awarded {

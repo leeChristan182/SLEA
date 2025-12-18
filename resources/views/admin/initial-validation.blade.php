@@ -64,7 +64,7 @@
 
             {{-- Table --}}
             <div class="submissions-table-container">
-                <table class="table submissions-table">
+                <table class="table submissions-table" id="initialValidationTable">
                     <thead>
                         <tr>
                             {{-- Unified info = register fields (minus password/privacy) --}}
@@ -123,7 +123,7 @@
                                 ];
                             @endphp
 
-                            <tr>
+                            <tr class="user-row" data-role="{{ $user->role }}">
                                 <td>{{ $user->full_name }}</td>
                                 <td>{{ $user->email }}</td>
                                 <td>{{ $user->contact ?? '—' }}</td>
@@ -507,18 +507,36 @@
         }
 
         function applyFilters() {
-            const q = document.getElementById('searchInput').value.trim();
-            const role = document.getElementById('roleFilter').value;
+            const table = document.getElementById('initialValidationTable');
+            if (!table) return;
 
-            const form = document.createElement('form');
-            form.method = 'GET';
-            form.action = window.location.pathname;
+            const search = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+            const role = document.getElementById('roleFilter')?.value || '';
 
-            if (q) addHidden(form, 'q', q);
-            if (role) addHidden(form, 'role', role);
+            const rows = table.querySelectorAll('tbody tr.user-row');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length === 0) {
+                    row.style.display = 'none';
+                    return;
+                }
 
-            document.body.appendChild(form);
-            form.submit();
+                const name = (cells[0]?.textContent || '').toLowerCase();
+                const email = (cells[1]?.textContent || '').toLowerCase();
+                const contact = (cells[2]?.textContent || '').toLowerCase();
+                const birthDate = (cells[3]?.textContent || '').toLowerCase();
+                const rowRole = row.dataset.role || '';
+
+                let matchesSearch = !search ||
+                    name.includes(search) ||
+                    email.includes(search) ||
+                    contact.includes(search) ||
+                    birthDate.includes(search);
+
+                let matchesRole = !role || rowRole === role;
+
+                row.style.display = (matchesSearch && matchesRole) ? '' : 'none';
+            });
         }
 
         function addHidden(form, name, value) {
@@ -529,8 +547,17 @@
             form.appendChild(i);
         }
 
-        // Show success modal after approve/reject
+        // Live search on input
         document.addEventListener('DOMContentLoaded', function () {
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', applyFilters);
+            }
+
+            const roleFilter = document.getElementById('roleFilter');
+            if (roleFilter) {
+                roleFilter.addEventListener('change', applyFilters);
+            }
             const statusAlert = document.querySelector('.alert-success');
             if (statusAlert) {
                 const statusText = statusAlert.textContent.trim();

@@ -65,7 +65,7 @@
 
             <!-- Table -->
             <div class="submissions-table-container">
-                <table class="table submissions-table">
+                <table class="table submissions-table" id="programsTable">
                     <thead>
                         <tr>
                             <th>Program Name</th>
@@ -77,7 +77,7 @@
                     </thead>
                     <tbody>
                         @forelse ($programs as $program)
-                            <tr>
+                            <tr class="program-row" data-college-id="{{ $program->college_id }}">
                                 <td>{{ $program->name }}</td>
                                 <td>{{ $program->college->name ?? '—' }}</td>
                                 <td>{{ $program->code ?? '—' }}</td>
@@ -386,7 +386,53 @@
         }
 
         // Auto-close success modal after 3 seconds
+        function applyLiveSearch() {
+            const table = document.getElementById('programsTable');
+            if (!table) return;
+
+            const search = (document.getElementById('q')?.value || '').toLowerCase().trim();
+            const collegeFilter = document.getElementById('college_filter')?.value || '';
+
+            const rows = table.querySelectorAll('tbody tr.program-row');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length === 0) {
+                    row.style.display = 'none';
+                    return;
+                }
+
+                const programName = (cells[0]?.textContent || '').toLowerCase();
+                const college = (cells[1]?.textContent || '').toLowerCase();
+                const code = (cells[2]?.textContent || '').toLowerCase();
+                const majorsCount = (cells[3]?.textContent || '').toLowerCase();
+                const rowCollegeId = row.dataset.collegeId || '';
+
+                let matchesSearch = !search ||
+                    programName.includes(search) ||
+                    college.includes(search) ||
+                    code.includes(search) ||
+                    majorsCount.includes(search);
+
+                let matchesCollege = !collegeFilter || rowCollegeId === collegeFilter;
+
+                row.style.display = (matchesSearch && matchesCollege) ? '' : 'none';
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
+            // Live search on input
+            const searchInput = document.getElementById('q');
+            if (searchInput) {
+                searchInput.addEventListener('input', applyLiveSearch);
+            }
+
+            const collegeFilter = document.getElementById('college_filter');
+            if (collegeFilter) {
+                collegeFilter.addEventListener('change', function() {
+                    // Still submit form for college filter (to update pagination)
+                    document.getElementById('filterForm').submit();
+                });
+            }
             const successModal = document.getElementById('successModal');
             if (successModal && successModal.style.display === 'flex') {
                 setTimeout(() => {

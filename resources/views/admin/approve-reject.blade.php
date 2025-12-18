@@ -69,7 +69,7 @@
 
         {{-- Table --}}
         <div class="submissions-table-container">
-            <table class="table submissions-table">
+            <table class="table submissions-table" id="approveRejectTable">
                 <thead>
                     <tr>
                         <th>User Code</th>
@@ -86,7 +86,7 @@
                             $fullName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
                         @endphp
 
-                        <tr>
+                        <tr class="user-row">
                             <td>
                                 @if(!empty($user->user_code))
                                     {{ $user->user_code }}
@@ -592,16 +592,46 @@
         event.preventDefault();
         const searchInput = document.getElementById('searchInput');
         if (searchInput) searchInput.value = '';
+        applyLiveSearch();
+    }
 
-        const form = document.createElement('form');
-        form.method = 'GET';
-        form.action = window.location.pathname;
-        document.body.appendChild(form);
-        form.submit();
+    function applyLiveSearch() {
+        const table = document.getElementById('approveRejectTable');
+        if (!table) return;
+
+        const search = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+        const rows = table.querySelectorAll('tbody tr.user-row');
+
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length === 0) {
+                row.style.display = 'none';
+                return;
+            }
+
+            const userCode = (cells[0]?.textContent || '').toLowerCase();
+            const name = (cells[1]?.textContent || '').toLowerCase();
+            const email = (cells[2]?.textContent || '').toLowerCase();
+            const registeredAt = (cells[3]?.textContent || '').toLowerCase();
+
+            const matches = !search ||
+                userCode.includes(search) ||
+                name.includes(search) ||
+                email.includes(search) ||
+                registeredAt.includes(search);
+
+            row.style.display = matches ? '' : 'none';
+        });
     }
 
     // Character counter for rejection reason
     document.addEventListener('DOMContentLoaded', function () {
+        // Live search on input
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', applyLiveSearch);
+        }
+
         const reasonTextarea = document.getElementById('rejectionReasonText');
         const charCount = document.getElementById('charCount');
         

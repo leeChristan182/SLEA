@@ -705,39 +705,57 @@
                     return;
                 @endif
 
-                // 5) Success modal (then OTP follow-up if needed)
+                // 5) Success modal (then OTP follow-up if needed) - skip on page refresh
                 @if (session('status'))
-                    var successModalEl = document.getElementById('loginSuccessModal');
-                    if (successModalEl) {
-                        var successModal = new bootstrap.Modal(successModalEl, {
-                            backdrop: true
-                        });
-                        var isOtpFollowup = successModalEl.getAttribute('data-otp-followup') === 'true';
-
-                        // Add blur to backdrop when modal is shown
-                        successModalEl.addEventListener('shown.bs.modal', function () {
-                            var backdrop = document.querySelector('.modal-backdrop');
-                            if (backdrop) {
-                                backdrop.style.backdropFilter = 'blur(10px)';
-                                backdrop.style.webkitBackdropFilter = 'blur(10px)';
-                                backdrop.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-                            }
-                        });
-
-                        if (isOtpFollowup) {
-                            successModalEl.addEventListener('hidden.bs.modal', function () {
-                                setTimeout(function () {
-                                    new bootstrap.Modal(document.getElementById('otpModal')).show();
-                                }, 100);
-                            }, { once: true });
+                    // Check if this is a page refresh
+                    var isPageRefresh = false;
+                    try {
+                        var navEntries = performance.getEntriesByType('navigation');
+                        if (navEntries.length > 0) {
+                            isPageRefresh = navEntries[0].type === 'reload';
+                        } else if (performance.navigation) {
+                            isPageRefresh = performance.navigation.type === 1; // TYPE_RELOAD
                         }
+                    } catch(e) {
+                        var referrer = document.referrer;
+                        var currentOrigin = window.location.origin;
+                        isPageRefresh = !referrer || (referrer && !referrer.startsWith(currentOrigin));
+                    }
+                    
+                    // Only show success modal if it's NOT a refresh
+                    if (!isPageRefresh) {
+                        var successModalEl = document.getElementById('loginSuccessModal');
+                        if (successModalEl) {
+                            var successModal = new bootstrap.Modal(successModalEl, {
+                                backdrop: true
+                            });
+                            var isOtpFollowup = successModalEl.getAttribute('data-otp-followup') === 'true';
 
-                        successModal.show();
+                            // Add blur to backdrop when modal is shown
+                            successModalEl.addEventListener('shown.bs.modal', function () {
+                                var backdrop = document.querySelector('.modal-backdrop');
+                                if (backdrop) {
+                                    backdrop.style.backdropFilter = 'blur(10px)';
+                                    backdrop.style.webkitBackdropFilter = 'blur(10px)';
+                                    backdrop.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                                }
+                            });
+
+                            if (isOtpFollowup) {
+                                successModalEl.addEventListener('hidden.bs.modal', function () {
+                                    setTimeout(function () {
+                                        new bootstrap.Modal(document.getElementById('otpModal')).show();
+                                    }, 100);
+                                }, { once: true });
+                            }
+
+                            successModal.show();
+                        }
                     }
                     return;
                 @endif
 
-            // 6) OTP modal direct open (skip for admin accounts)
+            // 6) OTP modal direct open (skip for admin accounts, skip on page refresh)
             @if (session('show_otp_modal') || session()->has('otp_pending_user_id'))
                 @php
                     $pendingUserId = session('otp_pending_user_id');
@@ -752,7 +770,30 @@
                     }
                 @endphp
                 @if ($shouldShowOtp)
-                    new bootstrap.Modal(document.getElementById('otpModal')).show();
+                    // Only show OTP modal if this is NOT a page refresh
+                    // Check if page was loaded via refresh (no referrer or referrer is external) vs redirect (same-origin referrer)
+                    var isPageRefresh = false;
+                    try {
+                        var navEntries = performance.getEntriesByType('navigation');
+                        if (navEntries.length > 0) {
+                            isPageRefresh = navEntries[0].type === 'reload';
+                        } else if (performance.navigation) {
+                            // Fallback for older browsers
+                            isPageRefresh = performance.navigation.type === 1; // TYPE_RELOAD
+                        }
+                    } catch(e) {
+                        // If navigation API not available, check referrer
+                        var referrer = document.referrer;
+                        var currentOrigin = window.location.origin;
+                        // If no referrer or referrer is from different origin, likely a refresh
+                        isPageRefresh = !referrer || (referrer && !referrer.startsWith(currentOrigin));
+                    }
+                    
+                    // Only show OTP modal if it's NOT a refresh (i.e., it's a redirect from login action)
+                    if (!isPageRefresh) {
+                        new bootstrap.Modal(document.getElementById('otpModal')).show();
+                    }
+                    // If it's a refresh, don't show the modal (session data will be cleared on next login attempt)
                     return;
                 @endif
             @endif
