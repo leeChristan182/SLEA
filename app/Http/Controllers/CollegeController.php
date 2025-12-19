@@ -7,6 +7,7 @@ use App\Models\Program;
 use App\Models\Major;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 
 class CollegeController extends Controller
 {
@@ -14,7 +15,6 @@ class CollegeController extends Controller
     {
         $query = College::query();
 
-        // Filter by college if selected
         if ($collegeFilter = $request->input('college_filter')) {
             $query->where('id', $collegeFilter);
         }
@@ -26,7 +26,12 @@ class CollegeController extends Controller
             });
         }
 
-        $colleges = $query->with(['programs.majors'])->orderBy('name')->paginate(10)->withQueryString();
+        $colleges = $query
+            ->with(['programs.majors'])
+            ->orderBy('name')
+            ->paginate(10)
+            ->withQueryString();
+
         $allColleges = College::orderBy('name')->get();
 
         return view('admin.colleges.index', compact('colleges', 'allColleges'));
@@ -47,81 +52,83 @@ class CollegeController extends Controller
                 'max:50',
                 Rule::unique('colleges', 'code'),
             ],
-            'programs' => ['nullable', 'array'],
+            'programs'   => ['nullable', 'array'],
             'programs.*' => ['required', 'string', 'max:150'],
         ], [
             'name.required' => 'College name is required.',
-            'name.unique' => 'This college already exists.',
-            'code.unique' => 'This code is already in use.',
+            'name.unique'   => 'This college already exists.',
+            'code.unique'   => 'This code is already in use.',
         ]);
 
-        $college = College::create([
-            'name' => $data['name'],
-            'code' => $data['code'] ?? null,
-        ]);
+        return DB::transaction(function () use ($data) {
+            $college = College::create([
+                'name' => $data['name'],
+                'code' => $data['code'] ?? null,
+            ]);
 
-        $message = 'College added successfully.';
+            $message = 'College added successfully.';
 
-        // Create programs if provided
-        if (!empty($data['programs'])) {
-            $createdCount = 0;
-            $skippedCount = 0;
-            
-            foreach ($data['programs'] as $programName) {
-                $programName = trim($programName);
-                if (!empty($programName)) {
-                    // Check if program already exists in this college
+            if (!empty($data['programs'])) {
+                $createdCount = 0;
+                $skippedCount = 0;
+
+                foreach ($data['programs'] as $programName) {
+                    $programName = trim((string) $programName);
+                    if ($programName === '') continue;
+
                     $exists = Program::where('college_id', $college->id)
                         ->where('name', $programName)
                         ->exists();
-                    
-                    if (!$exists) {
-                        $program = Program::create([
-                            'name' => $programName,
-                            'college_id' => $college->id,
-                        ]);
-                        
-                        // Create a default major for each program
-                        Major::create([
-                            'name' => $programName,
-                            'program_id' => $program->id,
-                        ]);
-                        $createdCount++;
-                    } else {
+
+                    if ($exists) {
                         $skippedCount++;
+                        continue;
                     }
+
+                    $program = Program::create([
+                        'name'       => $programName,
+                        'college_id' => $college->id,
+                    ]);
+
+                    // If you *want* a default major equal to program name, keep this.
+                    Major::create([
+                        'name'       => $programName,
+                        'program_id' => $program->id,
+                    ]);
+
+                    $createdCount++;
+                }
+
+                if ($skippedCount > 0) {
+                    $message = "College added. {$createdCount} program(s) added, {$skippedCount} duplicate(s) skipped.";
+                } elseif ($createdCount > 0) {
+                    $message = "College and {$createdCount} program(s) added successfully.";
                 }
             }
-            
-            if ($skippedCount > 0) {
-                $message = "College added. {$createdCount} program(s) added, {$skippedCount} duplicate(s) skipped.";
-            } else if ($createdCount > 0) {
-                $message = "College and {$createdCount} program(s) added successfully.";
-            }
-        }
 
-        return back()->with('success', $message);
+            return back()->with('success', $message);
+        });
     }
 
     public function getProgramsMajors(College $college)
     {
         $college->load(['programs.majors']);
-        
+
         return response()->json([
             'programs' => $college->programs->map(function ($program) {
                 return [
-                    'id' => $program->id,
+                    'id'   => $program->id,
                     'name' => $program->name,
                     'code' => $program->code,
                     'majors' => $program->majors->map(function ($major) {
                         return [
-                            'id' => $major->id,
-                            'major_name' => $major->major_name,
+                            'id'   => $major->id,
+                            'name' => $major->name, // ✅ consistent
                             'code' => $major->code,
                         ];
-                    }),
+                    })->values(),
                 ];
-            }),
+            })->values(),
         ]);
     }
 
@@ -140,97 +147,117 @@ class CollegeController extends Controller
                 'max:50',
                 Rule::unique('colleges', 'code')->ignore($college->id),
             ],
+
             'edit_programs' => ['nullable', 'array'],
-            'edit_programs.*.id' => ['nullable', 'integer', 'exists:programs,id'],
+
+            'edit_programs.*.id'   => ['nullable', 'integer', 'exists:programs,id'],
             'edit_programs.*.name' => ['required_with:edit_programs', 'string', 'max:150'],
             'edit_programs.*.code' => ['nullable', 'string', 'max:50'],
+
             'edit_programs.*.majors' => ['nullable', 'array'],
-            'edit_programs.*.majors.*.id' => ['nullable', 'integer', 'exists:majors,id'],
+            'edit_programs.*.majors.*.id'   => ['nullable', 'integer', 'exists:majors,id'],
             'edit_programs.*.majors.*.name' => ['nullable', 'string', 'max:150'],
         ], [
             'name.required' => 'College name is required.',
-            'name.unique' => 'This college already exists.',
-            'code.unique' => 'This code is already in use.',
+            'name.unique'   => 'This college already exists.',
+            'code.unique'   => 'This code is already in use.',
         ]);
 
-        $college->update([
-            'name' => $data['name'],
-            'code' => $data['code'] ?? null,
-        ]);
+        return DB::transaction(function () use ($data, $college) {
 
-        // Handle programs, majors, and codes if provided
-        if (!empty($data['edit_programs'])) {
-            foreach ($data['edit_programs'] as $programData) {
-                if (!empty($programData['id'])) {
-                    // Update existing program
-                    $program = Program::find($programData['id']);
-                    if ($program && $program->college_id == $college->id) {
+            $college->update([
+                'name' => $data['name'],
+                'code' => $data['code'] ?? null,
+            ]);
+
+            if (!empty($data['edit_programs'])) {
+                foreach ($data['edit_programs'] as $programData) {
+
+                    // ----------------------------
+                    // UPDATE EXISTING PROGRAM
+                    // ----------------------------
+                    if (!empty($programData['id'])) {
+                        $program = Program::find($programData['id']);
+
+                        if (!$program || (int)$program->college_id !== (int)$college->id) {
+                            continue; // ignore tampered IDs
+                        }
+
                         $program->update([
                             'name' => $programData['name'],
                             'code' => $programData['code'] ?? null,
                         ]);
-                        
-                        // Handle majors
-                        $existingMajorIds = $program->majors->pluck('id')->toArray();
-                        $submittedMajorIds = collect($programData['majors'] ?? [])
-                            ->pluck('id')
-                            ->filter()
-                            ->toArray();
-                        
-                        // Delete majors that were removed
-                        Major::where('program_id', $program->id)
-                            ->whereNotIn('id', $submittedMajorIds)
-                            ->delete();
-                        
-                        if (!empty($programData['majors'])) {
-                            foreach ($programData['majors'] as $majorData) {
-                                if (!empty($majorData['name'])) {
-                                    if (!empty($majorData['id'])) {
-                                        // Update existing major
-                                        $major = Major::find($majorData['id']);
-                                        if ($major && $major->program_id == $program->id) {
-                                            $major->update([
-                                                'name' => $majorData['name'],
-                                            ]);
-                                        }
-                                    } else {
-                                        // Create new major
-                                        Major::create([
-                                            'name' => $majorData['name'],
-                                            'program_id' => $program->id,
-                                        ]);
+
+                        // Majors handling
+                        if (array_key_exists('majors', $programData)) {
+                            $majorsPayload = $programData['majors'] ?? [];
+
+                            // IDs submitted (existing majors kept)
+                            $submittedMajorIds = collect($majorsPayload)
+                                ->pluck('id')
+                                ->filter()
+                                ->map(fn($v) => (int)$v)
+                                ->toArray();
+
+                            // ✅ Only delete "removed" majors if there is at least one submitted id.
+                            // If user deleted all majors intentionally, you’ll typically receive majors=[]
+                            // and we handle that case below.
+                            if (!empty($submittedMajorIds)) {
+                                $program->majors()
+                                    ->whereNotIn('id', $submittedMajorIds)
+                                    ->delete();
+                            }
+
+                            // If majors array exists but is empty => user removed all majors
+                            if (is_array($majorsPayload) && count($majorsPayload) === 0) {
+                                $program->majors()->delete();
+                                continue;
+                            }
+
+                            // Upsert majors
+                            foreach ($majorsPayload as $majorData) {
+                                $majorName = trim((string)($majorData['name'] ?? ''));
+                                if ($majorName === '') continue;
+
+                                if (!empty($majorData['id'])) {
+                                    $major = Major::find($majorData['id']);
+                                    if ($major && (int)$major->program_id === (int)$program->id) {
+                                        $major->update(['name' => $majorName]);
                                     }
+                                } else {
+                                    $program->majors()->create(['name' => $majorName]);
                                 }
                             }
-                        } else {
-                            // If no majors submitted, delete all existing majors for this program
-                            Major::where('program_id', $program->id)->delete();
                         }
+
+                        continue;
                     }
-                } else {
-                    // Create new program
+
+                    // ----------------------------
+                    // CREATE NEW PROGRAM
+                    // ----------------------------
                     $program = Program::create([
-                        'name' => $programData['name'],
+                        'name'       => $programData['name'],
                         'college_id' => $college->id,
-                        'code' => $programData['code'] ?? null,
+                        'code'       => $programData['code'] ?? null,
                     ]);
-                    
-                    // Handle majors for new program
+
+                    // Majors for new program
                     if (!empty($programData['majors'])) {
                         foreach ($programData['majors'] as $majorData) {
-                            if (!empty($majorData['name'])) {
-                                Major::create([
-                                    'name' => $majorData['name'],
-                                    'program_id' => $program->id,
-                                ]);
-                            }
+                            $majorName = trim((string)($majorData['name'] ?? ''));
+                            if ($majorName === '') continue;
+
+                            $program->majors()->create([
+                                'name' => $majorName,
+                            ]);
                         }
                     }
                 }
             }
-        }
 
-        return back()->with('success', 'College updated successfully.');
+            return back()->with('success', 'College updated successfully.');
+        });
     }
 
     public function storeProgram(Request $request)
@@ -241,8 +268,7 @@ class CollegeController extends Controller
                 'required',
                 'string',
                 'max:150',
-                Rule::unique('programs', 'name')
-                    ->where(fn($q) => $q->where('college_id', $request->college_id)),
+                Rule::unique('programs', 'name')->where(fn($q) => $q->where('college_id', $request->college_id)),
             ],
             'program_code' => [
                 'nullable',
@@ -252,39 +278,39 @@ class CollegeController extends Controller
             ],
             'major_name' => ['nullable', 'string', 'max:150'],
         ], [
-            'college_id.required' => 'Please select a college.',
+            'college_id.required'   => 'Please select a college.',
             'program_name.required' => 'Program name is required.',
-            'program_name.unique' => 'This program already exists in this college.',
-            'program_code.unique' => 'This code is already in use.',
+            'program_name.unique'   => 'This program already exists in this college.',
+            'program_code.unique'   => 'This code is already in use.',
         ]);
 
-        $program = Program::create([
-            'name' => $data['program_name'],
-            'college_id' => $data['college_id'],
-            'code' => $data['program_code'] ?? null,
-        ]);
+        return DB::transaction(function () use ($data) {
 
-        // Create major only if provided
-        if (!empty($data['major_name'])) {
-            Major::create([
-                'name' => trim($data['major_name']),
-                'program_id' => $program->id,
+            $program = Program::create([
+                'name'       => $data['program_name'],
+                'college_id' => $data['college_id'],
+                'code'       => $data['program_code'] ?? null,
             ]);
-        }
 
-        $message = !empty($data['major_name'])
-            ? 'Program and major added successfully.'
-            : 'Program added successfully.';
+            if (!empty($data['major_name'])) {
+                $program->majors()->create([
+                    'name' => trim((string)$data['major_name']),
+                ]);
+            }
 
-        return back()->with('success', $message);
+            $message = !empty($data['major_name'])
+                ? 'Program and major added successfully.'
+                : 'Program added successfully.';
+
+            return back()->with('success', $message);
+        });
     }
 
     public function destroy(College $college)
     {
-        // Check if college has programs
         if ($college->programs()->count() > 0) {
             return back()->withErrors([
-                'college' => 'Cannot delete college. It has associated programs. Please delete or reassign programs first.'
+                'college' => 'Cannot delete college. It has associated programs. Please delete or reassign programs first.',
             ]);
         }
 
@@ -295,4 +321,3 @@ class CollegeController extends Controller
             ->with('success', 'College deleted successfully.');
     }
 }
-
