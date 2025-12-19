@@ -27,7 +27,8 @@
                     <div class="filter-row d-flex align-items-end flex-wrap gap-2">
                         <div class="filter-item">
                             <label for="college_filter">College</label>
-                            <select name="college_filter" id="college_filter" class="filter-select" onchange="document.getElementById('filterForm').submit()">
+                            <select name="college_filter" id="college_filter" class="filter-select"
+                                onchange="document.getElementById('filterForm').submit()">
                                 <option value="">All Colleges</option>
                                 @foreach ($allColleges as $college)
                                     <option value="{{ $college->id }}" {{ request('college_filter') == $college->id ? 'selected' : '' }}>
@@ -49,26 +50,22 @@
                         </div>
 
                         <div class="filter-actions d-flex align-items-center gap-2">
-                            <button type="button"
-                                class="btn-export-enhanced btn-icon-only"
-                                onclick="openCollegeModal()"
-                                title="Add College"
-                                aria-label="Add College">
+                            <button type="button" class="btn-export-enhanced btn-icon-only" onclick="openCollegeModal()"
+                                title="Add College" aria-label="Add College">
                                 <span class="btn-icon-stack" aria-hidden="true">
                                     <i class="fas fa-plus"></i>
                                     <i class="fas fa-school"></i>
                                 </span>
                             </button>
-                            <button type="button"
-                                class="btn-export-enhanced btn-icon-only"
-                                onclick="openProgramModal()"
-                                title="Add Program"
-                                aria-label="Add Program">
+
+                            <button type="button" class="btn-export-enhanced btn-icon-only" onclick="openProgramModal()"
+                                title="Add Program" aria-label="Add Program">
                                 <span class="btn-icon-stack" aria-hidden="true">
                                     <i class="fas fa-plus"></i>
                                     <i class="fas fa-book"></i>
                                 </span>
                             </button>
+
                             <a href="{{ route('admin.colleges.index') }}" class="btn btn-secondary">
                                 <i class="fas fa-times"></i> Clear
                             </a>
@@ -107,14 +104,14 @@
                                 <td>
                                     <div class="action-buttons-group">
                                         <button class="btn-edit" title="Edit" data-college-id="{{ $college->id }}"
-                                            data-college-name="{{ $college->name }}" 
+                                            data-college-name="{{ $college->name }}"
                                             data-college-code="{{ $college->code ?? '' }}"
                                             onclick="openCollegeModalFromButton(this)">
                                             <i class="fas fa-edit"></i>
                                         </button>
 
-                                        <button type="button" class="btn-delete" title="Delete" data-college-id="{{ $college->id }}"
-                                            data-college-name="{{ $college->name }}"
+                                        <button type="button" class="btn-delete" title="Delete"
+                                            data-college-id="{{ $college->id }}" data-college-name="{{ $college->name }}"
                                             onclick="openDeleteModalFromButton(this)">
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
@@ -171,11 +168,10 @@
                     of {{ $colleges->total() }} colleges
                 </div>
             @endif
-
         </main>
     </div>
 
-    <!-- Delete Confirmation Modal -->
+    <!-- Delete Modal -->
     <div id="deleteModal" class="org-modal" style="display: none !important;">
         <div class="modal-dialog org-modal-dialog">
             <div class="modal-content delete-modal-content p-4 rounded-3 shadow">
@@ -189,7 +185,8 @@
                     <div class="delete-icon">
                         <i class="fas fa-exclamation-triangle"></i>
                     </div>
-                    <p class="delete-message">Are you sure you want to delete this college? This action cannot be undone.</p>
+                    <p class="delete-message">Are you sure you want to delete this college? This action cannot be undone.
+                    </p>
                     <p class="delete-org-name" id="deleteCollegeName"></p>
                 </div>
                 <div class="button-group">
@@ -204,9 +201,9 @@
         </div>
     </div>
 
-    <!-- Success Modal - Moved outside container for proper viewport coverage -->
+    <!-- Success Modal -->
     @if (session('success'))
-        <div id="successModal" class="success-modal" style="display: flex !important; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 99999 !important;">
+        <div id="successModal" class="success-modal" style="display: flex !important;">
             <div class="success-modal-content">
                 <div class="success-modal-header">
                     <button type="button" class="success-close-btn" onclick="closeSuccessModal()" aria-label="Close">
@@ -239,49 +236,48 @@
                     <input type="hidden" id="college_id" name="id">
 
                     <div class="form-fields-container">
-                        {{-- Note at the top --}}
                         <div class="alert alert-info mb-4" id="editNote" style="display: none;">
                             <i class="fas fa-info-circle me-2"></i>
-                            <strong>Note:</strong> Edit program names and codes. Use the "Add Program" button in the main page to add new programs.
+                            <strong>Note:</strong> Edit program names and codes. Use the "Add Program" button in the main
+                            page to add new programs.
                         </div>
 
-                        {{-- College Name (required) --}}
                         <div class="form-group">
                             <label for="name">College Name <span class="required">*</span></label>
                             <input type="text" id="name" name="name" class="form-control form-control-lg" required>
                         </div>
 
-                        {{-- Code --}}
                         <div class="form-group">
                             <label for="code">Code</label>
-                            <input type="text" id="code" name="code" class="form-control form-control-lg" placeholder="Optional">
+                            <input type="text" id="code" name="code" class="form-control form-control-lg"
+                                placeholder="Optional">
                         </div>
 
-                        {{-- Programs Section (only shown when editing) --}}
+                        <!-- Edit programs -->
                         <div id="editProgramsGroup" style="display: none;">
                             <div class="form-group programs-section">
                                 <label>Programs</label>
-                                <div id="programsEditContainer" class="programs-edit-container">
-                                    {{-- Will be populated by JavaScript --}}
-                                </div>
+                                <div id="programsEditContainer" class="programs-edit-container"></div>
                             </div>
                         </div>
 
-                        {{-- Add College Programs Section (only shown when adding) --}}
+                        <!-- Add programs tags -->
                         <div class="form-group" id="programsGroup" style="display: none;">
                             <label for="programsInput">Programs</label>
                             <div class="programs-tags-container">
                                 <div id="programsTags" class="programs-tags"></div>
-                                <input type="text" id="programsInput" class="form-control form-control-lg" placeholder="Type program name and press Enter">
+                                <input type="text" id="programsInput" class="form-control form-control-lg"
+                                    placeholder="Type program name and press Enter">
                             </div>
-                            <input type="hidden" id="programsHidden" name="programs[]" value="">
-                            <small class="form-text text-muted">Press Enter after each program name to add it as a tag.</small>
+                            <small class="form-text text-muted">Press Enter after each program name to add it as a
+                                tag.</small>
                         </div>
                     </div>
 
                     <div class="button-group">
                         <button type="submit" class="save-btn btn btn-primary">Save</button>
-                        <button type="button" class="cancel-btn btn btn-secondary" onclick="closeCollegeModal()">Cancel</button>
+                        <button type="button" class="cancel-btn btn btn-secondary"
+                            onclick="closeCollegeModal()">Cancel</button>
                     </div>
                 </form>
             </div>
@@ -314,25 +310,29 @@
 
                         <div class="form-group">
                             <label for="program_name">Program <span class="required">*</span></label>
-                            <input type="text" id="program_name" name="program_name" class="form-control form-control-lg" placeholder="Enter program name" required>
+                            <input type="text" id="program_name" name="program_name" class="form-control form-control-lg"
+                                placeholder="Enter program name" required>
                         </div>
 
                         <div class="form-group">
                             <label for="program_code">Code</label>
-                            <input type="text" id="program_code" name="program_code" class="form-control form-control-lg" placeholder="Optional - Enter program code" maxlength="50">
+                            <input type="text" id="program_code" name="program_code" class="form-control form-control-lg"
+                                placeholder="Optional - Enter program code" maxlength="50">
                             <small class="form-text text-muted">Optional: Add a code for this program.</small>
                         </div>
 
                         <div class="form-group">
                             <label for="program_major_name">Major</label>
-                            <input type="text" id="program_major_name" name="major_name" class="form-control form-control-lg" placeholder="Optional - Enter major name">
+                            <input type="text" id="program_major_name" name="major_name"
+                                class="form-control form-control-lg" placeholder="Optional - Enter major name">
                             <small class="form-text text-muted">Optional: Add a major for this program.</small>
                         </div>
                     </div>
 
                     <div class="button-group">
                         <button type="submit" class="save-btn btn btn-primary">Save</button>
-                        <button type="button" class="cancel-btn btn btn-secondary" onclick="closeProgramModal()">Cancel</button>
+                        <button type="button" class="cancel-btn btn btn-secondary"
+                            onclick="closeProgramModal()">Cancel</button>
                     </div>
                 </form>
             </div>
@@ -344,22 +344,32 @@
     <script>
         const collegeBaseUrl = "{{ url('admin/colleges') }}";
 
-        function openCollegeModal(college = null) {
-            const modal = document.getElementById('collegeModal');
-            const title = document.getElementById('collegeModalTitle');
-            const form = document.getElementById('collegeForm');
-
-            if (!modal) return;
-
-            // Prevent body scroll
+        /* ----------------------------
+           Modal helpers
+        ----------------------------- */
+        function lockBody() {
             document.body.style.overflow = 'hidden';
             document.body.style.position = 'fixed';
             document.body.style.width = '100%';
             document.body.style.height = '100%';
             document.body.style.top = '0';
             document.body.style.left = '0';
+        }
+        function unlockBody() {
+            document.body.style.overflow = '';
+            document.body.style.position = '';
+            document.body.style.width = '';
+            document.body.style.height = '';
+            document.body.style.top = '';
+            document.body.style.left = '';
+        }
+        function showModal(modal) {
+            if (!modal) return;
 
-            // Ensure modal covers full viewport
+            // move to body to avoid container constraints
+            if (modal.parentElement !== document.body) document.body.appendChild(modal);
+
+            lockBody();
             modal.style.display = 'flex';
             modal.style.position = 'fixed';
             modal.style.top = '0';
@@ -368,9 +378,94 @@
             modal.style.bottom = '0';
             modal.style.width = '100vw';
             modal.style.height = '100vh';
-            modal.style.margin = '0';
-            modal.style.padding = '0';
+        }
+        function hideModal(modal) {
+            if (!modal) return;
+            modal.style.display = 'none';
+            unlockBody();
+        }
 
+        /* ----------------------------
+           Program tags (Add College)
+        ----------------------------- */
+        let programTags = [];
+
+        function addProgramTag(name) {
+            name = (name || '').trim();
+            if (!name) return;
+
+            const exists = programTags.some(t => t.toLowerCase() === name.toLowerCase());
+            if (exists) return;
+
+            programTags.push(name);
+            renderProgramTags();
+            updateProgramsHiddenInputs();
+        }
+
+        function removeProgramTagByValue(value) {
+            programTags = programTags.filter(t => t !== value);
+            renderProgramTags();
+            updateProgramsHiddenInputs();
+        }
+
+        function clearProgramTags() {
+            programTags = [];
+            renderProgramTags();
+            updateProgramsHiddenInputs();
+        }
+
+        function renderProgramTags() {
+            const container = document.getElementById('programsTags');
+            if (!container) return;
+
+            container.innerHTML = '';
+            programTags.forEach(tag => {
+                const tagEl = document.createElement('span');
+                tagEl.className = 'program-tag';
+                tagEl.innerHTML = `
+                <span class="tag-text"></span>
+                <button type="button" class="tag-remove" aria-label="Remove program">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+                tagEl.querySelector('.tag-text').textContent = tag;
+
+                const btn = tagEl.querySelector('.tag-remove');
+                btn.dataset.value = tag;
+                btn.addEventListener('click', () => removeProgramTagByValue(tag));
+
+                container.appendChild(tagEl);
+            });
+        }
+
+        function updateProgramsHiddenInputs() {
+            const form = document.getElementById('collegeForm');
+            if (!form) return;
+
+            // Remove all existing programs[] inputs
+            form.querySelectorAll('input[name="programs[]"]').forEach(i => i.remove());
+
+            // Add one hidden input per tag
+            programTags.forEach(tag => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'programs[]';
+                input.value = tag;
+                form.appendChild(input);
+            });
+        }
+
+        /* ----------------------------
+           College modal open/close
+        ----------------------------- */
+        function openCollegeModal(college = null) {
+            const modal = document.getElementById('collegeModal');
+            const title = document.getElementById('collegeModalTitle');
+            const form = document.getElementById('collegeForm');
+
+            if (!modal || !form) return;
+
+            // remove previous PUT method if any
             const existingMethod = form.querySelector('input[name="_method"]');
             if (existingMethod) existingMethod.remove();
 
@@ -390,141 +485,163 @@
                 document.getElementById('college_id').value = college.id ?? '';
                 if (nameInput) nameInput.value = college.name ?? '';
                 if (codeInput) codeInput.value = college.code ?? '';
-                
-                // Hide programs field when editing, show edit programs group
-                const programsGroup = document.getElementById('programsGroup');
-                if (programsGroup) programsGroup.style.display = 'none';
+
+                // UI switch: editing
+                document.getElementById('programsGroup').style.display = 'none';
+                document.getElementById('editNote').style.display = 'block';
+                document.getElementById('editProgramsGroup').style.display = 'block';
+
                 clearProgramTags();
-                
-                // Show note when editing
-                const editNote = document.getElementById('editNote');
-                if (editNote) editNote.style.display = 'block';
-                
-                // Show and populate programs for editing
-                const editProgramsGroup = document.getElementById('editProgramsGroup');
-                if (editProgramsGroup) {
-                    editProgramsGroup.style.display = 'block';
-                    populateEditProgramsFields(college.programs || []);
-                }
+                populateEditProgramsFields(college.programs || []);
             } else {
                 title.textContent = 'Add College';
                 form.action = '{{ route("admin.colleges.store") }}';
                 form.reset();
+
                 document.getElementById('college_id').value = '';
-                
-                // Hide note when adding
-                const editNote = document.getElementById('editNote');
-                if (editNote) editNote.style.display = 'none';
-                
-                // Show programs field when adding, hide edit programs group
-                const programsGroup = document.getElementById('programsGroup');
-                if (programsGroup) programsGroup.style.display = 'block';
+
+                // UI switch: adding
+                document.getElementById('programsGroup').style.display = 'block';
+                document.getElementById('editNote').style.display = 'none';
+                document.getElementById('editProgramsGroup').style.display = 'none';
+                document.getElementById('programsEditContainer').innerHTML = '';
+
                 clearProgramTags();
-                
-                const editProgramsGroup = document.getElementById('editProgramsGroup');
-                if (editProgramsGroup) editProgramsGroup.style.display = 'none';
             }
+
+            showModal(modal);
         }
 
+        function closeCollegeModal() {
+            hideModal(document.getElementById('collegeModal'));
+        }
+
+        function openCollegeModalFromButton(button) {
+            const collegeId = button.getAttribute('data-college-id');
+
+            const college = {
+                id: collegeId,
+                name: button.getAttribute('data-college-name'),
+                code: button.getAttribute('data-college-code'),
+                programs: []
+            };
+
+            fetch(`{{ url('admin/colleges') }}/${collegeId}/programs-majors`)
+                .then(r => r.ok ? r.json() : Promise.reject('Fetch failed'))
+                .then(data => {
+                    college.programs = data.programs || [];
+                    openCollegeModal(college);
+                })
+                .catch(() => openCollegeModal(college));
+        }
+
+        /* ----------------------------
+           Edit Programs + Majors UI
+        ----------------------------- */
         function populateEditProgramsFields(programs) {
             const container = document.getElementById('programsEditContainer');
             if (!container) return;
-            
+
             container.innerHTML = '';
-            
-            if (programs.length === 0) {
+
+            if (!programs.length) {
                 container.innerHTML = '<p class="text-muted small">No programs yet. Use the "Add Program" button to add programs.</p>';
                 return;
             }
-            
+
             programs.forEach((program, index) => {
-                const programRow = createEditProgramRow(program, index);
-                container.appendChild(programRow);
+                container.appendChild(createEditProgramRow(program, index));
             });
         }
 
         function createEditProgramRow(program, index) {
             const row = document.createElement('div');
-            // Match the "Program 1 / Program Name / Program Code / Major / Add Major +" layout
             row.className = 'program-edit-row program-major-row mb-3 p-3 border rounded';
-            row.dataset.programId = program.id || '';
-            
+
             const programId = program.id || '';
             const programName = program.name || '';
             const programCode = program.code || '';
-            
             const majors = program.majors || [];
-            const majorsHtml = majors.length > 0 ? majors.map((major, majorIndex) => {
-                const majorName = major.major_name || major.name || '';
+
+            const majorsHtml = majors.map((major, majorIndex) => {
+                const majorName = major.name || '';
                 return `
-                    <div class="major-input-row mb-2 d-flex gap-2 align-items-center">
-                        <input type="text" 
-                               name="edit_programs[${index}][majors][${majorIndex}][name]" 
-                               class="form-control form-control-lg" 
-                               value="${majorName}" 
-                               placeholder="Enter major (optional)">
-                        <input type="hidden" name="edit_programs[${index}][majors][${majorIndex}][id]" value="${major.id || ''}">
-                        <button type="button" class="major-remove-btn" onclick="removeMajorInput(this)" title="Remove major" aria-label="Remove major">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                `;
-            }).join('') : '';
-            
-            row.innerHTML = `
-                <div class="program-header mb-3">
-                    <strong>Program ${index + 1}</strong>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Program Name <span class="text-danger">*</span></label>
-                    <input type="text" 
-                           name="edit_programs[${index}][name]" 
-                           class="form-control form-control-lg" 
-                           value="${programName}" 
-                           placeholder="Enter program name"
-                           required>
-                    <input type="hidden" name="edit_programs[${index}][id]" value="${programId}">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Program Code</label>
-                    <input type="text" 
-                           name="edit_programs[${index}][code]" 
-                           class="form-control form-control-lg" 
-                           value="${programCode}" 
-                           placeholder="Optional - enter program code"
-                           maxlength="50">
-                </div>
-                <div class="form-group majors-section">
-                    <label class="form-label">Major</label>
-                    <button type="button" class="btn btn-success btn-add-major w-100 mb-2" onclick="addMajorInput(this, ${index})">
-                        Add Major +
+                <div class="major-input-row mb-2 d-flex gap-2 align-items-center">
+                    <input type="text"
+                           name="edit_programs[${index}][majors][${majorIndex}][name]"
+                           class="form-control form-control-lg"
+                           value="${escapeHtml(majorName)}"
+                           placeholder="Enter major (optional)">
+                    <input type="hidden"
+                           name="edit_programs[${index}][majors][${majorIndex}][id]"
+                           value="${major.id || ''}">
+                    <button type="button" class="major-remove-btn" onclick="removeMajorInput(this)" title="Remove major" aria-label="Remove major">
+                        <i class="fas fa-trash"></i>
                     </button>
-                    <div class="majors-input-container" data-program-index="${index}">
-                        ${majorsHtml}
-                    </div>
                 </div>
             `;
-            
+            }).join('');
+
+            row.innerHTML = `
+            <div class="program-header mb-3">
+                <strong>Program ${index + 1}</strong>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Program Name <span class="text-danger">*</span></label>
+                <input type="text"
+                       name="edit_programs[${index}][name]"
+                       class="form-control form-control-lg"
+                       value="${escapeHtml(programName)}"
+                       placeholder="Enter program name"
+                       required>
+                <input type="hidden" name="edit_programs[${index}][id]" value="${programId}">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Program Code</label>
+                <input type="text"
+                       name="edit_programs[${index}][code]"
+                       class="form-control form-control-lg"
+                       value="${escapeHtml(programCode)}"
+                       placeholder="Optional - enter program code"
+                       maxlength="50">
+            </div>
+
+            <div class="form-group majors-section">
+                <label class="form-label">Major</label>
+                <button type="button" class="btn btn-success btn-add-major w-100 mb-2" onclick="addMajorInput(this, ${index})">
+                    Add Major +
+                </button>
+                <div class="majors-input-container" data-program-index="${index}">
+                    ${majorsHtml}
+                </div>
+            </div>
+        `;
+
             return row;
         }
 
         function addMajorInput(button, programIndex) {
-            const container = button.closest('.majors-section').querySelector('.majors-input-container');
+            const container = button.closest('.majors-section')?.querySelector('.majors-input-container');
             if (!container) return;
-            
+
             const majorIndex = container.querySelectorAll('.major-input-row').length;
+
             const majorRow = document.createElement('div');
             majorRow.className = 'major-input-row mb-2 d-flex gap-2 align-items-center';
             majorRow.innerHTML = `
-                <input type="text" 
-                       name="edit_programs[${programIndex}][majors][${majorIndex}][name]" 
-                       class="form-control form-control-lg" 
-                       placeholder="Enter major (optional)">
-                <input type="hidden" name="edit_programs[${programIndex}][majors][${majorIndex}][id]" value="">
-                <button type="button" class="major-remove-btn" onclick="removeMajorInput(this)" title="Remove major" aria-label="Remove major">
-                    <i class="fas fa-trash"></i>
-                </button>
-            `;
+            <input type="text"
+                   name="edit_programs[${programIndex}][majors][${majorIndex}][name]"
+                   class="form-control form-control-lg"
+                   placeholder="Enter major (optional)">
+            <input type="hidden"
+                   name="edit_programs[${programIndex}][majors][${majorIndex}][id]"
+                   value="">
+            <button type="button" class="major-remove-btn" onclick="removeMajorInput(this)" title="Remove major" aria-label="Remove major">
+                <i class="fas fa-trash"></i>
+            </button>
+        `;
             container.appendChild(majorRow);
         }
 
@@ -533,292 +650,108 @@
             if (row) row.remove();
         }
 
-        function openCollegeModalFromButton(button) {
-            const collegeId = button.getAttribute('data-college-id');
-            const college = {
-                id: collegeId,
-                name: button.getAttribute('data-college-name'),
-                code: button.getAttribute('data-college-code'),
-                programs: []
-            };
-            
-            // Fetch college with programs and majors
-            fetch(`{{ url('admin/colleges') }}/${collegeId}/programs-majors`)
-                .then(response => {
-                    if (!response.ok) throw new Error('Network response was not ok');
-                    return response.json();
-                })
-                .then(data => {
-                    college.programs = data.programs || [];
-                    openCollegeModal(college);
-                })
-                .catch(error => {
-                    console.error('Error fetching programs:', error);
-                    // Open modal with empty programs array
-                    openCollegeModal(college);
-                });
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         }
 
-        function closeCollegeModal() {
-            const modal = document.getElementById('collegeModal');
-            if (modal) {
-                modal.style.display = 'none';
-                document.body.style.overflow = '';
-                document.body.style.position = '';
-                document.body.style.width = '';
-                document.body.style.height = '';
-                document.body.style.top = '';
-                document.body.style.left = '';
-            }
-        }
-
+        /* ----------------------------
+           Delete modal
+        ----------------------------- */
         function openDeleteModal(college) {
             const modal = document.getElementById('deleteModal');
             const form = document.getElementById('deleteForm');
-            const collegeNameElement = document.getElementById('deleteCollegeName');
+            const nameEl = document.getElementById('deleteCollegeName');
 
             if (!modal || !form) return;
 
-            // Prevent body scroll
-            document.body.style.overflow = 'hidden';
-            document.body.style.position = 'fixed';
-            document.body.style.width = '100%';
-            document.body.style.height = '100%';
-            document.body.style.top = '0';
-            document.body.style.left = '0';
-
-            // Ensure modal covers full viewport
-            modal.style.display = 'flex';
-            modal.style.position = 'fixed';
-            modal.style.top = '0';
-            modal.style.left = '0';
-            modal.style.right = '0';
-            modal.style.bottom = '0';
-            modal.style.width = '100vw';
-            modal.style.height = '100vh';
-            modal.style.margin = '0';
-            modal.style.padding = '0';
-
             form.action = `${collegeBaseUrl}/${college.id}`;
-            if (collegeNameElement) {
-                collegeNameElement.textContent = college.name;
-            }
+            if (nameEl) nameEl.textContent = college.name || '';
+
+            showModal(modal);
         }
 
         function openDeleteModalFromButton(button) {
-            const college = {
+            openDeleteModal({
                 id: button.getAttribute('data-college-id'),
-                name: button.getAttribute('data-college-name'),
-            };
-            openDeleteModal(college);
+                name: button.getAttribute('data-college-name')
+            });
         }
 
         function closeDeleteModal() {
-            const modal = document.getElementById('deleteModal');
-            if (modal) {
-                modal.style.display = 'none';
-                document.body.style.overflow = '';
-                document.body.style.position = '';
-                document.body.style.width = '';
-                document.body.style.height = '';
-                document.body.style.top = '';
-                document.body.style.left = '';
-            }
+            hideModal(document.getElementById('deleteModal'));
         }
 
+        /* ----------------------------
+           Success modal
+        ----------------------------- */
         function closeSuccessModal() {
-            const modal = document.getElementById('successModal');
-            if (modal) {
-                modal.style.display = 'none';
-                document.body.style.overflow = '';
-                document.body.style.position = '';
-                document.body.style.width = '';
-                document.body.style.height = '';
-                document.body.style.top = '';
-                document.body.style.left = '';
-            }
+            hideModal(document.getElementById('successModal'));
         }
 
-        // Auto-close success modal after 3 seconds and ensure proper styling
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
+            // success modal auto-close
             const successModal = document.getElementById('successModal');
             if (successModal) {
-                // Move modal to body to break out of container constraints
-                if (successModal.parentElement && successModal.parentElement !== document.body) {
-                    document.body.appendChild(successModal);
-                }
-                
-                // Ensure modal covers full viewport with aggressive styling
-                successModal.style.cssText = `
-                    position: fixed !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    right: 0 !important;
-                    bottom: 0 !important;
-                    width: 100vw !important;
-                    height: 100vh !important;
-                    min-width: 100vw !important;
-                    min-height: 100vh !important;
-                    max-width: 100vw !important;
-                    max-height: 100vh !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                    z-index: 99999 !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                    background: rgba(0, 0, 0, 0.5) !important;
-                    backdrop-filter: blur(5px) !important;
-                    -webkit-backdrop-filter: blur(5px) !important;
-                    overflow: hidden !important;
-                    box-sizing: border-box !important;
-                `;
-                
-                // Ensure content is centered
-                const modalContent = successModal.querySelector('.success-modal-content');
-                if (modalContent) {
-                    modalContent.style.cssText = `
-                        margin: 0 auto !important;
-                        position: relative !important;
-                        z-index: 100000 !important;
-                    `;
-                }
-                
-                // Prevent body scroll
-                document.body.style.cssText += `
-                    overflow: hidden !important;
-                    position: fixed !important;
-                    width: 100% !important;
-                    height: 100% !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                `;
-                
-                // Auto-close after 3 seconds
-                setTimeout(() => {
-                    closeSuccessModal();
-                }, 3000);
+                showModal(successModal);
+                setTimeout(() => closeSuccessModal(), 3000);
             }
 
-            // Programs tag functionality
+            // tags input (Add College)
             const programsInput = document.getElementById('programsInput');
             if (programsInput) {
-                programsInput.addEventListener('keydown', function(e) {
+                programsInput.addEventListener('keydown', function (e) {
                     if (e.key === 'Enter') {
                         e.preventDefault();
-                        const value = this.value.trim();
-                        if (value) {
-                            addProgramTag(value);
-                            this.value = '';
-                        }
+                        addProgramTag(this.value);
+                        this.value = '';
                     }
                 });
             }
         });
 
-        // Program tags management
-        let programTags = [];
-
-        function addProgramTag(name) {
-            if (programTags.includes(name)) return;
-            
-            programTags.push(name);
-            updateProgramTagsDisplay();
-            updateProgramsHiddenInput();
-        }
-
-        function removeProgramTag(name) {
-            programTags = programTags.filter(tag => tag !== name);
-            updateProgramTagsDisplay();
-            updateProgramsHiddenInput();
-        }
-
-        function clearProgramTags() {
-            programTags = [];
-            updateProgramTagsDisplay();
-            updateProgramsHiddenInput();
-        }
-
-        function updateProgramTagsDisplay() {
-            const container = document.getElementById('programsTags');
-            if (!container) return;
-            
-            container.innerHTML = '';
-            programTags.forEach(tag => {
-                const tagElement = document.createElement('span');
-                tagElement.className = 'program-tag';
-                tagElement.innerHTML = `
-                    ${tag}
-                    <button type="button" onclick="removeProgramTag('${tag.replace(/'/g, "\\'")}')" class="tag-remove">
-                        <i class="fas fa-times"></i>
-                    </button>
-                `;
-                container.appendChild(tagElement);
-            });
-        }
-
-        function updateProgramsHiddenInput() {
-            const hiddenInput = document.getElementById('programsHidden');
-            if (hiddenInput) {
-                // Remove all existing hidden inputs
-                const form = document.getElementById('collegeForm');
-                const existingInputs = form.querySelectorAll('input[name="programs[]"]');
-                existingInputs.forEach(input => {
-                    if (input !== hiddenInput) input.remove();
-                });
-                
-                // Add new hidden inputs for each tag
-                programTags.forEach(tag => {
-                    const input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = 'programs[]';
-                    input.value = tag;
-                    form.appendChild(input);
-                });
-            }
-        }
-
-        // Program modal functions
+        /* ----------------------------
+           Program modal
+        ----------------------------- */
         function openProgramModal() {
-            const modal = document.getElementById('programModal');
-            if (!modal) return;
-
-            // Prevent body scroll
-            document.body.style.overflow = 'hidden';
-            document.body.style.position = 'fixed';
-            document.body.style.width = '100%';
-            document.body.style.height = '100%';
-            document.body.style.top = '0';
-            document.body.style.left = '0';
-
-            // Ensure modal covers full viewport
-            modal.style.display = 'flex';
-            modal.style.position = 'fixed';
-            modal.style.top = '0';
-            modal.style.left = '0';
-            modal.style.right = '0';
-            modal.style.bottom = '0';
-            modal.style.width = '100vw';
-            modal.style.height = '100vh';
-            modal.style.margin = '0';
-            modal.style.padding = '0';
+            showModal(document.getElementById('programModal'));
         }
-
         function closeProgramModal() {
-            const modal = document.getElementById('programModal');
-            if (modal) {
-                modal.style.display = 'none';
-                document.body.style.overflow = '';
-                document.body.style.position = '';
-                document.body.style.width = '';
-                document.body.style.height = '';
-                document.body.style.top = '';
-                document.body.style.left = '';
-                document.getElementById('programForm').reset();
-            }
+            hideModal(document.getElementById('programModal'));
+            document.getElementById('programForm')?.reset();
         }
     </script>
+<script>
 
+    document.addEventListener('DOMContentLoaded', function () {
+  const collegeForm = document.getElementById('collegeForm');
+  const programsInput = document.getElementById('programsInput');
+
+  if (collegeForm && programsInput) {
+    collegeForm.addEventListener('submit', function () {
+      // Only do this when "Add College" mode is active
+      const programsGroup = document.getElementById('programsGroup');
+      const isAddMode = programsGroup && programsGroup.style.display !== 'none';
+
+      if (!isAddMode) return;
+
+      const pending = programsInput.value.trim();
+      if (pending) {
+        addProgramTag(pending);
+        programsInput.value = '';
+      }
+
+      // ensure hidden inputs are in-sync
+      updateProgramsHiddenInputs();
+    });
+  }
+});
+
+</script>
     <style>
         /* Ensure container doesn't constrain modals */
         .container {
@@ -861,11 +794,14 @@
         .search-input-group .search-input-with-btn {
             flex: 1 1 auto;
             min-width: 0;
-            width: auto !important; /* override global fixed width on .filter-input */
+            width: auto !important;
+            /* override global fixed width on .filter-input */
             border-top-right-radius: 0;
             border-bottom-right-radius: 0;
-            height: 38px; /* match search button height */
-            padding: 0.5rem 0.75rem; /* align text vertically */
+            height: 38px;
+            /* match search button height */
+            padding: 0.5rem 0.75rem;
+            /* align text vertically */
         }
 
         .search-input-group .search-btn-attached {
@@ -927,7 +863,8 @@
 
         /* Icon-only Add buttons - compact design */
         .btn-export-enhanced.btn-icon-only {
-            width: 48px !important; /* give icon stack a bit more room */
+            width: 48px !important;
+            /* give icon stack a bit more room */
             height: 38px !important;
             padding: 0 !important;
             display: inline-flex;
@@ -935,7 +872,8 @@
             justify-content: center;
             min-width: 48px !important;
             gap: 0 !important;
-            overflow: visible !important; /* prevent icon clipping */
+            overflow: visible !important;
+            /* prevent icon clipping */
         }
 
         .btn-export-enhanced.btn-icon-only .btn-icon-stack {
@@ -943,18 +881,21 @@
             align-items: center;
             gap: 6px;
             line-height: 1;
-            padding: 1px 2px; /* micro padding to avoid glyph clipping */
+            padding: 1px 2px;
+            /* micro padding to avoid glyph clipping */
         }
 
         .btn-export-enhanced.btn-icon-only .btn-icon-stack i:first-child {
-            font-size: 10px; /* slightly smaller to avoid clipping */
+            font-size: 10px;
+            /* slightly smaller to avoid clipping */
             line-height: 1;
             display: inline-block;
             vertical-align: middle;
         }
 
         .btn-export-enhanced.btn-icon-only .btn-icon-stack i:last-child {
-            font-size: 12px; /* slightly smaller to avoid clipping */
+            font-size: 12px;
+            /* slightly smaller to avoid clipping */
             line-height: 1;
             display: inline-block;
             vertical-align: middle;
@@ -980,7 +921,7 @@
         .submissions-table-container::-webkit-scrollbar {
             display: none;
         }
-        
+
         /* Ensure success modal breaks out of any container */
         #successModal {
             position: fixed !important;
@@ -998,7 +939,7 @@
             padding: 0 !important;
             transform: none !important;
         }
-        
+
         /* Override any parent container constraints */
         .container #successModal,
         .main-content #successModal,
@@ -1011,7 +952,7 @@
             width: 100vw !important;
             height: 100vh !important;
         }
-        
+
         /* Reuse organization modal styles */
         .org-modal {
             display: none;
@@ -1463,7 +1404,8 @@
 
         .program-edit-row .major-input-row .form-control {
             flex: 1;
-            min-width: 0; /* prevent overflow in flex rows */
+            min-width: 0;
+            /* prevent overflow in flex rows */
         }
 
         .major-remove-btn {
@@ -1830,4 +1772,3 @@
         }
     </style>
 @endsection
-
