@@ -274,8 +274,7 @@
                                 <div id="programsTags" class="programs-tags"></div>
                                 <input type="text" id="programsInput" class="form-control form-control-lg" placeholder="Type program name and press Enter">
                             </div>
-                            <input type="hidden" id="programsHidden" name="programs[]" value="">
-                            <small class="form-text text-muted">Press Enter after each program name to add it as a tag.</small>
+                            <input type="hidden" id="programsHidden" name="programs" value="">                            <small class="form-text text-muted">Press Enter after each program name to add it as a tag.</small>
                         </div>
                     </div>
 

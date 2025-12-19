@@ -107,14 +107,14 @@ class AdminController extends Controller
                                 ->orWhereNull('profile_completed');
                         });
                 })
-                // Assessors: approved + incomplete (profile_completed=false OR missing assessorInfo)
-                ->orWhere(function ($a) {
-                    $a->where('role', User::ROLE_ASSESSOR)
-                        ->where(function ($x) {
-                            $x->where('profile_completed', false)
-                                ->orWhereDoesntHave('assessorInfo');
-                        });
-                });
+                    // Assessors: approved + incomplete (profile_completed=false OR missing assessorInfo)
+                    ->orWhere(function ($a) {
+                        $a->where('role', User::ROLE_ASSESSOR)
+                            ->where(function ($x) {
+                                $x->where('profile_completed', false)
+                                    ->orWhereDoesntHave('assessorInfo');
+                            });
+                    });
             })
             ->count();
 
@@ -761,7 +761,7 @@ class AdminController extends Controller
             if (Schema::hasColumn($user->getTable(), 'profile_completed')) {
                 $user->profile_completed = true;
             }
-            
+
             // Grant FULL access (same as students)
             $user->is_account_limited = false;
 
@@ -1036,11 +1036,11 @@ class AdminController extends Controller
 
         // Refresh to get the latest COR (including any updates from revalidation)
         $academic = StudentAcademic::where('user_id', $user->id)->first();
-        
+
         if (!$academic) {
             abort(404, 'No academic record found for this student.');
         }
-        
+
         // Refresh the model to ensure we have the latest data
         $academic->refresh();
 
@@ -1215,7 +1215,7 @@ class AdminController extends Controller
             ->where('u.role', User::ROLE_STUDENT)
             ->whereNotNull('afr.total_score')
             // max_possible exists but is NOT used as the report denominator anymore
-            ;
+        ;
 
         if ($hasSleaStatus) {
             $query->where('sa.slea_application_status', 'qualified');
@@ -1417,12 +1417,18 @@ class AdminController extends Controller
 
     public function exportAwardReport(Request $request)
     {
-        // buildAwardReportRows already handles filtering by college_id, program_id, and search
-        $allRows = $this->buildAwardReportRows($request);
+        $collegeId = $request->query('college_id');
+        $programId = $request->query('program_id');
+        $search    = trim((string) ($request->query('q') ?: $request->query('search', '')));
 
-        $filteredStudents = $allRows->map(function ($row) {
+        // buildAwardReportRows() already applies college_id/program_id/search filters
+        $rows = $this->buildAwardReportRows($request);
+
+        // Map to what your PDF view expects
+        $studentsCollection = $rows->map(function ($row) {
             $score = $row->raw_total_score ?? 0;
-            $max   = $row->raw_max_points ?? 0; // This is already set to overall max (90) in buildAwardReportRows
+            $max   = $row->raw_max_points ?? 0;
+
             return [
                 'id'             => $row->user->id ?? 0,
                 'name'           => $row->user->full_name ?? 'N/A',
@@ -1433,19 +1439,15 @@ class AdminController extends Controller
                 'max_points'     => round($max, 2),
                 'points_display' => number_format($score, 2) . '/' . number_format($max, 2),
             ];
-        })->toArray();
-
-        $filteredStudents = array_values($filteredStudents);
-
-        $studentsCollection = collect($filteredStudents);
+        });
 
         $pdf = Pdf::loadView('admin.pdf.award-report', [
             'students'    => $studentsCollection,
             'generatedAt' => now(),
             'filters'     => [
-                'college' => $college,
-                'program' => $program,
-                'search'  => $search,
+                'college_id' => $collegeId,
+                'program_id' => $programId,
+                'search'     => $search,
             ],
         ])->setPaper('A4', 'portrait');
 

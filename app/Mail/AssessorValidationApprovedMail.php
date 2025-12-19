@@ -26,3 +26,5 @@ class AssessorValidationApprovedMail extends Mailable
     }
 }
 
+
+
