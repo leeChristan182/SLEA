@@ -354,10 +354,11 @@ async function openStudentSubmissionsModal(studentId) {
             throw new Error(`Unexpected response format (${e.message}).`);
         }
     } catch (err) {
-        hideModalLoading('studentSubmissionsModal');
-        showErrorAlert(`Failed to load student submissions: ${err.message}`);
-        return;
-    }
+    window.hideModalLoading?.('studentSubmissionsModal');
+    showErrorModal(`Failed to load student submissions: ${err.message}`);
+    return;
+}
+
 
     hideModalLoading('studentSubmissionsModal');
 
@@ -374,8 +375,11 @@ async function openStudentSubmissionsModal(studentId) {
     const programDet  = document.getElementById('modalStudentProgramDetail');
     const collegeDet  = document.getElementById('modalStudentCollegeDetail');
     const majorDet    = document.getElementById('modalStudentMajorDetail');
-    const statusText  = document.getElementById('currentStatusText');
-    const container   = document.getElementById('categorizedSubmissionsContainer');
+const statusText  = document.getElementById('currentStatusText');
+const container   = document.getElementById('categorizedSubmissionsContainer');
+const readyBtn    = document.getElementById('btnMarkReadyForRating');
+const notReadyBtn = document.getElementById('btnMarkNotReadyForRating');
+const readyNote   = document.getElementById('readyForRatingStatusNote');
 
     if (nameTitle)  nameTitle.textContent  = student.user?.name || 'Student';
     if (idDetail)   idDetail.textContent   = student.student_id || '—';
@@ -384,23 +388,35 @@ async function openStudentSubmissionsModal(studentId) {
     if (collegeDet) collegeDet.textContent = student.college || '—';
     if (majorDet)   majorDet.textContent   = acad.major || acad.major_name || '—';
 
-    if (statusText) {
-        const sleaStatus = acad.slea_application_status || null;
-        if (!sleaStatus) {
-            statusText.textContent = 'No application yet.';
-        } else if (sleaStatus === 'pending_assessor_evaluation') {
-            statusText.textContent = 'Pending Assessor Evaluation.';
-        } else if (sleaStatus === 'pending_administrative_validation') {
-            statusText.textContent = 'Pending Administrative Validation.';
-        } else if (sleaStatus === 'qualified') {
-            statusText.textContent = 'Qualified for SLEA.';
-        } else if (sleaStatus === 'not_qualified') {
-            statusText.textContent = 'Not qualified.';
-        } else {
-            statusText.textContent = 'Status: ' + sleaStatus;
-        }
-    }
+const sleaStatus = acad.slea_application_status || null;
 
+if (statusText) {
+    if (!sleaStatus) {
+        statusText.textContent = 'No application yet.';
+    } else if (sleaStatus === 'pending_assessor_evaluation') {
+        statusText.textContent = 'Pending Assessor Evaluation.';
+    } else if (sleaStatus === 'pending_administrative_validation') {
+        statusText.textContent = 'Pending Administrative Validation.';
+    } else if (sleaStatus === 'qualified') {
+        statusText.textContent = 'Qualified for SLEA.';
+    } else if (sleaStatus === 'not_qualified') {
+        statusText.textContent = 'Not qualified.';
+    } else {
+        statusText.textContent = 'Status: ' + sleaStatus;
+    }
+}
+
+    // Lock decision buttons if already sent to Admin Final Review
+    const decisionsLocked = sleaStatus === 'pending_administrative_validation' || sleaStatus === 'qualified' || sleaStatus === 'not_qualified';
+    if (readyBtn) {
+        readyBtn.disabled = decisionsLocked;
+    }
+    if (notReadyBtn) {
+        notReadyBtn.disabled = decisionsLocked;
+    }
+    if (readyNote && decisionsLocked) {
+        readyNote.textContent = 'This student has already been sent to Admin Final Review. Decisions are locked.';
+    }
     // Render per-category submissions
     if (container) {
         const categoryKeys = Object.keys(categorized);

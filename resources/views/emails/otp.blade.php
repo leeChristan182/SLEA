@@ -7,4 +7,5 @@
 
 <p>This code will expire in {{ config('auth.otp.lifetime_minutes', 10) }} minutes.</p>
 
-<p>If you did not request this, you can safely ignore this email.</p>
+<p><strong>If you didn’t request this OTP</strong>, you can safely ignore this email. Do not share this code with
+    anyone.</p>

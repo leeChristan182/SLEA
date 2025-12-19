@@ -7,27 +7,21 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 
-class InitialValidationApprovedMail extends Mailable
+class AssessorValidationApprovedMail extends Mailable
 {
     use Queueable, SerializesModels;
 
     public User $user;
 
-    /**
-     * Create a new message instance.
-     */
     public function __construct(User $user)
     {
         $this->user = $user;
     }
 
-    /**
-     * Build the message.
-     */
     public function build(): self
     {
         return $this
-            ->subject('SLEA Initial Validation Approved')
-            ->view('emails.initial-approved');
+            ->subject('SLEA Assessor Validation Approved')
+            ->view('emails.assessor-validation-approved');
     }
 }

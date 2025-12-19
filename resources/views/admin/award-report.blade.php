@@ -31,18 +31,13 @@
                 <div class="filter-controls">
                     <div class="filter-group">
                         <label for="college">College</label>
-                        <select name="college" id="college" class="form-select" onchange="updatePrograms()">
+                        <select name="college" id="college" class="form-select">
                             <option value="">All Colleges</option>
-                            <option value="College of Education" @selected(request('college') === 'College of Education')>
-                                College of Education</option>
-                            <option value="College of Engineering" @selected(request('college') === 'College of Engineering')>
-                                College of Engineering</option>
-                            <option value="College of Information and Computing" @selected(request('college') === 'College of Information and Computing')>College of Information and Computing</option>
-                            <option value="College of Business Administration" @selected(request('college') === 'College of Business Administration')>College of Business Administration</option>
-                            <option value="College of Arts and Science" @selected(request('college') === 'College of Arts and Science')>College of Arts and Science</option>
-                            <option value="College of Applied Economics" @selected(request('college') === 'College of Applied Economics')>College of Applied Economics</option>
-                            <option value="College of Technology" @selected(request('college') === 'College of Technology')>
-                                College of Technology</option>
+                            @foreach($colleges as $college)
+                                <option value="{{ $college->id }}" @selected(request('college_id') == $college->id)>
+                                    {{ $college->name }}
+                                </option>
+                            @endforeach
                         </select>
                     </div>
 
@@ -50,7 +45,13 @@
                         <label for="program">Program</label>
                         <select name="program" id="program" class="form-select">
                             <option value="">All Programs</option>
-                            <!-- Programs will be populated dynamically based on selected college -->
+                            @foreach($programs as $program)
+                                <option value="{{ $program->id }}"
+                                    data-college-id="{{ $program->college_id }}"
+                                    @selected(request('program_id') == $program->id)>
+                                    {{ $program->name }}
+                                </option>
+                            @endforeach
                         </select>
                     </div>
                 </div>
@@ -75,8 +76,8 @@
 
             {{-- Filter Form (used by search button) --}}
             <form method="GET" action="{{ route('admin.award-report') }}" id="filterForm" style="display: none;">
-                <input type="hidden" name="college" id="collegeHidden" value="{{ request('college') }}">
-                <input type="hidden" name="program" id="programHidden" value="{{ request('program') }}">
+                <input type="hidden" name="college_id" id="collegeHidden" value="{{ request('college_id') }}">
+                <input type="hidden" name="program_id" id="programHidden" value="{{ request('program_id') }}">
                 <input type="hidden" name="search" id="searchHidden" value="{{ request('search') }}">
             </form>
 
@@ -84,7 +85,7 @@
             <div class="submissions-table-container">
                 <h3 class="program-title">SLEA Recipients</h3>
 
-                <table class="table submissions-table">
+                <table class="table submissions-table" id="awardReportTable">
                     <thead>
                         <tr>
                             <th>Student ID</th>
@@ -96,7 +97,7 @@
                     </thead>
                     <tbody>
                         @forelse($students as $student)
-                            <tr>
+                            <tr class="student-row">
                                 <td>{{ $student['student_id'] }}</td>
                                 <td>{{ $student['name'] }}</td>
                                 <td>{{ $student['college'] }}</td>
@@ -265,43 +266,44 @@
     </style>
 
     <script>
-        // College-Program mapping
-        const collegePrograms = {
-            'College of Education': ['BTVTED', 'BPED', 'BSED', 'MAED', 'PhD Education'],
-            'College of Engineering': ['BSCE', 'BSEE', 'BSME', 'BSIE', 'BSCpE', 'BSArch'],
-            'College of Information and Computing': ['BSIT', 'BSCS', 'BSIS', 'BSEMC'],
-            'College of Business Administration': ['BSBA', 'BSA', 'BSMA', 'BSHRM', 'BSHM'],
-            'College of Arts and Science': ['BS Biology', 'BS Chemistry', 'BS Physics', 'BS Mathematics', 'BA English', 'BA History', 'BA Political Science'],
-            'College of Applied Economics': ['BS Economics', 'BS Agricultural Economics', 'BS Development Economics'],
-            'College of Technology': ['BS Industrial Technology', 'BS Food Technology', 'BS Electronics Technology']
-        };
+        // Get all program options from the DOM
+        const allProgramOptions = Array.from(document.querySelectorAll('#program option[data-college-id]'));
 
         function updatePrograms(preserveSelectedProgram = false) {
             const collegeSelect = document.getElementById('college');
             const programSelect = document.getElementById('program');
             const collegeHidden = document.getElementById('collegeHidden');
             const programHidden = document.getElementById('programHidden');
-            const selectedCollege = collegeSelect.value;
-            const currentProgram = preserveSelectedProgram ? '{{ request('program') }}' : '';
+            const selectedCollegeId = collegeSelect.value;
+            const currentProgramId = preserveSelectedProgram ? '{{ request('program_id') }}' : '';
 
             // Update hidden input
             if (collegeHidden) {
-                collegeHidden.value = selectedCollege;
+                collegeHidden.value = selectedCollegeId;
             }
 
-            // Clear existing options
+            // Clear existing options (keep "All Programs")
             programSelect.innerHTML = '<option value="">All Programs</option>';
 
-            // Add programs based on selected college
-            if (selectedCollege && collegePrograms[selectedCollege]) {
-                collegePrograms[selectedCollege].forEach(program => {
-                    const option = document.createElement('option');
-                    option.value = program;
-                    option.textContent = program;
-                    if (program === currentProgram) {
-                        option.selected = true;
+            // Filter and add programs based on selected college
+            if (selectedCollegeId) {
+                allProgramOptions.forEach(option => {
+                    if (option.getAttribute('data-college-id') === selectedCollegeId) {
+                        const newOption = option.cloneNode(true);
+                        if (newOption.value === currentProgramId) {
+                            newOption.selected = true;
+                        }
+                        programSelect.appendChild(newOption);
                     }
-                    programSelect.appendChild(option);
+                });
+            } else {
+                // If no college selected, show all programs
+                allProgramOptions.forEach(option => {
+                    const newOption = option.cloneNode(true);
+                    if (newOption.value === currentProgramId) {
+                        newOption.selected = true;
+                    }
+                    programSelect.appendChild(newOption);
                 });
             }
 
@@ -313,16 +315,16 @@
 
         function exportReport() {
             // Get current filter values
-            const college = document.getElementById('college').value;
-            const program = document.getElementById('program').value;
+            const collegeId = document.getElementById('college').value;
+            const programId = document.getElementById('program').value;
             const search = document.getElementById('search').value;
 
             // Build export URL with filters
             let exportUrl = '{{ route("admin.award-report.export") }}?';
             const params = new URLSearchParams();
 
-            if (college) params.append('college', college);
-            if (program) params.append('program', program);
+            if (collegeId) params.append('college_id', collegeId);
+            if (programId) params.append('program_id', programId);
             if (search) params.append('search', search);
 
             exportUrl += params.toString();
@@ -333,6 +335,7 @@
 
         // Handle form submission
         document.addEventListener('DOMContentLoaded', function () {
+            // Initialize programs based on current college selection
             updatePrograms(true);
 
             // Sync visible inputs with hidden form inputs
@@ -350,7 +353,7 @@
                     const collegeHidden = document.getElementById('collegeHidden');
                     const programHidden = document.getElementById('programHidden');
                     if (collegeHidden) collegeHidden.value = collegeSelect.value;
-                    if (programHidden) programHidden.value = programSelect ? programSelect.value : '';
+                    if (programHidden) programHidden.value = '';
                     if (filterForm) filterForm.submit();
                 });
             }
@@ -367,12 +370,42 @@
                 });
             }
 
-            if (searchInput) {
-                searchInput.addEventListener('input', function () {
-                    const searchHidden = document.getElementById('searchHidden');
-                    if (searchHidden) {
-                        searchHidden.value = searchInput.value;
+            // Live search functionality
+            function applyLiveSearch() {
+                const table = document.getElementById('awardReportTable');
+                if (!table) return;
+
+                const search = (searchInput?.value || '').toLowerCase().trim();
+                const rows = table.querySelectorAll('tbody tr.student-row');
+
+                rows.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length === 0) {
+                        row.style.display = 'none';
+                        return;
                     }
+
+                    const studentId = (cells[0]?.textContent || '').toLowerCase();
+                    const studentName = (cells[1]?.textContent || '').toLowerCase();
+                    const college = (cells[2]?.textContent || '').toLowerCase();
+                    const program = (cells[3]?.textContent || '').toLowerCase();
+                    const points = (cells[4]?.textContent || '').toLowerCase();
+
+                    const matches = !search ||
+                        studentId.includes(search) ||
+                        studentName.includes(search) ||
+                        college.includes(search) ||
+                        program.includes(search) ||
+                        points.includes(search);
+
+                    row.style.display = matches ? '' : 'none';
+                });
+            }
+
+            if (searchInput) {
+                // Live search as user types
+                searchInput.addEventListener('input', function () {
+                    applyLiveSearch();
                 });
 
                 // Allow Enter key to trigger search (input is not inside a form)
@@ -400,13 +433,6 @@
                     if (searchHidden && searchInput) searchHidden.value = searchInput.value;
 
                     filterForm.submit();
-                });
-            }
-
-            // Handle filter dropdown changes - auto-submit
-            if (collegeSelect) {
-                collegeSelect.addEventListener('change', function () {
-                    // handled above (kept for backward compatibility)
                 });
             }
         });

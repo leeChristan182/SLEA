@@ -64,7 +64,7 @@
 
             <!-- Table -->
             <div class="submissions-table-container">
-                <table class="table submissions-table">
+                <table class="table submissions-table" id="organizationsTable">
                     <thead>
                         <tr>
                             <th>Organization Name</th>
@@ -74,7 +74,7 @@
                     </thead>
                     <tbody>
                         @forelse ($organizations as $org)
-                            <tr>
+                            <tr class="org-row" data-cluster-id="{{ $org->cluster_id }}">
                                 <td>{{ $org->name }}</td>
                                 <td>{{ $org->cluster->name ?? '—' }}</td>
                                 <td>
@@ -423,7 +423,49 @@
         }
 
         // Auto-close success modal after 3 seconds
+        function applyLiveSearch() {
+            const table = document.getElementById('organizationsTable');
+            if (!table) return;
+
+            const search = (document.getElementById('q')?.value || '').toLowerCase().trim();
+            const clusterFilter = document.getElementById('cluster_filter')?.value || '';
+
+            const rows = table.querySelectorAll('tbody tr.org-row');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length === 0) {
+                    row.style.display = 'none';
+                    return;
+                }
+
+                const orgName = (cells[0]?.textContent || '').toLowerCase();
+                const cluster = (cells[1]?.textContent || '').toLowerCase();
+                const rowClusterId = row.dataset.clusterId || '';
+
+                let matchesSearch = !search ||
+                    orgName.includes(search) ||
+                    cluster.includes(search);
+
+                let matchesCluster = !clusterFilter || rowClusterId === clusterFilter;
+
+                row.style.display = (matchesSearch && matchesCluster) ? '' : 'none';
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
+            // Live search on input
+            const searchInput = document.getElementById('q');
+            if (searchInput) {
+                searchInput.addEventListener('input', applyLiveSearch);
+            }
+
+            const clusterFilter = document.getElementById('cluster_filter');
+            if (clusterFilter) {
+                clusterFilter.addEventListener('change', function () {
+                    // Still submit form for cluster filter (to update pagination)
+                    document.getElementById('filterForm').submit();
+                });
+            }
             const successModal = document.getElementById('successModal');
             if (successModal) {
                 // Check if modal is visible (check inline style or computed style)

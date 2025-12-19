@@ -96,7 +96,7 @@
     @if(session('account_disabled'))
         <div id="accountDisabledModal" class="modal" style="display:flex;">
             <div class="modal-content" style="max-width:500px;margin:auto;background:white;border-radius:8px;
-                                padding:30px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+                                                    padding:30px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
                 <div class="modal-header" style="text-align:center;margin-bottom:20px;">
                     <div style="font-size:48px;color:#dc3545;margin-bottom:15px;">
                         <i class="fas fa-user-slash"></i>
@@ -144,8 +144,11 @@
 
             const totalMs = (window.SLEA_SESSION?.lifetime_seconds ?? (10 * 60)) * 1000;
 
-            // Always show extend-session prompt at 10 minutes of inactivity (or 60s before timeout if shorter)
-            const warningTimeMs = Math.max(60 * 1000, Math.min(totalMs - 60 * 1000, 10 * 60 * 1000));
+            // show warning N minutes before timeout (default 5)
+            const warnBeforeMin = Number(window.SLEA_SESSION?.warn_before_minutes ?? 5);
+
+            // warning time = total - N minutes (at least 60s before timeout)
+            const warningTimeMs = Math.max(60 * 1000, totalMs - (warnBeforeMin * 60 * 1000));
 
             window.__sessionTimeout = new SessionTimeout({
                 warningTime: warningTimeMs,
@@ -153,7 +156,6 @@
                 checkInterval: 30 * 1000
             });
 
-            const warnBeforeMin = window.SLEA_SESSION?.warn_before_minutes;
             console.log('[SessionTimeout] enabled', { totalMs, warningTimeMs, warnBeforeMin });
         });
     </script>

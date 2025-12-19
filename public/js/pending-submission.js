@@ -20,6 +20,99 @@ function setText(id, value) {
     if (el) el.textContent = value;
 }
 
+function normalizeCompareText(v) {
+    return String(v || '')
+        .toLowerCase()
+        .replace(/&/g, 'and')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()
+        .replace(/\s+/g, ' ');
+}
+
+function getCurrentRoleInActivityText() {
+    const roleEl = document.getElementById('modalRole');
+    const raw = roleEl ? roleEl.textContent : '';
+    const role = String(raw || '').trim();
+    return role && role !== '-' ? role : '';
+}
+
+function clearRubricMismatchUI(container) {
+    if (!container) return;
+    container.querySelectorAll('.rubric-option.mismatch').forEach(el => {
+        el.classList.remove('mismatch');
+    });
+    container.querySelectorAll('.rubric-option.expected').forEach(el => {
+        el.classList.remove('expected');
+    });
+
+    const banner = document.getElementById('rubricMismatchBanner');
+    if (banner) {
+        banner.classList.add('d-none');
+        banner.innerHTML = '';
+    }
+}
+
+function setRubricMismatchBanner({ role, selectedLabel }) {
+    const banner = document.getElementById('rubricMismatchBanner');
+    if (!banner) return;
+
+    const safeRole = role ? String(role) : '';
+    const safeSelected = selectedLabel ? String(selectedLabel) : '';
+
+    banner.innerHTML = `
+        <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
+        <div class="text">
+            <div><strong>Mismatch detected.</strong></div>
+            <div>Student’s Role in Activity is <strong>${safeRole}</strong>, but you selected <strong>${safeSelected}</strong>.</div>
+            <div>Please select the matching descriptor before submitting.</div>
+        </div>
+    `;
+    banner.classList.remove('d-none');
+}
+
+function getRoleMatchState(container) {
+    const role = getCurrentRoleInActivityText();
+    if (!role) return { enforce: false };
+
+    const roleNorm = normalizeCompareText(role);
+    if (!roleNorm) return { enforce: false };
+
+    const inputs = Array.from(container.querySelectorAll('input[name="rubric_option"]'));
+    const matchInput = inputs.find(inp =>
+        normalizeCompareText(inp.getAttribute('data-option-label') || '') === roleNorm
+    );
+
+    return {
+        enforce: Boolean(matchInput),
+        role,
+        roleNorm,
+        matchInput: matchInput || null
+    };
+}
+
+function applyRubricMismatchUI({ container, selectedInput }) {
+    if (!container || !selectedInput) return;
+
+    clearRubricMismatchUI(container);
+
+    const state = getRoleMatchState(container);
+    if (!state.enforce) return;
+
+    // Highlight the expected (matching) descriptor to guide the assessor
+    const expectedItem = state.matchInput?.closest('.rubric-option');
+    if (expectedItem) expectedItem.classList.add('expected');
+
+    // If a selection exists, highlight mismatch + show banner
+    const selectedLabel = selectedInput ? (selectedInput.getAttribute('data-option-label') || '') : '';
+    const selectedNorm = normalizeCompareText(selectedLabel);
+
+    if (selectedNorm && selectedNorm !== state.roleNorm) {
+        const item = selectedInput.closest('.rubric-option');
+        if (item) item.classList.add('mismatch');
+        setRubricMismatchBanner({ role: state.role, selectedLabel });
+    }
+}
+
 /* =========================
    MODAL HELPERS (ERROR / VALIDATION / SUCCESS)
    ========================= */
@@ -469,6 +562,7 @@ function populateRubricOptions(options) {
     if (!container) return;
 
     container.innerHTML = '';
+    clearRubricMismatchUI(container);
 
     // CASE 1: option-based rubric
     if (options && options.length > 0) {
@@ -483,7 +577,8 @@ function populateRubricOptions(options) {
                 <input class="form-check-input" type="radio"
                        name="rubric_option" id="rubric_option_${opt.id}"
                        value="${opt.points}"
-                       data-option-id="${opt.id}">
+                       data-option-id="${opt.id}"
+                       data-option-label="${String(opt.label || '').replace(/"/g, '&quot;')}">
                 <label class="form-check-label" for="rubric_option_${opt.id}">
                     <strong>${opt.label}</strong>
                     ${opt.points !== null ? ` <span class="rubric-points">(${opt.points} pts)</span>` : ''}
@@ -494,6 +589,9 @@ function populateRubricOptions(options) {
         });
 
         container.appendChild(list);
+
+        // Always highlight the expected option (if role exists among options)
+        applyRubricMismatchUI({ container, selectedInput: container.querySelector('input[name="rubric_option"]:checked') });
 
         // Update score pill when a descriptor is picked
         const radios = container.querySelectorAll('input[name="rubric_option"]');
@@ -506,6 +604,9 @@ function populateRubricOptions(options) {
                     setText('modalAutoScore', `${pts} pts`);
                 }
                 currentRubricOptionId = !isNaN(optId) ? optId : null;
+
+                // Mismatch warning: if selected descriptor doesn't match Role in Activity
+                applyRubricMismatchUI({ container, selectedInput: input });
             });
         });
 
@@ -599,6 +700,25 @@ window.handleSubmission = async function (action) {
     }
 
     const selectedOption = document.querySelector('input[name="rubric_option"]:checked');
+    const rubricContainer = document.getElementById('rubricOptionsContainer');
+
+    // Block submission if assessor picked a rubric option that mismatches the student's Role in Activity
+    if (selectedOption && rubricContainer) {
+        const state = getRoleMatchState(rubricContainer);
+        if (state.enforce) {
+            const selectedLabel = selectedOption.getAttribute('data-option-label') || '';
+            const selectedNorm = normalizeCompareText(selectedLabel);
+            if (selectedNorm && selectedNorm !== state.roleNorm) {
+                // Ensure UI clearly shows the mismatch
+                applyRubricMismatchUI({ container: rubricContainer, selectedInput: selectedOption });
+                showValidationError(
+                    `Selected rubric descriptor does not match the student's Role in Activity (${state.role}). ` +
+                    `Please select the matching descriptor before submitting.`
+                );
+                return;
+            }
+        }
+    }
 
     // Default score to 0 to avoid NULL inserts
     let totalPoints = 0;
@@ -741,14 +861,14 @@ window.handleSubmission = async function (action) {
 
 function initializeSearch() {
     console.log('Initializing search functionality...');
-    
+
     const searchInput = document.getElementById('searchInput');
     const searchBtn = document.getElementById('searchBtn');
     const clearBtn = document.getElementById('clearBtn');
     const sortSelect = document.getElementById('sortSelect');
-    
+
     // Try multiple selectors for the table
-    const table = document.querySelector('.submissions-table') || 
+    const table = document.querySelector('.submissions-table') ||
                   document.querySelector('table.submissions-table') ||
                   document.querySelector('table.table.submissions-table') ||
                   document.querySelector('.submissions-table-container table');
@@ -765,7 +885,7 @@ function initializeSearch() {
         console.error('Search initialization: table not found');
         return;
     }
-    
+
     if (!searchInput) {
         console.error('Search initialization: searchInput not found');
         return;
@@ -774,16 +894,16 @@ function initializeSearch() {
     let allRows = Array.from(table.querySelectorAll('tbody tr')).filter(row => {
         return !row.hasAttribute('data-empty-row');
     });
-    
+
     console.log('Total rows found:', allRows.length);
 
     function performSearch() {
         console.log('performSearch called');
         const searchTerm = (searchInput.value || '').toLowerCase().trim();
         console.log('Search term:', searchTerm);
-        
+
         let visibleCount = 0;
-        
+
         // Store original display state for pagination
         allRows.forEach(row => {
             if (row.hasAttribute('data-empty-row')) {
@@ -803,7 +923,7 @@ function initializeSearch() {
             const documentTitle = (cells[2]?.textContent || '').toLowerCase();
             const dateSubmitted = (cells[3]?.textContent || '').toLowerCase();
 
-            const matches = !searchTerm || 
+            const matches = !searchTerm ||
                 studentId.includes(searchTerm) ||
                 studentName.includes(searchTerm) ||
                 documentTitle.includes(searchTerm) ||
@@ -812,10 +932,10 @@ function initializeSearch() {
             // Store match state in data attribute for pagination
             row.dataset.searchMatch = matches ? 'true' : 'false';
             row.style.display = matches ? '' : 'none';
-            
+
             if (matches) visibleCount++;
         });
-        
+
         console.log('Visible rows after search:', visibleCount);
 
         // Apply sorting if sort is selected
@@ -841,7 +961,7 @@ function initializeSearch() {
         visibleRows.sort((a, b) => {
             const aCells = a.querySelectorAll('td');
             const bCells = b.querySelectorAll('td');
-            
+
             if (aCells.length === 0 || bCells.length === 0) return 0;
 
             let aValue = '';
@@ -876,12 +996,12 @@ function initializeSearch() {
                 const matchAttr = row.dataset.searchMatch;
                 return matchAttr === 'true' || (!searchTerm && matchAttr !== 'false');
             });
-            
+
             // Try multiple selectors for pagination instance
-            const pagination = paginationInstances['.submissions-table'] || 
+            const pagination = paginationInstances['.submissions-table'] ||
                              paginationInstances['table.submissions-table'] ||
                              paginationInstances['.table.submissions-table'];
-            
+
             if (pagination) {
                 // Update pagination with filtered count
                 pagination.totalEntries = visibleRows.length;
@@ -972,288 +1092,44 @@ function initializeSearch() {
 
 document.addEventListener('DOMContentLoaded', function () {
     console.log('DOMContentLoaded - Initializing pending submissions page');
-    
+
     // Initialize pagination first
     initializePagination();
-    
+
     // Then initialize search after a short delay to ensure pagination is ready
     setTimeout(() => {
         console.log('Initializing search after delay');
         initializeSearch();
     }, 200);
 });
-
-// Also try to initialize if DOM is already loaded
-if (document.readyState === 'loading') {
-    // DOM is still loading, wait for DOMContentLoaded
-} else {
-    // DOM is already loaded
-    console.log('DOM already loaded - Initializing immediately');
-    setTimeout(() => {
-        initializePagination();
-        initializeSearch();
-    }, 100);
-}
-
-// Global fallback functions for onclick handlers
-window.handleSearchClick = function(event) {
-    if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-    }
-    console.log('handleSearchClick called (onclick fallback)');
-    const searchInput = document.getElementById('searchInput');
-    if (!searchInput) {
-        console.error('searchInput not found');
-        return;
-    }
-    
-    const searchTerm = searchInput.value.toLowerCase().trim();
-    console.log('Searching for:', searchTerm);
-    
-    const table = document.querySelector('.submissions-table') || 
-                  document.querySelector('table.submissions-table') ||
-                  document.querySelector('.submissions-table-container table');
-    
-    if (!table) {
-        console.error('Table not found');
-        return;
-    }
-    
-    const rows = table.querySelectorAll('tbody tr');
-    let visibleCount = 0;
-    
-    rows.forEach(row => {
-        if (row.hasAttribute('data-empty-row')) {
-            row.style.display = searchTerm ? 'none' : '';
-            return;
-        }
-        
-        const cells = row.querySelectorAll('td');
-        if (cells.length === 0) {
-            row.style.display = 'none';
-            return;
-        }
-        
-        const studentId = (cells[0]?.textContent || '').toLowerCase();
-        const studentName = (cells[1]?.textContent || '').toLowerCase();
-        const documentTitle = (cells[2]?.textContent || '').toLowerCase();
-        const dateSubmitted = (cells[3]?.textContent || '').toLowerCase();
-        
-        const matches = !searchTerm || 
-            studentId.includes(searchTerm) ||
-            studentName.includes(searchTerm) ||
-            documentTitle.includes(searchTerm) ||
-            dateSubmitted.includes(searchTerm);
-        
-        row.style.display = matches ? '' : 'none';
-        if (matches) visibleCount++;
-    });
-    
-    console.log('Search complete. Visible rows:', visibleCount);
-    
-    // Update pagination if available
-    if (typeof paginationInstances !== 'undefined') {
-        const pagination = paginationInstances['.submissions-table'];
-        if (pagination) {
-            pagination.totalEntries = visibleCount;
-            pagination.totalPages = Math.ceil(pagination.totalEntries / pagination.entriesPerPage) || 1;
-            pagination.currentPage = 1;
-            pagination.updatePaginationInfo();
-            pagination.generatePageButtons();
-            pagination.updateButtonStates();
-            pagination.updateTableDisplay();
-        }
-    }
-};
-
-window.handleClearClick = function(event) {
-    if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-    }
-    console.log('handleClearClick called (onclick fallback)');
-    const searchInput = document.getElementById('searchInput');
-    if (!searchInput) {
-        console.error('searchInput not found');
-        return;
-    }
-    
-    searchInput.value = '';
-    console.log('Search input cleared');
-    
-    const table = document.querySelector('.submissions-table') || 
-                  document.querySelector('table.submissions-table') ||
-                  document.querySelector('.submissions-table-container table');
-    
-    if (table) {
-        const rows = table.querySelectorAll('tbody tr');
-        rows.forEach(row => {
-            row.style.display = '';
-        });
-        console.log('All rows shown');
-    }
-    
-    // Update pagination if available
-    if (typeof paginationInstances !== 'undefined') {
-        const pagination = paginationInstances['.submissions-table'];
-        if (pagination) {
-            const allRows = table.querySelectorAll('tbody tr:not([data-empty-row])');
-            pagination.totalEntries = allRows.length;
-            pagination.totalPages = Math.ceil(pagination.totalEntries / pagination.entriesPerPage) || 1;
-            pagination.currentPage = 1;
-            pagination.updatePaginationInfo();
-            pagination.generatePageButtons();
-            pagination.updateButtonStates();
-            pagination.updateTableDisplay();
-        }
-    }
-    
-    searchInput.focus();
-};
 
 /* =========================
-   INIT
+   FALLBACK HANDLERS (only if HTML uses onclick="")
    ========================= */
 
-document.addEventListener('DOMContentLoaded', function () {
-    console.log('DOMContentLoaded - Initializing pending submissions page');
-    
-    // Initialize pagination first
-    initializePagination();
-    
-    // Then initialize search after a short delay to ensure pagination is ready
-    setTimeout(() => {
-        console.log('Initializing search after delay');
-        initializeSearch();
-    }, 200);
-});
-
-// Also try to initialize if DOM is already loaded
-if (document.readyState === 'loading') {
-    // DOM is still loading, wait for DOMContentLoaded
-} else {
-    // DOM is already loaded
-    console.log('DOM already loaded - Initializing immediately');
-    setTimeout(() => {
-        initializePagination();
-        initializeSearch();
-    }, 100);
-}
-
-// Global fallback functions for onclick handlers
-window.handleSearchClick = function(event) {
+window.handleSearchClick = function (event) {
     if (event) {
         event.preventDefault();
         event.stopPropagation();
     }
-    console.log('handleSearchClick called (onclick fallback)');
+
     const searchInput = document.getElementById('searchInput');
-    if (!searchInput) {
-        console.error('searchInput not found');
-        return;
-    }
-    
-    const searchTerm = searchInput.value.toLowerCase().trim();
-    console.log('Searching for:', searchTerm);
-    
-    const table = document.querySelector('.submissions-table') || 
-                  document.querySelector('table.submissions-table') ||
-                  document.querySelector('.submissions-table-container table');
-    
-    if (!table) {
-        console.error('Table not found');
-        return;
-    }
-    
-    const rows = table.querySelectorAll('tbody tr');
-    let visibleCount = 0;
-    
-    rows.forEach(row => {
-        if (row.hasAttribute('data-empty-row')) {
-            row.style.display = searchTerm ? 'none' : '';
-            return;
-        }
-        
-        const cells = row.querySelectorAll('td');
-        if (cells.length === 0) {
-            row.style.display = 'none';
-            return;
-        }
-        
-        const studentId = (cells[0]?.textContent || '').toLowerCase();
-        const studentName = (cells[1]?.textContent || '').toLowerCase();
-        const documentTitle = (cells[2]?.textContent || '').toLowerCase();
-        const dateSubmitted = (cells[3]?.textContent || '').toLowerCase();
-        
-        const matches = !searchTerm || 
-            studentId.includes(searchTerm) ||
-            studentName.includes(searchTerm) ||
-            documentTitle.includes(searchTerm) ||
-            dateSubmitted.includes(searchTerm);
-        
-        row.style.display = matches ? '' : 'none';
-        if (matches) visibleCount++;
-    });
-    
-    console.log('Search complete. Visible rows:', visibleCount);
-    
-    // Update pagination if available
-    if (typeof paginationInstances !== 'undefined') {
-        const pagination = paginationInstances['.submissions-table'];
-        if (pagination) {
-            pagination.totalEntries = visibleCount;
-            pagination.totalPages = Math.ceil(pagination.totalEntries / pagination.entriesPerPage) || 1;
-            pagination.currentPage = 1;
-            pagination.updatePaginationInfo();
-            pagination.generatePageButtons();
-            pagination.updateButtonStates();
-            pagination.updateTableDisplay();
-        }
-    }
+    if (!searchInput) return;
+
+    // Trigger the same logic used by initializeSearch() input handler
+    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
 };
 
-window.handleClearClick = function(event) {
+window.handleClearClick = function (event) {
     if (event) {
         event.preventDefault();
         event.stopPropagation();
     }
-    console.log('handleClearClick called (onclick fallback)');
+
     const searchInput = document.getElementById('searchInput');
-    if (!searchInput) {
-        console.error('searchInput not found');
-        return;
-    }
-    
+    if (!searchInput) return;
+
     searchInput.value = '';
-    console.log('Search input cleared');
-    
-    const table = document.querySelector('.submissions-table') || 
-                  document.querySelector('table.submissions-table') ||
-                  document.querySelector('.submissions-table-container table');
-    
-    if (table) {
-        const rows = table.querySelectorAll('tbody tr');
-        rows.forEach(row => {
-            row.style.display = '';
-        });
-        console.log('All rows shown');
-    }
-    
-    // Update pagination if available
-    if (typeof paginationInstances !== 'undefined') {
-        const pagination = paginationInstances['.submissions-table'];
-        if (pagination) {
-            const allRows = table.querySelectorAll('tbody tr:not([data-empty-row])');
-            pagination.totalEntries = allRows.length;
-            pagination.totalPages = Math.ceil(pagination.totalEntries / pagination.entriesPerPage) || 1;
-            pagination.currentPage = 1;
-            pagination.updatePaginationInfo();
-            pagination.generatePageButtons();
-            pagination.updateButtonStates();
-            pagination.updateTableDisplay();
-        }
-    }
-    
+    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
     searchInput.focus();
 };
