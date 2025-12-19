@@ -1,61 +1,189 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 🎓 SLEA
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+## Student Leadership Excellence Award System
 
-## About Laravel
+The **Student Leadership Excellence Award (SLEA) System** is a web-based application developed using the **Laravel framework** to manage student leadership records, academic information, submissions, and assessment workflows.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+This project was developed as part of an **On-the-Job Training (OJT)** requirement to demonstrate applied skills in **web development**, **database design**, and **role-based system architecture**.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+---
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## 🛠 Technologies Used
 
-## Learning Laravel
+-   **Backend:** PHP 8.1+, Laravel
+-   **Frontend:** Blade Templates, Bootstrap, JavaScript
+-   **Database:** MySQL
+-   **Authentication:** Laravel Authentication (Role-based)
+-   **Session Handling:** Database-based Sessions
+-   **Mail Service:** Google SMTP (uses Google App Password, not the account password)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+---
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+## 👥 User Roles and Core Features
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### 👨‍💼 Administrator
 
-## Laravel Sponsors
+-   Manage colleges, programs, and majors
+-   Approve or reject user registrations
+-   Validate student profiles and submissions
+-   Manage rubric criteria
+-   Generate reports and view system logs
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### 🧑‍🏫 Assessor
 
-### Premium Partners
+-   Review student submissions
+-   Evaluate entries using rubric-based scoring
+-   Submit and finalize assessments
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+### 🎓 Student
 
-## Contributing
+-   Complete academic and leadership profile
+-   Upload required documents
+-   Submit leadership records
+-   Track submission status
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+---
 
-## Code of Conduct
+## ⚙ System Requirements
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+-   PHP **8.1 or higher**
+-   Composer
+-   MySQL
+-   Node.js & npm
+-   Web server (Apache or Laravel built-in server)
 
-## Security Vulnerabilities
+---
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## 🚀 Installation & Setup
 
-## License
+### 1️⃣ Extract the project and enter the directory
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+    unzip slea.zip
+    cd slea
+
+---
+
+### 2️⃣ Install dependencies
+
+    composer install
+    npm install
+
+---
+
+### 3️⃣ Environment configuration
+
+Create the environment file:
+
+    cp .env.example .env
+
+Update database credentials in `.env`:
+
+    DB_DATABASE=slea_system
+    DB_USERNAME=your_db_username
+    DB_PASSWORD=your_db_password
+
+Generate the application key:
+
+    php artisan key:generate
+
+---
+
+### 4️⃣ Configure Mail (Google SMTP – App Password)
+
+⚠️ **Important:**  
+Do **NOT** use your regular Google account password.  
+You must generate a **Google App Password**.
+
+Update the following in `.env`:
+
+    MAIL_MAILER=smtp
+    MAIL_HOST=smtp.gmail.com
+    MAIL_PORT=587
+    MAIL_USERNAME=yourgmail@gmail.com
+    MAIL_PASSWORD=your_google_app_password
+    MAIL_ENCRYPTION=tls
+    MAIL_FROM_ADDRESS=yourgmail@gmail.com
+    MAIL_FROM_NAME="SLEA System"
+
+---
+
+### 5️⃣ Database migration and seeding
+
+    php artisan migrate
+    php artisan db:seed
+
+---
+
+### 6️⃣ Build frontend assets
+
+    npm run build
+
+---
+
+### 7️⃣ Run the application
+
+    php artisan serve
+
+Access the system at:
+
+    http://127.0.0.1:8000
+
+---
+
+## 🔐 Default Notes
+
+-   User access is **role-based** (Admin, Assessor, Student)
+-   Profile completion is required before proceeding to submissions
+-   Sessions are automatically handled and expired using middleware
+-   Email notifications rely on proper SMTP configuration
+
+---
+
+## 🔐 Default Accounts
+
+-   Default **Administrator** and **Assessor** accounts are created automatically via database seeding.
+-   Account credentials are centrally configured using a custom configuration file.
+-   modify the credentials first before seeding the database
+
+### Configuration Location
+
+-   `config/seeding.php`
+
+### Seeder Used
+
+-   `database/seeders/UsersAdminSeeder.php`
+
+### Notes
+
+-   The default password is defined once in `config/seeding.php` and securely hashed during seeding.
+-   You may update the credentials in the config file, then re-run the seeder:
+
+    php artisan db:seed --class=UsersAdminSeeder
+
+## 📦 Files NOT Included When Packaging (OJT Submission)
+
+The following should **NOT** be included when submitting the project as a ZIP file:
+
+-   `vendor/`
+-   `node_modules/`
+-   `.env`
+-   `.env.backup`
+-   `.log` files
+-   `storage/logs/*`
+-   `storage/framework/sessions/*`
+-   `storage/framework/cache/*`
+
+These can be regenerated using the installation steps above.
+
+---
+
+## 📄 License
+
+This project is developed for **academic and training purposes** and follows the **MIT License**.
+
+---
+
+## 👩‍💻 Author
+
+Developed as part of an **On-the-Job Training (OJT)** requirement  
+using **Laravel** and modern web development practices.
