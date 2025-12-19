@@ -28,64 +28,80 @@
         function refreshCsrfToken() {
             return fetch('{{ route("login.show") }}', {
                 method: 'GET',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                cache: 'no-store',
             })
-                .then(response => response.text())
+                .then(r => r.text())
                 .then(html => {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html, 'text/html');
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
                     const newToken = doc.querySelector('meta[name="csrf-token"]')?.content;
-                    if (newToken) {
-                        // Update meta tag
-                        const metaTag = document.querySelector('meta[name="csrf-token"]');
-                        if (metaTag) {
-                            metaTag.setAttribute('content', newToken);
-                        }
-                        // Update all CSRF token inputs
-                        document.querySelectorAll('input[name="_token"]').forEach(input => {
-                            input.value = newToken;
-                        });
-                        return newToken;
-                    }
-                    return null;
+
+                    if (!newToken) return null;
+
+                    // Update meta tag
+                    const meta = document.querySelector('meta[name="csrf-token"]');
+                    if (meta) meta.setAttribute('content', newToken);
+
+                    // Update all CSRF token inputs
+                    document.querySelectorAll('input[name="_token"]').forEach(i => (i.value = newToken));
+
+                    return newToken;
                 })
-                .catch(error => {
-                    console.error('Failed to refresh CSRF token:', error);
+                .catch(err => {
+                    console.error('Failed to refresh CSRF token:', err);
                     return null;
                 });
         }
 
-        // Handle 419 errors globally
         document.addEventListener('DOMContentLoaded', function () {
-            // Intercept form submissions to refresh token if needed
+            window.formLoadTime = Date.now();
+
             document.querySelectorAll('form').forEach(form => {
-                form.addEventListener('submit', function (e) {
-                    // Refresh token before submission if form has been on page for a while
-                    const formAge = Date.now() - (window.formLoadTime || Date.now());
-                    if (formAge > 60000) {
-                        e.preventDefault();
-                        refreshCsrfToken().then(() => {
-                            // ✅ triggers a normal submit event (so login.js listeners still run)
-                            if (typeof form.requestSubmit === 'function') {
-                                form.requestSubmit();
-                            } else {
-                                // fallback for older browsers
-                                const btn = form.querySelector('button[type="submit"], input[type="submit"]');
-                                if (btn) btn.click();
-                                else form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-                            }
-                        });
+                form.addEventListener('submit', async function (e) {
+                    // Only bother for non-GET forms (CSRF relevant)
+                    const method = (form.getAttribute('method') || 'GET').toUpperCase();
+                    if (method === 'GET') return;
+
+                    // Guard: if we're already retrying this form, let it go through
+                    if (form.dataset.csrfRetrying === '1') return;
+
+                    // Only refresh if form has been open a while
+                    const formAgeMs = Date.now() - (window.formLoadTime || Date.now());
+                    if (formAgeMs <= 60000) return;
+
+                    // Cooldown: don't refresh too often even if multiple submits happen
+                    const lastRefresh = Number(window.__lastCsrfRefreshAt || 0);
+                    if (Date.now() - lastRefresh < 10000) return;
+
+                    e.preventDefault();
+
+                    window.__lastCsrfRefreshAt = Date.now();
+
+                    const token = await refreshCsrfToken();
+                    if (!token) {
+                        // If refresh fails, fallback to normal submit (better than dead button)
+                        form.dataset.csrfRetrying = '1';
+                        if (typeof form.requestSubmit === 'function') form.requestSubmit();
+                        else form.submit();
+                        return;
                     }
 
+                    // Retry once, but don't intercept again
+                    form.dataset.csrfRetrying = '1';
+
+                    // ✅ triggers normal submit pipeline (keeps login.js listeners working)
+                    if (typeof form.requestSubmit === 'function') {
+                        form.requestSubmit();
+                    } else {
+                        const btn = form.querySelector('button[type="submit"], input[type="submit"]');
+                        if (btn) btn.click();
+                        else form.submit(); // last resort
+                    }
                 });
             });
-
-            // Store page load time
-            window.formLoadTime = Date.now();
         });
     </script>
+
 
     @yield('head')
 </head>

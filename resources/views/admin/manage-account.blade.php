@@ -90,7 +90,7 @@
 
         {{-- Users Table --}}
         <div class="submissions-table-container">
-            <table class="table submissions-table">
+            <table class="table submissions-table" id="manageAccountTable">
                 <thead>
                     <tr>
                         <th>Full Name</th>
@@ -103,7 +103,7 @@
                 </thead>
                 <tbody>
                     @forelse($users as $user)
-                        <tr>
+                        <tr class="user-row" data-role="{{ $user->role }}" data-status="{{ $user->status }}">
                             <td>{{ $user->full_name }}</td>
                             <td>{{ $user->email }}</td>
                             <td>{{ ucfirst($user->role) }}</td>
@@ -444,9 +444,59 @@
         if (roleFilter) roleFilter.value = '';
         if (statusFilter) statusFilter.value = '';
 
-        // Navigate to the base page (clears query params so inputs don't repopulate)
-        window.location.href = window.location.pathname;
+        // Apply filters to show all rows
+        applyFilters();
     }
+
+    function applyFilters() {
+        const table = document.getElementById('manageAccountTable');
+        if (!table) return;
+
+        const search = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+        const role = document.getElementById('roleFilter')?.value || '';
+        const status = document.getElementById('statusFilter')?.value || '';
+
+        const rows = table.querySelectorAll('tbody tr.user-row');
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length === 0) {
+                row.style.display = 'none';
+                return;
+            }
+
+            const name = (cells[0]?.textContent || '').toLowerCase();
+            const email = (cells[1]?.textContent || '').toLowerCase();
+            const rowRole = row.dataset.role || '';
+            const rowStatus = row.dataset.status || '';
+
+            let matchesSearch = !search ||
+                name.includes(search) ||
+                email.includes(search);
+
+            let matchesRole = !role || rowRole === role;
+            let matchesStatus = !status || rowStatus === status;
+
+            row.style.display = (matchesSearch && matchesRole && matchesStatus) ? '' : 'none';
+        });
+    }
+
+    // Live search on input
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', applyFilters);
+        }
+
+        const roleFilter = document.getElementById('roleFilter');
+        if (roleFilter) {
+            roleFilter.addEventListener('change', applyFilters);
+        }
+
+        const statusFilter = document.getElementById('statusFilter');
+        if (statusFilter) {
+            statusFilter.addEventListener('change', applyFilters);
+        }
+    });
 
     function applyFilters() {
         const roleFilter = document.getElementById('roleFilter');
