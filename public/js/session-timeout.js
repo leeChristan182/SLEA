@@ -12,19 +12,16 @@
    *  window.__sessionTimeout = new SessionTimeout({ warningTime, timeoutTime, checkInterval });
    */
 
-  function isUserAuthenticated() {
-    return (
-      document.querySelector('meta[name="user-authenticated"]')?.content === 'true' ||
-      document.body?.classList?.contains('authenticated')
-    );
-  }
+  // ✅ compute once; don’t re-check multiple times (can flip)
+  const IS_AUTHENTICATED =
+    document.querySelector('meta[name="user-authenticated"]')?.content === 'true' ||
+    document.body?.classList?.contains('authenticated');
 
-  function hasAccountDisabledModal() {
-    return !!document.getElementById('accountDisabledModal');
-  }
+  // ✅ dynamic check (modal might be injected later)
+  const hasAccountDisabledModal = () => !!document.getElementById('accountDisabledModal');
 
   // If not authenticated, clear ONLY app keys (don’t nuke all storage)
-  if (!isUserAuthenticated()) {
+  if (!IS_AUTHENTICATED) {
     [
       'slea_last_activity',
       'slea_idle_deadline',
@@ -43,7 +40,6 @@
         warningTime: 5 * 60 * 1000,
         timeoutTime: 10 * 60 * 1000,
         checkInterval: 30 * 1000,
-
         warningMessage:
           'Your session will expire in {time} minutes due to inactivity. Do you want to stay logged in?',
         timeoutMessage:
@@ -69,8 +65,8 @@
     }
 
     init() {
-      // Don’t run if not authenticated or if account disabled modal is active
-      if (!isUserAuthenticated()) return;
+      // ✅ Don’t run if not authenticated or if account disabled modal is active
+      if (!IS_AUTHENTICATED) return;
       if (hasAccountDisabledModal()) return;
 
       this.bindEvents();
@@ -406,24 +402,14 @@
         let data = null;
         try { data = await response.json(); } catch (_) {}
 
-        if (this._lockedBodyScroll) {
-          document.body.style.overflow = '';
-          this._lockedBodyScroll = false;
-        } else {
-          document.body.style.overflow = '';
-        }
+        document.body.style.overflow = '';
+        this._lockedBodyScroll = false;
 
         window.location.href = data?.success && data?.redirect_url ? data.redirect_url : '/login';
       } catch (error) {
         console.error('Logout failed:', error);
-
-        if (this._lockedBodyScroll) {
-          document.body.style.overflow = '';
-          this._lockedBodyScroll = false;
-        } else {
-          document.body.style.overflow = '';
-        }
-
+        document.body.style.overflow = '';
+        this._lockedBodyScroll = false;
         window.location.href = '/login';
       }
     }
@@ -441,6 +427,13 @@
     }
   }
 
-  // Expose class globally (needed by app.blade initializer)
+  // ✅ Expose class globally (needed by app.blade initializer)
   window.SessionTimeout = SessionTimeout;
+
+  // ✅ OPTIONAL BUT RECOMMENDED: prevent duplicate instances
+  // If layout accidentally initializes twice, clean the old one.
+  window.__sessionTimeoutCleanup = window.__sessionTimeoutCleanup || (() => {
+    try { window.__sessionTimeout?.cleanup?.(); } catch (_) {}
+    window.__sessionTimeout = null;
+  });
 })();
