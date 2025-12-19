@@ -11,43 +11,74 @@ class SessionTimeout
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // ✅ Always allow check-session to pass (so polling doesn't count as activity)
-        if ($request->is('check-session')) {
+        // These should NOT count as activity
+        $isCheckSession = $request->is('check-session');
+        $isAjaxApi      = $request->is('api/*');
+
+        // This SHOULD count as activity (user explicitly clicked "Stay")
+        $isKeepAlive    = $request->is('keep-alive');
+
+        if (!Auth::check()) {
             return $next($request);
         }
 
-        // Only apply to authenticated users
-        if (Auth::check()) {
-            $lastActivity = $request->session()->get('last_activity');
-            $now = time();
+        $now = time();
+        $lastActivity = (int) $request->session()->get('last_activity', $now);
 
-            // session.lifetime is MINUTES
-            $timeoutSeconds = (int) config('session.lifetime', 120) * 60;
+        $timeoutSeconds = (int) config('session.lifetime', 120) * 60;
 
-            // If expired -> logout and redirect/JSON
-            if ($lastActivity && ($now - $lastActivity) > $timeoutSeconds) {
-                Auth::logout();
-                $request->session()->invalidate();
-                $request->session()->regenerateToken();
+        // Expired => force logout
+        if (($now - $lastActivity) > $timeoutSeconds) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
 
-                if ($request->expectsJson() || $request->wantsJson()) {
-                    return response()->json([
-                        'authenticated' => false,
-                        'message' => 'Session expired due to inactivity.',
-                        'redirect_url' => route('login.show'),
-                    ], 401);
-                }
+            $wantsJson =
+                $request->expectsJson() ||
+                $request->wantsJson() ||
+                $request->ajax() ||
+                str_contains((string) $request->header('Accept'), 'application/json');
 
-                return redirect()
-                    ->route('login.show')
-                    ->with('error', 'Your session has expired due to inactivity. Please log in again.');
+            if ($wantsJson) {
+                return response()->json([
+                    'authenticated' => false,
+                    'message'       => 'Session expired due to inactivity.',
+                    'redirect_url'  => route('login.show'),
+                ], 401);
             }
 
-            // ✅ only update last_activity for real page navigation / actions
+            return redirect()
+                ->route('login.show')
+                ->with('error', 'Your session has expired due to inactivity. Please log in again.');
+        }
+
+        /**
+         * Only update activity when it reflects real user interaction:
+         * - keep-alive => YES
+         * - check-session => NO
+         * - api/* ajax endpoints => NO
+         * - POST/PUT/PATCH/DELETE => YES
+         * - GET full page navigation => YES (non-AJAX)
+         */
+        $isGet  = $request->isMethod('GET');
+        $isAjax = $request->ajax() ||
+            str_contains((string) $request->header('X-Requested-With'), 'XMLHttpRequest');
+
+        $shouldUpdate =
+            $isKeepAlive ||
+            (
+                !$isCheckSession &&
+                !$isAjaxApi &&
+                (
+                    (!$isGet) ||          // POST/PUT/PATCH/DELETE
+                    ($isGet && !$isAjax)  // full page load/navigation
+                )
+            );
+
+        if ($shouldUpdate) {
             $request->session()->put('last_activity', $now);
         }
 
-        // ✅ ALWAYS return response
         return $next($request);
     }
 }

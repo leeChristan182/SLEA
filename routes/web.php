@@ -37,7 +37,7 @@ Route::middleware(['guest', NoCache::class])->group(function () {
     Route::get('/register', function () {
         abort(404, 'Not Found');
     });
-    
+
     Route::post('/register', [AuthController::class, 'register'])->name('register.store')
         ->middleware('throttle:10,10');
 
@@ -68,10 +68,12 @@ Route::post('/logout', [AuthController::class, 'logout'])
 
 // Used by SessionTimeout.js to detect if the session is still valid
 Route::get('/check-session', function () {
-    return response()->json([
-        'authenticated' => Auth::check(),
-    ]);
+    if (!Auth::check()) {
+        return response()->json(['authenticated' => false], 401);
+    }
+    return response()->json(['authenticated' => true]);
 })->name('check-session');
+
 
 // Used by SessionTimeout.js when the user explicitly clicks "Stay / Extend session"
 // This should refresh server-side activity so the user won't be logged out right after extending.

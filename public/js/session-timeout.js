@@ -3,24 +3,14 @@
    * Session Timeout Management
    * - warningTime: time AFTER idle starts when warning modal appears
    * - timeoutTime: TOTAL idle time before logout
-   *
-   * Requires in layout:
-   *  <meta name="user-authenticated" content="true|false">
-   *  <meta name="csrf-token" content="...">
-   *
-   * Layout should instantiate:
-   *  window.__sessionTimeout = new SessionTimeout({ warningTime, timeoutTime, checkInterval });
    */
 
-  // ✅ compute once; don’t re-check multiple times (can flip)
   const IS_AUTHENTICATED =
     document.querySelector('meta[name="user-authenticated"]')?.content === 'true' ||
     document.body?.classList?.contains('authenticated');
 
-  // ✅ dynamic check (modal might be injected later)
   const hasAccountDisabledModal = () => !!document.getElementById('accountDisabledModal');
 
-  // If not authenticated, clear ONLY app keys (don’t nuke all storage)
   if (!IS_AUTHENTICATED) {
     [
       'slea_last_activity',
@@ -44,6 +34,8 @@
           'Your session will expire in {time} minutes due to inactivity. Do you want to stay logged in?',
         timeoutMessage:
           'Your session has expired due to inactivity. You will be redirected to the login page.',
+        // ✅ NEW: if true, any activity while warning is shown counts as “Stay”
+        autoExtendOnActivityDuringWarning: true,
         ...options,
       };
 
@@ -58,14 +50,13 @@
 
       this.lastActivity = Date.now();
 
-      // Track whether *we* locked scroll, so we don’t undo someone else’s lock
       this._lockedBodyScroll = false;
+      this._createdAt = Date.now(); // for debugging if needed
 
       this.init();
     }
 
     init() {
-      // ✅ Don’t run if not authenticated or if account disabled modal is active
       if (!IS_AUTHENTICATED) return;
       if (hasAccountDisabledModal()) return;
 
@@ -78,7 +69,7 @@
       const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
 
       events.forEach((event) => {
-        document.addEventListener(event, () => this.handleActivity(), true);
+        document.addEventListener(event, (e) => this.handleActivity(e), true);
       });
 
       document.addEventListener('visibilitychange', () => {
@@ -88,9 +79,32 @@
       window.addEventListener('beforeunload', () => this.cleanup());
     }
 
-    handleActivity() {
+    // ✅ REAL remaining ms (based on last activity)
+    getRemainingMs() {
+      const elapsed = Date.now() - this.lastActivity;
+      return Math.max(0, this.options.timeoutTime - elapsed);
+    }
+
+    handleActivity(e) {
       if (this.isTimedOut) return;
-      if (this.isWarningShown) return; // only reset when user clicks "Stay"
+
+      // If warning modal is shown, activity should not be ignored.
+      // ✅ Option A: Auto-extend on any activity (recommended)
+      if (this.isWarningShown && this.options.autoExtendOnActivityDuringWarning) {
+        // avoid accidental extend when user clicked "Log Out"
+        const t = e?.target;
+        if (t && (t.id === 'logout-now' || t.closest?.('#logout-now'))) return;
+
+        this.stayLoggedIn(); // hides modal + resets + keepalive
+        return;
+      }
+
+      // ✅ Option B: still update lastActivity so countdown remains accurate
+      this.lastActivity = Date.now();
+
+      // If warning is shown and autoExtend is off, keep timers running
+      if (this.isWarningShown) return;
+
       this.resetTimers();
     }
 
@@ -117,6 +131,7 @@
     }
 
     startCheckTimer() {
+      if (this.checkTimer) clearInterval(this.checkTimer);
       this.checkTimer = setInterval(() => this.checkSessionStatus(), this.options.checkInterval);
     }
 
@@ -124,9 +139,12 @@
       if (this.isWarningShown || this.isTimedOut) return;
       if (hasAccountDisabledModal()) return;
 
+      // ✅ If already almost timed out, just time out
+      const remainingMs = this.getRemainingMs();
+      if (remainingMs <= 500) return this.handleTimeout();
+
       this.isWarningShown = true;
 
-      const remainingMs = Math.max(0, this.options.timeoutTime - this.options.warningTime);
       const remainingMin = Math.max(1, Math.ceil(remainingMs / 60000));
       const message = this.options.warningMessage.replace('{time}', remainingMin);
 
@@ -142,15 +160,14 @@
             body: `Your SLEA session will expire in about ${remainingMin} minute(s) if you stay idle.`,
             icon: '/images/osas-logo.png',
           });
-        } catch (e) {
-          console.warn('Notification failed:', e);
-        }
+        } catch (_) {}
       }
 
-      this.createWarningModal(message, remainingMin);
+      this.createWarningModal(message);
+      this.startCountdown(); // ✅ now based on real remaining time
     }
 
-    createWarningModal(message, remainingMinutes) {
+    createWarningModal(message) {
       const existingModal = document.getElementById('session-warning-modal');
       if (existingModal) existingModal.remove();
 
@@ -163,7 +180,7 @@
       modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
       modal.style.backdropFilter = 'blur(5px)';
       modal.style.webkitBackdropFilter = 'blur(5px)';
-      modal.style.zIndex = '1055';
+      modal.style.zIndex = '20000'; // ✅ keep above bootstrap modals
       modal.style.position = 'fixed';
       modal.style.top = '0';
       modal.style.left = '0';
@@ -181,13 +198,17 @@
             </div>
             <div class="modal-body session-timeout-body">
               <p class="session-timeout-message">${message}</p>
+
               <div class="progress session-timeout-progress">
                 <div class="progress-bar bg-warning" role="progressbar"
                      style="width:0%" id="timeout-progress"></div>
               </div>
-              <p class="text-muted small session-timeout-hint">
+
+              <p class="text-muted small session-timeout-hint mb-0">
                 Click <strong>"Stay"</strong> to continue your session,
                 or you will be automatically logged out.
+                <br>
+                <span id="timeout-countdown" class="fw-semibold"></span>
               </p>
             </div>
             <div class="modal-footer session-timeout-footer">
@@ -206,6 +227,7 @@
 
       document.body.appendChild(modal);
 
+      // ✅ lock scroll only if we did it
       if (document.body.style.overflow !== 'hidden') {
         document.body.style.overflow = 'hidden';
         this._lockedBodyScroll = true;
@@ -213,16 +235,15 @@
 
       document.getElementById('stay-logged-in')?.addEventListener('click', () => this.stayLoggedIn());
       document.getElementById('logout-now')?.addEventListener('click', () => this.logoutNow());
-
-      this.startCountdown(remainingMinutes);
     }
 
-    startCountdown(remainingMinutes) {
+    // ✅ Countdown/progress tied to true remaining time
+    startCountdown() {
       const progressBar = document.getElementById('timeout-progress');
+      const countdownEl = document.getElementById('timeout-countdown');
       if (!progressBar) return;
 
-      const totalTimeSec = Math.max(1, remainingMinutes * 60);
-      let timeLeft = totalTimeSec;
+      const totalWindow = Math.max(1, this.options.timeoutTime - this.options.warningTime);
 
       this.clearCountdown();
 
@@ -232,19 +253,25 @@
           return;
         }
 
-        timeLeft = Math.max(0, timeLeft - 1);
+        const remainingMs = this.getRemainingMs();
+        const remainingSec = Math.ceil(remainingMs / 1000);
 
-        const percentage = Math.min(
-          100,
-          Math.max(0, ((totalTimeSec - timeLeft) / totalTimeSec) * 100)
-        );
+        // percent of the warning window elapsed
+        const elapsedSinceWarning = Math.max(0, totalWindow - remainingMs);
+        const percentage = Math.min(100, Math.max(0, (elapsedSinceWarning / totalWindow) * 100));
         progressBar.style.width = percentage + '%';
 
-        if (timeLeft <= 0) {
+        if (countdownEl) {
+          const m = Math.floor(remainingSec / 60);
+          const s = remainingSec % 60;
+          countdownEl.textContent = `Time left: ${m}:${String(s).padStart(2, '0')}`;
+        }
+
+        if (remainingMs <= 0) {
           this.clearCountdown();
           this.handleTimeout();
         }
-      }, 1000);
+      }, 250); // ✅ smoother + more accurate than 1s
     }
 
     clearCountdown() {
@@ -255,6 +282,7 @@
     }
 
     stayLoggedIn() {
+      if (this.isTimedOut) return;
       this.hideWarningModal();
       this.resetTimers();
       this.sendKeepAlive();
@@ -268,6 +296,7 @@
     hideWarningModal() {
       const modal = document.getElementById('session-warning-modal');
       if (modal) modal.remove();
+
       this.clearCountdown();
       this.isWarningShown = false;
 
@@ -291,7 +320,7 @@
         if (!response.ok) throw new Error('Keep-alive failed');
 
         const contentType = response.headers.get('content-type') || '';
-        if (!contentType.includes('application/json')) throw new Error('Keep-alive got non-JSON');
+        if (!contentType.includes('application/json')) return;
 
         const data = await response.json().catch(() => null);
 
@@ -300,8 +329,8 @@
         }
 
         if (data && data.authenticated === false) this.handleTimeout();
-      } catch (err) {
-        console.warn('Keep-alive failed, will retry via periodic check:', err);
+      } catch (_) {
+        // ok: periodic check-session will handle it
       }
     }
 
@@ -325,9 +354,7 @@
 
         const data = await response.json().catch(() => null);
         if (data && data.authenticated === false) this.handleTimeout();
-      } catch (error) {
-        console.warn('Session check failed, will retry:', error);
-      }
+      } catch (_) {}
     }
 
     handleTimeout() {
@@ -355,7 +382,7 @@
       modal.className = 'modal fade show';
       modal.style.display = 'block';
       modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
-      modal.style.zIndex = '1056';
+      modal.style.zIndex = '20001';
 
       modal.innerHTML = `
         <div class="modal-dialog modal-dialog-centered">
@@ -402,14 +429,17 @@
         let data = null;
         try { data = await response.json(); } catch (_) {}
 
-        document.body.style.overflow = '';
-        this._lockedBodyScroll = false;
+        if (this._lockedBodyScroll) {
+          document.body.style.overflow = '';
+          this._lockedBodyScroll = false;
+        }
 
         window.location.href = data?.success && data?.redirect_url ? data.redirect_url : '/login';
-      } catch (error) {
-        console.error('Logout failed:', error);
-        document.body.style.overflow = '';
-        this._lockedBodyScroll = false;
+      } catch (_) {
+        if (this._lockedBodyScroll) {
+          document.body.style.overflow = '';
+          this._lockedBodyScroll = false;
+        }
         window.location.href = '/login';
       }
     }
@@ -427,13 +457,15 @@
     }
   }
 
-  // ✅ Expose class globally (needed by app.blade initializer)
   window.SessionTimeout = SessionTimeout;
 
-  // ✅ OPTIONAL BUT RECOMMENDED: prevent duplicate instances
-  // If layout accidentally initializes twice, clean the old one.
+  // ✅ Prevent duplicate instances: clean up any old one before creating a new one
   window.__sessionTimeoutCleanup = window.__sessionTimeoutCleanup || (() => {
     try { window.__sessionTimeout?.cleanup?.(); } catch (_) {}
     window.__sessionTimeout = null;
   });
+
+  // OPTIONAL: if you initialize here (instead of in blade), do:
+  // window.__sessionTimeoutCleanup();
+  // window.__sessionTimeout = new SessionTimeout({ ... });
 })();
